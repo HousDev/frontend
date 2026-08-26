@@ -165,8 +165,8 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const handleSellPropertyClick = () => {
     setIsMobileMenuOpen(false);
     navigate('/sell-property');
-    
-};
+
+  };
 
   // const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
   // const handleSellerSave = async (sellerData: any) => {
@@ -435,7 +435,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         borderColor: `${colors.brand}4D`,
                       }}
                     >
-                    <UserIcon size={16} style={{ color: "#E6761D" }} />
+                      <UserIcon size={16} style={{ color: "#E6761D" }} />
 
                     </button>
 

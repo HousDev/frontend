@@ -26,6 +26,7 @@ import VisitsTab from './propertiescomponents/VisitsTab';
 import DocumentsTab from './propertiescomponents/DocumentsTab';
 import BuyersTab from './propertiescomponents/BuyersTab';
 import MarketingTab from './propertiescomponents/MarketingTab';
+import TenantMatchingModal from './TenantMatchingModal';
 import NegotiationsTab from './propertiescomponents/NegotiationsTab';
 import ReportsTab from './propertiescomponents/ReportsTab';
 import { useAuth } from '@/contexts/AuthContext';
@@ -856,6 +857,7 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
+  const [showTenantMatching, setShowTenantMatching] = useState(false);
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [propertyData, setPropertyData] = useState<UIRentalProperty>(property);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
@@ -1059,7 +1061,7 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
         )}
 
         {activeTab === 'buyers' && (
-          <BuyersTab property={propertyData as any} onMatchBuyers={() => {}} />
+          <BuyersTab property={propertyData as any} onMatchBuyers={() => setShowTenantMatching(true)} />
         )}
 
         {activeTab === 'marketing' && (
@@ -1072,6 +1074,15 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
 
         {activeTab === 'reports' && <ReportsTab property={propertyData as any} />}
       </div>
+
+      {/* Tenant Matching Modal */}
+      {showTenantMatching && (
+        <TenantMatchingModal
+          isOpen={showTenantMatching}
+          onClose={() => setShowTenantMatching(false)}
+          property={propertyData}
+        />
+      )}
 
       {/* Edit Form Modal */}
       {showEditModal && (

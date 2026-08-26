@@ -1,7 +1,8 @@
 
 
 // src/pages/BuyersPage.tsx
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue, startTransition } from 'react';
+
 import {
   Users, Plus, Search, Filter, Eye, Edit, Trash2, Phone, Mail, MapPin,
   Building, Activity, MoreHorizontal, User, Star, FileText, MessageCircle,
@@ -175,7 +176,7 @@ const BuyersPage = () => {
   }
 
   /* ---------------- UI state ---------------- */
-  const [activeTab, setActiveTab] = useState('uncontacts'); const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('uncontacts'); const [searchTerm, setSearchTerm] = useState(''); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedBuyers, setSelectedBuyers] = useState<Array<number | string>>([]);
   const [showBuyerForm, setShowBuyerForm] = useState(false);
   const [currentBuyerView, setCurrentBuyerView] = useState<UIBuyer | null>(null);
@@ -185,6 +186,9 @@ const BuyersPage = () => {
   const [currentBuyerIndex, setCurrentBuyerIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  // useDeferredValue — lets React 18 render large page sizes without blocking UI
+  const deferredItemsPerPage = useDeferredValue(itemsPerPage);
+
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
@@ -202,6 +206,8 @@ const BuyersPage = () => {
     progress: "",
     performance: "",
   });
+  // Debounced version — used for filtering (avoids re-filtering 5555 items on every keystroke)
+  const [debouncedColSearch, setDebouncedColSearch] = useState(colSearch);
 
   // Bulk action states
   const [bulkStage, setBulkStage] = useState<string>('');
@@ -287,6 +293,18 @@ const BuyersPage = () => {
     if (!properties.length || !allBuyers.length) return;
     setAllBuyers(prev => prev.map(b => ({ ...b, matchedPropertiesCount: countMatchingProperties(b) })));
   }, [properties]);
+
+  // Debounce searchTerm — 300ms to avoid re-filtering 5555 rows on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Debounce colSearch — 300ms to avoid re-filtering on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedColSearch(colSearch), 300);
+    return () => clearTimeout(t);
+  }, [colSearch]);
 
   // Load Executives
   useEffect(() => {
@@ -657,9 +675,9 @@ const BuyersPage = () => {
   };
 
   const filteredSortedBuyers = roleFilteredBuyers.filter(buyer => {
-    const s = searchTerm.toLowerCase();
+    const s = debouncedSearchTerm.toLowerCase();
     const matchesSearch = (buyer.name ?? '').toLowerCase().includes(s) ||
-      (buyer.phone ?? '').includes(searchTerm) ||
+      (buyer.phone ?? '').includes(debouncedSearchTerm) ||
       (buyer.email ?? '').toLowerCase().includes(s) ||
       (buyer.location ?? '').toLowerCase().includes(s) ||
       (buyer.assigned_executive_name ?? '').toLowerCase().includes(s);
@@ -685,27 +703,25 @@ const BuyersPage = () => {
         key(buyer.assigned_executive) === key(filters.assigned_executive)) &&
       (filters.status === 'all' || key(buyer.status) === key(filters.status)) &&
       (filters.propertyType === 'all' || key(buyer.requirements?.propertyType) === key(filters.propertyType)) &&
-      matchesBudgetRange(buyer, filters.budgetRange); // ← यह नई line add हुई
+      matchesBudgetRange(buyer, filters.budgetRange);
 
     const created = buyer.created_at ? new Date(buyer.created_at) : null;
     const fromOk = !filters.dateFrom || (created && created >= new Date(filters.dateFrom));
     const toOk = !filters.dateTo || (created && created <= new Date(filters.dateTo));
     const matchesDate = filters.ignoreDate || (fromOk && toOk);
 
-    // Column search
-    const cs = colSearch;
+    // Column search — use debounced values to avoid lag on every keystroke
+    const cs = debouncedColSearch;
     const matchesColSearch =
       (!cs.buyer || (
         buyer.name?.toLowerCase().includes(cs.buyer.toLowerCase()) ||
         String(buyer.id).includes(cs.buyer) ||
-        // ✅ Status search add kiya
         (cs.buyer.toLowerCase() === 'active' && buyer.is_active === true) ||
         (cs.buyer.toLowerCase() === 'inactive' && buyer.is_active === false)
       )) &&
       (!cs.phoneWhatsapp || (
         buyer.phone?.includes(cs.phoneWhatsapp) ||
         buyer.whatsapp?.includes(cs.phoneWhatsapp) ||
-        // ✅ Email search phoneWhatsapp se bhi
         buyer.email?.toLowerCase().includes(cs.phoneWhatsapp.toLowerCase())
       )) &&
       (!cs.emailLocation || (
@@ -722,7 +738,6 @@ const BuyersPage = () => {
       )) &&
       (!cs.requirements || (
         buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) ||
-        // ✅ Budget search add kiya
         formatCurrency(buyer.budget.min).toLowerCase().includes(cs.requirements.toLowerCase()) ||
         formatCurrency(buyer.budget.max).toLowerCase().includes(cs.requirements.toLowerCase()) ||
         String(buyer.budget.min || '').includes(cs.requirements) ||
@@ -739,11 +754,12 @@ const BuyersPage = () => {
     return matchesSearch && matchesTab && matchesFilters && matchesDate && matchesColSearch;
   }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  useEffect(() => { setCurrentPage(1); }, [filters, searchTerm, activeTab, colSearch]);
+  // Reset page when debounced filters change (not on every keystroke)
+  useEffect(() => { setCurrentPage(1); }, [filters, debouncedSearchTerm, activeTab, debouncedColSearch]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredSortedBuyers.length / itemsPerPage));
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBuyers = filteredSortedBuyers.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredSortedBuyers.length / deferredItemsPerPage));
+  const startIndex = (currentPage - 1) * deferredItemsPerPage;
+  const paginatedBuyers = filteredSortedBuyers.slice(startIndex, startIndex + deferredItemsPerPage);
 
   const handleAddBuyer = () => { setEditingBuyer(null); setShowBuyerForm(true); };
   const handleEditBuyer = (buyer: UIBuyer) => {
@@ -2321,15 +2337,16 @@ const BuyersPage = () => {
                       {selectedBuyers.length === 0 && (
                         <select
                           value={itemsPerPage}
-                          onChange={(e) =>
-                            setItemsPerPage(parseInt(e.target.value, 10))
-                          }
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            startTransition(() => {
+                              setItemsPerPage(val);
+                            });
+                          }}
                           className="min-w-[60px] px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
                         >
                           {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
+                            <option key={n} value={n}>{n}</option>
                           ))}
                           <option value={999999}>All</option>
                         </select>
@@ -2366,15 +2383,16 @@ const BuyersPage = () => {
                       {selectedBuyers.length === 0 && (
                         <select
                           value={itemsPerPage}
-                          onChange={(e) =>
-                            setItemsPerPage(parseInt(e.target.value, 10))
-                          }
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            startTransition(() => {
+                              setItemsPerPage(val);
+                            });
+                          }}
                           className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg bg-white"
                         >
                           {[25, 50, 100, 200, 300, 400, 500, 1000].map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
+                            <option key={n} value={n}>{n}</option>
                           ))}
                           <option value={999999}>All</option>
                         </select>

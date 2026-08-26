@@ -51,7 +51,9 @@ import {
   BedDouble, Bath, Ruler, IndianRupee, Grid,
   Bed,
   ArrowRight,
-  Building2
+  Building2,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -112,7 +114,7 @@ interface EMIDetails {
   tenureYears: number;
 }
 
-const PublicPropertyDetailPage = ({ property: propertyProp, onBack }: any) => {
+const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp }: any) => {
   const [open, setOpen] = useState(false);
   // UI state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -164,6 +166,19 @@ const getGalleryPhotos = () => {
 };
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
+
+  const isRental = isRentalProp || Boolean(
+    property?.monthly_rent || 
+    property?.expected_rent || 
+    (property?.listing_type && String(property.listing_type).toLowerCase() === 'rent') || 
+    (property?.transaction_type && String(property.transaction_type).toLowerCase() === 'rent') ||
+    (property?.purpose && String(property.purpose).toLowerCase() === 'rent') ||
+    (property?.raw?.purpose && String(property.raw.purpose).toLowerCase() === 'rent') ||
+    (property?.raw?.transaction_type && String(property.raw.transaction_type).toLowerCase() === 'rent') ||
+    (property?.raw?.listing_type && String(property.raw.listing_type).toLowerCase() === 'rent') ||
+    property?.propertyId?.toUpperCase().startsWith('RENT') ||
+    String(property?.id).toUpperCase().startsWith('RENT')
+  );
 
   // useEffect में master data fetch करें
   useEffect(() => {
@@ -489,7 +504,9 @@ const getGalleryPhotos = () => {
           })
         );
 
-        setSimilarProperties(enriched);
+        // Only keep public properties (isPublic is true/not explicitly false)
+        const publicOnly = enriched.filter((p: any) => p.isPublic !== false && p.isPublic !== 0 && p.isPublic !== '0');
+        setSimilarProperties(publicOnly);
       } catch (e) {
         console.error("❌ Error fetching similar:", e);
         setSimilarProperties([]);
@@ -526,6 +543,23 @@ const getGalleryPhotos = () => {
     if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) return ' - ';
     if (typeof val === 'number' && !Number.isFinite(val)) return ' - ';
     return val;
+  };
+
+  const formatAvailableFromDate = (val: any): string => {
+    if (!val) return 'Immediately';
+    if (typeof val === 'string' && (val.toLowerCase().includes('immediate') || val.toLowerCase().includes('soon') || val.toLowerCase().trim() === '-' || val.toLowerCase().trim() === 'any')) {
+      return val;
+    }
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = d.toLocaleString('en-IN', { month: 'short' }); // e.g. "Aug"
+      const year = d.getFullYear();
+      return `${day} ${month} ${year}`;
+    } catch {
+      return String(val);
+    }
   };
 
   const formatCurrency = (amount: number | string) => {
@@ -1006,6 +1040,13 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
     }
   }, [property]);
 
+  // Canonical redirect for rentals accessed via property route
+  useEffect(() => {
+    if (isRental && !isRentalProp && slug) {
+      navigate(`/rentals/${encodeURIComponent(slug)}`, { replace: true });
+    }
+  }, [isRental, isRentalProp, slug, navigate]);
+
   const handleBack = () => {
     if (typeof onBack === 'function') {
       try {
@@ -1319,6 +1360,14 @@ const images: string[] = imageOnlyMediaItems.length
   const sqftValue = Number.isFinite(property?.square_feet) ? property.square_feet : undefined;
   const pricePerSqFt = (priceValue && sqftValue) ? Math.round(priceValue / sqftValue) : undefined;
 
+  if (isRental && !isRentalProp) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E6761D]"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header (hidden on mobile) */}
@@ -1335,7 +1384,7 @@ const images: string[] = imageOnlyMediaItems.length
                 className="flex items-center text-white hover:text-[#CC6A1A] transition-colors text-sm font-medium"
               >
                 <ArrowLeft size={18} className="mr-1" />
-                Back to Properties
+                {isRental ? 'Back to Rentals' : 'Back to Properties'}
               </button>
             </div>
           </div>
@@ -1480,11 +1529,11 @@ onClick={(e) => { e.stopPropagation(); setOpen(true); }}
    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
                   <div className="flex flex-col text-left">
 <div className="text-base sm:text-2xl md:text-3xl font-bold text-white leading-tight">                      
-  {formatCurrency(property?.price)}
-                    </div>
-<div className="text-[10px] sm:text-sm md:text-base text-white mt-0 sm:mt-1">                   
-     {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - '}
-                    </div>
+  {formatCurrency(property?.price)}{isRental ? ' / mo' : ''}
+</div>
+<div className="text-[10px] sm:text-sm md:text-base text-white mt-0 sm:mt-1 font-medium">                   
+  {isRental ? `Deposit: ₹${(property.raw?.security_deposit ?? property.raw?.deposit ?? (property.price * 3))?.toLocaleString('en-IN')}` : (pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - ')}
+</div>
                   </div>
 
                   <div className="flex flex-col items-left">
@@ -1622,7 +1671,18 @@ onClick={(e) => {
 
   <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
     <div className="grid grid-cols-1 sm:grid-cols-2">
-      {[
+      {(isRental ? [
+        { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: property.raw?.property_type || property.raw?.property_type_name || 'Apartment' },
+        { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
+        { icon: <Ruler size={16} className="text-gray-400" />, label: "Built-up Area", value: property.raw?.builtup_area ? `${property.raw.builtup_area} Sq.ft.` : (property.square_feet ? `${property.square_feet} Sq.ft.` : '-') },
+        { icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: property.raw?.carpet_area ? `${property.raw.carpet_area} Sq.ft.` : '-' },
+        { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Monthly Rent", value: property.monthly_rent || property.price ? `₹${(property.monthly_rent || property.price).toLocaleString('en-IN')}/mo` : '-' },
+        { icon: <Lock size={16} className="text-gray-400" />, label: "Security Deposit", value: property.raw?.security_deposit || property.raw?.deposit ? `₹${(property.raw.security_deposit || property.raw.deposit).toLocaleString('en-IN')}` : '-' },
+        { icon: <ShieldCheck size={16} className="text-gray-400" />, label: "Maintenance", value: property.raw?.maintenance_charge || 'Included' },
+        { icon: <Users size={16} className="text-gray-400" />, label: "Preferred Tenant", value: property.raw?.preferred_tenants || property.raw?.preferredTenant || 'Family / Bachelors' },
+        { icon: <Calendar size={16} className="text-gray-400" />, label: "Available From", value: formatAvailableFromDate(property.raw?.available_from || property.raw?.availableFrom) },
+        { icon: <FileText size={16} className="text-gray-400" />, label: "Lease Duration", value: property.raw?.agreement_duration || property.raw?.agreementDuration || '11 Months' },
+      ] : [
         { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: displayOrDash(property?.type) },
         { icon: <Home size={16} className="text-gray-400" />, label: "Unit Type", value: displayOrDash(property?.unitType) },
         { icon: <Grid size={16} className="text-gray-400" />, label: "Subtype", value: displayOrDash(property?.subtype) },
@@ -1637,7 +1697,7 @@ onClick={(e) => {
           label: "Property Age",
           value: [getMonthName(property?.possessionMonth), property?.possessionYear].filter(Boolean).join(' ')
         }] : []),
-      ].map((item, idx) => (
+      ]).map((item, idx) => (
         <div
           key={idx}
           className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100
@@ -2261,7 +2321,6 @@ onClick={(e) => {
                   { label: "Parking", icon: <Car size={14} className="text-orange-600" />, value: property?.parkingQty ?? "-" },
                   { label: "Balcony", icon: <Building2 size={14} className="text-cyan-600" />, value: property?.balcony || "-" },
                   { label: "Property Type", icon: <Building size={14} className="text-blue-600" />, value: property?.type ?? "-" },
-                  { label: "Built Year", icon: <Calendar size={14} className="text-green-600" />, value: property?.possessionYear ?? "-" },
                   { label: "Furnishing", icon: <Home size={14} className="text-purple-600" />, value: property?.furnishing ?? "-" },
                   { label: "Facing", icon: <Target size={14} className="text-orange-600" />, value: property?.facing ?? "-" },
                 ].map((it, i) => (
@@ -2286,9 +2345,78 @@ onClick={(e) => {
 
             {/* Price Breakdown - UPDATED FOR RESALE PROPERTIES */}
             <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 ring-1 ring-gray-100">
-              <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-4">Price Breakdown</h3>
+              <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-4">
+                {isRental ? 'Rent Details' : 'Price Breakdown'}
+              </h3>
 
-              {propertyCharges ? (
+              {isRental ? (
+                <div className="space-y-4">
+                  {/* Monthly Rent */}
+                  <div className="bg-[#E6761D]/5 p-3.5 rounded-xl border border-[#E6761D]/10 flex justify-between items-center">
+                    <div>
+                      <span className="text-xs text-gray-500 uppercase tracking-wider block font-bold">Monthly Rent</span>
+                      <span className="text-[10px] text-gray-400 font-medium">Excluding utility charges</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-extrabold text-[#E6761D] block">
+                        ₹{(property.monthly_rent ?? property.price)?.toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] text-gray-500">/ month</span>
+                    </div>
+                  </div>
+
+                  {/* Deposit Breakdown */}
+                  <div className="space-y-2.5 mb-2">
+                    <div className="flex justify-between text-sm py-1 border-b border-dashed border-gray-100">
+                      <span className="text-gray-600 font-medium">Security Deposit</span>
+                      <span className="font-semibold text-gray-900">
+                        ₹{(property.raw?.security_deposit ?? property.raw?.deposit ?? (property.price * 3))?.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-sm py-1 border-b border-dashed border-gray-100">
+                      <span className="text-gray-600 font-medium">Maintenance Charges</span>
+                      <span className="font-semibold text-gray-900">
+                        {property.raw?.maintenance_charge || 'Included'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-sm py-1">
+                      <span className="text-gray-600 font-medium">Brokerage Fee</span>
+                      <span className="font-semibold text-green-600 flex items-center">
+                        <ShieldCheck size={14} className="mr-1" /> No Brokerage
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Lease terms */}
+                  <div className="bg-gray-50 rounded-xl p-3.5 space-y-2.5 border border-gray-200/50">
+                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center">
+                      <FileText size={14} className="mr-1 text-[#E6761D]" /> Lease terms
+                    </h4>
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Preferred Tenant</span>
+                      <span className="font-semibold text-gray-900">{property.raw?.preferred_tenants || property.raw?.preferredTenant || 'Family / Bachelors'}</span>
+                    </div>
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Lock-in Period</span>
+                      <span className="font-semibold text-gray-900">{property.raw?.lock_in_period || property.raw?.lockInPeriod || '12 Months'}</span>
+                    </div>
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Agreement Duration</span>
+                      <span className="font-semibold text-gray-900">{property.raw?.agreement_duration || property.raw?.agreementDuration || '24 Months'}</span>
+                    </div>
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Available From</span>
+                      <span className="font-semibold text-gray-900">{formatAvailableFromDate(property.raw?.available_from || property.raw?.availableFrom)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : propertyCharges ? (
                 <>
                   <div className="space-y-3">
                     {/* Base Price */}
@@ -2385,164 +2513,163 @@ onClick={(e) => {
                     </div>
                   </div>
 
-                  {/* EMI Calculator - UPDATED WITH FIXED RATES */}
-                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-blue-900 flex items-center">
-                        <Calculator size={18} className="mr-2" />
-                        Smart EMI Calculator
-                      </h4>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {isReadyToMove(property) ? 'Resale Property' : 'Resale Property'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {/* Loan Percentage Selector */}
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Loan Percentage</span>
-                          <span className="font-semibold">{loanPercentage}%</span>
-                        </div>
-                        <div className="flex space-x-2 mb-3">
-                          {[70, 75, 80, 85, 90].map((percent) => (
-                            <button
-                              key={percent}
-                              onClick={() => handleLoanPercentageChange(percent)}
-                              className={`flex-1 py-1.5 text-xs rounded ${loanPercentage === percent ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                              {percent}%
-                            </button>
-                          ))}
-                        </div>
+                  {!isRental && (
+                    <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-blue-900 flex items-center">
+                          <Calculator size={18} className="mr-2" />
+                          Smart EMI Calculator
+                        </h4>
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          {isReadyToMove(property) ? 'Resale Property' : 'Resale Property'}
+                        </span>
                       </div>
 
-                      {/* Loan Details */}
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="bg-white p-2 rounded border">
-                          <div className="text-gray-600 text-xs">Loan Amount</div>
-                          <div className="font-bold text-blue-700">{formatCurrency(loanAmount)}</div>
-                          <div className="text-xs text-gray-500">({loanPercentage}% of property value)</div>
-                        </div>
-
-                        <div className="bg-white p-2 rounded border">
-                          <div className="text-gray-600 text-xs">Self Payment</div>
-                          <div className="font-bold text-green-700">
-                            {formatCurrency(propertyCharges.totalCost - loanAmount)}
+                      <div className="space-y-3">
+                        {/* Loan Percentage Selector */}
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">Loan Percentage</span>
+                            <span className="font-semibold">{loanPercentage}%</span>
                           </div>
-                          <div className="text-xs text-gray-500">({100 - loanPercentage}% required)</div>
-                        </div>
-                      </div>
-
-                      {/* Interest Rate Slider */}
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Interest Rate</span>
-                          <span className="font-semibold">{interestRate}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="7"
-                          max="12"
-                          step="0.1"
-                          value={interestRate}
-                          onChange={(e) => handleInterestRateChange(parseFloat(e.target.value))}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#E6761D]"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>7%</span>
-                          <span>9.5%</span>
-                          <span>12%</span>
-                        </div>
-                      </div>
-
-                      {/* Tenure Selector */}
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Loan Tenure</span>
-                          <span className="font-semibold">{tenureYears} years</span>
-                        </div>
-                        <div className="flex space-x-2">
-                          {[15, 20, 25, 30].map((years) => (
-                            <button
-                              key={years}
-                              onClick={() => handleTenureChange(years)}
-                              className={`flex-1 py-1.5 text-xs rounded ${tenureYears === years ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                              {years} years
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* EMI Result */}
-                      {emiDetails && (
-                        <div className="bg-white p-3 rounded-lg border border-blue-200">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-gray-700">Monthly EMI</span>
-                            <span className="text-2xl font-bold text-[#E6761D]">
-                              ₹{emiDetails.emi?.toLocaleString('en-IN')}
-                            </span>
+                          <div className="flex space-x-2 mb-3">
+                            {[70, 75, 80, 85, 90].map((percent) => (
+                              <button
+                                key={percent}
+                                onClick={() => handleLoanPercentageChange(percent)}
+                                className={`flex-1 py-1.5 text-xs rounded ${loanPercentage === percent ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                              >
+                                {percent}%
+                              </button>
+                            ))}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            For {loanAmount >= 10000000 ? '₹' + (loanAmount / 10000000).toFixed(2) + 'Cr' : '₹' + (loanAmount / 100000).toFixed(2) + 'L'}
-                            loan at {interestRate}% for {tenureYears} years
+                        </div>
+
+                        {/* Loan Details */}
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-white p-2 rounded border">
+                            <div className="text-gray-600 text-xs">Loan Amount</div>
+                            <div className="font-bold text-blue-700">{formatCurrency(loanAmount)}</div>
+                            <div className="text-xs text-gray-500">({loanPercentage}% of property value)</div>
                           </div>
 
-                          {/* EMI Breakdown */}
-                          <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                            <div className="text-center p-2 bg-blue-50 rounded">
-                              <div className="text-gray-600">Principal</div>
-                              <div className="font-semibold">{formatCurrency(emiDetails.principal)}</div>
+                          <div className="bg-white p-2 rounded border">
+                            <div className="text-gray-600 text-xs">Self Payment</div>
+                            <div className="font-bold text-green-700">
+                              {formatCurrency(propertyCharges.totalCost - loanAmount)}
                             </div>
-                            <div className="text-center p-2 bg-red-50 rounded">
-                              <div className="text-gray-600">Interest</div>
-                              <div className="font-semibold">{formatCurrency(emiDetails.totalInterest)}</div>
-                            </div>
-                            <div className="text-center p-2 bg-green-50 rounded">
-                              <div className="text-gray-600">Total</div>
-                              <div className="font-semibold">{formatCurrency(emiDetails.totalPayment)}</div>
-                            </div>
+                            <div className="text-xs text-gray-500">({100 - loanPercentage}% required)</div>
                           </div>
                         </div>
-                      )}
 
-                      {/* Quick EMI Options */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { years: 15, rate: 8.4 },
-                          { years: 20, rate: 8.5 },
-                          { years: 25, rate: 8.6 },
-                        ].map((option, idx) => {
-                          const quickEmi = calculateEMI(loanAmount, option.rate, option.years);
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setTenureYears(option.years);
-                                setInterestRate(option.rate);
-                              }}
-                              className={`text-xs p-2 bg-white border rounded hover:bg-blue-50 transition ${tenureYears === option.years && Math.abs(interestRate - option.rate) < 0.1 ? 'border-[#E6761D] bg-blue-50' : ''}`}
-                            >
-                              <div className="font-medium">{option.years} Years</div>
-                              <div className="text-gray-600">{option.rate}%</div>
-                              <div className="text-[#E6761D] font-semibold">
-                                ₹{quickEmi.emi?.toLocaleString('en-IN')}
+                        {/* Interest Rate Selector */}
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">Interest Rate</span>
+                            <span className="font-semibold">{interestRate}%</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="range"
+                              min="7.5"
+                              max="12"
+                              step="0.1"
+                              value={interestRate}
+                              onChange={(e) => handleInterestRateChange(Number(e.target.value))}
+                              className="flex-1 accent-[#E6761D]"
+                            />
+                            <span className="text-xs font-semibold w-10 text-right">{interestRate}%</span>
+                          </div>
+                        </div>
+
+                        {/* Loan Tenure Selector */}
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">Loan Tenure</span>
+                            <span className="font-semibold">{tenureYears} years</span>
+                          </div>
+                          <div className="flex space-x-2">
+                            {[15, 20, 25, 30].map((years) => (
+                              <button
+                                key={years}
+                                onClick={() => handleTenureChange(years)}
+                                className={`flex-1 py-1.5 text-xs rounded ${tenureYears === years ? 'bg-[#E6761D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                              >
+                                {years} years
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* EMI Result */}
+                        {emiDetails && (
+                          <div className="bg-white p-3 rounded-lg border border-blue-200">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-gray-700">Monthly EMI</span>
+                              <span className="text-2xl font-bold text-[#E6761D]">
+                                ₹{emiDetails.emi?.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              For {loanAmount >= 10000000 ? '₹' + (loanAmount / 10000000).toFixed(2) + 'Cr' : '₹' + (loanAmount / 100000).toFixed(2) + 'L'}
+                              loan at {interestRate}% for {tenureYears} years
+                            </div>
+
+                            {/* EMI Breakdown */}
+                            <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                              <div className="text-center p-2 bg-blue-50 rounded">
+                                <div className="text-gray-600">Principal</div>
+                                <div className="font-semibold">{formatCurrency(emiDetails.principal)}</div>
                               </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              <div className="text-center p-2 bg-red-50 rounded">
+                                <div className="text-gray-600">Interest</div>
+                                <div className="font-semibold">{formatCurrency(emiDetails.totalInterest)}</div>
+                              </div>
+                              <div className="text-center p-2 bg-green-50 rounded">
+                                <div className="text-gray-600">Total</div>
+                                <div className="font-semibold">{formatCurrency(emiDetails.totalPayment)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-                      {/* Disclaimer */}
-                      <div className="text-xs text-gray-500 mt-2">
-                        <p className="flex items-start">
-                          <Info size={12} className="mr-1 mt-0.5 flex-shrink-0" />
-                          EMI calculated for illustrative purposes. Actual rates may vary based on credit score, bank policies, and market conditions.
-                        </p>
+                        {/* Quick EMI Options */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { years: 15, rate: 8.4 },
+                            { years: 20, rate: 8.5 },
+                            { years: 25, rate: 8.6 },
+                          ].map((option, idx) => {
+                            const quickEmi = calculateEMI(loanAmount, option.rate, option.years);
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setTenureYears(option.years);
+                                  setInterestRate(option.rate);
+                                }}
+                                className={`text-xs p-2 bg-white border rounded hover:bg-blue-50 transition ${tenureYears === option.years && Math.abs(interestRate - option.rate) < 0.1 ? 'border-[#E6761D] bg-blue-50' : ''}`}
+                              >
+                                <div className="font-medium">{option.years} Years</div>
+                                <div className="text-gray-600">{option.rate}%</div>
+                                <div className="text-[#E6761D] font-semibold">
+                                  ₹{quickEmi.emi?.toLocaleString('en-IN')}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Disclaimer */}
+                        <div className="text-xs text-gray-500 mt-2">
+                          <p className="flex items-start">
+                            <Info size={12} className="mr-1 mt-0.5 flex-shrink-0" />
+                            EMI calculated for illustrative purposes. Actual rates may vary based on credit score, bank policies, and market conditions.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-4">
@@ -2551,108 +2678,136 @@ onClick={(e) => {
               )}
             </div>
 
-            {/* AI Investment Analysis */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-purple-100/70">
-              <div className="flex items-center space-x-1 mb-3">
-                <Bot className="text-purple-600" size={16} />
-                <h3 className="font-bold text-gray-900 text-sm">AI Investment Analysis</h3>
-              </div>
+            {/* AI Value Analysis or AI Investment Analysis depending on isRental */}
+            {isRental ? (
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 sm:p-5 border border-indigo-100/50 shadow-sm relative overflow-hidden">
+                <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 opacity-10">
+                  <TrendingUp size={120} className="text-indigo-600" />
+                </div>
 
-              {hasSubscription ? (
+                <div className="flex items-center space-x-2 mb-3">
+                  <Bot className="text-indigo-600 animate-pulse" size={18} />
+                  <h3 className="font-bold text-indigo-950 text-sm">AI Rental Valuation Analysis</h3>
+                </div>
+
+                <p className="text-xs text-indigo-900 leading-relaxed mb-4 font-medium">
+                  Based on AI analysis of rent listings in <strong>{property.locationNormalized || property.location || property.city || 'this area'}</strong>:
+                </p>
+
                 <div className="space-y-3">
-                  {/* Compact stat cards in a responsive grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-                        <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-                        <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-                        <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-                        <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
-                      </div>
-                    </div>
+                  <div className="bg-white/80 p-3 rounded-lg border border-indigo-200/40 text-xs">
+                    <span className="font-bold text-indigo-950 block mb-0.5">Rent Estimate</span>
+                    <span className="text-gray-700">Fair price deal. Under 3% of average market rent trends.</span>
                   </div>
-
-                  {/* Insight note (compact) */}
-                  <div className="p-3 bg-white rounded-lg border border-purple-100">
-                    <div className="flex items-start space-x-2">
-                      <Sparkles className="text-purple-600 mt-0.5" size={16} />
-                      <p className="text-xs text-gray-700 leading-snug">
-                        <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
-                      </p>
-                    </div>
+                  <div className="bg-white/80 p-3 rounded-lg border border-indigo-200/40 text-xs">
+                    <span className="font-bold text-indigo-950 block mb-0.5">Security Deposit Advantage</span>
+                    <span className="text-gray-700">Low upfront security deposit rules compared to nearby societies.</span>
                   </div>
                 </div>
-              ) : (
-                <div className="relative">
-                  {/* Keep preview visible but compact and non-interactive */}
+              </div>
+            ) : (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm p-4 sm:p-5 relative ring-1 ring-purple-100/70">
+                <div className="flex items-center space-x-1 mb-3">
+                  <Bot className="text-purple-600" size={16} />
+                  <h3 className="font-bold text-gray-900 text-sm">AI Investment Analysis</h3>
+                </div>
+
+                {hasSubscription ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
+                    {/* Compact stat cards in a responsive grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
-                          <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
+                          <span className="font-bold text-green-600 text-sm sm:text-base leading-tight">Strong Buy</span>
                         </div>
                       </div>
 
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
-                          <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
+                          <span className="font-bold text-blue-600 text-sm sm:text-base leading-tight">18.2%</span>
                         </div>
                       </div>
 
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
-                          <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
+                          <span className="font-bold text-yellow-600 text-sm sm:text-base leading-tight">Low</span>
                         </div>
                       </div>
 
                       <div className="bg-white rounded-lg p-3 border border-purple-100">
                         <div className="flex items-center justify-between">
                           <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
-                          <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
+                          <span className="font-bold text-purple-600 text-sm sm:text-base leading-tight">Excellent</span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Compact paywall overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
-                      <Crown className="text-purple-600 mx-auto mb-2" size={18} />
-                      <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
-                      <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
-                      <button
-                        onClick={() => handlePaywallOpen('ai-investment')}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
-                      >
-                        Unlock ₹299
-                      </button>
+                    {/* Insight note (compact) */}
+                    <div className="p-3 bg-white rounded-lg border border-purple-100">
+                      <div className="flex items-start space-x-2">
+                        <Sparkles className="text-purple-600 mt-0.5" size={16} />
+                        <p className="text-xs text-gray-700 leading-snug">
+                          <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="relative">
+                    {/* Keep preview visible but compact and non-interactive */}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 blur-sm pointer-events-none select-none">
+                        <div className="bg-white rounded-lg p-3 border border-purple-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-600">Purchase Recommendation</span>
+                            <span className="font-bold text-green-600 text-sm sm:text-base">•••••• •••</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-3 border border-purple-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-600">Expected ROI (5 years)</span>
+                            <span className="font-bold text-blue-600 text-sm sm:text-base">••.•%</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-3 border border-purple-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-600">Risk Level</span>
+                            <span className="font-bold text-yellow-600 text-sm sm:text-base">•••</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-3 border border-purple-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm text-gray-600">Market Timing</span>
+                            <span className="font-bold text-purple-600 text-sm sm:text-base">••••••••••</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Compact paywall overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 max-w-xs w-[92%]">
+                        <Crown className="text-purple-600 mx-auto mb-2" size={18} />
+                        <h4 className="font-bold text-gray-900 mb-1 text-base">Investment Analysis</h4>
+                        <p className="text-xs text-gray-600 mb-3 leading-snug">Get AI-powered investment insights</p>
+                        <button
+                          onClick={() => handlePaywallOpen('ai-investment')}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:shadow-md transition-all"
+                        >
+                          Unlock ₹299
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <PublicSimilarProperties
               properties={similarProperties}

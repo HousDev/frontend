@@ -217,10 +217,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         onPageChange(page);
         return;
       }
-      if (page === 'properties') navigate('/properties');
+      if (page === 'properties') {
+        const dest = transactionType === 'rent' ? '/properties?transaction=rent' : '/properties';
+        navigate(dest);
+      }
       if (page === 'services') navigate('/services');
     },
-    [onPageChange, navigate]
+    [onPageChange, navigate, transactionType]
   );
 
   // Parse original query params and preserve both key and value.
@@ -629,7 +632,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     const city = selectedCity.trim();
     const locationStrings = localities.map(loc => loc.trim());
     if (!city && locationStrings.length === 0) {
-      navigate(`/properties?status=Available&transaction=${transactionType}`);
+      const baseDest = '/properties';
+      navigate(`${baseDest}?status=Available&transaction=${transactionType}`);
       return;
     }
     const params: { city: string; locations?: string | string[] } = { city };
@@ -652,7 +656,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       if (filterToken && filterParamKey) searchParams.set(filterParamKey, filterToken);
 
       const qs = searchParams.toString();
-      navigate(`/properties${qs ? `?${qs}` : ''}`, { replace: true });
+      const baseDest = '/properties';
+      navigate(`${baseDest}${qs ? `?${qs}` : ''}`, { replace: true });
     } catch (error) {
       console.error('Error fetching properties from city/location API:', error);
     } finally {
@@ -673,15 +678,24 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     }
   };
 
-  const handleNavigateToProperty = async (property: Property) => {
-    const id = property.id;
+  const handleNavigateToProperty = async (property: any) => {
     const slug = property.slug;
+    const id = property.id;
+    const isRental = Boolean(
+      property.monthly_rent || 
+      property.expected_rent || 
+      property.listing_type === 'rent' || 
+      property.transaction_type === 'rent' ||
+      property.propertyId?.startsWith('RENT') ||
+      String(property.id).startsWith('RENT')
+    );
     if (!slug) {
       console.warn('Attempted to navigate to property without slug:', id);
       return;
     }
     if (viewedProperties.has(id)) {
-      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      const pathPrefix = isRental ? 'rentals' : 'properties';
+      let dest = `/${pathPrefix}/${encodeURIComponent(String(slug))}`;
       if (filterToken) {
         const finalParamKey = filterParamKey || 'tf';
         dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(filterToken)}`;
@@ -722,12 +736,14 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       } catch (err) {
         console.warn('sendPropertyEvent failed (we will still navigate):', err);
       }
-      let dest = `/properties/${encodeURIComponent(String(slug))}`;
+      const pathPrefix = isRental ? 'rentals' : 'properties';
+      let dest = `/${pathPrefix}/${encodeURIComponent(String(slug))}`;
       if (finalToken) dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
       navigate(dest);
     } catch (err) {
       console.error('handleNavigateToProperty unexpected error:', err);
-      navigate(`/properties/${encodeURIComponent(String(slug))}`);
+      const pathPrefix = isRental ? 'rentals' : 'properties';
+      navigate(`/${pathPrefix}/${encodeURIComponent(String(slug))}`);
     }
   };
 
@@ -1263,12 +1279,21 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                               ? `₹${priceValue.toLocaleString("en-IN")}`
                               : "Price on request";
 
-                            // Build link to property page
-                            const link = property?.slug
-                              ? `${window.location.origin}/properties/${encodeURIComponent(
-                                String(property.slug)
-                              )}`
-                              : `${window.location.origin}/properties`;
+                             const isRental = Boolean(
+                               property.monthly_rent || 
+                               property.expected_rent || 
+                               property.listing_type === 'rent' || 
+                               property.transaction_type === 'rent' ||
+                               property.propertyId?.startsWith('RENT') ||
+                               String(property.id).startsWith('RENT')
+                             );
+                             const pathPrefix = isRental ? 'rentals' : 'properties';
+                             // Build link to property page
+                             const link = property?.slug
+                               ? `${window.location.origin}/${pathPrefix}/${encodeURIComponent(
+                                 String(property.slug)
+                               )}`
+                               : `${window.location.origin}/${pathPrefix}`;
 
                             // Message for WhatsApp
                             const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
@@ -1296,7 +1321,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
           )}
           <div className="text-center mt-4">
-            <Link to="/properties">
+            <Link to={transactionType === 'rent' ? '/properties?transaction=rent' : '/properties'}>
               <button
                 onClick={() => onPageChange && onPageChange('properties')}
                 className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-xl font-medium transition-colors duration-300"

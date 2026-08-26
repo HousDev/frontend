@@ -26,6 +26,7 @@ import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import { LucideIcon } from 'lucide-react';
 import ownerAPI from '@/lib/ownerAPI';
+import { tenantAPI } from '@/lib/tenantAPI';
 
 const BRAND = '#E6761D'; // Orange accent
 const NAVY = '#0f2b3d';  // Navy
@@ -641,15 +642,97 @@ export function RentalPropertiesPage() {
   const [masters, setMasters] = useState<Record<string, any[]>>({});
   const [sellers, setSellers] = useState<any[]>([]);
   const [executives, setExecutives] = useState<any[]>([]);
+  const [allTenants, setAllTenants] = useState<any[]>([]);
 
   // Statistics
   const [totalViews, setTotalViews] = useState(0);
   const [totalUniqueViews, setTotalUniqueViews] = useState(0);
 
+  const getTenantMatchCount = (property: any) => {
+    if (!allTenants || allTenants.length === 0) return 0;
+    let matchCount = 0;
+    allTenants.forEach((tenant: any) => {
+      let locationScore = 0;
+      let budgetScore = 0;
+      let bhkScore = 0;
+
+      const propRent = property.monthly_rent || property.budget || 0;
+      const propBHK = property.bedrooms || 0;
+      const propLoc = (property.location || "").toLowerCase().trim();
+      const propCity = (property.city || "").toLowerCase().trim();
+      const propSoc = (property.society || "").toLowerCase().trim();
+
+      // 1. Location Match
+      const prefLocRaw = tenant.preferred_location || "";
+      if (!prefLocRaw.trim()) {
+        locationScore = 0;
+      } else {
+        const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean);
+        const hasMatch = prefLocs.some((loc: any) =>
+          propLoc.includes(loc) ||
+          loc.includes(propLoc) ||
+          propCity.includes(loc) ||
+          propSoc.includes(loc)
+        );
+        if (hasMatch) {
+          locationScore = 40;
+        } else {
+          const words = prefLocs.flatMap((l: any) => l.split(/\s+/));
+          const partial = words.some((word: any) => word.length > 2 && (propLoc.includes(word) || propSoc.includes(word)));
+          locationScore = partial ? 20 : 0;
+        }
+      }
+
+      // 2. Budget Match
+      const tMin = Number(tenant.budget_min) || 0;
+      const tMax = Number(tenant.budget_max) || 0;
+      if (tMin === 0 && tMax === 0) {
+        budgetScore = 0;
+      } else if (propRent > 0) {
+        if (tMin > 0 && tMax > 0) {
+          if (propRent >= tMin && propRent <= tMax) {
+            budgetScore = 40;
+          } else {
+            // Out of range but close
+            const distMin = Math.abs(propRent - tMin) / tMin;
+            const distMax = Math.abs(propRent - tMax) / tMax;
+            const minDiff = Math.min(distMin, distMax);
+            if (minDiff < 0.2) {
+              budgetScore = Math.max(0, Math.round(40 * (1 - minDiff / 0.2)));
+            }
+          }
+        } else if (tMax > 0 && propRent <= tMax) {
+          budgetScore = 40;
+        } else if (tMin > 0 && propRent >= tMin) {
+          budgetScore = 40;
+        }
+      }
+
+      // 3. BHK Match
+      const prefBHK = String(tenant.preferred_bhk || "").toLowerCase();
+      if (!prefBHK.trim()) {
+        bhkScore = 0;
+      } else if (propBHK > 0) {
+        const hasBHK = prefBHK.includes(`${propBHK}bhk`) || prefBHK.includes(String(propBHK));
+        if (hasBHK) bhkScore = 20;
+      }
+
+      const totalScore = locationScore + budgetScore + bhkScore;
+      if (totalScore >= 45) {
+        matchCount++;
+      }
+    });
+    return matchCount;
+  };
+
   const loadProperties = async () => {
     setLoading(true);
     try {
-      const res = await rentalPropertiesAPI.getProperties();
+      const [res, tenantsData] = await Promise.all([
+        rentalPropertiesAPI.getProperties(),
+        tenantAPI.getAll().catch(() => [])
+      ]);
+      setAllTenants(tenantsData || []);
       if (res.success && Array.isArray(res.data)) {
         const mapped = res.data.map((p: any) => ({
           ...p,
@@ -1299,21 +1382,31 @@ export function RentalPropertiesPage() {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-3 items-stretch mt-2 sm:mt-3">
-            {/* Tab Switcher on the Left */}
-            <div className="flex flex-row lg:flex-col p-1 rounded-xl bg-gray-100 border border-gray-200 justify-between lg:justify-start gap-1 lg:w-44 flex-shrink-0">
+            {/* Tab Switcher — Sell | Rent side by side */}
+            <div className="flex flex-row p-1 rounded-xl bg-gray-100 border border-gray-200 gap-1 flex-shrink-0 self-start">
+              {/* SELL — inactive */}
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/properties')}
-                className="flex-1 lg:flex-initial text-center lg:text-left px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center lg:justify-start gap-2 text-gray-500 hover:text-gray-800 hover:bg-white/50"
+                className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-semibold transition-all text-gray-500 hover:text-gray-800 hover:bg-white/60"
               >
-                Sell Properties
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gray-200/60">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <span>Sell Properties</span>
               </button>
+              {/* RENT — active */}
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/rental-properties')}
-                className="flex-1 lg:flex-initial text-center lg:text-left px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center lg:justify-start gap-2 bg-white text-[#E6761D] shadow-sm font-bold"
+                className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-bold transition-all shadow-sm bg-white"
+                style={{ color: '#E6761D', boxShadow: '0 2px 8px rgba(230,118,29,0.15)' }}
               >
-                Rent Properties
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md" style={{ background: '#E6761D15' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E6761D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                </span>
+                <span>Rent Properties</span>
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#E6761D20', color: '#E6761D' }}>{properties.length}</span>
               </button>
             </div>
 
@@ -1925,7 +2018,7 @@ export function RentalPropertiesPage() {
                             >
                               <Users size={13} className="text-emerald-600" />
                               <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-green-800 text-white text-[8px] font-bold leading-none border-2 border-white shadow-sm">
-                                {property.interestedBuyers || (Number(property.id) % 3 + 2)}
+                                {getTenantMatchCount(property)}
                               </span>
                             </button>
 

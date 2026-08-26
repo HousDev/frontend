@@ -77,7 +77,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
     // 1. Location Match (Weight: 40)
     const prefLocRaw = tenant.preferred_location || "";
     if (!prefLocRaw.trim()) {
-      locationScore = 40; // no preference means match everything
+      locationScore = 0; // no preference means 0
     } else {
       const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map(s => s.trim()).filter(Boolean);
       const hasMatch = prefLocs.some(loc =>
@@ -100,7 +100,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
     const tMin = Number(tenant.budget_min) || 0;
     const tMax = Number(tenant.budget_max) || 0;
     if (tMin === 0 && tMax === 0) {
-      budgetScore = 40; // unspecified means no budget constraint
+      budgetScore = 0; // unspecified means 0
     } else if (propRent > 0) {
       if (tMin > 0 && tMax > 0) {
         if (propRent >= tMin && propRent <= tMax) {
@@ -124,7 +124,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
     // 3. BHK Match (Weight: 20)
     const prefBHKRaw = (tenant.preferred_bhk || "").toLowerCase().trim();
     if (!prefBHKRaw) {
-      bhkScore = 20;
+      bhkScore = 0; // no BHK preference means 0
     } else if (propBHK > 0) {
       // e.g. "3 bhk", "3", "3bhk"
       const matchNum = prefBHKRaw.match(/\d+/);
@@ -206,7 +206,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
     })
     .filter(t => {
       const matchText = `${t.name} ${t.phone} ${t.preferred_location} ${t.notes || ''}`.toLowerCase();
-      return matchText.includes(searchTerm.toLowerCase());
+      return t.totalScore >= 45 && matchText.includes(searchTerm.toLowerCase());
     })
     .sort((a, b) => b.totalScore - a.totalScore);
 
