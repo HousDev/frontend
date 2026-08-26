@@ -1224,6 +1224,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import logo from '@/assets/images/logo.png';
+import { requestMandatoryPreLoginLocation, getDeviceId, getBrowserSource } from '@/utils/deviceInfo';
 
 interface User {
   id: string | number;
@@ -1313,7 +1314,26 @@ const LoginPage: React.FC = () => {
     if (!validateForm()) return;
     setLoading(true);
     try {
-      const response = (await login(formData)) as unknown as User;
+      // 1. Mandatory Location Access Request
+      const locResult = await requestMandatoryPreLoginLocation();
+      if (locResult.error || !locResult.latitude || !locResult.longitude) {
+        const errorMsg = locResult.error || 'Location access is required to log in. Please enable location permissions in your browser and try again.';
+        toast.error(errorMsg);
+        setErrors(prev => ({ ...prev, password: errorMsg }));
+        setLoading(false);
+        return;
+      }
+
+      const deviceId = getDeviceId();
+      const source = getBrowserSource();
+
+      const response = (await login({
+        ...formData,
+        latitude: locResult.latitude,
+        longitude: locResult.longitude,
+        device_id: deviceId,
+        source: source,
+      })) as unknown as User;
       const user = response;
       if (!user) { toast.error('Invalid login response'); return; }
       const role = (user.role ?? '').toString().trim().toLowerCase();
@@ -1322,19 +1342,21 @@ const LoginPage: React.FC = () => {
       const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
       if (generalRoles.includes(role)) { navigate(from || '/dashboard', { replace: true }); return; }
       navigate(from || '/dashboard', { replace: true });
-   } catch (err: any) {
-  const msg = (err?.message || '').toLowerCase();
-  if (msg.includes('password') || msg.includes('incorrect')) {
-    setErrors(prev => ({ ...prev, password: 'Incorrect password. Please try again.' }));
-    toast.error('Incorrect password. Please try again.');
-  } else if (msg.includes('user') || msg.includes('not found')) {
-    setErrors(prev => ({ ...prev, username: 'Username not found.' }));
-    toast.error('Username not found.');
-  } else {
-    setErrors(prev => ({ ...prev, password: 'Invalid credentials.' }));
-    toast.error('Invalid username or password.');
-  }
-} finally {
+    } catch (err: any) {
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('location')) {
+        toast.error(err?.message || 'Location permission is required to log in.');
+      } else if (msg.includes('password') || msg.includes('incorrect')) {
+        setErrors(prev => ({ ...prev, password: 'Incorrect password. Please try again.' }));
+        toast.error('Incorrect password. Please try again.');
+      } else if (msg.includes('user') || msg.includes('not found')) {
+        setErrors(prev => ({ ...prev, username: 'Username not found.' }));
+        toast.error('Username not found.');
+      } else {
+        setErrors(prev => ({ ...prev, password: 'Invalid credentials.' }));
+        toast.error('Invalid username or password.');
+      }
+    } finally {
       setLoading(false);
     }
   };

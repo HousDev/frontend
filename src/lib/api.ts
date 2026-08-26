@@ -441,4 +441,6 @@ export const apiClient = {
 
 
 
+export { reportAPI } from "./reportAPI";
+
 export default api;

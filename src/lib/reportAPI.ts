@@ -14,6 +14,7 @@ export interface ReportFilterParams {
   limit?: number;
   status?: string;
   ignoreDate?: boolean;
+  [key: string]: any;
 }
 
 export const reportAPI = {
@@ -114,6 +115,16 @@ export const reportAPI = {
 
   getAiInsights: async (params?: ReportFilterParams) => {
     const response = await api.get("/reports/ai-insights", { params });
+    return response.data;
+  },
+
+  getLoginLogs: async (params?: ReportFilterParams) => {
+    const response = await api.get("/reports/login-logs", { params });
+    return response.data;
+  },
+
+  getLoginLogReport: async (params?: ReportFilterParams) => {
+    const response = await api.get("/reports/login-logs", { params });
     return response.data;
   },
 

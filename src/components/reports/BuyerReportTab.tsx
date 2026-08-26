@@ -1,10 +1,47 @@
 // frontend/src/components/reports/BuyerReportTab.tsx
-import React from "react";
+import React, { useState } from "react";
 import { ReportTable, ColumnDef, StatusPill } from "./ReportTable";
+import Button from "@/components/ui/Button";
+import {
+  Users,
+  UserCheck,
+  Building,
+  MapPin,
+  TrendingUp,
+  Award,
+  Sparkles,
+  Search,
+  Filter,
+  Layers,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  IndianRupee,
+  Phone,
+  Mail,
+  Home,
+  SlidersHorizontal,
+  Bookmark,
+  Eye,
+  CreditCard,
+  Percent,
+  Download,
+  Printer,
+} from "lucide-react";
 
 interface BuyerReportTabProps {
   data: any[];
-  stats?: { total_count: number; active_count: number; qualified_count: number; converted_count: number } | null;
+  stats?: any;
+  funnel?: any[];
+  demands?: any;
+  locations?: any[];
+  budgets?: any;
+  matching?: any;
+  visits?: any;
+  executives?: any[];
+  followups?: any;
+  financials?: any;
   pagination: { page: number; limit: number; totalRecords: number; totalPages: number };
   loading?: boolean;
   onPageChange: (page: number) => void;
@@ -15,11 +52,26 @@ interface BuyerReportTabProps {
   onPrint?: () => void;
   activeStatusPill?: string;
   onSelectStatusPill?: (key: string) => void;
+  onFilterByStage?: (stage: string) => void;
+  onFilterByLocation?: (location: string) => void;
+  onFilterByBudget?: (min: number, max: number) => void;
+  onFilterByExecutive?: (executiveId: string) => void;
+  onFilterByPropertyType?: (type: string) => void;
+  onFilterByUnitType?: (unitType: string) => void;
 }
 
 export const BuyerReportTab: React.FC<BuyerReportTabProps> = ({
   data = [],
-  stats,
+  stats = {},
+  funnel = [],
+  demands = {},
+  locations = [],
+  budgets = {},
+  matching = {},
+  visits = {},
+  executives = [],
+  followups = {},
+  financials = {},
   pagination,
   loading = false,
   onPageChange,
@@ -30,25 +82,69 @@ export const BuyerReportTab: React.FC<BuyerReportTabProps> = ({
   onPrint,
   activeStatusPill = "all",
   onSelectStatusPill,
+  onFilterByStage,
+  onFilterByLocation,
+  onFilterByBudget,
+  onFilterByExecutive,
+  onFilterByPropertyType,
+  onFilterByUnitType,
 }) => {
-  const safeStats = stats || { total_count: 0, active_count: 0, qualified_count: 0, converted_count: 0 };
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    "id",
+    "name",
+    "phone",
+    "location",
+    "budget",
+    "requirements",
+    "buyer_lead_stage",
+    "buyer_lead_status",
+    "assigned_agent_name",
+    "visit_count",
+    "created_at",
+  ]);
+
+  const [showColumnCustomize, setShowColumnCustomize] = useState<boolean>(false);
+
+  const safeStats = stats || {};
+  const safeFunnel = Array.isArray(funnel) ? funnel : [];
+  const safeDemands = demands || {};
+  const safeLocations = Array.isArray(locations) ? locations : [];
+  const safeBudgets = budgets || {};
+  const safeMatching = matching || {};
+  const safeVisits = visits || {};
+  const safeExecutives = Array.isArray(executives) ? executives : [];
+  const safeFollowups = followups || {};
+  const safeFinancials = financials || {};
 
   const statusPills: StatusPill[] = [
-    { label: "All Buyers", key: "all", count: safeStats.total_count || 0 },
-    { label: "Active", key: "active", count: safeStats.active_count || 0 },
+    { label: "All Buyers", key: "all", count: safeStats.total_count || data.length },
+    { label: "Active Buyers", key: "active", count: safeStats.active_count || 0 },
     { label: "Qualified", key: "qualified", count: safeStats.qualified_count || 0 },
-    { label: "Converted", key: "converted", count: safeStats.converted_count || 0 },
+    { label: "Site Visit", key: "visit", count: safeStats.visit_count || 0 },
+    { label: "Negotiation", key: "negotiation", count: safeStats.negotiation_count || 0 },
+    { label: "Closed / Won", key: "converted", count: safeStats.converted_count || 0 },
+    { label: "Lost", key: "lost", count: safeStats.lost_count || 0 },
   ];
 
-  const columns: ColumnDef[] = [
+  // All Column Definitions
+  const allColumns: ColumnDef[] = [
+    {
+      key: "id",
+      header: "BUYER ID",
+      render: (row) => <span className="font-mono text-xs font-bold text-gray-700">#BUY-{row.id}</span>,
+    },
     {
       key: "name",
       header: "BUYER NAME",
-      searchPlaceholder: "Search buyer...",
+      searchPlaceholder: "Search name...",
       render: (row) => (
-        <span className="font-bold text-gray-900">
-          {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
-        </span>
+        <div>
+          <div className="font-bold text-gray-900 flex items-center gap-1 text-xs">
+            <span>{row.salutation ? `${row.salutation} ` : ""}</span>
+            <span>{row.name || "N/A"}</span>
+          </div>
+          {row.email && <div className="text-[10px] text-gray-400 truncate max-w-[140px]">{row.email}</div>}
+        </div>
       ),
     },
     {
@@ -57,63 +153,551 @@ export const BuyerReportTab: React.FC<BuyerReportTabProps> = ({
       searchPlaceholder: "Search contact...",
       render: (row) => (
         <div>
-          <div className="font-medium text-gray-800">{row.phone || "N/A"}</div>
-          <div className="text-[11px] text-gray-400">{row.email || ""}</div>
+          <div className="font-medium text-gray-800 text-xs flex items-center gap-1">
+            <Phone className="w-3 h-3 text-gray-400" />
+            <span>{row.phone || "N/A"}</span>
+          </div>
+          {row.whatsapp_number && (
+            <div className="text-[10px] text-emerald-600 font-medium">WA: {row.whatsapp_number}</div>
+          )}
         </div>
       ),
     },
     {
       key: "location",
-      header: "LOCATION",
+      header: "PREFERRED LOCATION",
       searchPlaceholder: "Search location...",
-      render: (row) => row.location || row.city || "N/A",
+      render: (row) => (
+        <div className="flex items-center gap-1 text-xs text-gray-800">
+          <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
+          <span>{row.location || row.city || row.state || "N/A"}</span>
+        </div>
+      ),
     },
     {
-      key: "budget_min",
+      key: "budget",
       header: "BUDGET RANGE (₹)",
-      render: (row) => (
-        <span className="font-semibold text-emerald-700">
-          ₹{Number(row.budget_min || 0).toLocaleString("en-IN")} - ₹{Number(row.budget_max || 0).toLocaleString("en-IN")}
-        </span>
-      ),
+      render: (row) => {
+        const min = Number(row.budget_min || 0);
+        const max = Number(row.budget_max || 0);
+        return (
+          <span className="font-bold text-emerald-700 text-xs block">
+            {min > 0 || max > 0
+              ? `₹${min > 0 ? (min >= 10000000 ? `${(min / 10000000).toFixed(2)}Cr` : `${(min / 100000).toFixed(0)}L`) : "0"} - ₹${max > 0 ? (max >= 10000000 ? `${(max / 10000000).toFixed(2)}Cr` : `${(max / 100000).toFixed(0)}L`) : "Flexible"}`
+              : "Not Specified"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "requirements",
+      header: "PROPERTY & BHK",
+      render: (row) => {
+        const req = row.requirements || {};
+        const pt = req.propertyType || req.property_type || "Any Type";
+        const ut = Array.isArray(req.unitTypes) ? req.unitTypes.join(", ") : req.unitType || "Any BHK";
+        return (
+          <div>
+            <div className="font-semibold text-gray-800 text-xs">{pt}</div>
+            <div className="text-[10px] text-indigo-600 font-bold">{ut}</div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "buyer_lead_stage",
+      header: "STAGE",
+      searchPlaceholder: "Search stage...",
+      render: (row) => {
+        const st = row.buyer_lead_stage || "New";
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            {st}
+          </span>
+        );
+      },
     },
     {
       key: "buyer_lead_status",
       header: "STATUS",
       searchPlaceholder: "Search status...",
       render: (row) => {
-        const s = (row.buyer_lead_status || "active").toLowerCase();
-        const color = s.includes("qualif")
-          ? "bg-purple-100 text-purple-800"
-          : s.includes("closed") || s.includes("converted")
-          ? "bg-emerald-100 text-emerald-800"
-          : "bg-blue-100 text-blue-800";
-        return <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${color}`}>{row.buyer_lead_status || "Active"}</span>;
+        const s = (row.buyer_lead_status || "Active").toLowerCase();
+        const color = s.includes("closed") || s.includes("converted") || s.includes("won")
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : s.includes("qualif")
+          ? "bg-purple-50 text-purple-700 border-purple-200"
+          : s.includes("lost") || s.includes("reject")
+          ? "bg-rose-50 text-rose-700 border-rose-200"
+          : "bg-blue-50 text-blue-700 border-blue-200";
+        return (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${color}`}>
+            {row.buyer_lead_status || "Active"}
+          </span>
+        );
       },
     },
     {
       key: "assigned_agent_name",
-      header: "ASSIGNED AGENT",
-      render: (row) => row.assigned_agent_name || "Unassigned",
+      header: "ASSIGNED EXECUTIVE",
+      render: (row) => (
+        <span className="font-medium text-gray-800 text-xs">{row.assigned_agent_name || "Unassigned"}</span>
+      ),
+    },
+    {
+      key: "visit_count",
+      header: "SITE VISITS",
+      render: (row) => (
+        <span className="font-bold text-xs text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+          {row.visit_count || 0} visits
+        </span>
+      ),
+    },
+    {
+      key: "saved_count",
+      header: "SAVED PROPS",
+      render: (row) => (
+        <span className="font-bold text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+          {row.saved_count || 0} props
+        </span>
+      ),
+    },
+    {
+      key: "created_at",
+      header: "CREATED DATE",
+      render: (row) => (
+        <span className="text-[11px] text-gray-600">
+          {row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN") : "N/A"}
+        </span>
+      ),
     },
   ];
 
+  const filteredColumns = allColumns.filter((col) => visibleColumns.includes(col.key));
+
   return (
-    <ReportTable
-      title="Buyers Report"
-      columns={columns}
-      data={data}
-      statusPills={statusPills}
-      activeStatusPill={activeStatusPill}
-      onSelectStatusPill={onSelectStatusPill}
-      onOpenFilters={onOpenFilters}
-      onExport={onExport}
-      onRefresh={onRefresh}
-      onPrint={onPrint}
-      pagination={pagination}
-      onPageChange={onPageChange}
-      onLimitChange={onLimitChange}
-      loading={loading}
-    />
+    <div className="space-y-5">
+      {/* ==================== 1. KPI CARDS GRID (8 Cards) ==================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {/* Total Buyers */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+          className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-slate-400 group"
+        >
+          <div className="flex items-center justify-between text-gray-500 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Total Buyers</span>
+            <Users className="w-4 h-4 text-slate-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-900">{safeStats.total_count || 0}</div>
+          <div className="text-[10px] text-gray-400 mt-0.5">Filter All</div>
+        </div>
+
+        {/* Active Buyers */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("active")}
+          className="bg-white p-3 rounded-xl border border-blue-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-blue-400 group"
+        >
+          <div className="flex items-center justify-between text-blue-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Active Buyers</span>
+            <UserCheck className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-blue-900">{safeStats.active_count || 0}</div>
+          <div className="text-[10px] text-blue-600/80 mt-0.5">In Pipeline</div>
+        </div>
+
+        {/* New Buyers */}
+        <div className="bg-white p-3 rounded-xl border border-indigo-200 shadow-2xs hover:shadow-md transition-all group">
+          <div className="flex items-center justify-between text-indigo-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">New Buyers</span>
+            <Clock className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-indigo-900">{safeStats.new_count || 0}</div>
+          <div className="text-[10px] text-indigo-600/80 mt-0.5">Last 30 Days</div>
+        </div>
+
+        {/* Qualified Buyers */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("qualified")}
+          className="bg-white p-3 rounded-xl border border-purple-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-purple-400 group"
+        >
+          <div className="flex items-center justify-between text-purple-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Qualified</span>
+            <Sparkles className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-purple-900">{safeStats.qualified_count || 0}</div>
+          <div className="text-[10px] text-purple-600/80 mt-0.5">High Intent</div>
+        </div>
+
+        {/* Site Visit Buyers */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("visit")}
+          className="bg-white p-3 rounded-xl border border-teal-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-teal-400 group"
+        >
+          <div className="flex items-center justify-between text-teal-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Site Visits</span>
+            <Eye className="w-4 h-4 text-teal-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-teal-900">{safeStats.visit_count || 0}</div>
+          <div className="text-[10px] text-teal-600/80 mt-0.5">Visited Props</div>
+        </div>
+
+        {/* In Negotiation */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("negotiation")}
+          className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-amber-400 group"
+        >
+          <div className="flex items-center justify-between text-amber-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Negotiation</span>
+            <TrendingUp className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-amber-900">{safeStats.negotiation_count || 0}</div>
+          <div className="text-[10px] text-amber-600/80 mt-0.5">Final Stage</div>
+        </div>
+
+        {/* Closed/Won Buyers */}
+        <div
+          onClick={() => onSelectStatusPill && onSelectStatusPill("converted")}
+          className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-emerald-400 group"
+        >
+          <div className="flex items-center justify-between text-emerald-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Closed / Won</span>
+            <Award className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-emerald-900">{safeStats.converted_count || 0}</div>
+          <div className="text-[10px] text-emerald-600/80 mt-0.5">Transacted</div>
+        </div>
+
+        {/* Conversion Rate */}
+        <div className="bg-white p-3 rounded-xl border border-orange-200 shadow-2xs hover:shadow-md transition-all group">
+          <div className="flex items-center justify-between text-orange-600 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Conv. Rate</span>
+            <Percent className="w-4 h-4 text-orange-600 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-extrabold text-orange-900">{safeStats.conversion_rate || 0}%</div>
+          <div className="text-[10px] text-orange-600/80 mt-0.5">Closed / Total</div>
+        </div>
+      </div>
+
+      {/* ==================== 2. BUYER LIFECYCLE FUNNEL ==================== */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-orange-500" />
+              <h3 className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">Buyer Sales Lifecycle Funnel</h3>
+            </div>
+
+            {/* Filter, Export, Print Buttons in Top Left Corner of Funnel */}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={onOpenFilters}
+                className="flex items-center gap-1.5 text-xs text-white bg-[#0f2b3d] hover:bg-[#1a435d] font-bold px-3 py-1 rounded-lg shadow-xs border-0"
+              >
+                <Filter className="w-3.5 h-3.5 text-white" />
+                Filter
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onExport}
+                className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1 rounded-lg shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5 text-gray-700" />
+                Export
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onPrint}
+                className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1 rounded-lg shadow-2xs"
+              >
+                <Printer className="w-3.5 h-3.5 text-gray-700" />
+                Print
+              </Button>
+            </div>
+          </div>
+
+          <span className="text-[10px] font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+            Click stage to filter table
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+          {(safeFunnel.length > 0
+            ? safeFunnel
+            : [
+                { stage: "New", count: 0, percentage: 0 },
+                { stage: "Contacted", count: 0, percentage: 0 },
+                { stage: "Qualified", count: 0, percentage: 0 },
+                { stage: "Property Shortlisted", count: 0, percentage: 0 },
+                { stage: "Site Visit Scheduled", count: 0, percentage: 0 },
+                { stage: "Negotiation", count: 0, percentage: 0 },
+                { stage: "Closed/Won", count: 0, percentage: 0 },
+              ]
+          ).map((item, idx) => (
+            <div
+              key={idx}
+              onClick={() => onFilterByStage && onFilterByStage(item.stage)}
+              className="bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow-xs group"
+            >
+              <div className="text-[10px] font-bold text-gray-600 group-hover:text-indigo-900 truncate">
+                {item.stage}
+              </div>
+              <div className="text-lg font-black text-gray-900 group-hover:text-indigo-950 mt-0.5">
+                {item.count}
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-gray-400 mt-1">
+                <span>Share</span>
+                <span className="font-bold text-indigo-600">{item.percentage}%</span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
+                <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${Math.min(100, item.percentage)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ==================== 3. REQUIREMENT DEMAND & BUDGET ANALYSIS ==================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Property & BHK Type Demand */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
+              <Home className="w-4 h-4 text-blue-600" />
+              Property Type & BHK Demand
+            </h3>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="font-bold text-[11px] text-gray-500 uppercase">Top Requested Property Types</div>
+            <div className="space-y-1.5">
+              {(safeDemands.propertyTypes || []).slice(0, 4).map((pt: any, idx: number) => (
+                <div
+                  key={idx}
+                  onClick={() => onFilterByPropertyType && onFilterByPropertyType(pt.name)}
+                  className="flex items-center justify-between p-2 rounded bg-slate-50 hover:bg-blue-50 border border-slate-100 cursor-pointer transition-colors"
+                >
+                  <span className="font-semibold text-gray-800">{pt.name}</span>
+                  <span className="font-bold text-blue-700">{pt.count} buyers ({pt.percentage}%)</span>
+                </div>
+              ))}
+              {(!safeDemands.propertyTypes || safeDemands.propertyTypes.length === 0) && (
+                <div className="text-gray-400 text-[11px] italic">No property type preferences recorded</div>
+              )}
+            </div>
+
+            <div className="font-bold text-[11px] text-gray-500 uppercase pt-2">BHK Unit Type Demand</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(safeDemands.unitTypes || []).slice(0, 6).map((ut: any, idx: number) => (
+                <div
+                  key={idx}
+                  onClick={() => onFilterByUnitType && onFilterByUnitType(ut.name)}
+                  className="p-1.5 rounded bg-indigo-50/60 hover:bg-indigo-100 border border-indigo-100 text-center cursor-pointer transition-colors"
+                >
+                  <div className="font-bold text-indigo-900 text-xs">{ut.name}</div>
+                  <div className="text-[10px] text-indigo-600 font-medium">{ut.count} buyers</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Budget Analysis & Distribution */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
+              <IndianRupee className="w-4 h-4 text-emerald-600" />
+              Budget Range Analysis
+            </h3>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Avg: ₹{Number(safeBudgets.avgBudget || 0).toLocaleString("en-IN")}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {(safeBudgets.distribution || [
+              { label: "Below ₹50L", min: 0, max: 5000000, count: 0 },
+              { label: "₹50L - ₹1Cr", min: 5000000, max: 10000000, count: 0 },
+              { label: "₹1Cr - ₹2Cr", min: 10000000, max: 20000000, count: 0 },
+              { label: "₹2Cr - ₹5Cr", min: 20000000, max: 50000000, count: 0 },
+              { label: "Above ₹5Cr", min: 50000000, max: 999999999, count: 0 },
+            ]).map((b: any, idx: number) => {
+              const totalB = safeStats.total_count || 1;
+              const pct = Math.round((b.count / totalB) * 100);
+              return (
+                <div
+                  key={idx}
+                  onClick={() => onFilterByBudget && onFilterByBudget(b.min, b.max)}
+                  className="p-2 rounded bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 cursor-pointer transition-all text-xs"
+                >
+                  <div className="flex justify-between font-semibold text-gray-800">
+                    <span>{b.label}</span>
+                    <span className="font-bold text-emerald-800">{b.count} buyers ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                    <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Property Matching & Site Visit Performance */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+          <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
+            <Bookmark className="w-4 h-4 text-purple-600" />
+            Matching & Site Visit Performance
+          </h3>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-purple-50/70 p-2.5 rounded-lg border border-purple-100">
+              <div className="text-[10px] font-bold text-purple-700 uppercase">Buyers with Matches</div>
+              <div className="text-base font-black text-purple-950 mt-0.5">{safeMatching.buyersWithMatches || 0}</div>
+              <div className="text-[10px] text-purple-600">{safeMatching.avgMatchesPerBuyer || 0} avg saved props</div>
+            </div>
+
+            <div className="bg-teal-50/70 p-2.5 rounded-lg border border-teal-100">
+              <div className="text-[10px] font-bold text-teal-700 uppercase">Total Site Visits</div>
+              <div className="text-base font-black text-teal-950 mt-0.5">{safeVisits.totalVisits || 0}</div>
+              <div className="text-[10px] text-teal-600">{safeVisits.completedVisits || 0} completed</div>
+            </div>
+
+            <div className="bg-amber-50/70 p-2.5 rounded-lg border border-amber-100">
+              <div className="text-[10px] font-bold text-amber-700 uppercase">Follow-ups Health</div>
+              <div className="text-base font-black text-amber-950 mt-0.5">{safeFollowups.today || 0} today</div>
+              <div className="text-[10px] text-rose-600 font-bold">{safeFollowups.overdue || 0} overdue</div>
+            </div>
+
+            <div className="bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-100">
+              <div className="text-[10px] font-bold text-emerald-700 uppercase">Financial Readiness</div>
+              <div className="text-base font-black text-emerald-950 mt-0.5">{safeFinancials.loanRequiredCount || 0} need loan</div>
+              <div className="text-[10px] text-emerald-600">{safeFinancials.selfFundedCount || 0} self funded</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================== 4. LOCATION DEMAND & EXECUTIVE PERFORMANCE ==================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Top Location Demand Matrix */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-orange-500" />
+              Location Demand & Conversion Matrix
+            </h3>
+            <span className="text-[10px] font-bold text-gray-400">Click location to filter</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100 font-bold text-slate-700 border-b border-slate-200">
+                  <th className="p-2">Location</th>
+                  <th className="p-2">Buyers</th>
+                  <th className="p-2">Avg Budget</th>
+                  <th className="p-2">Visits</th>
+                  <th className="p-2">Closed</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {safeLocations.slice(0, 6).map((loc: any, idx: number) => (
+                  <tr
+                    key={idx}
+                    onClick={() => onFilterByLocation && onFilterByLocation(loc.location_name)}
+                    className="hover:bg-orange-50/60 cursor-pointer transition-colors"
+                  >
+                    <td className="p-2 font-bold text-slate-900">{loc.location_name}</td>
+                    <td className="p-2 font-semibold text-blue-700">{loc.buyer_count}</td>
+                    <td className="p-2 font-semibold text-emerald-700">₹{Number(loc.avg_budget_max || 0).toLocaleString("en-IN")}</td>
+                    <td className="p-2 font-medium text-purple-700">{loc.site_visits}</td>
+                    <td className="p-2 font-bold text-emerald-800">{loc.closed_deals}</td>
+                  </tr>
+                ))}
+                {safeLocations.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-4 text-center text-gray-400 italic">No location demand data available</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Executive Performance */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-indigo-600" />
+              Executive Buyer Conversion Performance
+            </h3>
+            <span className="text-[10px] font-bold text-gray-400">Click executive to filter</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100 font-bold text-slate-700 border-b border-slate-200">
+                  <th className="p-2">Executive</th>
+                  <th className="p-2">Buyers</th>
+                  <th className="p-2">Qualified</th>
+                  <th className="p-2">Visits</th>
+                  <th className="p-2">Closed</th>
+                  <th className="p-2">Conv %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {safeExecutives.slice(0, 6).map((ex: any, idx: number) => (
+                  <tr
+                    key={idx}
+                    onClick={() => onFilterByExecutive && onFilterByExecutive(String(ex.executive_id))}
+                    className="hover:bg-indigo-50/60 cursor-pointer transition-colors"
+                  >
+                    <td className="p-2 font-bold text-slate-900">{ex.name}</td>
+                    <td className="p-2 font-semibold text-slate-700">{ex.total_buyers}</td>
+                    <td className="p-2 font-medium text-purple-700">{ex.qualified_buyers}</td>
+                    <td className="p-2 font-medium text-teal-700">{ex.site_visits}</td>
+                    <td className="p-2 font-bold text-emerald-700">{ex.closed_buyers}</td>
+                    <td className="p-2 font-bold text-orange-600">{ex.conversion_rate}%</td>
+                  </tr>
+                ))}
+                {safeExecutives.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-gray-400 italic">No executive performance data available</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================== 5. DETAILED BUYER MASTER TABLE ==================== */}
+      <ReportTable
+        title="Buyers Master Table"
+        columns={filteredColumns}
+        data={data}
+        statusPills={statusPills}
+        activeStatusPill={activeStatusPill}
+        onSelectStatusPill={onSelectStatusPill}
+        onOpenFilters={onOpenFilters}
+        onExport={onExport}
+        onRefresh={onRefresh}
+        onPrint={onPrint}
+        pagination={pagination}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+        loading={loading}
+      />
+    </div>
   );
 };

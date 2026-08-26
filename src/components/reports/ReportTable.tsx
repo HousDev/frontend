@@ -9,6 +9,8 @@ export interface ColumnDef {
   header: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  width?: string;
+  className?: string;
   render?: (row: any, index: number) => React.ReactNode;
 }
 
@@ -53,7 +55,23 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   loading = false,
   onColumnSearch,
 }) => {
+  const [internalStatusPill, setInternalStatusPill] = useState<string>(activeStatusPill || "all");
   const [columnSearches, setColumnSearches] = useState<Record<string, string>>({});
+  const [internalPage, setInternalPage] = useState<number>(1);
+  const [internalLimit, setInternalLimit] = useState<number>(25);
+
+  React.useEffect(() => {
+    if (activeStatusPill) {
+      setInternalStatusPill(activeStatusPill);
+    }
+  }, [activeStatusPill]);
+
+  const currentPillKey = (onSelectStatusPill ? activeStatusPill : internalStatusPill) || "all";
+
+  const handlePillClick = (key: string) => {
+    setInternalStatusPill(key);
+    if (onSelectStatusPill) onSelectStatusPill(key);
+  };
 
   const handleColumnSearchChange = (key: string, value: string) => {
     setColumnSearches((prev) => ({ ...prev, [key]: value }));
@@ -61,33 +79,90 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   };
 
   const filteredData = data.filter((row) => {
-    for (const key in columnSearches) {
-      const query = (columnSearches[key] || "").toLowerCase().trim();
-      if (query) {
-        const val = String(row[key] || "").toLowerCase();
-        if (!val.includes(query)) return false;
+    const shouldDoClientPillFilter = !onSelectStatusPill;
+    const pill = currentPillKey.toLowerCase().trim();
+    const isAllOrLogKey = ["all", "logs", "activity_logs", "total", "summary", "records", "active_staff", "active staff"].includes(pill);
+
+    if (shouldDoClientPillFilter && !isAllOrLogKey) {
+      if (pill === "assigned") {
+        const val = Number(row.assignedLeads ?? row.assigned_leads ?? 0);
+        const statusStr = String(row.status || row.outcome_status || '').toLowerCase();
+        if (val <= 0 && !statusStr.includes('assigned') && !statusStr.includes('lead')) return false;
+      } else if (pill === "calls" || pill === "call") {
+        const val = Number(row.callsCompleted ?? row.calls_completed ?? 0);
+        const statusStr = String(row.status || row.action_type || row.channel || row.type || '').toLowerCase();
+        if (val <= 0 && !statusStr.includes('call') && !statusStr.includes('phone')) return false;
+      } else if (pill === "followups" || pill === "followup") {
+        const val = Number(row.followups_count ?? row.callsCompleted ?? 0);
+        const statusStr = String(row.status || row.action_type || row.type || '').toLowerCase();
+        if (val <= 0 && !statusStr.includes('follow')) return false;
+      } else if (pill === "new" || pill === "fresh") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (!statusStr.includes('new') && !statusStr.includes('fresh') && !statusStr.includes('uncontacted')) return false;
+      } else if (pill === "contacted") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (!statusStr.includes('contact')) return false;
+      } else if (pill === "qualified" || pill === "active") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (!statusStr.includes('qualif') && !statusStr.includes('active') && !statusStr.includes('published') && !statusStr.includes('interest')) return false;
+      } else if (pill === "unqualified" || pill === "lost") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (!statusStr.includes('unqualif') && !statusStr.includes('lost') && !statusStr.includes('reject')) return false;
+      } else if (pill === "sold" || pill === "closed") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (!statusStr.includes('sold') && !statusStr.includes('closed') && !statusStr.includes('won')) return false;
       }
     }
+
+    // 2. Column-level Searches
+    for (const [colKey, searchVal] of Object.entries(columnSearches)) {
+      if (!searchVal || !searchVal.trim()) continue;
+      const s = searchVal.toLowerCase().trim();
+      const cellVal = String(row[colKey] ?? '').toLowerCase();
+      if (!cellVal.includes(s)) {
+        const rowString = JSON.stringify(row).toLowerCase();
+        if (!rowString.includes(s)) return false;
+      }
+    }
+
     return true;
   });
 
-  const startRecord = (pagination.page - 1) * pagination.limit + 1;
-  const endRecord = Math.min(pagination.totalRecords, pagination.page * pagination.limit);
+  const totalRecords = pagination?.totalRecords ?? filteredData.length;
+  const page = pagination?.page ?? internalPage;
+  const limit = pagination?.limit ?? internalLimit;
+  const totalPages = pagination?.totalPages ?? (Math.ceil(filteredData.length / limit) || 1);
+
+  const displayData = pagination ? data : filteredData.slice((page - 1) * limit, page * limit);
+
+  const startRecord = totalRecords > 0 ? (page - 1) * limit + 1 : 0;
+  const endRecord = Math.min(totalRecords, page * limit);
+
+  const handlePageChange = (newPage: number) => {
+    setInternalPage(newPage);
+    if (onPageChange) onPageChange(newPage);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setInternalLimit(newLimit);
+    setInternalPage(1);
+    if (onLimitChange) onLimitChange(newLimit);
+  };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[480px] no-print">
+    <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[520px] no-print">
       {/* Sticky Top Status & Action Toolbar */}
-      <div className="sticky top-0 z-20 shrink-0 p-3 bg-[#f8fafc] border-b border-gray-300 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+      <div className="sticky top-0 z-20 shrink-0 py-2 px-3 bg-[#f8fafc] flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-2xs border-b border-gray-200">
         {/* Quick Status Stats Chips */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {statusPills.map((pill) => {
-            const isSelected = activeStatusPill.toLowerCase() === pill.key.toLowerCase();
+            const isSelected = currentPillKey.toLowerCase() === pill.key.toLowerCase();
             return (
               <button
                 key={pill.key}
                 type="button"
-                onClick={() => onSelectStatusPill && onSelectStatusPill(pill.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                onClick={() => handlePillClick(pill.key)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
                   isSelected
                     ? "bg-[#0f1f38] text-white border-[#0f1f38] shadow-sm"
                     : "bg-white text-gray-700 hover:bg-gray-100 border-gray-300"
@@ -106,9 +181,8 @@ export const ReportTable: React.FC<ReportTableProps> = ({
           })}
         </div>
 
-        {/* Right Toolbar Actions (Matching 1st Screenshot rounded-lg button style) */}
+        {/* Right Toolbar Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Filters: Dark Navy Solid Button */}
           <Button
             type="button"
             size="sm"
@@ -157,15 +231,19 @@ export const ReportTable: React.FC<ReportTableProps> = ({
         </div>
       </div>
 
-      {/* Fixed Scrollable Table Body Area with Bordered Grid Cells */}
-      <div className="flex-1 overflow-auto scrollbar-thin relative bg-white">
-        <table className="w-full text-left text-xs border-collapse border border-gray-300">
+      {/* Fixed Scrollable Table Body Area with Vertical Scrollbar & Zero Horizontal Scrollbar */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden relative bg-white scrollbar-thin">
+        <table className="w-full text-left text-xs border-collapse border border-gray-300 table-fixed">
           {/* Sticky Header Row */}
           <thead className="sticky top-0 z-10 bg-[#eef2f6] text-gray-800 font-extrabold text-[11px] uppercase tracking-wider shadow-2xs">
             <tr>
-              <th className="p-2.5 w-12 text-center border border-gray-300 bg-[#eef2f6]">S.NO.</th>
+              <th className="px-2 py-2 w-[5%] text-center border border-gray-300 bg-[#eef2f6] truncate">S.NO.</th>
               {columns.map((col) => (
-                <th key={col.key} className="p-2.5 border border-gray-300 bg-[#eef2f6]">
+                <th
+                  key={col.key}
+                  style={{ width: col.width }}
+                  className={`px-2 py-2 border border-gray-300 bg-[#eef2f6] truncate ${col.className || ""}`}
+                >
                   {col.header}
                 </th>
               ))}
@@ -182,7 +260,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                       placeholder={col.searchPlaceholder || `Search...`}
                       value={columnSearches[col.key] || ""}
                       onChange={(e) => handleColumnSearchChange(col.key, e.target.value)}
-                      className="w-full bg-white text-[11px] px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-white text-[11px] px-1.5 py-1 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 truncate"
                     />
                   )}
                 </td>
@@ -198,14 +276,14 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                   Loading records...
                 </td>
               </tr>
-            ) : filteredData.length === 0 ? (
+            ) : displayData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + 1} className="p-16 text-center text-gray-400 font-medium">
                   No records match your search criteria.
                 </td>
               </tr>
             ) : (
-              filteredData.map((row, idx) => {
+              displayData.map((row, idx) => {
                 const serialNo = startRecord + idx;
 
                 return (
@@ -213,12 +291,15 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                     key={row.id || idx}
                     className="hover:bg-blue-50/40 transition-colors"
                   >
-                    <td className="p-2.5 text-center text-gray-500 font-semibold border border-gray-200">
+                    <td className="px-2 py-1.5 text-center text-gray-500 font-semibold border border-gray-200 truncate">
                       {serialNo}
                     </td>
 
                     {columns.map((col) => (
-                      <td key={col.key} className="p-2.5 text-gray-800 border border-gray-200">
+                      <td
+                        key={col.key}
+                        className={`px-2 py-1.5 text-gray-800 border border-gray-200 truncate ${col.className || ""}`}
+                      >
                         {col.render ? col.render(row, idx) : row[col.key] || "N/A"}
                       </td>
                     ))}
@@ -230,32 +311,31 @@ export const ReportTable: React.FC<ReportTableProps> = ({
         </table>
       </div>
 
-      {/* Sticky Bottom Pagination Bar */}
-      <div className="sticky bottom-0 z-20 shrink-0 p-3 bg-gray-50 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600 shadow-inner">
-        <div>
-          Showing {pagination.totalRecords > 0 ? startRecord : 0}-{endRecord} of{" "}
-          <span className="font-bold text-gray-900">{pagination.totalRecords}</span> entries
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <span>Show</span>
+      {/* Fixed Sticky Bottom Pagination Footer */}
+      <div className="sticky bottom-0 z-20 shrink-0 px-2 sm:px-3 py-1.5 border-t border-gray-200 bg-white">
+        <div className="hidden sm:flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-gray-600 font-medium">
+            <span>Rows per page:</span>
             <select
-              value={pagination.limit}
-              onChange={(e) => onLimitChange(parseInt(e.target.value, 10))}
-              className="bg-white border border-gray-300 rounded text-xs p-1 shadow-2xs focus:ring-indigo-500"
+              value={limit}
+              onChange={(e) => handleLimitChange(parseInt(e.target.value, 10))}
+              className="px-2 py-1 border border-gray-300 rounded bg-white text-xs font-semibold focus:outline-none"
             >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
+              {[25, 50, 100, 200, 500].map((num) => (
+                <option key={num} value={num}>
+                  {num}
+                </option>
+              ))}
             </select>
-            <span>entries</span>
+            <span className="ml-2 text-gray-500">
+              Showing {totalRecords > 0 ? startRecord : 0}-{endRecord} of {totalRecords} records
+            </span>
           </div>
 
           <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            onPageChange={onPageChange}
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
           />
         </div>
       </div>

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import {
   Crown, Users, Building2, TrendingUp, DollarSign, Eye, LayoutDashboard,
-  Settings, UserCheck, ShieldAlert, Sparkles
+  Settings, UserCheck, ShieldAlert, Sparkles, Building, Key, Calendar,
+  ArrowUpRight, ArrowRight, CheckCircle2, Clock, MapPin, Zap, Activity, Award
 } from 'lucide-react';
 import SharedDashboardTabs, { RecentItem } from './SharedDashboardTabs';
 import PresalesExecutiveDashboard from './PresalesExecutiveDashboard';
 import SalesExecutiveDashboard from './SalesExecutiveDashboard';
 import ManagerDashboard from './ManagerDashboard';
+import DashboardAnalyticsGrid from './DashboardAnalyticsGrid';
 import { User } from '@/contexts/AuthContext';
-
-const NAVY = '#0c3854';
-const ORANGE = '#e87722';
+import { Link } from 'react-router-dom';
 
 interface AdminDashboardProps {
   user: User | null;
@@ -18,10 +18,55 @@ interface AdminDashboardProps {
   allProperties: RecentItem[];
   buyersList: any[];
   sellersList: any[];
+  ownersList?: any[];
+  tenantsList?: any[];
+  visitsList?: any[];
   allUsers?: any[];
   stats: any;
   onRefreshData?: () => void;
 }
+
+const getPropertyTitle = (p: any): string => {
+  if (!p) return 'Property Listing';
+  const directTitle = p.title || p.property_title || p.name || p.property_name || p.unit_name || p.listing_title;
+  if (directTitle && String(directTitle).trim() !== 'Property' && String(directTitle).trim() !== 'Untitled Property') {
+    return String(directTitle);
+  }
+  const unit = p.unitType || p.unit_type || p.bhk ? `${p.unitType || p.unit_type || p.bhk}${typeof (p.unitType || p.unit_type || p.bhk) === 'number' ? ' BHK' : ''}` : '';
+  const subtype = p.subtype || p.propertyType || p.property_type || p.listing_type || p.type || '';
+  const unitAndSubtype = [unit, subtype].filter(Boolean).join(' ');
+
+  const society = p.society || p.society_name || p.societyName || p.building_name || p.project_name || p.locality || p.area || '';
+  const titleCandidate = [unitAndSubtype, society].filter(Boolean).join(' • ');
+
+  if (titleCandidate) return titleCandidate;
+  const loc = p.location || p.city || p.locality;
+  if (loc) return `Property in ${loc}`;
+  return `Property #${p.id || 'Listing'}`;
+};
+
+const getPropertyLocation = (p: any): string => {
+  if (!p) return 'Location N/A';
+  const parts = [p.location, p.locality, p.area, p.city].filter(Boolean);
+  const uniqueParts = Array.from(new Set(parts));
+  return uniqueParts.length > 0 ? uniqueParts.join(', ') : 'Location N/A';
+};
+
+const getPropertyPrice = (p: any): string => {
+  if (!p) return 'Price on Request';
+  const rawPrice = p.budget ?? p.price ?? p.expected_price ?? p.selling_price ?? p.price_demand ?? p.negotiablePrice;
+  if (rawPrice !== undefined && rawPrice !== null && rawPrice !== '' && !isNaN(Number(rawPrice))) {
+    const num = Number(rawPrice);
+    if (num <= 0) return 'Price on Request';
+    if (num >= 10000000) return `₹ ${(num / 10000000).toFixed(2)} Cr`;
+    if (num >= 100000) return `₹ ${(num / 100000).toFixed(2)} Lakh`;
+    return `₹ ${num.toLocaleString('en-IN')}`;
+  }
+  if (typeof rawPrice === 'string' && rawPrice.trim()) {
+    return rawPrice.startsWith('₹') ? rawPrice : `₹ ${rawPrice}`;
+  }
+  return 'Price on Request';
+};
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   user,
@@ -29,146 +74,228 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   allProperties,
   buyersList,
   sellersList,
+  ownersList = [],
+  tenantsList = [],
+  visitsList = [],
   allUsers = [],
   stats,
   onRefreshData,
 }) => {
-  const [selectedRoleView, setSelectedRoleView] = useState<'admin' | 'presales' | 'sales' | 'manager'>('admin');
-
-  if (selectedRoleView === 'presales') {
-    return (
-      <div className="space-y-4">
-        <RoleViewHeader selectedRoleView={selectedRoleView} setSelectedRoleView={setSelectedRoleView} />
-        <PresalesExecutiveDashboard
-          user={user}
-          allLeads={allLeads}
-          allProperties={allProperties}
-          buyersList={buyersList}
-          sellersList={sellersList}
-          allUsers={allUsers}
-          stats={stats}
-          onRefreshData={onRefreshData}
-        />
-      </div>
-    );
-  }
-
-  if (selectedRoleView === 'sales') {
-    return (
-      <div className="space-y-4">
-        <RoleViewHeader selectedRoleView={selectedRoleView} setSelectedRoleView={setSelectedRoleView} />
-        <SalesExecutiveDashboard
-          user={user}
-          allLeads={allLeads}
-          allProperties={allProperties}
-          buyersList={buyersList}
-          sellersList={sellersList}
-          allUsers={allUsers}
-          stats={stats}
-          onRefreshData={onRefreshData}
-        />
-      </div>
-    );
-  }
-
-  if (selectedRoleView === 'manager') {
-    return (
-      <div className="space-y-4">
-        <RoleViewHeader selectedRoleView={selectedRoleView} setSelectedRoleView={setSelectedRoleView} />
-        <ManagerDashboard
-          user={user}
-          allLeads={allLeads}
-          allProperties={allProperties}
-          buyersList={buyersList}
-          sellersList={sellersList}
-          allUsers={allUsers}
-          stats={stats}
-          onRefreshData={onRefreshData}
-        />
-      </div>
-    );
-  }
+  const freshLeadsToday = stats.leads?.today_leads || 0;
+  const availableProperties = stats.properties?.available_properties || allProperties.length;
 
   return (
-    <div className="space-y-6">
-      {/* ── Admin Header Banner with Role Switcher ───────────────────────── */}
-      <div className="bg-gradient-to-r from-[#0c3854] via-[#104b70] to-[#0c3854] rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold mb-2 border border-amber-500/30">
-              <Crown className="w-3.5 h-3.5" /> Super Admin Control Hub
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold">
-              System Admin Overview
-            </h2>
-            <p className="text-xs sm:text-sm text-blue-100 mt-1 max-w-xl">
-              Full administrative visibility across all leads, sellers, buyers, properties, and role workflows.
-            </p>
+    <div className="space-y-3.5">
+      {/* ── Compact Stats Cards with Right Icons & Pastel Backgrounds (7-Columns) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {/* Total Leads */}
+        <div className="bg-blue-50/70 border border-blue-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Total Leads</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{stats.leads?.total_leads || allLeads.length}</h3>
+            <p className="text-[10px] font-bold text-blue-600 truncate mt-0.5">+{freshLeadsToday} Today</p>
           </div>
+          <div className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Users className="w-4 h-4" />
+          </div>
+        </div>
 
-          {/* Role View Switcher Dropdown */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 flex flex-col gap-1 min-w-[220px]">
-            <label className="text-[10px] uppercase font-bold text-amber-300 tracking-wider flex items-center gap-1">
-              <Eye className="w-3 h-3" /> Dashboard View Switcher
-            </label>
-            <select
-              value={selectedRoleView}
-              onChange={(e) => setSelectedRoleView(e.target.value as any)}
-              className="bg-slate-900 text-white font-semibold text-xs rounded-lg px-3 py-2 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer"
-            >
-              <option value="admin">👑 Admin View (System-wide)</option>
-              <option value="presales">📞 Presales Executive View</option>
-              <option value="sales">💼 Sales Executive View</option>
-              <option value="manager">📊 Manager View</option>
-            </select>
+        {/* Buyers */}
+        <div className="bg-sky-50/70 border border-sky-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Buyers</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{buyersList.length}</h3>
+            <p className="text-[10px] font-bold text-sky-600 truncate mt-0.5">Seekers</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-sky-100/80 text-sky-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <UserCheck className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Sellers */}
+        <div className="bg-amber-50/70 border border-amber-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Sellers</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{sellersList.length}</h3>
+            <p className="text-[10px] font-bold text-amber-600 truncate mt-0.5">Listings</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Award className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Owners */}
+        <div className="bg-emerald-50/70 border border-emerald-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Owners</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{ownersList.length}</h3>
+            <p className="text-[10px] font-bold text-emerald-600 truncate mt-0.5">Landlords</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Building className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Tenants */}
+        <div className="bg-purple-50/70 border border-purple-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Tenants</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{tenantsList.length}</h3>
+            <p className="text-[10px] font-bold text-purple-600 truncate mt-0.5">Applicants</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-purple-100/80 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Key className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Properties */}
+        <div className="bg-indigo-50/70 border border-indigo-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Properties</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{allProperties.length}</h3>
+            <p className="text-[10px] font-bold text-indigo-600 truncate mt-0.5">{availableProperties} Active</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-indigo-100/80 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Building2 className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Site Visits */}
+        <div className="bg-pink-50/70 border border-pink-100/90 rounded-2xl p-3 shadow-xs hover:shadow-sm transition-all flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1 pr-1.5">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">Site Visits</p>
+            <h3 className="text-xl font-black text-slate-900 leading-tight mt-0.5">{visitsList.length}</h3>
+            <p className="text-[10px] font-bold text-pink-600 truncate mt-0.5">Scheduled</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl bg-pink-100/80 text-pink-600 flex items-center justify-center shrink-0 shadow-2xs">
+            <Calendar className="w-4 h-4" />
           </div>
         </div>
       </div>
 
-      {/* ── Admin System KPI Cards ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5" />
+      {/* ── Interactive Analytics & Charts Grid ───────────────────────── */}
+      <DashboardAnalyticsGrid
+        user={user}
+        allLeads={allLeads}
+        allProperties={allProperties}
+        buyersList={buyersList}
+        sellersList={sellersList}
+        visitsList={visitsList}
+      />
+
+      {/* ── High-Density 3-Column Live Showcase Hub ─────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {/* Column 1: Recent System Leads */}
+        <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Recent Leads
+            </h3>
+            <Link to="/dashboard/leads" className="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5">
+              View All <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Total System Leads</p>
-            <h3 className="text-xl font-bold text-slate-900">{stats.leads?.total_leads || allLeads.length}</h3>
-            <p className="text-[11px] text-blue-600 font-medium mt-0.5">+{stats.leads?.today_leads || 0} today</p>
+          <div className="space-y-1.5">
+            {allLeads.slice(0, 5).map((lead, idx) => {
+              const name = `${lead.first_name || lead.name || 'Lead'} ${lead.last_name || ''}`.trim();
+              const initial = name[0]?.toUpperCase() || 'L';
+              return (
+                <div key={lead.id || idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 transition-colors border border-slate-200/60">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-black text-[11px] flex items-center justify-center shrink-0">
+                      {initial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-900 truncate">{name}</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-blue-100 text-blue-800 shrink-0">
+                          {lead.status || 'New'}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-slate-500 truncate">
+                        {lead.phone || 'No phone'} {lead.source ? `• ${lead.source}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Link to={`/dashboard/leads/${lead.id}`} className="p-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 shadow-2xs shrink-0">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              );
+            })}
+            {allLeads.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No recent leads available.</p>}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5" />
+        {/* Column 2: Recent Property Listings */}
+        <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-indigo-600" /> Property Inventory
+            </h3>
+            <Link to="/dashboard/properties" className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5">
+              View Inventory <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Total Properties</p>
-            <h3 className="text-xl font-bold text-slate-900">{stats.properties?.total_properties || allProperties.length}</h3>
-            <p className="text-[11px] text-indigo-600 font-medium mt-0.5">{stats.properties?.available_properties || 0} Available</p>
+          <div className="space-y-1.5">
+            {allProperties.slice(0, 5).map((prop, idx) => {
+              const title = getPropertyTitle(prop);
+              const location = getPropertyLocation(prop);
+              const price = getPropertyPrice(prop);
+              return (
+                <div key={prop.id || idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 transition-colors border border-slate-200/60">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-slate-900 truncate">{title}</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                        {prop.status || 'Available'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10.5px] text-slate-500 mt-0.5 truncate">
+                      <span className="flex items-center gap-0.5 truncate"><MapPin className="w-3 h-3 text-slate-400 shrink-0" /> {location}</span>
+                      <span className="font-extrabold text-slate-900 shrink-0">{price}</span>
+                    </div>
+                  </div>
+                  <Link to={`/dashboard/properties/${prop.id}`} className="p-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 shadow-2xs shrink-0">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              );
+            })}
+            {allProperties.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No recent properties available.</p>}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <UserCheck className="w-5 h-5" />
+        {/* Column 3: Site Visits & Appointments Schedule */}
+        <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs space-y-2.5 md:col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-pink-600" /> Visits Schedule
+            </h3>
+            <Link to="/dashboard/property-visits" className="text-[11px] text-pink-600 hover:text-pink-800 font-bold flex items-center gap-0.5">
+              View Visits <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Sellers & Buyers</p>
-            <h3 className="text-xl font-bold text-slate-900">{sellersList.length + buyersList.length}</h3>
-            <p className="text-[11px] text-emerald-600 font-medium mt-0.5">{sellersList.length} Sellers • {buyersList.length} Buyers</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Completed Conversions</p>
-            <h3 className="text-xl font-bold text-slate-900">{stats.leads?.converted_leads || 0}</h3>
-            <p className="text-[11px] text-orange-600 font-medium mt-0.5">Successful Deals</p>
+          <div className="space-y-1.5">
+            {visitsList.slice(0, 5).map((visit, idx) => (
+              <div key={visit.id || idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 transition-colors border border-slate-200/60">
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900 truncate">{visit.buyer_name || visit.client_name || 'Client'}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-pink-100 text-pink-800 shrink-0">
+                      {visit.status || 'Scheduled'}
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] text-slate-500 truncate">
+                    {visit.property_title || visit.title || 'Property Visit'} {visit.visit_date ? `• ${visit.visit_date}` : ''}
+                  </p>
+                </div>
+                <Link to="/dashboard/property-visits" className="p-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-pink-600 shadow-2xs shrink-0">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            ))}
+            {visitsList.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No scheduled visits available.</p>}
           </div>
         </div>
       </div>
@@ -180,6 +307,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         allProperties={allProperties}
         buyersList={buyersList}
         sellersList={sellersList}
+        ownersList={ownersList}
+        tenantsList={tenantsList}
+        visitsList={visitsList}
         allUsers={allUsers}
         stats={stats}
         onRefreshData={onRefreshData}
@@ -187,24 +317,5 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     </div>
   );
 };
-
-// Auxiliary View Switcher bar when viewing subordinate views as Admin
-const RoleViewHeader: React.FC<{
-  selectedRoleView: string;
-  setSelectedRoleView: (val: any) => void;
-}> = ({ selectedRoleView, setSelectedRoleView }) => (
-  <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm border border-slate-800">
-    <div className="flex items-center gap-2 text-xs font-semibold">
-      <Crown className="w-4 h-4 text-amber-400" />
-      <span>Previewing Dashboard as: <span className="text-orange-400 capitalize">{selectedRoleView}</span></span>
-    </div>
-    <button
-      onClick={() => setSelectedRoleView('admin')}
-      className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg transition-colors border border-white/20 cursor-pointer"
-    >
-      ← Back to Admin View
-    </button>
-  </div>
-);
 
 export default AdminDashboard;

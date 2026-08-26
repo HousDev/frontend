@@ -14,6 +14,9 @@ import { leadsAPI } from '@/lib/leadAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { buyerAPI } from '@/lib/buyerAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
+import { ownerAPI } from '@/lib/ownerAPI';
+import { tenantAPI } from '@/lib/tenantAPI';
+import { visitsAPI } from '@/lib/visitsAPI';
 import { usersAPI } from '@/lib/api';
 import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -138,6 +141,9 @@ const DashboardPage: React.FC = () => {
   const [allProperties, setAllProperties] = useState<RecentItem[]>([]);
   const [buyersList, setBuyersList] = useState<any[]>([]);
   const [sellersList, setSellersList] = useState<any[]>([]);
+  const [ownersList, setOwnersList] = useState<any[]>([]);
+  const [tenantsList, setTenantsList] = useState<any[]>([]);
+  const [visitsList, setVisitsList] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -187,49 +193,71 @@ const DashboardPage: React.FC = () => {
     return () => clearInterval(messageTimer);
   }, [user, userRole]);
 
+  const extractArray = (res: any): any[] => {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res.rows)) return res.rows;
+    if (Array.isArray(res.items)) return res.items;
+    if (Array.isArray(res.visits)) return res.visits;
+    if (Array.isArray(res.buyers)) return res.buyers;
+    if (Array.isArray(res.sellers)) return res.sellers;
+    if (Array.isArray(res.owners)) return res.owners;
+    if (Array.isArray(res.tenants)) return res.tenants;
+    if (Array.isArray(res.properties)) return res.properties;
+    if (Array.isArray(res.leads)) return res.leads;
+    if (Array.isArray(res.data?.data)) return res.data.data;
+    if (Array.isArray(res.data?.rows)) return res.data.rows;
+    return [];
+  };
+
   const fetchData = async () => {
     setLoading(true);
-    let leadsList: any[] | null = null, propsList: any[] | null = null;
-    let buyersData: any[] | null = null, sellersData: any[] | null = null;
-    let usersData: any[] | null = null;
+    let leadsList: any[] = [];
+    let propsList: any[] = [];
+    let buyersData: any[] = [];
+    let sellersData: any[] = [];
+    let ownersData: any[] = [];
+    let tenantsData: any[] = [];
+    let visitsData: any[] = [];
+    let usersData: any[] = [];
 
     try {
-      const [leadsResp, propsResp, buyersResp, sellersResp, usersResp] = await Promise.all([
-        leadsAPI.getLeads({ limit: 100 }).catch(() => null),
-        propertiesAPI.getProperties({ limit: 100 }).catch(() => null),
-        buyerAPI.getAll().catch(() => null),
-        sellerAPI.getAll().catch(() => null),
-        usersAPI.getAllUsers().catch(() => null),
+      const [leadsResp, propsResp, buyersResp, sellersResp, ownersResp, tenantsResp, visitsResp, usersResp] = await Promise.all([
+        leadsAPI.getLeads().catch(err => { console.error("leadsAPI fetch failed:", err); return null; }),
+        propertiesAPI.getProperties().catch(err => { console.error("propertiesAPI fetch failed:", err); return null; }),
+        buyerAPI.getAll().catch(err => { console.error("buyerAPI fetch failed:", err); return null; }),
+        sellerAPI.getAll().catch(err => { console.error("sellerAPI fetch failed:", err); return null; }),
+        ownerAPI.getAll().catch(err => { console.error("ownerAPI fetch failed:", err); return null; }),
+        tenantAPI.getAll().catch(err => { console.error("tenantAPI fetch failed:", err); return null; }),
+        visitsAPI.getAllVisits().catch(err => { console.error("visitsAPI fetch failed:", err); return null; }),
+        usersAPI.getAllUsers().catch(err => { console.error("usersAPI fetch failed:", err); return null; }),
       ]);
 
-      if (leadsResp) { const d = leadsResp.data ?? leadsResp; if (Array.isArray(d)) leadsList = d; else if (Array.isArray(d?.rows)) leadsList = d.rows; else if (Array.isArray(d?.data)) leadsList = d.data; }
-      if (propsResp) { const d = propsResp.data ?? propsResp; if (Array.isArray(d)) propsList = d; else if (Array.isArray(d?.rows)) propsList = d.rows; else if (Array.isArray(d?.data)) propsList = d.data; }
-
-      if (buyersResp) {
-        const d = buyersResp.success && Array.isArray(buyersResp.data) ? buyersResp.data : (Array.isArray(buyersResp) ? buyersResp : []);
-        buyersData = d;
-      }
-      if (sellersResp) {
-        sellersData = Array.isArray(sellersResp) ? sellersResp : (Array.isArray(sellersResp?.data) ? sellersResp.data : []);
-      }
-      if (usersResp) {
-        usersData = Array.isArray(usersResp) ? usersResp : (Array.isArray(usersResp?.data) ? usersResp.data : []);
-      }
+      leadsList = extractArray(leadsResp);
+      propsList = extractArray(propsResp);
+      buyersData = extractArray(buyersResp);
+      sellersData = extractArray(sellersResp);
+      ownersData = extractArray(ownersResp);
+      tenantsData = extractArray(tenantsResp);
+      visitsData = extractArray(visitsResp);
+      usersData = extractArray(usersResp);
     } catch (err) {
       console.error("Error fetching dashboard datasets:", err);
     }
 
-    if (Array.isArray(leadsList)) {
-      const sorted = sortDescBy(leadsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']);
-      setAllLeads(sorted);
-    }
-    if (Array.isArray(propsList)) {
-      const sorted = sortDescBy(propsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']);
-      setAllProperties(sorted);
-    }
-    if (Array.isArray(buyersData)) setBuyersList(buyersData);
-    if (Array.isArray(sellersData)) setSellersList(sellersData);
-    if (Array.isArray(usersData)) setAllUsers(usersData);
+    if (leadsList.length) setAllLeads(sortDescBy(leadsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']));
+    else setAllLeads([]);
+
+    if (propsList.length) setAllProperties(sortDescBy(propsList, ['updated_at', 'created_at', 'updatedAt', 'createdAt']));
+    else setAllProperties([]);
+
+    setBuyersList(buyersData);
+    setSellersList(sellersData);
+    setOwnersList(ownersData);
+    setTenantsList(tenantsData);
+    setVisitsList(visitsData);
+    setAllUsers(usersData);
 
     const nextStats: DashboardStats = JSON.parse(JSON.stringify(emptyStats));
     if (Array.isArray(leadsList)) {
@@ -272,11 +300,10 @@ const DashboardPage: React.FC = () => {
 
   // Render role-specific dashboard component
   const renderRoleDashboard = () => {
-    const role = (user?.role || '').toLowerCase();
-    const dept = (user?.department || '').toLowerCase();
+    const userRole = user?.role?.toLowerCase() || '';
 
     // 1. Presales Executive
-    if (dept.includes('presales') && role.includes('executive')) {
+    if (userRole === 'presales' || userRole === 'presales_executive' || userRole === 'telecaller') {
       return (
         <PresalesExecutiveDashboard
           user={user}
@@ -284,6 +311,9 @@ const DashboardPage: React.FC = () => {
           allProperties={allProperties}
           buyersList={buyersList}
           sellersList={sellersList}
+          ownersList={ownersList}
+          tenantsList={tenantsList}
+          visitsList={visitsList}
           allUsers={allUsers}
           stats={stats}
           onRefreshData={fetchData}
@@ -292,7 +322,7 @@ const DashboardPage: React.FC = () => {
     }
 
     // 2. Sales Executive
-    if (dept.includes('sales') && role.includes('executive')) {
+    if (userRole === 'sales' || userRole === 'sales_executive' || userRole === 'field_executive' || userRole === 'agent') {
       return (
         <SalesExecutiveDashboard
           user={user}
@@ -300,6 +330,9 @@ const DashboardPage: React.FC = () => {
           allProperties={allProperties}
           buyersList={buyersList}
           sellersList={sellersList}
+          ownersList={ownersList}
+          tenantsList={tenantsList}
+          visitsList={visitsList}
           allUsers={allUsers}
           stats={stats}
           onRefreshData={fetchData}
@@ -308,7 +341,7 @@ const DashboardPage: React.FC = () => {
     }
 
     // 3. Manager
-    if (role.includes('manager') || dept.includes('manager')) {
+    if (userRole === 'manager' || userRole === 'team_lead' || userRole === 'sales_manager') {
       return (
         <ManagerDashboard
           user={user}
@@ -316,6 +349,9 @@ const DashboardPage: React.FC = () => {
           allProperties={allProperties}
           buyersList={buyersList}
           sellersList={sellersList}
+          ownersList={ownersList}
+          tenantsList={tenantsList}
+          visitsList={visitsList}
           allUsers={allUsers}
           stats={stats}
           onRefreshData={fetchData}
@@ -331,6 +367,9 @@ const DashboardPage: React.FC = () => {
         allProperties={allProperties}
         buyersList={buyersList}
         sellersList={sellersList}
+        ownersList={ownersList}
+        tenantsList={tenantsList}
+        visitsList={visitsList}
         allUsers={allUsers}
         stats={stats}
         onRefreshData={fetchData}
@@ -339,230 +378,10 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen" style={{ background: NAVY_LIGHT }}>
-      {/* ── Main Layout Wrapper ────────────────────────────────────────── */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarVisible ? 'lg:mr-80' : ''}`}>
-        <div className="space-y-5 p-4 sm:p-6 pb-24">
-
-          {/* ── Top Header ───────────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: NAVY }}>
-                {getGreeting()},{' '}
-                <span style={{ color: ORANGE }}>{user?.first_name ?? 'User'}</span>!
-              </h1>
-              <p className="text-sm mt-0.5" style={{ color: '#7a95a8' }}>
-                Here's what's happening today.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSidebarVisible(!sidebarVisible)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border"
-                style={{ background: sidebarVisible ? NAVY : 'white', color: sidebarVisible ? 'white' : NAVY, borderColor: '#dce5ee' }}
-              >
-                {sidebarVisible ? <X className="h-4 w-4" /> : <Sparkles className="h-4 w-4" style={{ color: ORANGE }} />}
-                <span className="hidden sm:inline">{sidebarVisible ? 'Close Hub' : 'Motivation Hub'}</span>
-              </button>
-              <Link to="/dashboard/leads">
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-                  style={{ background: ORANGE }}>
-                  <Plus className="h-4 w-4" />
-                  <span>Add Lead</span>
-                </button>
-              </Link>
-            </div>
-          </div>
-
-          {/* ── Motivational Banner ───────────────────────────────────────── */}
-          <div className="rounded-xl p-4 sm:p-5 border-l-4 flex flex-wrap items-center gap-4 shadow-sm"
-            style={{ background: 'white', borderLeftColor: ORANGE, borderTop: `1px solid #dce5ee`, borderRight: `1px solid #dce5ee`, borderBottom: `1px solid #dce5ee` }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${ORANGE}20` }}>
-              <span style={{ color: ORANGE }}>{currentMessage.icon}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm sm:text-base font-medium" style={{ color: NAVY }}>
-                Dear{' '}
-                <span className="font-bold" style={{ color: ORANGE }}>{user?.first_name || 'Team Member'}</span>,{' '}
-                {currentMessage.text}
-              </p>
-            </div>
-            <div className="hidden md:flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map(star => (
-                <Star key={star} className="h-4 w-4"
-                  style={{ fill: star <= 4 ? ORANGE : 'none', color: star <= 4 ? ORANGE : '#d1d5db' }} />
-              ))}
-            </div>
-          </div>
-
-          {/* ── Dynamic Role-Specific Dashboard ────────────────────────────── */}
-          {renderRoleDashboard()}
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="p-2.5 sm:p-3.5 pb-16">
+        {renderRoleDashboard()}
       </div>
-
-      {/* ── Motivation Hub Sidebar ──────────────────────────────────────────── */}
-      {sidebarVisible && (
-        <div className="fixed right-0 top-0 h-screen w-full sm:w-80 z-40 shadow-2xl overflow-y-auto border-l"
-          style={{ background: 'white', borderColor: '#dce5ee' }}>
-          <div className="p-5 space-y-5">
-            {/* Header */}
-            <div className="flex items-center justify-between pt-14 sm:pt-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: NAVY }}>
-                  <Sparkles className="h-4 w-4" style={{ color: ORANGE }} />
-                </div>
-                <div>
-                  <h2 className="font-bold text-sm" style={{ color: NAVY }}>Motivation Hub</h2>
-                  <p className="text-xs" style={{ color: '#7a95a8' }}>For {user?.first_name || 'Team Member'}</p>
-                </div>
-              </div>
-              <button onClick={() => setSidebarVisible(false)} className="p-2 rounded-lg hover:bg-[#f0f4f8] transition-colors">
-                <X className="h-4 w-4" style={{ color: '#7a95a8' }} />
-              </button>
-            </div>
-
-            {/* Energy Level */}
-            <div className="rounded-xl p-4 border" style={{ background: NAVY_LIGHT, borderColor: '#dce5ee' }}>
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4" style={{ color: ORANGE }} />
-                  <span className="text-xs font-semibold" style={{ color: NAVY }}>Team Energy</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: NAVY }}>{energyLevel}%</span>
-              </div>
-              <div className="w-full rounded-full h-2" style={{ background: '#dce5ee' }}>
-                <div className="h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${energyLevel}%`, background: energyLevel > 70 ? '#16a34a' : energyLevel > 40 ? ORANGE : '#dc2626' }} />
-              </div>
-              <div className="flex justify-between text-xs mt-1.5" style={{ color: '#7a95a8' }}>
-                <span>Low</span><span>High</span>
-              </div>
-            </div>
-
-            {/* Daily Progress */}
-            <div className="rounded-xl p-4 border" style={{ borderColor: '#dce5ee' }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7a95a8' }}>Daily Goal</span>
-                <Target className="h-4 w-4" style={{ color: ORANGE }} />
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium" style={{ color: NAVY }}>Calls Made</span>
-                <span className="text-sm font-bold" style={{ color: NAVY }}>{dailyGoal.completed}/{dailyGoal.target}</span>
-              </div>
-              <div className="w-full rounded-full h-2 mb-3" style={{ background: '#dce5ee' }}>
-                <div className="h-2 rounded-full" style={{ width: `${(dailyGoal.completed / dailyGoal.target) * 100}%`, background: NAVY }} />
-              </div>
-              <button className="w-full py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-                style={{ background: NAVY }}>Update Progress</button>
-            </div>
-
-            {/* Benefits */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7a95a8' }}>Your Benefits</span>
-                <Gift className="h-4 w-4" style={{ color: ORANGE }} />
-              </div>
-              <div className="space-y-2">
-                {EMPLOYEE_BENEFITS.filter(b => b.forRoles.includes('all') || b.forRoles.includes(userRole)).slice(0, 3).map(benefit => (
-                  <div key={benefit.id} className="flex items-start gap-3 p-3 rounded-xl border hover:border-orange-200 transition-colors"
-                    style={{ borderColor: '#dce5ee' }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${ORANGE}15` }}>
-                      <span style={{ color: ORANGE }}>{benefit.icon}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium" style={{ color: NAVY }}>{benefit.title}</p>
-                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: '#7a95a8' }}>{benefit.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Notifications */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7a95a8' }}>Notifications</span>
-                <Bell className="h-4 w-4" style={{ color: ORANGE }} />
-              </div>
-              <div className="space-y-2 max-h-52 overflow-y-auto">
-                {notifications.slice(0, 5).map(notification => (
-                  <div key={notification.id}
-                    className="p-3 rounded-xl border cursor-pointer transition-colors"
-                    style={{ background: notification.read ? '#f8fafc' : `${NAVY}08`, borderColor: notification.read ? '#dce5ee' : `${NAVY}25` }}
-                    onClick={() => markNotificationAsRead(notification.id)}>
-                    <div className="flex items-start gap-2">
-                      {notification.type === 'motivation' && <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: ORANGE }} />}
-                      {notification.type === 'reminder' && <Bell className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: ORANGE }} />}
-                      {notification.type === 'achievement' && <Trophy className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: '#16a34a' }} />}
-                      {notification.type === 'team' && <Users className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: NAVY }} />}
-                      <div>
-                        <p className="text-xs" style={{ color: NAVY }}>{notification.message}</p>
-                        <p className="text-xs mt-0.5" style={{ color: '#7a95a8' }}>{notification.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {notifications.length === 0 && <p className="text-xs text-center py-4" style={{ color: '#7a95a8' }}>No notifications</p>}
-              </div>
-            </div>
-
-            {/* Manager Actions */}
-            {userRole === 'manager' && (
-              <div className="rounded-xl p-4 border" style={{ background: NAVY_LIGHT, borderColor: '#dce5ee' }}>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#7a95a8' }}>Manager Actions</p>
-                <div className="space-y-2">
-                  <button onClick={sendMotivationToTeam}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-                    style={{ background: NAVY }}>
-                    <MessageSquare className="h-4 w-4" /><span>Send Team Motivation</span>
-                  </button>
-                  <button className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold border transition-all hover:opacity-90"
-                    style={{ borderColor: ORANGE, color: ORANGE, background: 'white' }}>
-                    <Award className="h-4 w-4" /><span>Recognize Achiever</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Today's Quick Stats */}
-            <div className="rounded-xl p-4 border" style={{ borderColor: '#dce5ee' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#7a95a8' }}>Today's Stats</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: stats.leads.today_leads, label: 'New Leads', color: NAVY },
-                  { value: stats.properties.today_listings, label: 'Listings', color: '#16a34a' },
-                  { value: stats.leads.converted_leads, label: 'Converted', color: '#7c3aed' },
-                  { value: `${energyLevel}%`, label: 'Energy', color: ORANGE },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg p-3 text-center" style={{ background: `${item.color}10` }}>
-                    <div className="text-xl font-bold" style={{ color: item.color }}>{item.value}</div>
-                    <div className="text-xs mt-0.5" style={{ color: '#7a95a8' }}>{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between text-xs pb-2" style={{ color: '#7a95a8' }}>
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" style={{ color: ORANGE }} />
-                <span>Stay Motivated!</span>
-              </div>
-              <span>Next: ~15 min</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Floating toggle when sidebar is hidden ───────────────────────────── */}
-      {!sidebarVisible && (
-        <button onClick={() => setSidebarVisible(true)}
-          className="fixed right-4 bottom-6 lg:right-6 z-50 w-12 h-12 rounded-full flex items-center justify-center text-white shadow-xl hover:shadow-2xl transition-all hover:scale-105"
-          style={{ background: NAVY }}>
-          <Sparkles className="h-5 w-5" style={{ color: ORANGE }} />
-        </button>
-      )}
     </div>
   );
 };
