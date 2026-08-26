@@ -15,6 +15,7 @@ import BuyerListModal from '../../components/properties/BuyerListModal';
 import ImportPropertiesModal from '../../components/properties/ImportPropertiesModal';
 import { propertiesAPI } from '../../lib/propertiesAPI';
 import { sellerAPI } from '@/lib/sellersAPI';
+import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import PropertyFormModal from './components/PropertyFormModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -1261,6 +1262,137 @@ const PropertiesPage = () => {
     setFilters(initialFilters);
   };
   const [properties, setProperties] = useState<UIProperty[]>([]);
+  const [allBuyers, setAllBuyers] = useState<any[]>([]);
+
+  const getBuyerMatchCount = (property: any) => {
+    if (!allBuyers || allBuyers.length === 0) return 0;
+
+    const propLat = parseFloat(property.latitude);
+    const propLng = parseFloat(property.longitude);
+    const propPrice = Number(property.budget) || Number(property.finalPrice) || Number(property.final_price) || Number(property.price) || Number(property.expected_price) || 0;
+    const propBHK = Number(property.bedrooms) || (property.title?.match(/(\d+)\s*bhk/i)?.[1] ? parseInt(property.title.match(/(\d+)\s*bhk/i)[1], 10) : 0);
+    const propUnitType = (property.unitType || property.property_type || property.property_type_name || property.title || '').toLowerCase().trim();
+    const propArea = parseFloat(property.carpetArea || property.carpet_area || property.builtupArea || property.area || 0);
+
+    const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    let matchCount = 0;
+    allBuyers.forEach((buyer: any) => {
+      let locationScore = 0;
+      let budgetScore = 0;
+      let bhkScore = 0;
+      let areaScore = 0;
+      let minDistance = 9999;
+
+      let buyerCoords = buyer.preferred_locations_coords;
+      if (typeof buyerCoords === 'string') {
+        try { buyerCoords = JSON.parse(buyerCoords); } catch { buyerCoords = []; }
+      }
+      if (!Array.isArray(buyerCoords)) buyerCoords = [];
+
+      // 1. Location match using Haversine Distance (35% weight)
+      if (buyerCoords.length === 0 || isNaN(propLat) || isNaN(propLng) || propLat === 0 || propLng === 0) {
+        locationScore = 15;
+      } else {
+        buyerCoords.forEach((c: any) => {
+          if (c.lat && c.lng) {
+            const dist = calculateHaversine(propLat, propLng, parseFloat(c.lat), parseFloat(c.lng));
+            if (dist < minDistance) minDistance = dist;
+          }
+        });
+
+        if (minDistance <= 2) locationScore = 35;
+        else if (minDistance <= 5) locationScore = 25;
+        else if (minDistance <= 10) locationScore = 15;
+        else locationScore = 5;
+      }
+
+      // 2. Budget match (30% weight with 20% tolerance threshold)
+      const tMin = parseFloat(buyer.budget_min || 0);
+      const tMax = parseFloat(buyer.budget_max || 0);
+
+      if (tMin === 0 && tMax === 0) {
+        budgetScore = 20;
+      } else if (propPrice > 0) {
+        if (tMin > 0 && tMax > 0) {
+          if (propPrice >= tMin && propPrice <= tMax) {
+            budgetScore = 30;
+          } else {
+            const diff = Math.min(Math.abs(propPrice - tMin), Math.abs(propPrice - tMax));
+            const tolerance = (tMax || tMin) * 0.2;
+            if (diff <= tolerance) {
+              budgetScore = Math.max(5, Math.round(30 * (1 - (diff / tolerance))));
+            } else {
+              budgetScore = 5;
+            }
+          }
+        } else if (tMax > 0 && propPrice <= tMax) {
+          budgetScore = 30;
+        } else if (tMin > 0 && propPrice >= tMin) {
+          budgetScore = 30;
+        }
+      }
+
+      // 3. BHK & Unit Type match (20% weight)
+      let reqs = buyer.requirements;
+      if (typeof reqs === 'string') {
+        try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
+      }
+      if (!reqs) reqs = {};
+
+      const preferredBhkStr = String(reqs.preferred_bhk || reqs.unitTypes || buyer.preferred_bhk || '').toLowerCase();
+      
+      if (!preferredBhkStr) {
+        bhkScore = 10;
+      } else {
+        let matched = false;
+        if (propBHK > 0 && (preferredBhkStr.includes(`${propBHK}bhk`) || preferredBhkStr.includes(`${propBHK} bhk`) || preferredBhkStr.includes(String(propBHK)))) {
+          matched = true;
+        }
+        if (propUnitType) {
+          if (propUnitType.includes('commercial') && preferredBhkStr.includes('commercial')) matched = true;
+          if (propUnitType.includes('flat') || propUnitType.includes('apartment') || propUnitType.includes('residential')) {
+            if (preferredBhkStr.includes('bhk') || preferredBhkStr.includes('apartment') || preferredBhkStr.includes('flat')) matched = true;
+          }
+        }
+
+        if (matched) bhkScore = 20;
+        else bhkScore = 5;
+      }
+
+      // 4. Area match (15% weight)
+      const minArea = parseFloat(reqs.minCarpetArea || reqs.minArea || 0);
+      const maxArea = parseFloat(reqs.maxCarpetArea || reqs.maxArea || 0);
+
+      if (minArea === 0 && maxArea === 0) {
+        areaScore = 10;
+      } else if (propArea > 0) {
+        if (propArea >= minArea && (maxArea === 0 || propArea <= maxArea)) {
+          areaScore = 15;
+        } else {
+          const diff = propArea < minArea ? (minArea - propArea) : (propArea - maxArea);
+          const boundary = propArea < minArea ? minArea : maxArea;
+          areaScore = Math.max(0, Math.round(15 * (1 - (diff / boundary))));
+        }
+      }
+
+      const totalScore = locationScore + budgetScore + bhkScore + areaScore;
+      if (totalScore >= 35) {
+        matchCount++;
+      }
+    });
+    return matchCount;
+  };
 
   // OPTIMIZED: Single API call without retry loop
   const fetchPropertiesOnce = async () => {
@@ -1310,10 +1442,14 @@ const PropertiesPage = () => {
     setIsOffline(false);
 
     try {
-      console.log('📞 Calling propertiesAPI.getProperties()...');
+      console.log('📞 Calling propertiesAPI.getProperties() & buyerAPI.getAll()...');
 
-      // Remove the problematic type check
-      const raw = await propertiesAPI.getProperties();
+      const [raw, buyersRes] = await Promise.all([
+        propertiesAPI.getProperties(),
+        buyerAPI.getAll().catch(() => [])
+      ]);
+      const buyersList = Array.isArray(buyersRes) ? buyersRes : (buyersRes?.data || []);
+      setAllBuyers(buyersList);
 
 
       const list = Array.isArray(raw) ? raw : raw?.data || [];
@@ -2565,21 +2701,31 @@ const PropertiesPage = () => {
             />
 
             <div className="flex flex-col lg:flex-row gap-3 items-stretch mt-2 sm:mt-3">
-              {/* Tab Switcher on the Left */}
-              <div className="flex flex-row lg:flex-col p-1 rounded-xl bg-gray-100 border border-gray-200 justify-between lg:justify-start gap-1 lg:w-44 flex-shrink-0">
+              {/* Tab Switcher — Sell | Rent side by side */}
+              <div className="flex flex-row p-1 rounded-xl bg-gray-100 border border-gray-200 gap-1 flex-shrink-0 self-start">
+                {/* SELL — active */}
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/properties')}
-                  className="flex-1 lg:flex-initial text-center lg:text-left px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center lg:justify-start gap-2 bg-white text-[#E6761D] shadow-sm font-bold"
+                  className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-bold transition-all shadow-sm bg-white"
+                  style={{ color: '#E6761D', boxShadow: '0 2px 8px rgba(230,118,29,0.15)' }}
                 >
-                  Sell Properties
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md" style={{ background: '#E6761D15' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E6761D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  </span>
+                  <span>Sell Properties</span>
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#E6761D20', color: '#E6761D' }}>{properties.length}</span>
                 </button>
+                {/* RENT — inactive */}
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/rental-properties')}
-                  className="flex-1 lg:flex-initial text-center lg:text-left px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center lg:justify-start gap-2 text-gray-500 hover:text-gray-800 hover:bg-white/50"
+                  className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-semibold transition-all text-gray-500 hover:text-gray-800 hover:bg-white/60"
                 >
-                  Rent Properties
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gray-200/60">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  </span>
+                  <span>Rent Properties</span>
                 </button>
               </div>
 
@@ -3277,9 +3423,7 @@ const PropertiesPage = () => {
                             <span
                               className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-green-800 text-white text-[8px] font-bold leading-none border-2 border-white shadow-sm"
                             >
-                              {property.interestedBuyers ||
-                                (property.matchedBuyers?.length ??
-                                  (Number(property.id) % 4 + 2))}
+                              {getBuyerMatchCount(property)}
                             </span>
                           </button>
 
@@ -3585,7 +3729,7 @@ const PropertiesPage = () => {
                                 <button onClick={() => handleBuyerMatching(p)} className="flex items-center gap-0.5 p-1 rounded hover:bg-orange-50 text-[#e67e22]" title="Match Buyers">
                                   <Users size={12} />
                                   <span className="text-[9px] font-bold">
-                                    {p.interestedBuyers || (p.matchedBuyers?.length ?? (Number(p.id) % 4 + 2))}
+                                    {getBuyerMatchCount(p)}
                                   </span>
                                 </button>
                                 {p.assignedTo && p.assignedTo.name ? (

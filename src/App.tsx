@@ -16,6 +16,8 @@ import DashboardLayout from '@/layouts/DashboardLayout';
 import HomePage from '@/pages/public/HomePage';
 import PublicPropertiesPage from '@/pages/public/PublicPropertiesPage';
 import PublicPropertyDetailPage from '@/pages/public/PublicPropertyDetailPage';
+import PublicRentalPropertiesPage from '@/pages/public/PublicRentalPropertiesPage';
+import PublicRentalPropertyDetailPage from '@/pages/public/PublicRentalPropertyDetailPage';
 import AboutPage from '@/pages/public/AboutPage';
 import ServicesPage from '@/pages/public/ServicesPage';
 
@@ -168,6 +170,8 @@ function App() {
 
                     <Route path="properties" element={<PublicPropertiesPage />} />
                     <Route path="properties/:slug" element={<PublicPropertyDetailPage />} />
+                    <Route path="rentals" element={<PublicRentalPropertiesPage />} />
+                    <Route path="rentals/:slug" element={<PublicRentalPropertyDetailPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path='blogs' element={<BlogsPage />} />
                     <Route path="/blogs/:slug" element={<BlogsPage />} />

@@ -5,8 +5,7 @@ import {
   Bed, Car, Wifi, Dumbbell, Shield, TreePine, Waves, CheckCircle,
   SlidersHorizontal, Bot, BarChart3, TrendingUp, ChevronDown, Target
 } from 'lucide-react';
-import PublicPropertyDetailPage from './PublicPropertyDetailPage';
-import PublicRentalPropertyDetailPage from './PublicRentalPropertyDetailPage';
+import PublicRentalPropertyDetailPage from '@/pages/public/PublicRentalPropertyDetailPage';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -66,7 +65,6 @@ interface Property {
   transaction_type?: string;
   monthly_rent?: number;
   expected_rent?: number;
-  purpose?: string;
 }
 
 /* ==============================
@@ -387,7 +385,7 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
 /* ==============================
    Component
 ============================== */
-const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({ onPropertyView }) => {
+const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({ onPropertyView }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -424,7 +422,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const [selectedUnitType, setSelectedUnitType] = useState('');
 
   // HomePage-style header states
-  const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
+  const transactionType = 'rent';
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('');
 
   // token passthrough (kept)
@@ -544,8 +542,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
-    const transactionFromUrl = qp.get('transaction') || 'buy';
-    setTransactionType(transactionFromUrl === 'rent' ? 'rent' : 'buy');
+    const transactionFromUrl = 'rent';
 
     let locs: string[] = [];
     const repeated = qp.getAll('location');
@@ -659,6 +656,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         if (qp.get('bedrooms')) params.bedrooms = qp.get('bedrooms');
         if (qp.get('status')) params.status = qp.get('status');
         if (filterParamKey && filterTokenFromUrl) params.filterToken = filterTokenFromUrl;
+        if (qp.get('transaction')) params.transaction_type = qp.get('transaction');
 
         return params;
       };
@@ -676,6 +674,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
         if (qp.get('city')) simpleParams.city = qp.get('city');
         if (qp.get('search')) simpleParams.q = qp.get('search');
+        if (qp.get('transaction')) simpleParams.transaction_type = qp.get('transaction');
         return simpleParams;
       };
 
@@ -959,7 +958,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       setFloorMin('');
       setFloorMax('');
       setBathroomsFilter('');
-      navigate('/properties', { replace: true });
+      navigate('/rentals', { replace: true });
       return;
     }
     setSelectedPropertyType(prev => (prev === value ? '' : value));
@@ -1092,20 +1091,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       return;
     }
 
-    const isRental = Boolean(
-      property.monthly_rent ||
-      property.expected_rent ||
-      (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
-      (property.transaction_type && String(property.transaction_type).toLowerCase() === 'rent') ||
-      (property.purpose && String(property.purpose).toLowerCase() === 'rent') ||
-      property.propertyId?.toUpperCase().startsWith('RENT') ||
-      String(property.id).toUpperCase().startsWith('RENT')
-    );
-    const pathPrefix = isRental ? 'rentals' : 'properties';
-
     if (viewedProperties.has(id)) {
       const mergedQs = preserveAndAddToken(location.search, filterParamKey || 'fltcnt', filterTokenFromUrl);
-      navigate(`/${pathPrefix}/${encodeURIComponent(String(slug))}${mergedQs}`);
+      navigate(`/properties/${encodeURIComponent(String(slug))}${mergedQs}`);
       return;
     }
 
@@ -1153,7 +1141,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     }
 
     const mergedQs = preserveAndAddToken(location.search, finalParamKey, finalToken);
-    const dest = `/${pathPrefix}/${encodeURIComponent(String(slug))}${mergedQs}`;
+    const dest = `/properties/${encodeURIComponent(String(slug))}${mergedQs}`;
     navigate(dest);
   };
 
@@ -1162,6 +1150,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     if (e) e.preventDefault();
 
     const params = new URLSearchParams();
+    params.set('transaction', transactionType);
 
     if (localities.length > 0) {
       const parts = (selectedLocation || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1186,12 +1175,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
     // always keep available + PUBLIC enforced in loader
     params.append('status', 'Available');
-    if (transactionType) {
-      params.append('transaction', transactionType);
-    }
 
     setCurrentPage(1);
-    navigate(`/properties${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
+    navigate(`/rentals${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
   };
 
   const onToggleFilters = () => setShowFilters(s => !s);
@@ -1200,22 +1186,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
      Render
   ============================== */
   if (currentPropertyView) {
-    const isRental = Boolean(
-      currentPropertyView.monthly_rent ||
-      currentPropertyView.expected_rent ||
-      (currentPropertyView.listing_type && String(currentPropertyView.listing_type).toLowerCase() === 'rent') ||
-      (currentPropertyView.transaction_type && String(currentPropertyView.transaction_type).toLowerCase() === 'rent') ||
-      (currentPropertyView.purpose && String(currentPropertyView.purpose).toLowerCase() === 'rent') ||
-      (currentPropertyView.raw?.purpose && String(currentPropertyView.raw.purpose).toLowerCase() === 'rent') ||
-      (currentPropertyView.raw?.transaction_type && String(currentPropertyView.raw.transaction_type).toLowerCase() === 'rent') ||
-      (currentPropertyView.raw?.listing_type && String(currentPropertyView.raw.listing_type).toLowerCase() === 'rent') ||
-      currentPropertyView.propertyId?.toUpperCase().startsWith('RENT') ||
-      String(currentPropertyView.id).toUpperCase().startsWith('RENT')
-    );
-    if (isRental) {
-      return <PublicRentalPropertyDetailPage property={currentPropertyView} />;
-    }
-    return <PublicPropertyDetailPage property={currentPropertyView} />;
+    return <PublicRentalPropertyDetailPage property={currentPropertyView} />;
   }
 
   return (
@@ -1224,42 +1195,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       <div className="py-5 pt-28" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3 text-white">Explore Premium Properties</h2>
+            <h2 className="text-3xl font-bold mb-3 text-white">Explore Premium Rental Properties</h2>
             <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
-              Discover verified properties from trusted sellers across top locations
+              Discover verified rental properties from trusted landlords across top locations
             </p>
 
             {/* Buy/Rent + Type row */}
             <div className="grid grid-cols-1 gap-1 md:gap-2 mb-4 items-center justify-center text-center">
-              {/* Buy / Rent */}
-              <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => setTransactionType("buy")}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                    ${transactionType === "buy"
-                      ? "bg-[#E6761D] text-white"
-                      : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                  aria-pressed={transactionType === "buy"}
-                >
-                  Buy
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTransactionType("rent")}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                    ${transactionType === "rent"
-                      ? "bg-[#E6761D] text-white"
-                      : "bg-white/20 text-white hover:bg-white/30"
-                    }`}
-                  aria-pressed={transactionType === "rent"}
-                >
-                  Rent
-                </button>
-              </div>
-
               <div className="w-full grid justify-center md:w-auto">
                 {masterLoading ? (
                   <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
@@ -1383,7 +1325,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       setSelectedBedrooms('');
                       setSelectedPropertySubtype('');
                       setSelectedUnitType('');
-                      navigate('/properties', { replace: true });
+                      navigate('/rentals', { replace: true });
                     }}
                     className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
                   >
@@ -1408,7 +1350,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   </div>
                 ))}
                 {localities.length < 5 && (
-                  <div className="text-xs text-white px-2 py-1">Add up to 1 localities.</div>
+                  <div className="text-xs text-white px-2 py-1">Add up to 5 localities.</div>
                 )}
               </div>
             </form>
@@ -1711,7 +1653,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           params.set('status', 'Available');
 
                           setCurrentPage(1);
-                          navigate(`/properties?${params.toString()}`, { replace: true });
+                          navigate(`/rentals?${params.toString()}`, { replace: true });
                           setShowFilters(false);
                         }}
                         className=" bg-[#E6761D] text-white px-4 py-2 rounded-lg text-xs"
@@ -1741,8 +1683,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           setLocalities([]);
                           setLocalityInput('');
                           setSelectedPropertyType('');
-                          setTransactionType('buy');
-                          navigate('/properties', { replace: true });
+                          navigate('/rentals', { replace: true });
                         }}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs"
                       >
@@ -1786,6 +1727,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   const shownAmenities = amenities.slice(0, 2);
                   const moreCount = Math.max(amenities.length - shownAmenities.length, 0);
 
+                  // ✅ Get dynamic parking count
                   const parkingCount = property.parking || 0;
 
                   return (
@@ -1838,6 +1780,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
                             </div>
                           </div>
+                          {/* ✅ tiny ID at top-right */}
                           <div className="ml-2 shrink-0 text-[10px] sm:text-xs text-gray-500 font-medium">
                             {(() => {
                               const isRental = Boolean(
@@ -1845,7 +1788,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                                 property.transaction_type === 'rent' ||
                                 property.monthly_rent ||
                                 property.expected_rent ||
-                                (property.listing_type && String(property.listing_type).toLowerCase() === 'rent')
+                                (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
+                                transactionType === 'rent'
                               );
                               if (property.propertyId) {
                                 return isRental ? property.propertyId.replace(/^REX/i, 'RENT-') : property.propertyId;
@@ -1897,9 +1841,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
                           <div className="flex items-center space-x-1"><Bed size={12} /><span>{property.bedrooms} Beds</span></div>
                           <div className="flex items-center space-x-1"><Building size={12} /><span>{property.bathrooms} Baths</span></div>
+                          {/* ✅ Dynamic parking display */}
                           <div className="flex items-center space-x-1"><Car size={12} /><span>{parkingCount} Parking</span></div>
                         </div>
 
+                        {/* ✅ Amenities: only 2 + "+N" */}
                         <div className="flex flex-wrap gap-1 mb-3">
                           {shownAmenities.map((amenity, i) => (
                             <div key={i} className="flex items-center space-x-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
@@ -1914,6 +1860,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           )}
                         </div>
 
+                        {/* Actions pinned to bottom */}
                         <div className="mt-auto flex items-center space-x-2">
                           {typeof property.slug === 'string' && property.slug.trim().length > 0 ? (
                             <div className="flex-1">
@@ -1952,21 +1899,39 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               e.stopPropagation();
                               e.preventDefault();
 
-                              const phone = property?.executiveTo?.phone?.replace(/\D/g, "") || "9637009639";
-                              const title = property?.title || [property?.type].filter(Boolean).join(" ") || "a property";
-                              const loc = property?.location || property?.city || "your listed property location";
+                              // ✅ Ensure phone number is valid
+                              const phone =
+                                property?.executiveTo?.phone?.replace(/\D/g, "") || "9637009639";
+
+                              // ✅ Prepare property title
+                              const title =
+                                property?.title ||
+                                [property?.type].filter(Boolean).join(" ") ||
+                                "a property";
+
+                              // ✅ Prepare location
+                              const loc =
+                                property?.location ||
+                                property?.city ||
+                                "your listed property location";
+
+                              // ✅ Format price safely
                               const priceValue = Number(property?.price || 0);
                               const priceText = !isNaN(priceValue)
                                 ? `₹${priceValue.toLocaleString("en-IN")}`
                                 : "Price on request";
+
+                              // ✅ Build link to property page (if slug exists)
                               const link = property?.slug
-                                ? `${window.location.origin}/properties/${encodeURIComponent(
+                                ? `${window.location.origin}/rentals/${encodeURIComponent(
                                   String(property.slug)
                                 )}`
-                                : `${window.location.origin}/properties`;
+                                : `${window.location.origin}/rentals`;
 
+                              // ✅ WhatsApp message
                               const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
 
+                              // ✅ Open WhatsApp chat
                               window.open(
                                 `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
                                 "_blank",
@@ -1999,6 +1964,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     ? Math.round(property.price / (Number(property.area || property.square_feet) || 1))
                     : null;
 
+                  const getFloorSuffix = (floor: number) => {
+                    if (floor === 1) return 'st';
+                    if (floor === 2) return 'nd';
+                    if (floor === 3) return 'rd';
+                    return 'th';
+                  };
+
                   return (
                     <div
                       key={property.id}
@@ -2028,6 +2000,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             <Eye size={9} />
                             <span>{property.total_views || property.views || 0}</span>
                           </div>
+                          {/* Image Counter — hidden on mobile to save space */}
                           <div className="hidden sm:block absolute bottom-2 right-2 bg-black/55 text-white px-2 py-0.5 rounded-full text-[10px]">
                             {(property.images || []).length || 1} photos
                           </div>
@@ -2141,7 +2114,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                                   const title = property?.title || [property?.type].filter(Boolean).join(" ") || "a property";
                                   const loc = property?.location || property?.city || "your listed property location";
                                   const priceText = !isNaN(Number(property?.price || 0)) ? `₹${Number(property?.price || 0).toLocaleString("en-IN")}` : "Price on request";
-                                  const link = property?.slug ? `${window.location.origin}/properties/${encodeURIComponent(String(property.slug))}` : `${window.location.origin}/properties`;
+                                  const link = property?.slug ? `${window.location.origin}/rentals/${encodeURIComponent(String(property.slug))}` : `${window.location.origin}/rentals`;
                                   const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
                                   window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
                                 }}
@@ -2192,7 +2165,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                 <div className="flex space-x-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-
                     const pageNumber = i + 1;
                     return (
                       <button key={pageNumber} onClick={() => setCurrentPage(pageNumber)} className={`px-4 py-2 rounded-lg ${currentPage === pageNumber ? 'bg-blue-600 text-white' : 'border border-gray-300 hover:bg-gray-50'}`}>
@@ -2217,7 +2189,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               onClick={() => {
                 setSearchQuery(''); setSelectedLocation(''); setSelectedBudget(''); setSelectedType('');
                 setSelectedBedrooms(''); setLocalities([]); setLocalityInput(''); setSelectedPropertyType('');
-                setTransactionType('buy');
               }}
               className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
             >
@@ -2241,4 +2212,4 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   );
 };
 
-export default PublicPropertiesPage;
+export default PublicRentalPropertiesPage;

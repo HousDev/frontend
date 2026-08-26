@@ -723,6 +723,8 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     lock_in_period: '',
     agreement_duration: '',
     available_from: '',
+    latitude: null,
+    longitude: null,
     budget: '',
   }));
 
@@ -1047,6 +1049,8 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
           city: details.city,
           amenities: amenityIds,
           address: `${details.societyName}, ${details.locality}, ${details.city} ${details.pincode}`,
+          latitude: actualSociety.latitude || null,
+          longitude: actualSociety.longitude || null,
         }));
       }
     } catch (error) {
@@ -1408,6 +1412,8 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       agreement_duration: initialData.agreement_duration || '',
       available_from: initialData.available_from ? initialData.available_from.split('T')[0] : '',
       budget: initialData.monthly_rent || '',
+      latitude: initialData.latitude || null,
+      longitude: initialData.longitude || null,
     }));
 
     if (initialData.existingOwnershipDocUrl) {
@@ -1486,6 +1492,12 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       "agreement_duration", "available_from", "source_url"
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
+    if (formData.latitude !== null && formData.latitude !== undefined) {
+      fd.append("latitude", String(formData.latitude));
+    }
+    if (formData.longitude !== null && formData.longitude !== undefined) {
+      fd.append("longitude", String(formData.longitude));
+    }
 
     fd.append("maintenance_extra", formData.maintenance_extra ? "1" : "0");
 

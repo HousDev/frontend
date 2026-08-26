@@ -781,6 +781,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     lock_in_period: '',
     agreement_duration: '',
     available_from: '',
+    latitude: null,
+    longitude: null,
   }));
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(null);
@@ -1031,7 +1033,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
         setSocietyDetails(details);
 
-        if (details.locality) setFormData(prev => ({ ...prev, location: details.locality }));
+        if (details.locality) setFormData(prev => ({ 
+          ...prev, 
+          location: details.locality,
+          latitude: actualSociety.latitude || null,
+          longitude: actualSociety.longitude || null
+        }));
         if (details.city) setFormData(prev => ({ ...prev, city: details.city }));
 
         if (details.imageUrls && details.imageUrls.length > 0) {
@@ -1513,6 +1520,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       lock_in_period: initialData.lock_in_period || (initialData as any).lockInPeriod || '',
       agreement_duration: initialData.agreement_duration || (initialData as any).agreementDuration || '',
       available_from: initialData.available_from || (initialData as any).availableFrom || '',
+      latitude: initialData.latitude || null,
+      longitude: initialData.longitude || null,
     }));
 
     if (initialData.existingOwnershipDocUrl) {
@@ -1582,6 +1591,12 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
       "agreement_duration", "available_from", "source_url"
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
+    if (formData.latitude !== null && formData.latitude !== undefined) {
+      fd.append("latitude", String(formData.latitude));
+    }
+    if (formData.longitude !== null && formData.longitude !== undefined) {
+      fd.append("longitude", String(formData.longitude));
+    }
 
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
     const finalSocietyName = societyLabel || formData.society || '';

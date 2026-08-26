@@ -168,11 +168,20 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
     const rawSlug = p.slug || p.raw?.slug;
     const finalSlug =
       rawSlug?.trim() || `${p.id}-${slugify(titleFor(p))}`;
+    const isRental = Boolean(
+      p.raw?.monthly_rent || 
+      p.raw?.expected_rent || 
+      (p.raw?.listing_type && String(p.raw.listing_type).toLowerCase() === 'rent') || 
+      (p.raw?.transaction_type && String(p.raw.transaction_type).toLowerCase() === 'rent') ||
+      p.raw?.propertyId?.toUpperCase().startsWith('RENT') ||
+      String(p.id).toUpperCase().startsWith('RENT')
+    );
+    const pathPrefix = isRental ? 'rentals' : 'properties';
     const params = new URLSearchParams(window.location.search);
     const filterToken = params.get("fltcnt") || params.get("filter_token");
     const url = filterToken
-      ? `/properties/${encodeURIComponent(finalSlug)}?fltcnt=${encodeURIComponent(filterToken)}`
-      : `/properties/${encodeURIComponent(finalSlug)}`;
+      ? `/${pathPrefix}/${encodeURIComponent(finalSlug)}?fltcnt=${encodeURIComponent(filterToken)}`
+      : `/${pathPrefix}/${encodeURIComponent(finalSlug)}`;
     window.open(url, "_blank");
   };
 
