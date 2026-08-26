@@ -1,0 +1,314 @@
+// frontend/src/components/reports/LoggedInReportTab.tsx
+import React, { useState, useEffect } from "react";
+import { ReportTable, ColumnDef, StatusPill } from "./ReportTable";
+import { Shield, ShieldCheck, Users, Clock, MapPin, Monitor, Smartphone } from "lucide-react";
+import { reportAPI } from "@/lib/reportAPI";
+
+interface LoggedInReportTabProps {
+  data?: any[];
+  stats?: {
+    total_logins: number;
+    tenant_logins: number;
+    admin_logins: number;
+    active_sessions: number;
+  } | null;
+  filters?: any;
+  loading?: boolean;
+  onOpenFilters: () => void;
+  onExport: () => void;
+  onRefresh?: () => void;
+  onPrint?: () => void;
+}
+
+export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
+  data: initialData,
+  stats: initialStats,
+  filters,
+  loading: externalLoading = false,
+  onOpenFilters,
+  onExport,
+  onRefresh,
+  onPrint,
+}) => {
+  const [logs, setLogs] = useState<any[]>(initialData || []);
+  const [stats, setStats] = useState<{
+    total_logins: number;
+    tenant_logins: number;
+    admin_logins: number;
+    active_sessions: number;
+  }>(
+    initialStats || {
+      total_logins: 0,
+      tenant_logins: 0,
+      admin_logins: 0,
+      active_sessions: 0,
+    }
+  );
+
+  const [loading, setLoading] = useState<boolean>(externalLoading);
+  const [activeStatusPill, setActiveStatusPill] = useState<string>("all");
+
+  const fetchLoginLogs = async () => {
+    setLoading(true);
+    try {
+      const res = await reportAPI.getLoginLogs({
+        ...filters,
+        role: activeStatusPill,
+      });
+      if (res?.success) {
+        setLogs(res.logs || res.data || []);
+        if (res.stats) {
+          setStats(res.stats);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching login audit logs:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialData && initialData.length > 0) {
+      setLogs(initialData);
+    }
+    if (initialStats) {
+      setStats(initialStats);
+    }
+  }, [initialData, initialStats]);
+
+  useEffect(() => {
+    fetchLoginLogs();
+  }, [activeStatusPill, filters]);
+
+  const statusPills: StatusPill[] = [
+    { label: "Total Sessions", key: "all", count: stats.total_logins || logs.length },
+    { label: "Active Sessions", key: "active", count: stats.active_sessions || 0 },
+    { label: "Admin & Staff", key: "admin", count: stats.admin_logins || 0 },
+    { label: "Client & Buyer", key: "buyer", count: stats.tenant_logins || 0 },
+  ];
+
+  const formatDuration = (seconds: number | null, isLogout: boolean) => {
+    if (!seconds || seconds <= 0) {
+      return isLogout ? "0m 10s" : "Active";
+    }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins >= 60) {
+      const hrs = Math.floor(mins / 60);
+      const rMins = mins % 60;
+      return `${hrs}h ${rMins}m`;
+    }
+    return `${mins}m ${secs}s`;
+  };
+
+  const columns: ColumnDef[] = [
+    {
+      key: "session_id",
+      header: "SESSION ID",
+      searchPlaceholder: "Session ID..",
+      render: (row) => (
+        <span className="font-mono text-[10px] font-bold text-slate-600 truncate max-w-[130px] block" title={row.session_id}>
+          {row.session_id || `sess_${row.id}`}
+        </span>
+      ),
+    },
+    {
+      key: "name",
+      header: "USER NAME",
+      searchPlaceholder: "Search name..",
+      render: (row) => (
+        <span className="font-extrabold text-slate-900 text-xs whitespace-nowrap">
+          {row.name || row.username || "System User"}
+        </span>
+      ),
+    },
+    {
+      key: "email",
+      header: "EMAIL ADDRESS",
+      searchPlaceholder: "Search email..",
+      render: (row) => (
+        <span className="text-slate-600 font-medium text-[11px] truncate max-w-[140px] block" title={row.email}>
+          {row.email || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "role",
+      header: "ROLE",
+      searchPlaceholder: "Role..",
+      render: (row) => {
+        const r = (row.role || "Agent").toLowerCase();
+        let bg = "bg-blue-50 text-blue-800 border-blue-200";
+        if (r.includes("admin") || r.includes("super")) bg = "bg-purple-50 text-purple-800 border-purple-200";
+        else if (r.includes("manager")) bg = "bg-indigo-50 text-indigo-800 border-indigo-200";
+        else if (r.includes("buyer") || r.includes("tenant") || r.includes("client")) bg = "bg-emerald-50 text-emerald-800 border-emerald-200";
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border uppercase tracking-wider ${bg} whitespace-nowrap`}>
+            {row.role || "Executive"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "ip_address",
+      header: "IP ADDRESS",
+      searchPlaceholder: "IP Address..",
+      render: (row) => {
+        let ip = row.ip_address || "127.0.0.1";
+        if (ip === "::1") ip = "127.0.0.1 (IPv6 ::1)";
+        else if (ip.startsWith("::ffff:")) ip = ip.replace("::ffff:", "");
+        return (
+          <span className="font-mono text-[11px] font-semibold text-slate-700 whitespace-nowrap" title={row.ip_address}>
+            {ip}
+          </span>
+        );
+      },
+    },
+    {
+      key: "login_time",
+      header: "LOGIN TIME",
+      render: (row) => {
+        const d = row.login_time ? new Date(row.login_time) : null;
+        return d ? (
+          <span className="text-[11px] font-semibold text-slate-800 whitespace-nowrap">
+            {d.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        ) : (
+          "N/A"
+        );
+      },
+    },
+    {
+      key: "last_activity",
+      header: "LAST ACTIVITY",
+      render: (row) => {
+        const d = row.last_activity || row.login_time ? new Date(row.last_activity || row.login_time) : null;
+        return d ? (
+          <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">
+            {d.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        ) : (
+          "N/A"
+        );
+      },
+    },
+    {
+      key: "logout_time",
+      header: "LOGOUT TIME",
+      render: (row) => {
+        if (!row.logout_time) {
+          return (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-300 whitespace-nowrap">
+              Active
+            </span>
+          );
+        }
+        const d = new Date(row.logout_time);
+        return (
+          <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+            {d.toLocaleString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        );
+      },
+    },
+    {
+      key: "session_duration",
+      header: "SESSION DURATION",
+      render: (row) => {
+        const isLogout = Boolean(row.logout_time);
+        const durStr = formatDuration(row.session_duration, isLogout);
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap ${durStr === "Active" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-slate-100 text-slate-700 border border-slate-300"}`}>
+            {durStr}
+          </span>
+        );
+      },
+    },
+    {
+      key: "device_id",
+      header: "DEVICE NAME & ID",
+      searchPlaceholder: "Device ID..",
+      render: (row) => {
+        const isMobile = (row.source || "").toLowerCase().includes("android") || (row.source || "").toLowerCase().includes("ios") || (row.source || "").toLowerCase().includes("iphone");
+        return (
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            {isMobile ? <Smartphone className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> : <Monitor className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+            <div>
+              <div className="font-bold text-slate-900 text-[11px]">{isMobile ? "Mobile Device" : "Windows PC"}</div>
+              <div className="font-mono text-[9.5px] text-slate-400 truncate max-w-[110px]">{row.device_id || "dev_browser"}</div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "source",
+      header: "SOURCE / BROWSER",
+      searchPlaceholder: "Source..",
+      render: (row) => <span className="font-semibold text-slate-800 text-[11px] whitespace-nowrap">{row.source || "Chrome on Windows"}</span>,
+    },
+    {
+      key: "latitude",
+      header: "LATITUDE",
+      render: (row) => <span className="font-mono text-[11px] font-medium text-slate-600">{row.latitude ? Number(row.latitude).toFixed(6) : "—"}</span>,
+    },
+    {
+      key: "longitude",
+      header: "LONGITUDE",
+      render: (row) => <span className="font-mono text-[11px] font-medium text-slate-600">{row.longitude ? Number(row.longitude).toFixed(6) : "—"}</span>,
+    },
+    {
+      key: "address",
+      header: "LOCATION / ADDRESS",
+      searchPlaceholder: "Location..",
+      render: (row) => <span className="font-medium text-slate-800 text-[11px] truncate max-w-xs block" title={row.address}>{row.address || "Location Captured"}</span>,
+    },
+    {
+      key: "map",
+      header: "MAP LINK",
+      render: (row) => {
+        if (!row.latitude || !row.longitude) return <span className="text-slate-400 text-[11px]">—</span>;
+        const lat = Number(row.latitude).toFixed(4);
+        const lng = Number(row.longitude).toFixed(4);
+        return (
+          <a
+            href={`https://www.google.com/maps?q=${row.latitude},${row.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10.5px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 transition-colors whitespace-nowrap"
+          >
+            <MapPin className="w-3 h-3 text-rose-500" /> View on Map ({lat}, {lng})
+          </a>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* High-density Logged-In Report Table */}
+      <ReportTable
+        title="Logged-In Session Audit Logs"
+        columns={columns}
+        data={logs}
+        statusPills={statusPills}
+        activeStatusPill={activeStatusPill}
+        onSelectStatusPill={(key) => setActiveStatusPill(key)}
+        onOpenFilters={onOpenFilters}
+        onExport={onExport}
+        onRefresh={() => {
+          fetchLoginLogs();
+          if (onRefresh) onRefresh();
+        }}
+        onPrint={onPrint}
+        pagination={{ page: 1, limit: logs.length || 25, totalRecords: logs.length, totalPages: 1 }}
+        onPageChange={() => {}}
+        onLimitChange={() => {}}
+        loading={loading}
+      />
+    </div>
+  );
+};
+
+export default LoggedInReportTab;

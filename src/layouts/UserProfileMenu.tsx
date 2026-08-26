@@ -91,7 +91,15 @@ const UserProfileMenu: React.FC = () => {
                         </li>
                         <li>
                             <button
-                                onClick={logout}
+                                onClick={async () => {
+                                  try {
+                                    await logout();
+                                  } catch (e) {
+                                    console.error("Logout error:", e);
+                                  } finally {
+                                    window.location.href = "/login";
+                                  }
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                             >
                                 <LogOut className="h-4 w-4 mr-2" />

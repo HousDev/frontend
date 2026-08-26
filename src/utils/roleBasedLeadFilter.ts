@@ -12,7 +12,7 @@ export const filterLeadsByRole = (
   const userId = String(user.id|| '');
 
   // 1. Super Admin / Admin - सभी leads दिखें
-  if (userRole === 'superadmin' || userRole === 'admin') {
+  if (userRole.includes('admin') || userRole.includes('super') || userRole.includes('owner') || userRole === 'all') {
     return leads;
   }
 

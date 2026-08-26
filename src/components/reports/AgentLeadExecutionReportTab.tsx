@@ -22,6 +22,8 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
   onRefresh,
   onPrint,
 }) => {
+  const [activeStatusPill, setActiveStatusPill] = React.useState<string>("all");
+
   const safeStats = stats || { total_agents: 0, total_assigned_leads: 0, total_converted: 0 };
 
   const totalCalls = agents.reduce((acc, curr) => acc + Number(curr.callsCompleted || 0), 0);
@@ -43,7 +45,6 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
       render: (row) => (
         <div>
           <div className="font-bold text-gray-900 flex items-center gap-2">
-            <UserCheck className="w-3.5 h-3.5 text-blue-600" />
             {row.agentName}
           </div>
           <div className="text-[11px] text-gray-400 capitalize">{row.role || "Agent"} | {row.department || "Sales"}</div>
@@ -100,6 +101,8 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
       columns={columns}
       data={agents}
       statusPills={statusPills}
+      activeStatusPill={activeStatusPill}
+      onSelectStatusPill={(key) => setActiveStatusPill(key)}
       onOpenFilters={onOpenFilters}
       onExport={onExport}
       onRefresh={onRefresh}

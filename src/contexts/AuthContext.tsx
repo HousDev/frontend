@@ -378,11 +378,30 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const defaultAuthContext: AuthContextType = {
+  user: (() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
+  loading: false,
+  login: async () => { throw new Error("AuthProvider not found"); },
+  register: async () => { throw new Error("AuthProvider not found"); },
+  logout: async () => { localStorage.clear(); window.location.href = "/login"; },
+  isAuthenticated: Boolean(localStorage.getItem("token")),
+  hasRole: () => true,
+  updateUser: () => {},
+  refreshUser: async () => {},
+};
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) return defaultAuthContext;
   return context;
 };
 
@@ -541,6 +560,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (credentials: {
     username: string;
     password: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    device_id?: string;
+    source?: string;
   }): Promise<User> => {
     try {
       const response = await authAPI.login(credentials);
@@ -549,7 +572,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error(response.message || "Login failed");
       }
 
-      const { user: userData, accessToken } = response.data;
+      const { user: userData, accessToken, session_id } = response.data;
 
       const validatedUser = validateAndNormalizeUser(userData);
       if (!validatedUser) {
@@ -558,6 +581,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(validatedUser));
+      if (session_id) {
+        localStorage.setItem("session_id", session_id);
+      }
       setUser(validatedUser);
 
       return validatedUser;

@@ -16,18 +16,24 @@ export const PRINT_BRAND_STYLE = `
   .stat-box{padding:10px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between}
   .stat-lbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#64748b}
   .stat-val{font-size:15px;font-weight:900;color:#0f1f38;margin-top:3px;letter-spacing:-0.5px}
-  .chart-section{page-break-inside:avoid;margin-bottom:20px;border:1px solid #e2e8f0;padding:12px;border-radius:8px;background:#fff}
-  .chart-title{font-size:12px;font-weight:800;color:#0f1f38;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
-  table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:16px}
-  th{background:#f1f5f9;text-align:left;font-weight:800;text-transform:uppercase;font-size:8px;letter-spacing:0.5px;color:#334155;border:1px solid #cbd5e1;padding:8px 10px}
-  td{border:1px solid #e2e8f0;padding:7px 10px;color:#1e293b}
-  tr:nth-child(even) td{background:#f8fafc}
+  .chart-section{page-break-inside:avoid;margin-bottom:20px;border:1px solid #cbd5e1;padding:22px 15px 15px 15px;border-radius:10px;background:rgba(255,255,255,0.85);overflow:visible!important;box-sizing:border-box!important;text-align:center!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important}
+  .chart-title{font-size:12px;font-weight:800;color:#0f1f38;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;text-align:center!important}
+  .recharts-responsive-container{max-width:100%!important;overflow:visible!important;box-sizing:border-box!important;margin:0 auto!important;display:flex!important;justify-content:center!important;align-items:center!important}
+  .recharts-wrapper{margin:0 auto!important;position:relative!important;overflow:visible!important}
+  .recharts-surface{margin:0 auto!important;display:block!important;overflow:visible!important}
+  .recharts-legend-wrapper{display:none!important}
+  svg{max-width:100%!important;height:auto!important;margin:0 auto!important;display:block!important;overflow:visible!important}
+  table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:16px;background:rgba(255,255,255,0.85)}
+  th{background:rgba(241,245,249,0.9);text-align:left;font-weight:800;text-transform:uppercase;font-size:8px;letter-spacing:0.5px;color:#334155;border:1px solid #cbd5e1;padding:8px 10px}
+  td{border:1px solid #cbd5e1;padding:7px 10px;color:#1e293b;background:rgba(255,255,255,0.85)}
+  tr:nth-child(even) td{background:rgba(248,250,252,0.88)}
   .footer{margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;display:flex;justify-content:space-between;font-weight:600}
-  .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:80px;font-weight:900;color:rgba(15,31,56,0.05);white-space:nowrap;pointer-events:none;user-select:none;z-index:-1;letter-spacing:8px;text-transform:uppercase}
+  .watermark{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:90px;font-weight:900;color:rgba(12,56,84,0.25);white-space:nowrap;pointer-events:none;user-select:none;z-index:999999;letter-spacing:8px;text-transform:uppercase;opacity:0.25!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   @media print {
-    .watermark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    tr:nth-child(even) td { background: rgba(248,250,252, 0.45) !important; }
-    td { background: rgba(255,255,255, 0.7) !important; }
+    .watermark{ -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; opacity:0.25!important; display:block!important; z-index:999999!important; visibility:visible!important; color:rgba(12,56,84,0.25)!important; }
+    .chart-section, .stat-box, .meta-line, .insights-box { background: rgba(255,255,255,0.85) !important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+    tr:nth-child(even) td { background: rgba(248,250,252,0.85) !important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+    td { background: rgba(255,255,255,0.85) !important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
     .chart-section { page-break-inside: avoid; }
   }
 `;
@@ -51,9 +57,10 @@ export function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle:
 
 export function buildWatermarkHTML(orgName: string) {
   const fullName = orgName || "RESALE EXPERT";
-  return `<div class="watermark">${fullName}</div>`;
+  return `<div class="watermark" style="position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:90px;font-weight:900;color:rgba(12,56,84,0.25);white-space:nowrap;pointer-events:none;user-select:none;z-index:999999;letter-spacing:8px;text-transform:uppercase;opacity:0.25!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;">${fullName}</div>`;
 }
 
+// Standard Hidden-Iframe Print Trigger (Opens Native Print Dialog inside Current Tab - No Extra Window/Tab)
 export function triggerIframePrint(htmlContent: string, pdfDocumentTitle: string) {
   const originalTitle = document.title;
   document.title = pdfDocumentTitle;

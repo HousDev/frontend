@@ -6,17 +6,28 @@ import { usersAPI } from "@/lib/api";
 
 export interface SmartFilterParams {
   status?: string;
+  stage?: string;
   source?: string;
   lead_type?: string;
   priority?: string;
   assigned_executive?: string;
+  assignment_status?: string;
   created_by?: string;
+  state?: string;
+  city?: string;
+  location?: string;
+  transferred_to_buyer?: string;
+  transferred_to_seller?: string;
+  dateBy?: string;
+  followupStatus?: string;
+  activityStatus?: string;
   sort_by?: string;
   ignoreDate?: boolean;
   startDate?: string;
   endDate?: string;
   search?: string;
   property_type?: string;
+  unit_type?: string;
   bedrooms?: string;
   activity_type?: string;
   direction?: string;
@@ -24,13 +35,22 @@ export interface SmartFilterParams {
   efficiencyRating?: string;
   budget_min?: string;
   budget_max?: string;
-  location?: string;
-  city?: string;
+  minDealValue?: string;
+  maxDealValue?: string;
+  minLeadScore?: string;
+  maxLeadScore?: string;
+  documentStatus?: string;
+  aging_range?: string;
   tenant_type?: string;
   preferred_bhk?: string;
   min_amount?: string;
   max_amount?: string;
   campaign_type?: string;
+  loan_required?: string;
+  has_visit?: string;
+  has_match?: string;
+  outcome?: string;
+  active_status?: string;
 }
 
 interface SmartFilterDrawerProps {
@@ -134,10 +154,12 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                 <option value="all">All Statuses</option>
                 {["leads", "overview"].includes(tabKey) && (
                   <>
-                    <option value="new">New</option>
+                    <option value="new">New / Fresh</option>
                     <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
+                    <option value="qualified">Qualified / Interested</option>
                     <option value="unqualified">Unqualified / Lost</option>
+                    <option value="buyer_transferred">Transferred to Buyer</option>
+                    <option value="seller_transferred">Transferred to Seller</option>
                     <option value="closed">Closed / Won</option>
                   </>
                 )}
@@ -193,7 +215,10 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                 {tabKey === "activities" && (
                   <>
                     <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
+                    <option value="qualified">Qualified / Interested</option>
+                    <option value="pending">Pending / Scheduled</option>
+                    <option value="overdue">Overdue Actions</option>
+                    <option value="unqualified">Not Interested</option>
                   </>
                 )}
                 {tabKey === "campaigns" && (
@@ -208,6 +233,53 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
             {/* Tab Specific Fields */}
             {tabKey === "leads" && (
               <>
+                {/* Date By & Range Fields */}
+                <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="font-bold text-gray-800 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-orange-500" />
+                    Date Filter Criteria
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-700 mb-1">Date By</label>
+                    <select
+                      value={draft.dateBy || "created_at"}
+                      onChange={(e) => handleChange("dateBy", e.target.value)}
+                      className="w-full rounded-md border-gray-300 shadow-sm p-2 border text-xs"
+                    >
+                      <option value="created_at">Lead Created Date</option>
+                      <option value="updated_at">Last Activity Date</option>
+                      <option value="transferred_to_buyer_at">Buyer Transfer Date</option>
+                      <option value="transferred_to_seller_at">Seller Transfer Date</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-700 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={draft.startDate || ""}
+                        onChange={(e) => {
+                          handleChange("startDate", e.target.value);
+                          handleChange("ignoreDate", false);
+                        }}
+                        className="w-full rounded-md border-gray-300 p-2 border text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-700 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={draft.endDate || ""}
+                        onChange={(e) => {
+                          handleChange("endDate", e.target.value);
+                          handleChange("ignoreDate", false);
+                        }}
+                        className="w-full rounded-md border-gray-300 p-2 border text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-gray-800 mb-1.5">Lead Source</label>
@@ -218,10 +290,13 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                     >
                       <option value="all">All Sources</option>
                       <option value="website">Website</option>
-                      <option value="fb campaign">FB Campaign</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="fb campaign">FB Campaign / Meta Ads</option>
                       <option value="google ads">Google Ads</option>
                       <option value="referral">Referral</option>
                       <option value="cold call">Cold Call</option>
+                      <option value="excel import">Excel / CSV Import</option>
+                      <option value="manual entry">Manual Entry</option>
                     </select>
                   </div>
 
@@ -241,24 +316,286 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5">Priority</label>
-                  <select
-                    value={draft.priority || "all"}
-                    onChange={(e) => handleChange("priority", e.target.value)}
-                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="high">High Priority</option>
-                    <option value="medium">Medium Priority</option>
-                    <option value="low">Low Priority</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Assigned Executive</label>
+                    <select
+                      value={draft.assigned_executive || "all"}
+                      onChange={(e) => handleChange("assigned_executive", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Executives</option>
+                      <option value="Unassigned">Unassigned Only</option>
+                      {usersList.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.first_name ? `${u.first_name} ${u.last_name || ""}`.trim() : u.email || `User #${u.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Assignment Status</label>
+                    <select
+                      value={draft.assignment_status || "all"}
+                      onChange={(e) => handleChange("assignment_status", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Leads</option>
+                      <option value="assigned">Assigned Leads</option>
+                      <option value="unassigned">Unassigned Leads</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Priority</label>
+                    <select
+                      value={draft.priority || "all"}
+                      onChange={(e) => handleChange("priority", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Priorities</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="high">High Priority</option>
+                      <option value="medium">Medium / Normal</option>
+                      <option value="low">Low Priority</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Stage</label>
+                    <select
+                      value={draft.stage || "all"}
+                      onChange={(e) => handleChange("stage", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Stages</option>
+                      <option value="new">New Stage</option>
+                      <option value="contacted">Contacted Stage</option>
+                      <option value="qualified">Qualified Stage</option>
+                      <option value="proposal">Proposal Stage</option>
+                      <option value="negotiation">Negotiation Stage</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Buyer Transfer</label>
+                    <select
+                      value={draft.transferred_to_buyer || "all"}
+                      onChange={(e) => handleChange("transferred_to_buyer", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Leads</option>
+                      <option value="transferred">Transferred to Buyer</option>
+                      <option value="not_transferred">Not Transferred</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Seller Transfer</label>
+                    <select
+                      value={draft.transferred_to_seller || "all"}
+                      onChange={(e) => handleChange("transferred_to_seller", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Leads</option>
+                      <option value="transferred">Transferred to Seller</option>
+                      <option value="not_transferred">Not Transferred</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">City</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Pune, Mumbai"
+                      value={draft.city || ""}
+                      onChange={(e) => handleChange("city", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2 border text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Baner, Wakad"
+                      value={draft.location || ""}
+                      onChange={(e) => handleChange("location", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2 border text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Follow-up Filter</label>
+                    <select
+                      value={draft.followupStatus || "all"}
+                      onChange={(e) => handleChange("followupStatus", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Follow-ups</option>
+                      <option value="today">Follow-up Today</option>
+                      <option value="overdue">Overdue Follow-ups</option>
+                      <option value="upcoming">Upcoming Follow-ups</option>
+                      <option value="no_followup">No Follow-up</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Activity Filter</label>
+                    <select
+                      value={draft.activityStatus || "all"}
+                      onChange={(e) => handleChange("activityStatus", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Activity</option>
+                      <option value="inactive_7days">Inactive 7+ Days</option>
+                      <option value="active_24h">Active in last 24h</option>
+                    </select>
+                  </div>
                 </div>
               </>
             )}
 
             {tabKey === "buyers" && (
               <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Buyer Stage</label>
+                    <select
+                      value={draft.stage || "all"}
+                      onChange={(e) => handleChange("stage", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Stages</option>
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Property Shortlisted">Property Shortlisted</option>
+                      <option value="Site Visit Scheduled">Site Visit Scheduled</option>
+                      <option value="Negotiation">Negotiation</option>
+                      <option value="Closed/Won">Closed / Won</option>
+                      <option value="Lost">Lost</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Buyer Priority</label>
+                    <select
+                      value={draft.priority || "all"}
+                      onChange={(e) => handleChange("priority", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Priorities</option>
+                      <option value="High">High / Hot</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Buyer Status</label>
+                    <select
+                      value={draft.status || "all"}
+                      onChange={(e) => handleChange("status", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="converted">Closed / Converted</option>
+                      <option value="lost">Lost / Rejected</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Buyer Outcome</label>
+                    <select
+                      value={draft.outcome || "all"}
+                      onChange={(e) => handleChange("outcome", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Outcomes</option>
+                      <option value="active">Active</option>
+                      <option value="negotiation">Negotiation</option>
+                      <option value="closed">Closed / Won</option>
+                      <option value="lost">Lost</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Assigned Executive</label>
+                    <select
+                      value={draft.assigned_executive || "all"}
+                      onChange={(e) => handleChange("assigned_executive", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Executives</option>
+                      {usersList.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.first_name || u.name} {u.last_name || ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Active Status</label>
+                    <select
+                      value={draft.active_status || "all"}
+                      onChange={(e) => handleChange("active_status", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active Only</option>
+                      <option value="inactive">Inactive Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Property Type</label>
+                    <select
+                      value={draft.property_type || "all"}
+                      onChange={(e) => handleChange("property_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Property Types</option>
+                      <option value="Apartment">Apartment / Flat</option>
+                      <option value="Villa">Villa / House</option>
+                      <option value="Plot">Plot / Land</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Penthouse">Penthouse</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">BHK / Unit Type</label>
+                    <select
+                      value={draft.unit_type || "all"}
+                      onChange={(e) => handleChange("unit_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All BHK Types</option>
+                      <option value="1BHK">1 BHK</option>
+                      <option value="2BHK">2 BHK</option>
+                      <option value="3BHK">3 BHK</option>
+                      <option value="4BHK">4 BHK / 4+ BHK</option>
+                      <option value="Villa">Villa</option>
+                      <option value="Plot">Plot</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-gray-800 mb-1.5">Min Budget (₹)</label>
@@ -281,30 +618,211 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5">Preferred Location</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Aundh, Baner, Wakad"
-                    value={draft.location || ""}
-                    onChange={(e) => handleChange("location", e.target.value)}
-                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Loan Required</label>
+                    <select
+                      value={draft.loan_required || "all"}
+                      onChange={(e) => handleChange("loan_required", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All</option>
+                      <option value="yes">Yes — Loan Needed</option>
+                      <option value="no">No — Self Funded</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Site Visit Status</label>
+                    <select
+                      value={draft.has_visit || "all"}
+                      onChange={(e) => handleChange("has_visit", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All</option>
+                      <option value="yes">Has Site Visit(s)</option>
+                      <option value="no">No Site Visit Yet</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Property Matching</label>
+                    <select
+                      value={draft.has_match || "all"}
+                      onChange={(e) => handleChange("has_match", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All</option>
+                      <option value="yes">Has Saved/Matched Props</option>
+                      <option value="no">No Saved/Matched Props</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Location / City</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Whitefield, Indiranagar"
+                      value={draft.location || ""}
+                      onChange={(e) => handleChange("location", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    />
+                  </div>
                 </div>
               </>
             )}
 
             {tabKey === "sellers" && (
               <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Seller Stage</label>
+                    <select
+                      value={draft.stage || "all"}
+                      onChange={(e) => handleChange("stage", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Stages</option>
+                      <option value="New">New Lead</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Listed">Property Listed</option>
+                      <option value="Buyer Interest">Buyer Interest</option>
+                      <option value="Negotiation">Negotiation</option>
+                      <option value="Agreement">Agreement Signed</option>
+                      <option value="Closed">Closed / Transacted</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Priority</label>
+                    <select
+                      value={draft.priority || "all"}
+                      onChange={(e) => handleChange("priority", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Priorities</option>
+                      <option value="high">High / Hot</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Lead Source</label>
+                    <select
+                      value={draft.source || "all"}
+                      onChange={(e) => handleChange("source", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Sources</option>
+                      <option value="Website">Website</option>
+                      <option value="Referral">Referral</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Portal">Property Portal</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="Direct">Direct Contact</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Property Type</label>
+                    <select
+                      value={draft.property_type || "all"}
+                      onChange={(e) => handleChange("property_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Property Types</option>
+                      <option value="1 BHK">1 BHK</option>
+                      <option value="2 BHK">2 BHK</option>
+                      <option value="3 BHK">3 BHK</option>
+                      <option value="4+ BHK">4+ BHK</option>
+                      <option value="Villa">Villa / Rowhouse</option>
+                      <option value="Plot">Plot / Land</option>
+                      <option value="Commercial">Commercial</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5">Property Location</label>
+                  <label className="block font-semibold text-gray-800 mb-1.5">Property Location / City</label>
                   <input
                     type="text"
-                    placeholder="e.g. Aundh, Kharadi"
+                    placeholder="e.g. Aundh, Kharadi, Baner"
                     value={draft.location || ""}
                     onChange={(e) => handleChange("location", e.target.value)}
                     className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Min Deal Value (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 2000000"
+                      value={draft.minDealValue || ""}
+                      onChange={(e) => handleChange("minDealValue", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Max Deal Value (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 20000000"
+                      value={draft.maxDealValue || ""}
+                      onChange={(e) => handleChange("maxDealValue", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Follow-up Status</label>
+                    <select
+                      value={draft.followupStatus || "all"}
+                      onChange={(e) => handleChange("followupStatus", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Followups</option>
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="missed">Missed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Document Status</label>
+                    <select
+                      value={draft.documentStatus || "all"}
+                      onChange={(e) => handleChange("documentStatus", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Document Statuses</option>
+                      <option value="verified">Verified Documents</option>
+                      <option value="pending">Pending Documents</option>
+                      <option value="rejected">Rejected Documents</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1.5">Listing Aging</label>
+                  <select
+                    value={draft.aging_range || "all"}
+                    onChange={(e) => handleChange("aging_range", e.target.value)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                  >
+                    <option value="all">All Aging Periods</option>
+                    <option value="0_7">0 – 7 days</option>
+                    <option value="8_15">8 – 15 days</option>
+                    <option value="16_30">16 – 30 days</option>
+                    <option value="31_60">31 – 60 days</option>
+                    <option value="60_plus">60+ days</option>
+                  </select>
                 </div>
               </>
             )}
@@ -456,20 +974,54 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
             )}
 
             {tabKey === "activities" && (
-              <div>
-                <label className="block font-semibold text-gray-800 mb-1.5">Activity Type</label>
-                <select
-                  value={draft.activity_type || "all"}
-                  onChange={(e) => handleChange("activity_type", e.target.value)}
-                  className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
-                >
-                  <option value="all">All Activity Types</option>
-                  <option value="call">Call</option>
-                  <option value="meeting">Meeting</option>
-                  <option value="whatsapp">WhatsApp Message</option>
-                  <option value="followup">Follow-up</option>
-                </select>
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Activity Type</label>
+                    <select
+                      value={draft.activity_type || "all"}
+                      onChange={(e) => handleChange("activity_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs focus:ring-navy-500 focus:border-navy-500"
+                    >
+                      <option value="all">All Activity Types</option>
+                      <option value="call">📞 Phone Call</option>
+                      <option value="meeting">🤝 Visit / Meeting</option>
+                      <option value="whatsapp">💬 WhatsApp Message</option>
+                      <option value="followup">📝 Follow-up Note</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Department</label>
+                    <select
+                      value={draft.department || "all"}
+                      onChange={(e) => handleChange("department", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs focus:ring-navy-500 focus:border-navy-500"
+                    >
+                      <option value="all">All Departments</option>
+                      <option value="Sales">Sales</option>
+                      <option value="Presales">Presales</option>
+                      <option value="Leasing">Leasing</option>
+                      <option value="Development">Admin / Dev</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1.5">Lead Category Type</label>
+                  <select
+                    value={draft.lead_type || "all"}
+                    onChange={(e) => handleChange("lead_type", e.target.value)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs focus:ring-navy-500 focus:border-navy-500"
+                  >
+                    <option value="all">All Lead Categories</option>
+                    <option value="client">📋 Client / General Leads</option>
+                    <option value="buyer">🛒 Buyer Leads</option>
+                    <option value="seller">🏠 Seller Leads</option>
+                    <option value="owner">🔑 Owner Leads</option>
+                    <option value="tenant">👤 Tenant Leads</option>
+                  </select>
+                </div>
+              </>
             )}
 
             {tabKey === "communication" && (
