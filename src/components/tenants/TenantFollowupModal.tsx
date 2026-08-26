@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, Clock, Bell, Phone, Mail, FileText, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { tenantFollowupAPI } from '@/lib/tenantFollowupAPI';
 
 interface TenantFollowupModalProps {
   isOpen: boolean;
@@ -24,25 +25,45 @@ export default function TenantFollowupModal({ isOpen, onClose, tenant, onSave }:
     scheduledTime: '10:00',
     status: 'Active Search',
     remarks: '',
+    priority: 'Medium',
+    customRemark: '',
+    nextAction: '',
   });
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.scheduledDate) {
       toast.error('Please select a follow-up date');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const payload = {
+        tenant_id: tenant.id,
+        followup_type: form.followupType,
+        schedule_date: form.scheduledDate,
+        schedule_time: form.scheduledTime,
+        status: form.status,
+        remark: form.remarks,
+        priority: form.priority,
+        custom_remark: form.customRemark,
+        next_action: form.nextAction,
+      };
+      await tenantFollowupAPI.create(payload);
       toast.success(`Follow-up scheduled for tenant ${tenant.name}`);
-      onSave?.({ ...form, tenant_id: tenant.id });
+      onSave?.(payload);
       onClose();
-    }, 400);
+    } catch (err) {
+      console.error('Error creating followup:', err);
+      toast.error('Failed to schedule follow-up');
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -66,19 +87,35 @@ export default function TenantFollowupModal({ isOpen, onClose, tenant, onSave }:
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Follow-up Type</label>
-            <select
-              value={form.followupType}
-              onChange={(e) => setForm({ ...form, followupType: e.target.value })}
-              className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
-            >
-              <option value="call">Phone Call</option>
-              <option value="whatsapp">WhatsApp Message</option>
-              <option value="visit">Property Visit</option>
-              <option value="email">Email</option>
-              <option value="meeting">In-Person Meeting</option>
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Follow-up Type</label>
+              <select
+                value={form.followupType}
+                onChange={(e) => setForm({ ...form, followupType: e.target.value })}
+                className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+              >
+                <option value="call">Phone Call</option>
+                <option value="whatsapp">WhatsApp Message</option>
+                <option value="visit">Property Visit</option>
+                <option value="email">Email</option>
+                <option value="meeting">In-Person Meeting</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -104,27 +141,51 @@ export default function TenantFollowupModal({ isOpen, onClose, tenant, onSave }:
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Tenant Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-              className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
-            >
-              <option value="Active Search">Active Search</option>
-              <option value="Interested">Interested</option>
-              <option value="Agreement Signed">Agreement Signed</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Tenant Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+              >
+                <option value="Active Search">Active Search</option>
+                <option value="Interested">Interested</option>
+                <option value="Agreement Signed">Agreement Signed</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Next Action</label>
+              <input
+                type="text"
+                value={form.nextAction}
+                onChange={(e) => setForm({ ...form, nextAction: e.target.value })}
+                placeholder="e.g. Call to confirm time"
+                className="w-full h-9 px-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Remarks & Notes</label>
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Standard Remarks</label>
             <textarea
               value={form.remarks}
               onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-              placeholder="Add follow-up details, tenant preferences or next steps..."
-              rows={3}
+              placeholder="Select or enter standard remarks..."
+              rows={2}
+              className="w-full p-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Custom Detailed Remarks</label>
+            <textarea
+              value={form.customRemark}
+              onChange={(e) => setForm({ ...form, customRemark: e.target.value })}
+              placeholder="Add extra followup notes, tenant preferences or details..."
+              rows={2}
               className="w-full p-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
             />
           </div>

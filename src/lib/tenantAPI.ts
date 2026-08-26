@@ -39,4 +39,13 @@ export const tenantAPI = {
     const response = await api.post(`/tenants/bulk-import`, { items: tenants });
     return response.data;
   },
+
+  bulkAssign: async (ids: (string | number)[], assigned_to: string | number) => {
+    return Promise.all(ids.map(id => api.put(`/tenants/updateTenant/${id}`, { assigned_to })));
+  },
+
+  bulkUpdateStatus: async (ids: (string | number)[], status: string) => {
+    return Promise.all(ids.map(id => api.put(`/tenants/updateTenant/${id}`, { status })));
+  },
 };
+

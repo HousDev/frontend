@@ -210,6 +210,13 @@ export const rentalPropertiesAPI = {
     return res.data;
   },
 
+  getAll: async (params?: any) => {
+    const res = await api.get("/rental-properties/get-all/", { params });
+    const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.properties || []);
+    return list;
+  },
+
+
   PublicgetProperty: async (id: string) => {
     const res = await api.get(`/rental-properties/get-one/${id}`);
     return res.data;

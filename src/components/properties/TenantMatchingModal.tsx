@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Users, Target, Search, Star, Phone, MessageCircle, Mail, MapPin, ChevronDown, ChevronUp, IndianRupeeIcon, CheckCircle } from 'lucide-react';
 import { tenantAPI } from '@/lib/tenantAPI';
 import { toast } from 'react-toastify';
+import { FaWhatsapp } from 'react-icons/fa6';
 
 // Theme Colors matching Resale / Rental portal
 const N = "#0f2b3d";
@@ -79,10 +80,10 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
       locationScore = 40; // no preference means match everything
     } else {
       const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map(s => s.trim()).filter(Boolean);
-      const hasMatch = prefLocs.some(loc => 
-        propLoc.includes(loc) || 
-        loc.includes(propLoc) || 
-        propCity.includes(loc) || 
+      const hasMatch = prefLocs.some(loc =>
+        propLoc.includes(loc) ||
+        loc.includes(propLoc) ||
+        propCity.includes(loc) ||
         propSoc.includes(loc)
       );
       if (hasMatch) {
@@ -157,8 +158,8 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
   };
 
   const handleTenantSelection = (tenantId: number) => {
-    setSelectedTenants(prev => 
-      prev.includes(tenantId) 
+    setSelectedTenants(prev =>
+      prev.includes(tenantId)
         ? prev.filter(id => id !== tenantId)
         : [...prev, tenantId]
     );
@@ -219,7 +220,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-        
+
         {/* Header */}
         <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: N }}>
           <div className="flex items-center gap-2">
@@ -296,9 +297,9 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
                   <span>Send to {selectedTenants.length} Tenant(s)</span>
                 </button>
               )}
-              <button 
-                onClick={() => handleSelectAll(matchedTenantsList)} 
-                className="text-[10px] font-semibold" 
+              <button
+                onClick={() => handleSelectAll(matchedTenantsList)}
+                className="text-[10px] font-semibold"
                 style={{ color: O }}
               >
                 {selectedTenants.length === matchedTenantsList.length ? 'Deselect All' : 'Select All'}
@@ -318,9 +319,9 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
           ) : (
             <div className="space-y-2 max-h-[35vh] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
               {matchedTenantsList.map((tenant) => (
-                <div 
-                  key={tenant.id} 
-                  className={`rounded-lg p-2.5 transition-all border ${selectedTenants.includes(tenant.id) ? 'ring-1 border-orange-300' : 'border-gray-200'}`} 
+                <div
+                  key={tenant.id}
+                  className={`rounded-lg p-2.5 transition-all border ${selectedTenants.includes(tenant.id) ? 'ring-1 border-orange-300' : 'border-gray-200'}`}
                   style={{
                     background: selectedTenants.includes(tenant.id) ? `${O}05` : BG
                   }}
@@ -330,10 +331,10 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
                       type="checkbox"
                       checked={selectedTenants.includes(tenant.id)}
                       onChange={() => handleTenantSelection(tenant.id)}
-                      className="mt-0.5 rounded w-3.5 h-3.5 flex-shrink-0" 
+                      className="mt-0.5 rounded w-3.5 h-3.5 flex-shrink-0"
                       style={{ accentColor: O }}
                     />
-                    
+
                     <div className="flex-1 min-w-0">
                       {/* Title row */}
                       <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
@@ -345,21 +346,71 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => handleWhatsApp(tenant)} className="p-0.5 rounded hover:bg-gray-100" style={{ color: '#25D366' }}>
-                            <MessageCircle size={11} />
-                          </button>
-                          <button onClick={() => handleEmail(tenant)} className="p-0.5 rounded hover:bg-gray-100" style={{ color: '#EA4335' }}>
-                            <Mail size={11} />
-                          </button>
-                          <button className="p-0.5 rounded hover:bg-gray-100" style={{ color: N }}>
-                            <Phone size={11} />
-                          </button>
-                          <button 
-                            onClick={() => setExpandedTenant(expandedTenant === tenant.id ? null : tenant.id)} 
-                            className="p-0.5 rounded hover:bg-gray-100"
-                          >
-                            {expandedTenant === tenant.id ? <ChevronUp size={11} style={{ color: MU }} /> : <ChevronDown size={11} style={{ color: MU }} />}
-                          </button>
+                          {/* WhatsApp */}
+                          <div className="relative group">
+                            <button
+                              onClick={() => handleWhatsApp(tenant)}
+                              className="p-0.5 rounded hover:bg-gray-100"
+                              style={{ color: '#25D366' }}
+                            >
+                              <FaWhatsapp size={11} />
+                            </button>
+
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block whitespace-nowrap rounded bg-gray-800 px-1.5 py-0.5 text-[9px] text-white z-50">
+                              WhatsApp
+                            </span>
+                          </div>
+
+                          {/* Email */}
+                          <div className="relative group">
+                            <button
+                              onClick={() => handleEmail(tenant)}
+                              className="p-0.5 rounded hover:bg-gray-100"
+                              style={{ color: '#EA4335' }}
+                            >
+                              <Mail size={11} />
+                            </button>
+
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block whitespace-nowrap rounded bg-gray-800 px-1.5 py-0.5 text-[9px] text-white z-50">
+                              Email
+                            </span>
+                          </div>
+
+                          {/* Phone */}
+                          <div className="relative group">
+                            <button
+                              className="p-0.5 rounded hover:bg-gray-100"
+                              style={{ color: N }}
+                            >
+                              <Phone size={11} />
+                            </button>
+
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block whitespace-nowrap rounded bg-gray-800 px-1.5 py-0.5 text-[9px] text-white z-50">
+                              Phone
+                            </span>
+                          </div>
+
+                          {/* Expand / Collapse */}
+                          <div className="relative group">
+                            <button
+                              onClick={() =>
+                                setExpandedTenant(
+                                  expandedTenant === tenant.id ? null : tenant.id
+                                )
+                              }
+                              className="p-0.5 rounded hover:bg-gray-100"
+                            >
+                              {expandedTenant === tenant.id ? (
+                                <ChevronUp size={11} style={{ color: MU }} />
+                              ) : (
+                                <ChevronDown size={11} style={{ color: MU }} />
+                              )}
+                            </button>
+
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block whitespace-nowrap rounded bg-gray-800 px-1.5 py-0.5 text-[9px] text-white z-50">
+                              {expandedTenant === tenant.id ? 'Collapse' : 'Expand'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 

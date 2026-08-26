@@ -432,8 +432,8 @@ export function RentalPropertiesPage() {
       const currentProps = Array.isArray(resp?.data?.properties)
         ? resp.data.properties
         : Array.isArray(resp?.properties)
-        ? resp.properties
-        : [];
+          ? resp.properties
+          : [];
 
       const pid = String(linkingPropertyForOwner.id);
       const alreadyLinked = currentProps.some((p: any) => String(p.id || p.property_id || p._id) === pid);
@@ -512,8 +512,8 @@ export function RentalPropertiesPage() {
           const currentProps: any[] = Array.isArray(resp?.data?.properties)
             ? resp.data.properties
             : Array.isArray(resp?.properties)
-            ? resp.properties
-            : [];
+              ? resp.properties
+              : [];
 
           const pid = String(linkingPropertyForOwner.id);
           const updatedProps = currentProps.filter(
@@ -1908,13 +1908,12 @@ export function RentalPropertiesPage() {
                             >
                               View Details
                             </button>
-                             <button
+                            <button
                               onClick={() => handleOpenLinkOwnerModal(property)}
-                              className={`p-1.5 rounded-lg transition-all flex-shrink-0 flex items-center justify-center border ${
-                                property.owner?.id
-                                  ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-100/50'
-                                  : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-200'
-                              }`}
+                              className={`p-1.5 rounded-lg transition-all flex-shrink-0 flex items-center justify-center border ${property.owner?.id
+                                ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-100/50'
+                                : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-200'
+                                }`}
                               title={property.owner?.id ? `Manage Owner: ${property.owner.name}` : 'Link Owner'}
                             >
                               <Link2 size={13} />
@@ -1938,6 +1937,8 @@ export function RentalPropertiesPage() {
                                   setOpenDropdownId(openDropdownId === property.id ? null : property.id);
                                 }}
                                 className="p-1.5 rounded-lg transition-all border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-gray-500"
+                                title="More Option"
+
                               >
                                 <MoreVertical size={12} />
                               </button>
@@ -2048,13 +2049,13 @@ export function RentalPropertiesPage() {
                             <td className="p-3 font-semibold text-gray-600">{p.assignedTo?.name || 'Unassigned'}</td>
                             <td className="p-3">
                               <div className="flex items-center justify-center gap-1.5">
-                                 <button
-                                   onClick={() => handleTenantMatching(p)}
-                                   className="p-1 text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
-                                   title="Match Tenants"
-                                 >
-                                   <Users size={13} />
-                                 </button>
+                                <button
+                                  onClick={() => handleTenantMatching(p)}
+                                  className="p-1 text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                                  title="Match Tenants"
+                                >
+                                  <Users size={13} />
+                                </button>
                                 <button
                                   onClick={() => handleViewProperty(p)}
                                   className="p-1 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
