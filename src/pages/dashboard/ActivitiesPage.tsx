@@ -480,7 +480,7 @@ export const ActivitiesPage: React.FC = () => {
       </html>
     `;
 
-    triggerIframePrint(printHTML);
+    triggerIframePrint(printHTML, "Activities Audit Trail");
   };
 
   return (

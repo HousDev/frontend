@@ -569,7 +569,7 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
       </html>
     `;
 
-    triggerIframePrint(printHTML);
+    triggerIframePrint(printHTML, "Agent Lead Execution Report");
   };
 
   return (

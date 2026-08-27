@@ -2652,7 +2652,7 @@ export const ReportsPage: React.FC = () => {
             </tr>
           `).join("");
 
-        const locationsHtml = (dashboardSummary?.locationSummary || [])
+        const locationsHtml = (summaryData?.locationSummary || [])
           .map((loc: any, idx: number) => `
             <tr>
               <td style="text-align:center;font-weight:600">${idx + 1}</td>
@@ -3150,7 +3150,7 @@ export const ReportsPage: React.FC = () => {
               setSellersPagination((prev) => ({ ...prev, page: 1 }));
             }}
             onFilterByPrice={(minVal, maxVal) => {
-              setFilters((prev) => ({ ...prev, minDealValue: minVal, maxDealValue: maxVal }));
+              setFilters((prev) => ({ ...prev, minDealValue: String(minVal), maxDealValue: String(maxVal) }));
               setSellersPagination((prev) => ({ ...prev, page: 1 }));
             }}
           />
