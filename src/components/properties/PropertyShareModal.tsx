@@ -153,13 +153,13 @@
 
 //     setIsSharing(true);
 //     setShareResults([]);
-    
+
 //     try {
 //       const results = [];
-      
+
 //       for (const channel of selectedChannels) {
 //         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-        
+
 //         switch (channel) {
 //           case 'whatsapp':
 //             if (recipients.length > 0) {
@@ -172,7 +172,7 @@
 //               }
 //             }
 //             break;
-            
+
 //           case 'email':
 //             if (recipients.length > 0) {
 //               for (const recipient of recipients) {
@@ -186,13 +186,13 @@
 //               }
 //             }
 //             break;
-            
+
 //           case 'public_link':
 //             const publicLink = generatePublicLink();
 //             navigator.clipboard.writeText(publicLink);
 //             results.push({ channel: 'Public Link', recipient: 'Copied to clipboard', status: 'generated' });
 //             break;
-            
+
 //           case 'qr_code':
 //             const qrCodeUrl = generateQRCode();
 //             const qrWindow = window.open('', '_blank');
@@ -211,19 +211,19 @@
 //             }
 //             results.push({ channel: 'QR Code', recipient: 'Generated', status: 'created' });
 //             break;
-            
+
 //           default:
 //             results.push({ channel, recipient: 'Multiple', status: 'sent' });
 //         }
 //       }
-      
+
 //       setShareResults(results);
-      
+
 //       // Auto-close after 3 seconds if successful
 //       setTimeout(() => {
 //         onClose();
 //       }, 3000);
-      
+
 //     } catch (error) {
 //       console.error('Sharing failed:', error);
 //     } finally {
@@ -344,7 +344,7 @@
 //           {/* Recipients */}
 //           <div className="mb-6">
 //             <h3 className="font-semibold text-gray-900 mb-4">Recipients</h3>
-            
+
 //             {/* Add Recipient */}
 //             <div className="bg-gray-50 rounded-lg p-4 mb-4">
 //               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -400,7 +400,7 @@
 //                   </button>
 //                 </div>
 //               ))}
-              
+
 //               {recipients.length === 0 && (
 //                 <div className="text-center py-4 text-gray-500">
 //                   No recipients added. Add recipients to send property details.
@@ -451,7 +451,7 @@
 //                   <div className="text-sm text-gray-600">Share direct property link</div>
 //                 </div>
 //               </button>
-              
+
 //               <button
 //                 onClick={() => {
 //                   const qrWindow = window.open('', '_blank');
@@ -545,15 +545,17 @@
 
 
 import React, { useState } from 'react';
-import { 
-  X, 
-  Share, 
-  MessageCircle, 
-  Mail, 
-  Phone, 
-  Globe, 
-  QrCode, 
-  Copy, 
+import { FaWhatsapp } from 'react-icons/fa6';
+import { toast } from 'react-toastify';
+import {
+  X,
+  Share,
+  MessageCircle,
+  Mail,
+  Phone,
+  Globe,
+  QrCode,
+  Copy,
   Send,
   User,
   Users,
@@ -579,13 +581,50 @@ const BG = "#f8fafc";
 const BD = "#e2e8f0";
 const MU = "#5a7184";
 
-const PropertyShareModal = ({ isOpen, onClose, property }: any) => {
+const PropertyShareModal = ({ isOpen, onClose, property, buyer, buyers }: any) => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [selectedSocialPlatforms, setSelectedSocialPlatforms] = useState<string[]>(['facebook', 'twitter', 'linkedin', 'telegram']);
   const [customMessage, setCustomMessage] = useState('');
   const [recipients, setRecipients] = useState<any[]>([]);
   const [newRecipient, setNewRecipient] = useState({ name: '', contact: '', type: 'phone' });
   const [isSharing, setIsSharing] = useState(false);
   const [shareResults, setShareResults] = useState<any[]>([]);
+
+  const handleSocialPlatformToggle = (platformId: string) => {
+    setSelectedSocialPlatforms(prev =>
+      prev.includes(platformId)
+        ? prev.filter(id => id !== platformId)
+        : [...prev, platformId]
+    );
+  };
+
+  // Auto-fill buyer details (single or multi-selected buyers) when modal opens
+  React.useEffect(() => {
+    const list = buyers && buyers.length > 0 ? buyers : buyer ? [buyer] : [];
+    if (isOpen && list.length > 0) {
+      const autoRecipients: any[] = [];
+      let idCounter = 1;
+
+      list.forEach((b: any) => {
+        if (b.phone) {
+          const phone = String(b.phone).replace(/\D/g, '');
+          if (phone) {
+            autoRecipients.push({ id: idCounter++, name: b.name || 'Buyer', contact: phone, type: 'phone' });
+          }
+        }
+
+        if (b.email) {
+          autoRecipients.push({ id: idCounter++, name: b.name || 'Buyer', contact: b.email, type: 'email' });
+        }
+      });
+
+      setRecipients(autoRecipients);
+      setSelectedChannels([]); // Do NOT pre-select channels, let user choose
+    } else if (isOpen && list.length === 0) {
+      setRecipients([]);
+      setSelectedChannels([]);
+    }
+  }, [isOpen, buyer, buyers]);
 
   if (!isOpen || !property) return null;
 
@@ -617,7 +656,7 @@ Shared via ResaleExpert
 🌐 www.resaleexpert.com`;
 
   const sharingChannels = [
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: '#25D366', description: 'Share via WhatsApp' },
+    { id: 'whatsapp', label: 'WhatsApp', icon: FaWhatsapp, color: '#25D366', description: 'Share via WhatsApp' },
     { id: 'email', label: 'Email', icon: Mail, color: '#3b82f6', description: 'Send detailed email' },
     { id: 'sms', label: 'SMS', icon: Phone, color: '#8b5cf6', description: 'Send SMS summary' },
     { id: 'public_link', label: 'Public Link', icon: Globe, color: N, description: 'Generate shareable link' },
@@ -627,14 +666,15 @@ Shared via ResaleExpert
 
   const socialPlatforms = [
     { id: 'facebook', label: 'Facebook', icon: Facebook, color: '#1877f2' },
-    { id: 'twitter', label: 'Twitter', icon: Twitter, color: '#1da1f2' },
+    { id: 'twitter', label: 'Twitter / X', icon: Twitter, color: '#1da1f2' },
     { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#e4405f' },
-    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: '#0a66c2' }
+    { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: '#0a66c2' },
+    { id: 'telegram', label: 'Telegram', icon: Send, color: '#0088cc' },
   ];
 
   const handleChannelToggle = (channelId: string) => {
-    setSelectedChannels(prev => 
-      prev.includes(channelId) 
+    setSelectedChannels(prev =>
+      prev.includes(channelId)
         ? prev.filter(id => id !== channelId)
         : [...prev, channelId]
     );
@@ -663,82 +703,144 @@ Shared via ResaleExpert
 
   const handleShare = async () => {
     if (selectedChannels.length === 0) {
-      alert('Please select at least one sharing channel');
+      toast.error('Please select at least one sharing channel');
       return;
     }
 
+    const message = customMessage || defaultMessage;
+
     setIsSharing(true);
     setShareResults([]);
-    
+
     try {
-      const results = [];
-      
+      const results: any[] = [];
+      let toastShown = false;
+
       for (const channel of selectedChannels) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         switch (channel) {
-          case 'whatsapp':
-            if (recipients.length > 0) {
-              for (const recipient of recipients) {
-                if (recipient.type === 'phone') {
-                  const whatsappUrl = `https://wa.me/${recipient.contact.replace(/\D/g, '')}?text=${encodeURIComponent(customMessage || defaultMessage)}`;
-                  window.open(whatsappUrl, '_blank');
-                  results.push({ channel: 'WhatsApp', recipient: recipient.name, status: 'sent' });
-                }
+          case 'whatsapp': {
+            const phoneRecipients = recipients.filter(r => r.type === 'phone' && r.contact);
+            if (phoneRecipients.length > 0) {
+              for (const r of phoneRecipients) {
+                const phone = String(r.contact).replace(/\D/g, '');
+                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                results.push({ channel: 'WhatsApp', recipient: r.name, status: 'sent' });
               }
+            } else {
+              if (!toastShown) {
+                toast.error("Phone / WhatsApp number missing for selected buyer(s)");
+                toastShown = true;
+              }
+              results.push({ channel: 'WhatsApp', recipient: '—', status: 'no phone recipients' });
             }
             break;
-            
-          case 'email':
-            if (recipients.length > 0) {
-              for (const recipient of recipients) {
-                if (recipient.type === 'email') {
-                  const subject = `Property Listing - ${property.title}`;
-                  const emailBody = customMessage || defaultMessage;
-                  const mailtoUrl = `mailto:${recipient.contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
-                  window.open(mailtoUrl, '_blank');
-                  results.push({ channel: 'Email', recipient: recipient.name, status: 'sent' });
-                }
+          }
+
+          case 'email': {
+            const emailRecipients = recipients.filter(r => r.type === 'email' && r.contact);
+            if (emailRecipients.length > 0) {
+              for (const r of emailRecipients) {
+                const subject = `Property Listing – ${property.title || 'Property Details'}`;
+                window.open(`mailto:${r.contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`, '_blank');
+                results.push({ channel: 'Email', recipient: r.name, status: 'sent' });
               }
+            } else {
+              if (!toastShown) {
+                toast.error("Email address missing for selected buyer(s)");
+                toastShown = true;
+              }
+              results.push({ channel: 'Email', recipient: '—', status: 'no email recipients' });
             }
             break;
-            
-          case 'public_link':
+          }
+
+          case 'sms': {
+            const phoneRecipients = recipients.filter(r => r.type === 'phone' && r.contact);
+            if (phoneRecipients.length > 0) {
+              for (const r of phoneRecipients) {
+                const phone = String(r.contact).replace(/\D/g, '');
+                // Short SMS-friendly message
+                const smsText = `Property: ${property.title || ''} | ${property.location || ''} | Price: ${property.budget ? (property.budget >= 100000 ? '₹' + (property.budget / 100000).toFixed(1) + 'L' : '₹' + property.budget) : ''} | Contact us for site visit.`;
+                window.open(`sms:${phone}?body=${encodeURIComponent(smsText)}`, '_blank');
+                results.push({ channel: 'SMS', recipient: r.name, status: 'sent' });
+              }
+            } else {
+              if (!toastShown) {
+                toast.error("Phone number missing for SMS sharing");
+                toastShown = true;
+              }
+              results.push({ channel: 'SMS', recipient: '—', status: 'no phone recipients' });
+            }
+            break;
+          }
+
+          case 'public_link': {
             const publicLink = generatePublicLink();
             navigator.clipboard.writeText(publicLink);
             results.push({ channel: 'Public Link', recipient: 'Copied to clipboard', status: 'generated' });
             break;
-            
-          case 'qr_code':
+          }
+
+          case 'qr_code': {
             const qrCodeUrl = generateQRCode();
             const qrWindow = window.open('', '_blank');
             if (qrWindow) {
-              qrWindow.document.write(`
-                <html>
-                  <head><title>QR Code - ${property.title}</title></head>
-                  <body style="text-align: center; padding: 20px; font-family: Arial, sans-serif;">
-                    <h2>${property.title}</h2>
-                    <img src="${qrCodeUrl}" alt="QR Code" style="margin: 20px;">
-                    <p>Scan to view property details</p>
-                    <p style="font-size: 12px; color: #666;">${generatePublicLink()}</p>
-                  </body>
-                </html>
-              `);
+              qrWindow.document.write(`<html><head><title>QR Code – ${property.title}</title></head><body style="text-align:center;padding:20px;font-family:Arial,sans-serif;"><h2>${property.title}</h2><img src="${qrCodeUrl}" alt="QR Code" style="margin:20px;"><p>Scan to view property details</p><p style="font-size:12px;color:#666;">${generatePublicLink()}</p></body></html>`);
             }
             results.push({ channel: 'QR Code', recipient: 'Generated', status: 'created' });
             break;
-            
+          }
+
+          case 'social_media': {
+            const publicLink = generatePublicLink();
+            const link = encodeURIComponent(publicLink);
+            const titleText = customMessage || `Check out this property: ${property.title || ''} at ${property.location || ''}. Price: ${formatCurrency(property.budget)}`;
+            const text = encodeURIComponent(titleText);
+
+            if (selectedSocialPlatforms.length === 0) {
+              if (!toastShown) {
+                toast.error('Please select at least one social media platform (Facebook, Twitter, LinkedIn, Telegram)');
+                toastShown = true;
+              }
+              results.push({ channel: 'Social Media', recipient: '—', status: 'no platform selected' });
+              break;
+            }
+
+            for (const platformId of selectedSocialPlatforms) {
+              if (platformId === 'facebook') {
+                window.open(`https://www.facebook.com/sharer/sharer.php?u=${link}&quote=${text}`, '_blank');
+                results.push({ channel: 'Social Media', recipient: 'Facebook', status: 'opened' });
+              } else if (platformId === 'twitter') {
+                window.open(`https://twitter.com/intent/tweet?url=${link}&text=${text}`, '_blank');
+                results.push({ channel: 'Social Media', recipient: 'Twitter / X', status: 'opened' });
+              } else if (platformId === 'linkedin') {
+                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${link}`, '_blank');
+                results.push({ channel: 'Social Media', recipient: 'LinkedIn', status: 'opened' });
+              } else if (platformId === 'telegram') {
+                window.open(`https://t.me/share/url?url=${link}&text=${text}`, '_blank');
+                results.push({ channel: 'Social Media', recipient: 'Telegram', status: 'opened' });
+              } else if (platformId === 'instagram') {
+                try {
+                  navigator.clipboard.writeText(`${titleText}\n\nLink: ${publicLink}`);
+                  toast.info('Copied caption & link for Instagram! Opening Instagram...');
+                } catch { /* ignore */ }
+                window.open('https://www.instagram.com/', '_blank');
+                results.push({ channel: 'Social Media', recipient: 'Instagram', status: 'copied & opened' });
+              }
+            }
+            break;
+          }
+
           default:
             results.push({ channel, recipient: 'Multiple', status: 'sent' });
         }
       }
-      
+
       setShareResults(results);
-      
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-      
+      setTimeout(() => { onClose(); }, 3000);
+
     } catch (error) {
       console.error('Sharing failed:', error);
     } finally {
@@ -748,13 +850,13 @@ Shared via ResaleExpert
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copied to clipboard!');
+    toast.success('Copied to clipboard!');
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-        
+
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between" style={{ background: N }}>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -773,7 +875,7 @@ Shared via ResaleExpert
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6" style={{ scrollbarWidth: 'thin' }}>
-          
+
           {/* Property Summary */}
           <div className="rounded-lg p-2 sm:p-3" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
@@ -829,19 +931,53 @@ Shared via ResaleExpert
 
           {/* Social Media Platforms */}
           {selectedChannels.includes('social_media') && (
-            <div>
-              <h3 className="text-[11px] sm:text-sm font-semibold mb-2 sm:mb-3" style={{ color: N }}>Social Media Platforms</h3>
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
+            <div className="rounded-xl p-3 sm:p-4 border space-y-2.5" style={{ background: `${O}05`, borderColor: `${O}30` }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[11px] sm:text-sm font-semibold" style={{ color: N }}>Select Social Media Platforms</h3>
+                  <p className="text-[9px] sm:text-xs" style={{ color: MU }}>Multi-select platforms to post or share property details</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedSocialPlatforms.length === socialPlatforms.length) {
+                      setSelectedSocialPlatforms([]);
+                    } else {
+                      setSelectedSocialPlatforms(socialPlatforms.map(p => p.id));
+                    }
+                  }}
+                  className="text-[9px] sm:text-xs font-bold px-2 py-0.5 rounded border bg-white hover:bg-orange-50 transition-colors"
+                  style={{ borderColor: `${O}50`, color: O }}
+                >
+                  {selectedSocialPlatforms.length === socialPlatforms.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {socialPlatforms.map((platform) => {
                   const Icon = platform.icon;
+                  const isSelected = selectedSocialPlatforms.includes(platform.id);
                   return (
                     <button
                       key={platform.id}
-                      className="p-2 sm:p-3 rounded-lg border text-center transition-all hover:shadow-sm"
-                      style={{ borderColor: BD, background: BG }}
+                      type="button"
+                      onClick={() => handleSocialPlatformToggle(platform.id)}
+                      className={`p-2 sm:p-2.5 rounded-lg border text-center transition-all flex flex-col items-center justify-center relative ${
+                        isSelected ? 'shadow-2xs bg-white font-bold' : 'bg-gray-50/70 opacity-60 hover:opacity-100 hover:bg-white'
+                      }`}
+                      style={{
+                        borderColor: isSelected ? O : BD,
+                      }}
                     >
-                      <Icon size={16} className="sm:w-5 sm:h-5 mx-auto" style={{ color: platform.color }} />
-                      <span className="text-[9px] sm:text-xs mt-1 block" style={{ color: MU }}>{platform.label}</span>
+                      {isSelected && (
+                        <span className="absolute top-1 right-1">
+                          <CheckCircle size={12} style={{ color: O }} />
+                        </span>
+                      )}
+                      <Icon size={18} className="mx-auto" style={{ color: isSelected ? platform.color : MU }} />
+                      <span className="text-[9px] sm:text-xs mt-1 block truncate w-full" style={{ color: isSelected ? N : MU }}>
+                        {platform.label}
+                      </span>
                     </button>
                   );
                 })}
@@ -852,13 +988,13 @@ Shared via ResaleExpert
           {/* Recipients */}
           <div>
             <h3 className="text-[11px] sm:text-sm font-semibold mb-2 sm:mb-3" style={{ color: N }}>Recipients</h3>
-            
+
             <div className="rounded-lg p-2 sm:p-3 mb-3" style={{ background: `${N}05`, border: `1px solid ${BD}` }}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
                 <input
                   type="text"
                   value={newRecipient.name}
-                  onChange={(e) => setNewRecipient({...newRecipient, name: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, name: e.target.value })}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-sm border rounded focus:outline-none focus:ring-1"
                   style={{ borderColor: BD }}
                   placeholder="Name"
@@ -866,14 +1002,14 @@ Shared via ResaleExpert
                 <input
                   type="text"
                   value={newRecipient.contact}
-                  onChange={(e) => setNewRecipient({...newRecipient, contact: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, contact: e.target.value })}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-sm border rounded focus:outline-none focus:ring-1"
                   style={{ borderColor: BD }}
                   placeholder="Phone/Email"
                 />
                 <select
                   value={newRecipient.type}
-                  onChange={(e) => setNewRecipient({...newRecipient, type: e.target.value})}
+                  onChange={(e) => setNewRecipient({ ...newRecipient, type: e.target.value })}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-sm border rounded focus:outline-none focus:ring-1"
                   style={{ borderColor: BD }}
                 >
@@ -907,7 +1043,7 @@ Shared via ResaleExpert
                   </button>
                 </div>
               ))}
-              
+
               {recipients.length === 0 && (
                 <div className="text-center py-3 text-[10px] sm:text-sm" style={{ color: MU }}>
                   No recipients added
@@ -962,7 +1098,7 @@ Shared via ResaleExpert
                   <div className="text-[8px] sm:text-xs" style={{ color: MU }}>Share direct link</div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => {
                   const qrWindow = window.open('', '_blank');

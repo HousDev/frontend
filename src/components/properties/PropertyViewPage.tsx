@@ -313,7 +313,7 @@ const ImageZoom: React.FC<{
   return (
     <div className={`group relative overflow-hidden rounded-xl bg-slate-900 ${className}`}>
       {/* Blurred glassmorphic background */}
-      <div 
+      <div
         className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-30 pointer-events-none"
         style={{ backgroundImage: `url(${src})` }}
       />
@@ -587,7 +587,7 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
     { id: 'stages', label: 'Stages & Progress', icon: TrendingUp },
     { id: 'visits', label: 'Visits & Inspection', icon: Eye },
     { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'buyers', label: 'Buyers Interest', icon: Users },
+    { id: 'buyers', label: 'Buyers Matching', icon: Users },
     { id: 'marketing', label: 'Marketing', icon: Globe },
     { id: 'negotiations', label: 'Negotiations', icon: Target },
     { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 }
@@ -1010,14 +1010,14 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-3">
-      {activeTab === 'overview' && (
-  <OverviewTab
-    key={`ov-${propertyData.id}-${overviewKey}`}
-    property={propertyData}
-    onUpdate={setPropertyData}
-    onOpenGallery={() => setShowMediaModal(true)}
-  />
-)}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            key={`ov-${propertyData.id}-${overviewKey}`}
+            property={propertyData}
+            onUpdate={setPropertyData}
+            onOpenGallery={() => setShowMediaModal(true)}
+          />
+        )}
 
         {activeTab === 'stages' && (
           <StagesTab
@@ -1248,9 +1248,8 @@ const ImageViewerModal = ({ isOpen, onClose, photos, title }: { isOpen: boolean;
           <div
             key={idx}
             onClick={() => setActiveIdx(idx)}
-            className={`w-16 h-12 rounded-md overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${
-              idx === activeIdx ? 'border-[#e67e22] scale-[1.05]' : 'border-transparent opacity-60 hover:opacity-100'
-            }`}
+            className={`w-16 h-12 rounded-md overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${idx === activeIdx ? 'border-[#e67e22] scale-[1.05]' : 'border-transparent opacity-60 hover:opacity-100'
+              }`}
           >
             <img src={url} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
           </div>
@@ -1356,14 +1355,13 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
             setSelectedMediaIdx(mediaIdx);
           }
         }}
-        className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border-2 ${
-          isSelected && !hasMoreOverlay
-            ? 'border-[#e67e22] ring-2 ring-[#e67e22]/30 shadow-md scale-[1.01]'
-            : 'border-slate-100 hover:border-slate-200 opacity-90 hover:opacity-100 hover:shadow-sm'
-        } ${className} bg-slate-900`}
+        className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group border-2 ${isSelected && !hasMoreOverlay
+          ? 'border-[#e67e22] ring-2 ring-[#e67e22]/30 shadow-md scale-[1.01]'
+          : 'border-slate-100 hover:border-slate-200 opacity-90 hover:opacity-100 hover:shadow-sm'
+          } ${className} bg-slate-900`}
       >
         {/* Blurred glassmorphic background */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center blur-lg scale-110 opacity-30 pointer-events-none"
           style={{ backgroundImage: `url(${url})` }}
         />
@@ -1404,7 +1402,7 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
       <div className="flex flex-col xl:flex-row gap-3">
         {/* Left Column */}
         <div className="flex-1 space-y-3 min-w-0">
-        
+
           {/* Modern Split-View Featured Media Showcase */}
           <div className="bg-white rounded-xl border p-2.5 shadow-sm" style={{ borderColor: BD }}>
             <div className={`flex flex-col ${effectiveMediaList.length > 1 ? 'lg:grid lg:grid-cols-4 gap-2.5' : ''}`}>
@@ -1415,9 +1413,8 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
                     setShowGalleryViewer(true);
                   }
                 }}
-                className={`relative min-w-0 h-[240px] sm:h-[300px] md:h-[350px] lg:h-[380px] rounded-lg overflow-hidden bg-slate-900 group ${
-                  effectiveMediaList.length > 1 ? 'lg:col-span-2 cursor-pointer' : 'w-full cursor-pointer'
-                }`}
+                className={`relative min-w-0 h-[240px] sm:h-[300px] md:h-[350px] lg:h-[380px] rounded-lg overflow-hidden bg-slate-900 group ${effectiveMediaList.length > 1 ? 'lg:col-span-2 cursor-pointer' : 'w-full cursor-pointer'
+                  }`}
               >
                 {isCurrentVideo ? (
                   <div className="w-full h-full flex items-center justify-center bg-black">
@@ -1654,7 +1651,7 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
                   <div>
                     <p className="text-[8px] uppercase tracking-wider" style={{ color: MU }}>Interested Buyers
 
-</p>
+                    </p>
                     <p className="text-sm font-bold" style={{ color: '#8b5cf6' }}>{property.interestedBuyers || 0}</p>
                   </div>
                   <Users size={14} style={{ color: '#8b5cf6' }} />
@@ -1663,222 +1660,222 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
             </div>
           </div>
 
-       {/* Property Details - ALL FIELDS with DIFFERENT COLORS */}
-<div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
-  <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Property Details</h3>
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 text-[10px]">
-    
-    {/* Seller - Blue */}
-    <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Seller</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property.seller?.name || "-"}</div>
-    </div>
-    
-    {/* Property Type - Purple */}
-    <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Property Type</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.type || "-"}</div>
-    </div>
-    
-    {/* Property Subtype - Pink */}
-    <div className="p-1.5 rounded" style={{ background: '#ec489910', border: '1px solid #ec489920' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#ec4899' }}>Property Subtype</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.subtype || "-"}</div>
-    </div>
-    
-    {/* Unit Type - Green */}
-    <div className="p-1.5 rounded" style={{ background: '#10b98110', border: '1px solid #10b98120' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#10b981' }}>Unit Type</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.unitType || "-"}</div>
-    </div>
-    
-    {/* Wing - Cyan */}
-    <div className="p-1.5 rounded" style={{ background: '#06b6d410', border: '1px solid #06b6d420' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#06b6d4' }}>Wing</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.wing || "-"}</div>
-    </div>
-    
-    {/* Unit No - Teal */}
-    <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Unit No</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.unitNo || "-"}</div>
-    </div>
-    
-    {/* Furnishing - Amber */}
-    <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Furnishing</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.furnishing || "-"}</div>
-    </div>
-    
-    {/* Facing - Orange (Theme) */}
-    <div className="p-1.5 rounded" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
-      <div className="text-[8px] font-medium" style={{ color: O }}>Facing</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.facing || "-"}</div>
-    </div>
-    
-    {/* Bedrooms - Red */}
-    <div className="p-1.5 rounded" style={{ background: '#ef444410', border: '1px solid #ef444420' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#ef4444' }}>Bedrooms</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.bedrooms || "-"}</div>
-    </div>
-    
-    {/* Bathrooms - Rose */}
-    <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Bathrooms</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.bathrooms || "-"}</div>
-    </div>
-    
-    {/* Balcony - Yellow */}
-    <div className="p-1.5 rounded" style={{ background: '#eab30810', border: '1px solid #eab30820' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#eab308' }}>Balcony</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.balcony || "-"}</div>
-    </div>
-    
-    {/* Society - Indigo */}
-    <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Society</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.society || "-"}</div>
-    </div>
-    
-    {/* City - Sky */}
-    <div className="p-1.5 rounded" style={{ background: '#0ea5e910', border: '1px solid #0ea5e920' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#0ea5e9' }}>City</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.city || "-"}</div>
-    </div>
-    
-    {/* Location - Lime */}
-    <div className="p-1.5 rounded" style={{ background: '#84cc1610', border: '1px solid #84cc1620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#84cc16' }}>Location</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.location || "-"}</div>
-    </div>
-    
-    {/* Floor - Stone */}
-    <div className="p-1.5 rounded" style={{ background: '#78716c10', border: '1px solid #78716c20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#78716c' }}>Floor</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.floor || "-"}</div>
-    </div>
-    
-    {/* Total Floors - Zinc */}
-    <div className="p-1.5 rounded" style={{ background: '#71717a10', border: '1px solid #71717a20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#71717a' }}>Total Floors</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.totalFloors || "-"}</div>
-    </div>
-    
-    {/* Carpet Area - Emerald */}
-    <div className="p-1.5 rounded" style={{ background: '#05966910', border: '1px solid #05966920' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#059669' }}>Carpet Area</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.carpetArea ? `${property.carpetArea} sq ft` : "-"}</div>
-    </div>
-    
-    {/* Built-up Area - Violet */}
-    <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Built-up Area</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.builtupArea ? `${property.builtupArea} sq ft` : "-"}</div>
-    </div>
-    
-    {/* Sell Price - Orange (Theme) */}
-    <div className="p-1.5 rounded" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
-      <div className="text-[8px] font-medium" style={{ color: O }}>Sell Price</div>
-      <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.budget) || "-"}</div>
-    </div>
-    
-    {/* Final Price - Orange (Theme Dark) */}
-    <div className="p-1.5 rounded" style={{ background: `${O}15`, border: `1px solid ${O}30` }}>
-      <div className="text-[8px] font-medium" style={{ color: O }}>Final Price</div>
-      <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.finalPrice) || "-"}</div>
-    </div>
-    
-    {/* Price Type - Amber */}
-    <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Price Type</div>
-      <div className="font-medium" style={{ color: N }}>{property?.priceType || "-"}</div>
-    </div>
-    
-    {/* Parking Qty - Slate */}
-    <div className="p-1.5 rounded" style={{ background: '#64748b10', border: '1px solid #64748b20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#64748b' }}>Parking Qty</div>
-      <div className="font-medium" style={{ color: N }}>{property?.parkingQty || "-"}</div>
-    </div>
-    
-    {/* Parking Type - Gray */}
-    <div className="p-1.5 rounded" style={{ background: '#6b728010', border: '1px solid #6b728020' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#6b7280' }}>Parking Type</div>
-      <div className="font-medium" style={{ color: N }}>{property?.parkingType || "-"}</div>
-    </div>
-    
-    {/* Selling Rights - Fuchsia */}
-    <div className="p-1.5 rounded" style={{ background: '#d946ef10', border: '1px solid #d946ef20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#d946ef' }}>Selling Rights</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.selling_rights || "-"}</div>
-    </div>
-    
-    {/* Lead Source - Rose */}
-    <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Lead Source</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.leadSource || "-"}</div>
-    </div>
+          {/* Property Details - ALL FIELDS with DIFFERENT COLORS */}
+          <div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
+            <h3 className="text-[11px] font-semibold mb-2" style={{ color: N }}>Property Details</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 text-[10px]">
 
-    {/* Source URL - Indigo */}
-    {property?.source_url && (
-      <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
-        <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Source URL</div>
-        <div className="font-medium truncate" style={{ color: N }}>
-          <a
-            href={property.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-650 hover:text-blue-800 underline inline-flex items-center gap-0.5 cursor-pointer font-semibold"
-            title={property.source_url}
-          >
-            Open Source Link ↗
-          </a>
-        </div>
-      </div>
-    )}
-    
-    {/* Status - Green (if Available) or Orange */}
-    <div className="p-1.5 rounded" style={{ background: property.status === 'Available' ? '#10b98110' : '#f59e0b10', border: `1px solid ${property.status === 'Available' ? '#10b98120' : '#f59e0b20'}` }}>
-      <div className="text-[8px] font-medium" style={{ color: property.status === 'Available' ? '#10b981' : '#f59e0b' }}>Status</div>
-      <div className="font-medium" style={{ color: property.status === 'Available' ? '#10b981' : '#f59e0b' }}>{property?.status || "-"}</div>
-    </div>
-    
-    {/* Purchase Year - Blue */}
-    <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Purchase Year</div>
-      <div className="font-medium" style={{ color: N }}>{property?.purchaseYear || "-"}</div>
-    </div>
-    
-    {/* Possession Year - Purple */}
-    <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Possession Year</div>
-      <div className="font-medium" style={{ color: N }}>{property?.possessionYear || "-"}</div>
-    </div>
-    
-    {/* Purchase Month - Cyan */}
-    <div className="p-1.5 rounded" style={{ background: '#06b6d410', border: '1px solid #06b6d420' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#06b6d4' }}>Purchase Month</div>
-      <div className="font-medium" style={{ color: N }}>{getMonthName(property?.purchaseMonth)}</div>
-    </div>
-    
-    {/* Possession Month - Teal */}
-    <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Possession Month</div>
-      <div className="font-medium" style={{ color: N }}>{getMonthName(property?.possessionMonth)}</div>
-    </div>
-    
-    {/* Publication Date - Indigo */}
-    <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Publication Date</div>
-      <div className="font-medium" style={{ color: N }}>{property.created_at ? new Date(property.created_at).toLocaleDateString() : "-"}</div>
-    </div>
-    
-    {/* Address - Slate (Full Width on Mobile) */}
-    <div className="col-span-2 sm:col-span-3 lg:col-span-4 p-1.5 rounded" style={{ background: '#64748b10', border: '1px solid #64748b20' }}>
-      <div className="text-[8px] font-medium" style={{ color: '#64748b' }}>Address</div>
-      <div className="font-medium truncate" style={{ color: N }}>{property?.address || "-"}</div>
-    </div>
-  </div>
-</div>
+              {/* Seller - Blue */}
+              <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Seller</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property.seller?.name || "-"}</div>
+              </div>
+
+              {/* Property Type - Purple */}
+              <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Property Type</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.type || "-"}</div>
+              </div>
+
+              {/* Property Subtype - Pink */}
+              <div className="p-1.5 rounded" style={{ background: '#ec489910', border: '1px solid #ec489920' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#ec4899' }}>Property Subtype</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.subtype || "-"}</div>
+              </div>
+
+              {/* Unit Type - Green */}
+              <div className="p-1.5 rounded" style={{ background: '#10b98110', border: '1px solid #10b98120' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#10b981' }}>Unit Type</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.unitType || "-"}</div>
+              </div>
+
+              {/* Wing - Cyan */}
+              <div className="p-1.5 rounded" style={{ background: '#06b6d410', border: '1px solid #06b6d420' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#06b6d4' }}>Wing</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.wing || "-"}</div>
+              </div>
+
+              {/* Unit No - Teal */}
+              <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Unit No</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.unitNo || "-"}</div>
+              </div>
+
+              {/* Furnishing - Amber */}
+              <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Furnishing</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.furnishing || "-"}</div>
+              </div>
+
+              {/* Facing - Orange (Theme) */}
+              <div className="p-1.5 rounded" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
+                <div className="text-[8px] font-medium" style={{ color: O }}>Facing</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.facing || "-"}</div>
+              </div>
+
+              {/* Bedrooms - Red */}
+              <div className="p-1.5 rounded" style={{ background: '#ef444410', border: '1px solid #ef444420' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#ef4444' }}>Bedrooms</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.bedrooms || "-"}</div>
+              </div>
+
+              {/* Bathrooms - Rose */}
+              <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Bathrooms</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.bathrooms || "-"}</div>
+              </div>
+
+              {/* Balcony - Yellow */}
+              <div className="p-1.5 rounded" style={{ background: '#eab30810', border: '1px solid #eab30820' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#eab308' }}>Balcony</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.balcony || "-"}</div>
+              </div>
+
+              {/* Society - Indigo */}
+              <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Society</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.society || "-"}</div>
+              </div>
+
+              {/* City - Sky */}
+              <div className="p-1.5 rounded" style={{ background: '#0ea5e910', border: '1px solid #0ea5e920' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#0ea5e9' }}>City</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.city || "-"}</div>
+              </div>
+
+              {/* Location - Lime */}
+              <div className="p-1.5 rounded" style={{ background: '#84cc1610', border: '1px solid #84cc1620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#84cc16' }}>Location</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.location || "-"}</div>
+              </div>
+
+              {/* Floor - Stone */}
+              <div className="p-1.5 rounded" style={{ background: '#78716c10', border: '1px solid #78716c20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#78716c' }}>Floor</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.floor || "-"}</div>
+              </div>
+
+              {/* Total Floors - Zinc */}
+              <div className="p-1.5 rounded" style={{ background: '#71717a10', border: '1px solid #71717a20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#71717a' }}>Total Floors</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.totalFloors || "-"}</div>
+              </div>
+
+              {/* Carpet Area - Emerald */}
+              <div className="p-1.5 rounded" style={{ background: '#05966910', border: '1px solid #05966920' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#059669' }}>Carpet Area</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.carpetArea ? `${property.carpetArea} sq ft` : "-"}</div>
+              </div>
+
+              {/* Built-up Area - Violet */}
+              <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Built-up Area</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.builtupArea ? `${property.builtupArea} sq ft` : "-"}</div>
+              </div>
+
+              {/* Sell Price - Orange (Theme) */}
+              <div className="p-1.5 rounded" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
+                <div className="text-[8px] font-medium" style={{ color: O }}>Sell Price</div>
+                <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.budget) || "-"}</div>
+              </div>
+
+              {/* Final Price - Orange (Theme Dark) */}
+              <div className="p-1.5 rounded" style={{ background: `${O}15`, border: `1px solid ${O}30` }}>
+                <div className="text-[8px] font-medium" style={{ color: O }}>Final Price</div>
+                <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.finalPrice) || "-"}</div>
+              </div>
+
+              {/* Price Type - Amber */}
+              <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Price Type</div>
+                <div className="font-medium" style={{ color: N }}>{property?.priceType || "-"}</div>
+              </div>
+
+              {/* Parking Qty - Slate */}
+              <div className="p-1.5 rounded" style={{ background: '#64748b10', border: '1px solid #64748b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#64748b' }}>Parking Qty</div>
+                <div className="font-medium" style={{ color: N }}>{property?.parkingQty || "-"}</div>
+              </div>
+
+              {/* Parking Type - Gray */}
+              <div className="p-1.5 rounded" style={{ background: '#6b728010', border: '1px solid #6b728020' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#6b7280' }}>Parking Type</div>
+                <div className="font-medium" style={{ color: N }}>{property?.parkingType || "-"}</div>
+              </div>
+
+              {/* Selling Rights - Fuchsia */}
+              <div className="p-1.5 rounded" style={{ background: '#d946ef10', border: '1px solid #d946ef20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#d946ef' }}>Selling Rights</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.selling_rights || "-"}</div>
+              </div>
+
+              {/* Lead Source - Rose */}
+              <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Lead Source</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.leadSource || "-"}</div>
+              </div>
+
+              {/* Source URL - Indigo */}
+              {property?.source_url && (
+                <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
+                  <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Source URL</div>
+                  <div className="font-medium truncate" style={{ color: N }}>
+                    <a
+                      href={property.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-650 hover:text-blue-800 underline inline-flex items-center gap-0.5 cursor-pointer font-semibold"
+                      title={property.source_url}
+                    >
+                      Open Source Link ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Status - Green (if Available) or Orange */}
+              <div className="p-1.5 rounded" style={{ background: property.status === 'Available' ? '#10b98110' : '#f59e0b10', border: `1px solid ${property.status === 'Available' ? '#10b98120' : '#f59e0b20'}` }}>
+                <div className="text-[8px] font-medium" style={{ color: property.status === 'Available' ? '#10b981' : '#f59e0b' }}>Status</div>
+                <div className="font-medium" style={{ color: property.status === 'Available' ? '#10b981' : '#f59e0b' }}>{property?.status || "-"}</div>
+              </div>
+
+              {/* Purchase Year - Blue */}
+              <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Purchase Year</div>
+                <div className="font-medium" style={{ color: N }}>{property?.purchaseYear || "-"}</div>
+              </div>
+
+              {/* Possession Year - Purple */}
+              <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Possession Year</div>
+                <div className="font-medium" style={{ color: N }}>{property?.possessionYear || "-"}</div>
+              </div>
+
+              {/* Purchase Month - Cyan */}
+              <div className="p-1.5 rounded" style={{ background: '#06b6d410', border: '1px solid #06b6d420' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#06b6d4' }}>Purchase Month</div>
+                <div className="font-medium" style={{ color: N }}>{getMonthName(property?.purchaseMonth)}</div>
+              </div>
+
+              {/* Possession Month - Teal */}
+              <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Possession Month</div>
+                <div className="font-medium" style={{ color: N }}>{getMonthName(property?.possessionMonth)}</div>
+              </div>
+
+              {/* Publication Date - Indigo */}
+              <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Publication Date</div>
+                <div className="font-medium" style={{ color: N }}>{property.created_at ? new Date(property.created_at).toLocaleDateString() : "-"}</div>
+              </div>
+
+              {/* Address - Slate (Full Width on Mobile) */}
+              <div className="col-span-2 sm:col-span-3 lg:col-span-4 p-1.5 rounded" style={{ background: '#64748b10', border: '1px solid #64748b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#64748b' }}>Address</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.address || "-"}</div>
+              </div>
+            </div>
+          </div>
 
           {/* Nearby Places */}
           <div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
@@ -1897,18 +1894,18 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
           </div>
 
           {/* Description */}
-         {/* Description - Preserve line breaks */}
-<div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
-  <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: N }}>Description</h3>
-  <div className="text-[10px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: MU }}>
-    {(property?.description || "No description available").split('\n').map((line: string, idx: number) => (
-      <React.Fragment key={idx}>
-        {line}
-        {idx < (property?.description || "").split('\n').length - 1 && <br />}
-      </React.Fragment>
-    ))}
-  </div>
-</div>
+          {/* Description - Preserve line breaks */}
+          <div className="bg-white rounded-lg border p-2" style={{ borderColor: BD }}>
+            <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: N }}>Description</h3>
+            <div className="text-[10px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: MU }}>
+              {(property?.description || "No description available").split('\n').map((line: string, idx: number) => (
+                <React.Fragment key={idx}>
+                  {line}
+                  {idx < (property?.description || "").split('\n').length - 1 && <br />}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
 
           {/* Amenities & Furnishing */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1933,7 +1930,7 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
         {/* Right Column - Seller, Executive & Key Dates */}
         <div className="w-full xl:w-72 2xl:w-80 shrink-0 space-y-2">
           {/* Seller Card */}
-         {/* Seller Card */}
+          {/* Seller Card */}
           <div className="rounded-lg p-2.5" style={{ background: 'linear-gradient(135deg, #3b82f608 0%, #3b82f615 100%)', border: '1px solid #3b82f630' }}>
             <div className="flex items-center gap-1.5 mb-2">
               <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#3b82f620' }}>

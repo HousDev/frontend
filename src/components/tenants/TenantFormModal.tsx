@@ -12,7 +12,7 @@ interface TenantFormModalProps {
   onClose: () => void;
   mode: "create" | "edit";
   initialData?: any;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => void | Promise<any>;
 }
 
 const BRAND = "#e67e22";
@@ -125,10 +125,13 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
   ]);
   const [locationOptions, setLocationOptions] = useState<MasterOption[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedBhk, setSelectedBhk] = useState<string[]>([]);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [propertySearch, setPropertySearch] = useState("");
   const [isPropDropdownOpen, setIsPropDropdownOpen] = useState(false);
   const [sameWhatsapp, setSameWhatsapp] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [budgetErrors, setBudgetErrors] = useState<{ min?: string; max?: string }>({});
   
   const propContainerRef = useRef<HTMLDivElement>(null);
 
@@ -157,6 +160,11 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           ? initialData.preferred_location.split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean)
           : [];
         setSelectedLocations(initialLocs);
+
+        const initialBhks = initialData.preferred_bhk
+          ? initialData.preferred_bhk.split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean)
+          : [];
+        setSelectedBhk(initialBhks);
 
         // Find property title or construct from details
         let propTitle = initialData.property_title || "";
@@ -187,6 +195,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           assigned_to: "",
         });
         setSelectedLocations([]);
+        setSelectedBhk([]);
         setPropertySearch("");
         setSameWhatsapp(false);
       }
@@ -347,22 +356,50 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     });
   };
 
-  const togglePreferredLocation = (loc: string) => {
-    setSelectedLocations(prev => {
-      const exists = prev.includes(loc);
-      const next = exists ? prev.filter(x => x !== loc) : [...prev, loc];
-      setFormData(f => ({ ...f, preferred_location: next.join(', ') }));
+  const togglePreferredLocation = (val: string) => {
+    setSelectedLocations((prev) => {
+      const next = prev.includes(val) ? prev.filter((item) => item !== val) : [...prev, val];
+      setFormData((fd) => ({ ...fd, preferred_location: next.join(", ") }));
       return next;
     });
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const togglePreferredBhk = (val: string) => {
+    setSelectedBhk((prev) => {
+      const next = prev.includes(val) ? prev.filter((item) => item !== val) : [...prev, val];
+      setFormData((fd) => ({ ...fd, preferred_bhk: next.join(", ") }));
+      return next;
+    });
+  };
+
+  const handleBudgetBlur = (field: 'min' | 'max') => {
+    const val = Number(field === 'min' ? formData.budget_min : formData.budget_max);
+    if (val > 0 && val < 1000) {
+      setBudgetErrors(prev => ({ ...prev, [field]: 'Amount cannot be less than ₹1,000' }));
+    } else {
+      setBudgetErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!formData.name || !formData.phone) {
       toast.error("Name and Phone fields are required.");
       return;
     }
-    onSubmit(formData);
+    const minB = Number(formData.budget_min || 0);
+    const maxB = Number(formData.budget_max || 0);
+    if ((formData.budget_min && minB > 0 && minB < 1000) || (formData.budget_max && maxB > 0 && maxB < 1000)) {
+      toast.error("Budget amount cannot be less than ₹1,000.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -468,19 +505,15 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               </select>
             </Field>
 
-            <Field label="Preferred BHK">
-              <select
-                name="preferred_bhk"
-                value={formData.preferred_bhk}
-                onChange={handleInputChange}
-                className={INP}
-              >
-                <option value="">Select BHK</option>
-                {bhkOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </Field>
+            <div className="flex flex-col gap-0.5">
+              <MultiSelectDropdown
+                label="Preferred BHK"
+                options={bhkOptions}
+                selectedValues={selectedBhk}
+                onToggle={togglePreferredBhk}
+                placeholder="Select BHK"
+              />
+            </div>
 
             <Field label="Min Budget (₹)">
               <input
@@ -488,15 +521,17 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
                 name="budget_min"
                 value={formData.budget_min}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d+$/.test(val)) {
-                    handleInputChange(e);
-                  }
+                  const val = e.target.value.replace(/\D/g, "");
+                  setFormData((prev) => ({ ...prev, budget_min: val }));
+                  if (Number(val) >= 1000 || val === '') setBudgetErrors(prev => ({ ...prev, min: undefined }));
                 }}
-                className={INP}
-                placeholder="Minimum monthly budget"
+                onBlur={() => handleBudgetBlur('min')}
+                className={`${INP} ${budgetErrors.min ? 'border-red-500' : ''}`}
+                placeholder="e.g. 5000"
               />
-              {numberToWords(formData.budget_min) && (
+              {budgetErrors.min ? (
+                <p className="text-[10px] text-red-500 font-medium mt-1">{budgetErrors.min}</p>
+              ) : formData.budget_min && Number(formData.budget_min) > 0 && (
                 <p className="text-[10px] text-green-600 font-medium mt-1">
                   {numberToWords(formData.budget_min)}
                 </p>
@@ -509,15 +544,17 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
                 name="budget_max"
                 value={formData.budget_max}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d+$/.test(val)) {
-                    handleInputChange(e);
-                  }
+                  const val = e.target.value.replace(/\D/g, "");
+                  setFormData((prev) => ({ ...prev, budget_max: val }));
+                  if (Number(val) >= 1000 || val === '') setBudgetErrors(prev => ({ ...prev, max: undefined }));
                 }}
-                className={INP}
-                placeholder="Maximum monthly budget"
+                onBlur={() => handleBudgetBlur('max')}
+                className={`${INP} ${budgetErrors.max ? 'border-red-500' : ''}`}
+                placeholder="e.g. 8000"
               />
-              {numberToWords(formData.budget_max) && (
+              {budgetErrors.max ? (
+                <p className="text-[10px] text-red-500 font-medium mt-1">{budgetErrors.max}</p>
+              ) : formData.budget_max && Number(formData.budget_max) > 0 && (
                 <p className="text-[10px] text-green-600 font-medium mt-1">
                   {numberToWords(formData.budget_max)}
                 </p>
@@ -611,14 +648,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               </select>
             </Field>
 
-            <Field label="Lead Status" className="col-span-2">
-              <select name="status" value={formData.status} onChange={handleInputChange} className={INP}>
-                <option value="Active Search">Active Search</option>
-                <option value="Interested">Interested</option>
-                <option value="Agreement Signed">Agreement Signed</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </Field>
+
 
             <Field label="Current Address" className="col-span-2">
               <input
@@ -654,9 +684,10 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-bold shadow-sm text-xs"
+              disabled={isSubmitting}
+              className="px-5 py-1.5 rounded-lg text-white bg-[#e67e22] hover:bg-[#d35400] font-bold shadow-sm text-xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {mode === "edit" ? "Update Profile" : "Save Profile"}
+              {isSubmitting ? (mode === "edit" ? "Updating..." : "Saving...") : (mode === "edit" ? "Update Profile" : "Save Profile")}
             </button>
           </div>
         </form>

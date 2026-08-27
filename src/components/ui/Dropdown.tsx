@@ -54,10 +54,34 @@ const Dropdown: React.FC<DropdownProps> = ({
     return safeOptions.filter((opt) => (opt.label || opt.value).toLowerCase().includes(q));
   }, [safeOptions, searchable, searchTerm]);
 
-  const selectedOption = useMemo(
-    () => safeOptions.find((option) => option.value === (value ?? "")),
-    [safeOptions, value]
-  );
+  const selectedOption = useMemo(() => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const valStr = String(value).trim();
+    const exact = safeOptions.find((option) => String(option.value) === valStr);
+    if (exact) return exact;
+
+    const normalizedVal = valStr.toLowerCase().replace(/\s+/g, "");
+    const valDigits = valStr.match(/\d+/)?.[0];
+
+    // 1. Fuzzy match by label/value ignoring case and whitespace
+    const fuzzy = safeOptions.find(
+      (opt) =>
+        String(opt.value).toLowerCase().replace(/\s+/g, "") === normalizedVal ||
+        String(opt.label).toLowerCase().replace(/\s+/g, "") === normalizedVal
+    );
+    if (fuzzy) return fuzzy;
+
+    // 2. Digit match (e.g. value "3" matches option "3 Month")
+    if (valDigits) {
+      const digitMatch = safeOptions.find((opt) => {
+        const dVal = (String(opt.value).match(/\d+/) || String(opt.label).match(/\d+/))?.[0];
+        return dVal === valDigits;
+      });
+      if (digitMatch) return digitMatch;
+    }
+
+    return undefined;
+  }, [safeOptions, value]);
 
   // Close on outside click
   useEffect(() => {

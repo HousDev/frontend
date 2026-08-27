@@ -955,10 +955,17 @@ export default function TenantsPage() {
 
                           {/* Location */}
                           <td className="px-2 py-1.5 border-r border-b border-gray-200">
-                            <div className="flex items-center gap-1">
-                              <MapPin size={9} className="text-gray-400 flex-shrink-0" />
-                              <span className="text-[10px] text-gray-600 truncate max-w-[100px]">{t.preferred_location || 'Any Location'}</span>
-                            </div>
+                            {(() => {
+                              const locDisplay = t.preferred_location || (t as any).location || 'Any Location';
+                              return (
+                                <div className="flex items-center gap-1" title={locDisplay}>
+                                  <MapPin size={10} className="text-orange-500 flex-shrink-0" />
+                                  <span className="text-[10px] font-medium text-slate-700 truncate max-w-[220px]">
+                                    {locDisplay}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Linked Context */}

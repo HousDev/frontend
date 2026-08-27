@@ -399,6 +399,11 @@ export const rentalPropertiesAPI = {
     return res.data;
   },
 
+  create: async (data: any) => {
+    const res = await api.post("/rental-properties", data);
+    return res.data;
+  },
+
   getSearch: async (data: any) => {
     const res = await api.get("/rental-properties/search", { params: data });
     return res.data;

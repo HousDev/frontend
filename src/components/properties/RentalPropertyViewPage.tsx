@@ -21,14 +21,14 @@ import PropertyMediaModal from './PropertyMediaModal';
 import PropertyStatusUpdateModal from './PropertyStatusUpdateModal';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import RentalPropertyFormModal from '@/pages/dashboard/components/RentalPropertyFormModal';
-import StagesTab from './propertiescomponents/StagesTab';
-import VisitsTab from './propertiescomponents/VisitsTab';
-import DocumentsTab from './propertiescomponents/DocumentsTab';
-import BuyersTab from './propertiescomponents/BuyersTab';
-import MarketingTab from './propertiescomponents/MarketingTab';
+import RentalStagesTab from './rentalpropertiescomponents/RentalStagesTab';
+import RentalVisitsTab from './rentalpropertiescomponents/RentalVisitsTab';
+import RentalDocumentsTab from './rentalpropertiescomponents/RentalDocumentsTab';
+import TenantsTab from './rentalpropertiescomponents/TenantsTab';
+import RentalMarketingTab from './rentalpropertiescomponents/RentalMarketingTab';
 import TenantMatchingModal from './TenantMatchingModal';
-import NegotiationsTab from './propertiescomponents/NegotiationsTab';
-import ReportsTab from './propertiescomponents/ReportsTab';
+import RentalNegotiationsTab from './rentalpropertiescomponents/RentalNegotiationsTab';
+import RentalReportsTab from './rentalpropertiescomponents/RentalReportsTab';
 import { useAuth } from '@/contexts/AuthContext';
 import { can } from '@/utils/permission';
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
@@ -162,9 +162,11 @@ const buildInitialData = (p: any) => ({
   maintenance_charge: p.maintenance_charge || p.maintenanceCharge || '',
   preferred_tenants: p.preferred_tenants || p.preferredTenants || '',
   lock_in_period: p.lock_in_period || p.lockInPeriod || '',
+  notice_period: p.notice_period || p.noticePeriod || '',   // ← ADDED
   agreement_duration: p.agreement_duration || p.agreementDuration || '',
   available_from: p.available_from || p.availableFrom || '',
 });
+
 
 const PropertyTags = ({ tags }: { tags: string[] }) => {
   if (!tags || tags.length === 0) return null;
@@ -1030,49 +1032,33 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
         )}
 
         {activeTab === 'stages' && (
-          <StagesTab
+          <RentalStagesTab
             property={propertyData as any}
-            stages={[
-              { id: 'initial_contact', label: 'Initial Contact', progress: 15, description: 'First contact with landlord', tasks: ['Call landlord', 'Gather requirements'], nextStage: 'property_listing' },
-              { id: 'property_listing', label: 'Property Listing', progress: 35, description: 'Collect rental details and media', tasks: ['Photoshoot', 'Document verification'], nextStage: 'tenant_screening' },
-              { id: 'tenant_screening', label: 'Tenant Screening', progress: 60, description: 'Screening prospective tenants', tasks: ['Tenant visits', 'Background check'], nextStage: 'lease_agreement' },
-              { id: 'lease_agreement', label: 'Lease Agreement', progress: 80, description: 'Drafting & signing lease', tasks: ['Draft agreement', 'Stamp duty'], nextStage: 'deposit_received' },
-              { id: 'deposit_received', label: 'Deposit Received', progress: 95, description: 'Security deposit paid', tasks: ['Collect deposit', 'Advance rent'], nextStage: 'handed_over' },
-              { id: 'handed_over', label: 'Keys Handed Over', progress: 100, description: 'Keys & possession handed over', tasks: ['Inventory check', 'Keys handover'], nextStage: null },
-            ]}
-            onStageUpdate={async (newStage: string) => {
-              const updated = { ...propertyData, stage: newStage };
-              setPropertyData(updated);
-              onUpdateProperty?.(updated);
-            }}
-            onShowStageModal={() => {}}
-            statusHistory={statusHistory}
-            loadingStatusHistory={loadingStatusHistory}
-            onRefreshHistory={fetchStatusHistory}
+            onUpdateStage={() => {}}
           />
         )}
 
         {activeTab === 'visits' && (
-          <VisitsTab property={propertyData as any} onScheduleVisit={() => {}} onStartInspection={() => {}} onMaintenanceSuggestions={() => {}} onGenerateReport={() => {}} />
+          <RentalVisitsTab property={propertyData as any} onScheduleVisit={() => {}} />
         )}
 
         {activeTab === 'documents' && (
-          <DocumentsTab property={propertyData as any} onCreateDocument={() => {}} />
+          <RentalDocumentsTab property={propertyData as any} onCreateDocument={() => {}} />
         )}
 
         {activeTab === 'buyers' && (
-          <BuyersTab property={propertyData as any} onMatchBuyers={() => setShowTenantMatching(true)} />
+          <TenantsTab property={propertyData as any} onMatchTenants={() => setShowTenantMatching(true)} />
         )}
 
         {activeTab === 'marketing' && (
-          <MarketingTab property={propertyData as any} onCreateBrochure={() => {}} onShareProperty={() => {}} onManageMedia={() => setShowMediaModal(true)} onPublishProperty={() => {}} />
+          <RentalMarketingTab property={propertyData as any} onCreateBrochure={() => {}} onShareProperty={() => {}} onManageMedia={() => setShowMediaModal(true)} onPublishProperty={() => {}} />
         )}
 
         {activeTab === 'negotiations' && (
-          <NegotiationsTab property={propertyData as any} onStartNegotiation={() => {}} />
+          <RentalNegotiationsTab property={propertyData as any} onStartNegotiation={() => {}} />
         )}
 
-        {activeTab === 'reports' && <ReportsTab property={propertyData as any} />}
+        {activeTab === 'reports' && <RentalReportsTab property={propertyData as any} />}
       </div>
 
       {/* Tenant Matching Modal */}

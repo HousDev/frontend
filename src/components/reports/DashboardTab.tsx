@@ -150,7 +150,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const totalPeriodBuyerInquiries = filteredMonthlyRecords.reduce((acc, curr) => acc + curr.buyerInquiries, 0);
   const totalPeriodVisits = filteredMonthlyRecords.reduce((acc, curr) => acc + curr.visits, 0);
 
-  const filteredFunnel: FunnelStage[] = useMemo(() => [
+  const filteredFunnel: any[] = useMemo(() => [
     { stage: "New Lead Registration", count: totalPeriodLeads, conversionRate: 100 },
     { stage: "Contacted & Followed Up", count: Math.round(totalPeriodLeads * 0.85), conversionRate: 85 },
     { stage: "Qualified Buyer / Seller", count: totalPeriodBuyerInquiries, conversionRate: totalPeriodLeads > 0 ? Math.round((totalPeriodBuyerInquiries / totalPeriodLeads) * 100) : 0 },

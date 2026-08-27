@@ -51,6 +51,48 @@ function parseJSONorCSV(value: any): any[] {
   return [];
 }
 
+const formatDateDDMMYYYY = (val: any): string => {
+  if (val === undefined || val === null || String(val).trim() === "") return "";
+  
+  // Excel Serial Number (e.g. 45536)
+  if (typeof val === "number" && Number.isFinite(val) && val > 30000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const ms = val * 86400000;
+    const d = new Date(excelEpoch.getTime() + ms);
+    if (!isNaN(d.getTime())) {
+      const dd = String(d.getUTCDate()).padStart(2, "0");
+      const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const yyyy = d.getUTCFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+  }
+
+  const s = String(val).trim();
+  if (!s) return "";
+
+  // Already DD/MM/YYYY format
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+
+  // DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const parts = s.split("T")[0].split("-");
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  return s;
+};
+
 type CleanRow = {
   seller?: string;
   propertyType?: string;
@@ -122,6 +164,11 @@ const HEADER_MAP: Record<string, keyof CleanRow> = {
   "amenities": "amenities",
   "furnishing items": "furnishingItems",
   "description": "description",
+  "owner name": "seller",
+  "owner": "seller",
+  "owner_name": "seller",
+  "landlord name": "seller",
+  "landlord": "seller",
   "seller name": "seller",
   "seller": "seller",
   "assigned to": "assignedTo",
@@ -324,7 +371,7 @@ const ImportRentalPropertiesModal = ({
       preferredTenants: (mapped.preferredTenants ?? "").toString().trim(),
       lockInPeriod: int(mapped.lockInPeriod),
       agreementDuration: int(mapped.agreementDuration),
-      availableFrom: (mapped.availableFrom ?? "").toString().trim(),
+      availableFrom: formatDateDDMMYYYY(mapped.availableFrom),
     };
     const __errors: string[] = [];
     const required: Array<[keyof CleanRow, string, (v: any) => boolean]> = [
@@ -388,83 +435,72 @@ const ImportRentalPropertiesModal = ({
       wing: r.wing || "",
       unitNo: r.unitNo || "",
       furnishing: r.furnishing || "",
-      bedrooms: r.bedrooms === "" ? "" : String(r.bedrooms),
-      bathrooms: r.bathrooms === "" ? "" : String(r.bathrooms),
+      bedrooms: r.bedrooms,
+      bathrooms: r.bathrooms,
       facing: r.facing || "",
       balcony: r.balcony || "",
       parkingType: r.parkingType || "",
-      parkingQty: r.parkingQty === "" ? "" : String(r.parkingQty),
+      parkingQty: r.parkingQty,
       city: r.city || "",
       location: r.location || "",
-      society_name: r.societyName || "",
+      societyName: r.societyName || "",
       floor: r.floor || "",
       totalFloors: r.totalFloors || "",
-      carpetArea: r.carpetArea === "" ? "" : String(r.carpetArea),
-      builtupArea: r.builtupArea === "" ? "" : String(r.builtupArea),
+      carpetArea: r.carpetArea,
+      builtupArea: r.builtupArea,
       address: r.address || "",
       status: r.status || "Available",
       leadSource: r.leadSource || "",
-      amenities: r.amenities ?? [],
-      furnishingItems: r.furnishingItems ?? [],
-      nearby_places: [],
+      amenities: r.amenities || [],
+      furnishingItems: r.furnishingItems || [],
       description: r.description || "",
       assignedTo: getAssignedExec(r, idx),
-      created_by: getCreatorId(),
-      listing_type: r.listingType || "rent",
-      monthly_rent: r.monthlyRent === "" ? "" : String(r.monthlyRent),
-      security_deposit: r.securityDeposit === "" ? "" : String(r.securityDeposit),
-      maintenance_extra: r.maintenanceExtra === "1" || r.maintenanceExtra?.toLowerCase() === "yes" ? "1" : "0",
-      maintenance_charge: r.maintenanceCharge === "" ? "" : String(r.maintenanceCharge),
-      preferred_tenants: r.preferredTenants || "",
-      lock_in_period: r.lockInPeriod === "" ? "" : String(r.lockInPeriod),
-      agreement_duration: r.agreementDuration === "" ? "" : String(r.agreementDuration),
-      available_from: r.availableFrom || "",
+      listingType: r.listingType || "rent",
+      monthlyRent: r.monthlyRent,
+      securityDeposit: r.securityDeposit,
+      maintenanceExtra: r.maintenanceExtra || "",
+      maintenanceCharge: r.maintenanceCharge,
+      preferredTenants: r.preferredTenants || "",
+      lockInPeriod: r.lockInPeriod,
+      agreementDuration: r.agreementDuration,
+      availableFrom: r.availableFrom || "",
     };
   }
 
   const startImport = async () => {
-    if (!rows.length) return toast.error("No data to import");
-    if (validCount === 0) return toast.error("No valid rows to import.");
-    if (!onlyThisExecutive && assignmentMode === "roundrobin" && selectedExecIds.size === 0)
-      return toast.error("Please select at least one executive.");
-    setImporting(true); setFailedRows([]); setPaused(false);
+    if (!validRows.length) return toast.error("No valid rows to import.");
+    setImporting(true); setPaused(false); setFailedRows([]);
+    setProgress({ total: validRows.length, done: 0, ok: 0, fail: 0 });
     abortRef.current.abort = false;
-    const toImport = validRows;
-    setProgress({ total: toImport.length, done: 0, ok: 0, fail: 0 });
-    const concurrency = 3;
-    let cursor = 0, ok = 0, fail = 0;
-    const runOne = async (row: ImportPreview, idx: number) => {
+    let okCount = 0; let failCount = 0;
+
+    for (let i = 0; i < validRows.length; i++) {
+      if (abortRef.current.abort) break;
+      while (paused && !abortRef.current.abort) await sleep(200);
+
+      const r = validRows[i];
       try {
-        await rentalPropertiesAPI.importBulk([buildPayload(row, idx)]);
-        ok++;
-      } catch (e: any) {
-        fail++;
-        const msg = e?.response?.data?.message || e?.message || String(e);
-        setFailedRows(prev => [...prev, { row: row.__row, reason: `API Error: ${msg}`, data: row }]);
-      } finally { setProgress({ total: toImport.length, done: ok + fail, ok, fail }); }
-    };
-    const workers: Promise<void>[] = [];
-    for (let i = 0; i < concurrency; i++) {
-      workers.push((async function worker() {
-        while (cursor < toImport.length && !abortRef.current.abort) {
-          if (paused) { await sleep(200); continue; }
-          const idx = cursor++;
-          await runOne(toImport[idx], idx);
+        const payload = buildPayload(r, i);
+        if (onImport) {
+          await onImport([payload]);
+        } else {
+          await rentalPropertiesAPI.create(payload);
         }
-      })());
+        okCount++;
+      } catch (err: any) {
+        failCount++;
+        setFailedRows(prev => [...prev, { row: r.__row, reason: err?.response?.data?.message || err?.message || "Creation failed", data: r }]);
+      }
+      setProgress({ total: validRows.length, done: i + 1, ok: okCount, fail: failCount });
     }
-    await Promise.all(workers);
+
     setImporting(false);
-    if (abortRef.current.abort) { toast.info("Import cancelled."); return; }
-    if (ok) toast.success(`Imported ${ok} rental properties`);
-    if (fail) toast.warn(`${fail} failed`);
-    if (invalidCount > 0) toast.info(`${invalidCount} rows skipped`);
-    onDone?.({ ok, fail }); onImport?.([]);
-    if (ok > 0 && fail === 0 && invalidCount === 0) setTimeout(() => onClose(), 1500);
+    toast.success(`Import complete: ${okCount} created, ${failCount} failed.`);
+    onDone?.({ ok: okCount, fail: failCount });
   };
 
   const togglePause = () => setPaused(p => !p);
-  const cancelImport = () => { abortRef.current.abort = true; setPaused(false); };
+  const cancelImport = () => { abortRef.current.abort = true; setImporting(false); };
 
   const exportIssues = () => {
     const all = [
@@ -480,7 +516,7 @@ const ImportRentalPropertiesModal = ({
   };
 
   const TEMPLATE_HEADERS = [
-    "Seller Name", "Property Type", "Property Subtype", "Unit Type",
+    "Owner Name", "Property Type", "Property Subtype", "Unit Type",
     "Wing", "Unit No", "Furnishing", "Parking Type",
     "Bedrooms", "Bathrooms", "Facing", "Balcony",
     "Parking Qty", "Total Floors", "Floor", "Property Status",
@@ -489,13 +525,13 @@ const ImportRentalPropertiesModal = ({
     "Listing Type", "Monthly Rent", "Security Deposit",
     "Maintenance Extra", "Maintenance Charge",
     "Preferred Tenants", "Lock In Period (Months)", "Agreement Duration (Months)",
-    "Available From",
+    "Available From (DD/MM/YYYY)",
     "Amenities", "Furnishing Items", "Description", "Assigned To",
   ];
 
   const downloadTemplate = () => {
-    const s1 = ["Rahul Sharma","Residential","Flat","2BHK","A","1204","Semi-Furnished","Covered","2","2","East","1","1","22nd Floor","12th Floor","Available","Sea View Towers","Bandra West","Mumbai","Wing A, Unit 1204, Sea View Towers, Mumbai","980","1050","FB Post","rent","35000","200000","No","","Family","12","11","2024-09-01","Gym,Lift","Wardrobe","Well maintained 2BHK.","Rajesh Kumar"];
-    const s2 = ["Priya Patel","Residential","Flat","3BHK","","","Fully-Furnished","Open","3","3","North","2","2","10th Floor","5th Floor","Available","Green Valley","Koregaon Park","Pune","Green Valley, Koregaon Park, Pune","1500","1700","Referral","rent","60000","360000","Yes","5000","Family,Bachelors","6","11","2024-10-01","Pool,Gym","Bed,Sofa,AC","Spacious 3BHK.","Priya Sharma"];
+    const s1 = ["Rahul Sharma","Residential","Flat","2BHK","A","1204","Semi-Furnished","Covered","2","2","East","1","1","22nd Floor","12th Floor","Available","Sea View Towers","Bandra West","Mumbai","Wing A, Unit 1204, Sea View Towers, Mumbai","980","1050","FB Post","rent","35000","200000","No","","Family","12","11","01/09/2024","Gym,Lift","Wardrobe","Well maintained 2BHK.","Rajesh Kumar"];
+    const s2 = ["Priya Patel","Residential","Flat","3BHK","","","Fully-Furnished","Open","3","3","North","2","2","10th Floor","5th Floor","Available","Green Valley","Koregaon Park","Pune","Green Valley, Koregaon Park, Pune","1500","1700","Referral","rent","60000","360000","Yes","5000","Family,Bachelors","6","11","01/10/2024","Pool,Gym","Bed,Sofa,AC","Spacious 3BHK.","Priya Sharma"];
     try {
       const baseStyle = { font: { bold: true }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } };
       const redCols = new Set(["property type","property subtype","unit type","carpet area","society name","monthly rent"]);

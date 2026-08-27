@@ -4,7 +4,7 @@ import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { api } from '@/lib/api';
-import PropertyDetailsShareModal from './PropertyDetailsShareModal';
+import PropertyShareModal from './PropertyShareModal';
 
 // Theme Colors
 const N = "#0f2b3d";
@@ -89,6 +89,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
   const [modalPage, setModalPage] = useState(1);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareBuyer, setShareBuyer] = useState<any>(null);
+  const [shareBuyers, setShareBuyers] = useState<any[]>([]);
   const MODAL_PAGE_SIZE = 20;
 
   useEffect(() => {
@@ -145,13 +146,61 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
 
   const filteredMatchedBuyers = useMemo(() => {
     if (!debouncedSearch) return computedMatchedBuyers;
-    const term = debouncedSearch.toLowerCase();
-    return computedMatchedBuyers.filter((b: any) =>
-      String(b.name || '').toLowerCase().includes(term) ||
-      String(b.phone || '').includes(debouncedSearch) ||
-      String(b.displayLocation || '').toLowerCase().includes(term) ||
-      String(b.displayBHK || '').toLowerCase().includes(term)
-    );
+    const term = debouncedSearch.toLowerCase().trim();
+    
+    return computedMatchedBuyers.filter((b: any) => {
+      // 1. Name, Phone, Email
+      const name = String(b.name || '').toLowerCase();
+      const phone = String(b.phone || b.whatsapp || '');
+      const email = String(b.email || '').toLowerCase();
+      
+      // 2. Location
+      const displayLoc = String(b.displayLocation || '').toLowerCase();
+      const rawLoc = String(b.location || b.preferred_location || '').toLowerCase();
+      
+      // 3. BHK & Unit Type
+      const displayBHK = String(b.displayBHK || '').toLowerCase();
+      const prefBhk = String(b.preferred_bhk || b.unit_type || '').toLowerCase();
+      
+      // 4. Requirements JSON
+      let reqs = b.requirements;
+      if (typeof reqs === 'string') {
+        try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
+      }
+      if (!reqs) reqs = {};
+      const propType = String(reqs.propertyType || reqs.property_type || '').toLowerCase();
+      const prefLocs = Array.isArray(reqs.preferredLocations) ? reqs.preferredLocations.join(' ').toLowerCase() : '';
+      
+      // 5. Carpet Area
+      const minArea = String(reqs.minCarpetArea || reqs.minArea || '');
+      const maxArea = String(reqs.maxCarpetArea || reqs.maxArea || '');
+
+      // 6. Budget
+      const bMin = Number(b.budget_min || 0);
+      const bMax = Number(b.budget_max || 0);
+      const bMinStr = bMin > 0 ? (bMin >= 10000000 ? `${(bMin/10000000).toFixed(1)}cr` : `${(bMin/100000).toFixed(1)}l`) : '';
+      const bMaxStr = bMax > 0 ? (bMax >= 10000000 ? `${(bMax/10000000).toFixed(1)}cr` : `${(bMax/100000).toFixed(1)}l`) : '';
+      const budgetFullStr = `${bMin} ${bMax} ${bMinStr} ${bMaxStr}`.toLowerCase();
+
+      // 7. Notes
+      const notes = String(b.notes || '').toLowerCase();
+
+      return (
+        name.includes(term) ||
+        phone.includes(term) ||
+        email.includes(term) ||
+        displayLoc.includes(term) ||
+        rawLoc.includes(term) ||
+        prefLocs.includes(term) ||
+        displayBHK.includes(term) ||
+        prefBhk.includes(term) ||
+        propType.includes(term) ||
+        minArea.includes(term) ||
+        maxArea.includes(term) ||
+        budgetFullStr.includes(term) ||
+        notes.includes(term)
+      );
+    });
   }, [debouncedSearch, computedMatchedBuyers]);
 
   // Paginated slice — renders max MODAL_PAGE_SIZE rows at a time
@@ -179,18 +228,18 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
 
   const handleWhatsApp = (buyer: any) => {
     const phoneNum = String(buyer.whatsapp || buyer.phone || '').replace(/\D/g, '');
-    if (!phoneNum) { toast.error("Phone number not available"); return; }
+    if (!phoneNum) { toast.error(`WhatsApp / Phone number not available for ${buyer.name || 'buyer'}`); return; }
     window.open(`https://wa.me/${phoneNum}?text=${encodeURIComponent(buildWhatsAppMessage(buyer))}`, '_blank');
   };
 
   const handleCall = (buyer: any) => {
     const phone = String(buyer.phone || '').replace(/\D/g, '');
-    if (!phone) { toast.error("Phone number not available"); return; }
+    if (!phone) { toast.error(`Phone number not available for ${buyer.name || 'buyer'}`); return; }
     window.open(`tel:${phone}`);
   };
 
   const handleEmail = (buyer: any) => {
-    if (!buyer.email) { toast.error("Email not available"); return; }
+    if (!buyer.email) { toast.error(`Email address not available for ${buyer.name || 'buyer'}`); return; }
     const subject = encodeURIComponent(`Property Match: ${property.title || `Property #${property.id}`}`);
     const body = encodeURIComponent(buildWhatsAppMessage(buyer));
     window.open(`mailto:${buyer.email}?subject=${subject}&body=${body}`);
@@ -210,31 +259,11 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
     }
   };
 
-  const handleSendToSelectedBuyers = async () => {
+  const handleSendToSelectedBuyers = () => {
     if (selectedBuyers.length === 0) { toast.error('Please select buyers to share details'); return; }
-    
-    if (selectedBuyers.length === 1) {
-      const buyerObj = buyersList.find(b => b.id === selectedBuyers[0]);
-      if (buyerObj) {
-        setShareBuyer({ name: buyerObj.name, phone: buyerObj.phone, email: buyerObj.email });
-        setShareModalOpen(true);
-      }
-    } else {
-      setLoading(true);
-      try {
-        await api.post(`/location/properties/${property.id}/share`, {
-          buyerIds: selectedBuyers,
-          channels: ['whatsapp', 'email']
-        });
-        toast.success(`Shared property details with ${selectedBuyers.length} buyers in batch!`);
-        setSelectedBuyers([]);
-      } catch (err) {
-        console.error("Batch share failed:", err);
-        toast.error("Failed to share details with selected buyers");
-      } finally {
-        setLoading(false);
-      }
-    }
+    const selectedObjs = buyersList.filter(b => selectedBuyers.includes(b.id));
+    setShareBuyers(selectedObjs);
+    setShareModalOpen(true);
   };
 
   if (!isOpen || !property) return null;
@@ -292,7 +321,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
             <div className="relative w-full sm:max-w-xs">
               <input
                 type="text"
-                placeholder="Search buyers by name, phone or location..."
+                placeholder="Search by name, location, BHK, budget or carpet area..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-8 pl-8 pr-3 border rounded-lg text-xs focus:outline-none focus:border-orange-500"
@@ -331,108 +360,138 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
             ) : filteredMatchedBuyers.length > 0 ? (
               <>
                 {pagedBuyers.map((buyer: any) => {
-                const isSelected = selectedBuyers.includes(buyer.id);
-                const isExpanded = expandedBuyer === buyer.id;
-                const menuOpen = openActionMenu === buyer.id;
-                return (
-                  <div
-                    key={buyer.id}
-                    className="border rounded-xl transition-all overflow-hidden bg-white hover:border-slate-300"
-                    style={{ borderColor: isSelected ? O : BD }}
-                  >
-                    <div className="p-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleBuyerSelection(buyer.id)}
-                          className="rounded text-orange-500 accent-orange-500 w-3.5 h-3.5 flex-shrink-0"
-                        />
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${O}15` }}>
-                          <Users size={13} style={{ color: O }} />
+                  const isSelected = selectedBuyers.includes(buyer.id);
+                  const isExpanded = expandedBuyer === buyer.id;
+                  const menuOpen = openActionMenu === buyer.id;
+                  return (
+                    <div
+                      key={buyer.id}
+                      className="border rounded-xl transition-all overflow-hidden bg-white hover:border-slate-300"
+                      style={{ borderColor: isSelected ? O : BD }}
+                    >
+                      <div className="p-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleBuyerSelection(buyer.id)}
+                            className="rounded text-orange-500 accent-orange-500 w-3.5 h-3.5 flex-shrink-0"
+                          />
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${O}15` }}>
+                            <Users size={13} style={{ color: O }} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] font-bold" style={{ color: N }}>{buyer.name}</span>
+                              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${getMatchScoreColor(buyer.matchScore)}`}>
+                                {buyer.matchScore}% Match
+                              </span>
+                            </div>
+                            <div className="text-[9px] mt-0.5 text-gray-500 truncate flex items-center gap-1.5 flex-wrap">
+                              <span>📍 {buyer.displayLocation} {buyer.distance !== null && buyer.distance !== undefined ? `(${buyer.distance} km)` : ''}</span>
+                              <span>•</span>
+                              <span>🏢 {buyer.displayBHK}</span>
+                              {(() => {
+                                let req = buyer.requirements;
+                                if (typeof req === 'string') { try { req = JSON.parse(req); } catch { req = {}; } }
+                                const minA = req?.minCarpetArea || req?.minArea;
+                                const maxA = req?.maxCarpetArea || req?.maxArea;
+                                if (minA || maxA) {
+                                  return (
+                                    <>
+                                      <span>•</span>
+                                      <span>📐 {minA || '—'} – {maxA || '—'} sq ft</span>
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              <span>•</span>
+                              <span>💰 {formatCurrency(Number(buyer.budget_min || 0))} – {formatCurrency(Number(buyer.budget_max || 0))}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] font-bold" style={{ color: N }}>{buyer.name}</span>
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${getMatchScoreColor(buyer.matchScore)}`}>
-                              {buyer.matchScore}% Match
-                            </span>
-                          </div>
-                          <div className="text-[9px] mt-0.5 text-gray-500 truncate flex items-center gap-1.5 flex-wrap">
-                            <span>📍 {buyer.displayLocation} {buyer.distance !== null && buyer.distance !== undefined ? `(${buyer.distance} km)` : ''}</span>
-                            <span>•</span>
-                            <span>🏢 {buyer.displayBHK}</span>
-                            <span>•</span>
-                            <span>💰 {formatCurrency(Number(buyer.budget_min || 0))} – {formatCurrency(Number(buyer.budget_max || 0))}</span>
-                          </div>
+
+                        {/* Action Buttons: WhatsApp | Call | Email | Expand */}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* WhatsApp */}
+                          <button
+                            onClick={() => handleWhatsApp(buyer)}
+                            className="p-1.5 rounded-lg hover:bg-green-50 transition-colors"
+                            title="WhatsApp"
+                          >
+                            <FaWhatsapp size={14} className="text-green-600" />
+                          </button>
+                          {/* Call */}
+                          <a
+                            href={buyer.phone ? `tel:${buyer.phone}` : undefined}
+                            onClick={!buyer.phone ? (e) => { e.preventDefault(); toast.error('Phone not available'); } : undefined}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="Call"
+                          >
+                            <Phone size={13} className="text-blue-600" />
+                          </a>
+                          {/* Email */}
+                          <button
+                            onClick={() => handleEmail(buyer)}
+                            className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors"
+                            title="Email"
+                          >
+                            <Mail size={13} className="text-purple-600" />
+                          </button>
+                          {/* Expand */}
+                          <button
+                            onClick={() => setExpandedBuyer(isExpanded ? null : buyer.id)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-400 transition-colors"
+                            title="Details"
+                          >
+                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          </button>
                         </div>
                       </div>
 
-                      {/* Action Buttons: WhatsApp | Call | Email | Expand */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* WhatsApp */}
-                        <button
-                          onClick={() => handleWhatsApp(buyer)}
-                          className="p-1.5 rounded-lg hover:bg-green-50 transition-colors"
-                          title="WhatsApp"
-                        >
-                          <FaWhatsapp size={14} className="text-green-600" />
-                        </button>
-                        {/* Call */}
-                        <a
-                          href={buyer.phone ? `tel:${buyer.phone}` : undefined}
-                          onClick={!buyer.phone ? (e) => { e.preventDefault(); toast.error('Phone not available'); } : undefined}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                          title="Call"
-                        >
-                          <Phone size={13} className="text-blue-600" />
-                        </a>
-                        {/* Email */}
-                        <button
-                          onClick={() => handleEmail(buyer)}
-                          className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors"
-                          title="Email"
-                        >
-                          <Mail size={13} className="text-purple-600" />
-                        </button>
-                        {/* Expand */}
-                        <button
-                          onClick={() => setExpandedBuyer(isExpanded ? null : buyer.id)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-400 transition-colors"
-                          title="Details"
-                        >
-                          {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                        </button>
-                      </div>
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-3 pt-2 bg-slate-50/70 border-t border-dashed border-slate-200 text-[10px] space-y-2">
+                          <div className="grid grid-cols-2 gap-3 text-slate-600">
+                            <div>
+                              <span className="font-semibold text-slate-800">Preferred BHK / Unit:</span> {buyer.displayBHK}
+                              {(() => {
+                                let req = buyer.requirements;
+                                if (typeof req === 'string') { try { req = JSON.parse(req); } catch { req = {}; } }
+                                const minA = req?.minCarpetArea || req?.minArea;
+                                const maxA = req?.maxCarpetArea || req?.maxArea;
+                                if (minA || maxA) {
+                                  return (
+                                    <span className="ml-3">
+                                      <span className="font-semibold text-slate-800">Carpet Area:</span> {minA || '—'} – {maxA || '—'} sq ft
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-800">Phone:</span> {buyer.phone || '—'} &nbsp;|&nbsp; <span className="font-semibold text-slate-800">Email:</span> {buyer.email || '—'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="font-semibold text-slate-800 mr-1">Score:</span>
+                            <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">📍 Location: {buyer.locationScore}/35</span>
+                            <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">💰 Budget: {buyer.budgetScore}/30</span>
+                            <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">🏠 BHK: {buyer.bhkScore}/20</span>
+                            <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">📐 Carpet Area: {buyer.areaScore}/15</span>
+                            <span className="text-[9px] font-bold bg-orange-50 text-orange-700 px-2 py-0.5 border border-orange-200 rounded">Total: {buyer.matchScore}/100</span>
+                          </div>
+                          {buyer.notes && (
+                            <div className="text-slate-500 italic">
+                              <strong>Notes:</strong> {buyer.notes}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="px-4 pb-3 pt-2 bg-slate-50/70 border-t border-dashed border-slate-200 text-[10px] space-y-2">
-                        <div className="grid grid-cols-2 gap-3 text-slate-600">
-                          <div>
-                            <span className="font-semibold text-slate-800">Preferred BHK / Unit:</span> {buyer.displayBHK}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-slate-800">Phone:</span> {buyer.phone || '—'} &nbsp;|&nbsp; <span className="font-semibold text-slate-800">Email:</span> {buyer.email || '—'}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="font-semibold text-slate-800 mr-1">Score:</span>
-                          <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">📍 Location: {buyer.locationScore}/40</span>
-                          <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">💰 Budget: {buyer.budgetScore}/40</span>
-                          <span className="text-[9px] font-medium bg-white px-2 py-0.5 border rounded">🏠 BHK: {buyer.bhkScore}/20</span>
-                          <span className="text-[9px] font-bold bg-orange-50 text-orange-700 px-2 py-0.5 border border-orange-200 rounded">Total: {buyer.matchScore}/100</span>
-                        </div>
-                        {buyer.notes && (
-                          <div className="text-slate-500 italic">
-                            <strong>Notes:</strong> {buyer.notes}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
+                  );
                 })}
                 {/* Modal Pagination */}
                 {totalModalPages > 1 && (
@@ -466,11 +525,12 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
       </div>
 
       {shareModalOpen && (
-        <PropertyDetailsShareModal
+        <PropertyShareModal
           isOpen={shareModalOpen}
-          onClose={() => { setShareModalOpen(false); setShareBuyer(null); setSelectedBuyers([]); }}
-          selectedProperties={[property]}
+          onClose={() => { setShareModalOpen(false); setShareBuyer(null); setShareBuyers([]); setSelectedBuyers([]); }}
+          property={property}
           buyer={shareBuyer}
+          buyers={shareBuyers}
         />
       )}
     </div>
