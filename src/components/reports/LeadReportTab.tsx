@@ -1,11 +1,15 @@
 // frontend/src/components/reports/LeadReportTab.tsx
 import React from "react";
 import { ReportTable, ColumnDef, StatusPill } from "./ReportTable";
+import Button from "@/components/ui/Button";
 import {
   Target,
   Clock,
   Layers,
   Award,
+  Filter,
+  Download,
+  Printer,
 } from "lucide-react";
 
 interface LeadReportTabProps {
@@ -194,41 +198,80 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. VISUAL LEAD LIFECYCLE FUNNEL (ALL 7 STAGES IN ONE ROW) */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-orange-500" />
-            <div>
-              <h3 className="text-sm font-bold text-gray-900">Lead Acquisition & Conversion Funnel</h3>
-              <p className="text-[11px] text-gray-500">Interactive stage-by-stage progression flow</p>
+      <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-orange-500" />
+              <div>
+                <h3 className="text-xs font-bold text-slate-800">Lead Acquisition & Conversion Funnel</h3>
+                <p className="text-[10px] font-medium text-slate-500">Interactive stage-by-stage progression flow</p>
+              </div>
+            </div>
+            <div className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+              Conversion Rate: <span className="text-emerald-600 font-bold">{safeStats.conversion_rate || 0}%</span>
             </div>
           </div>
-          <div className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-            Conversion Rate: <span className="text-emerald-600 font-bold">{safeStats.conversion_rate || 0}%</span>
+
+          {/* Filter, Export, Print Buttons in Right Corner */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={onOpenFilters}
+              className="flex items-center gap-1.5 text-xs text-white bg-[#0f2b3d] hover:bg-[#1a435d] font-bold px-3 py-1.5 rounded-lg shadow-xs border-0"
+            >
+              <Filter className="w-3.5 h-3.5 text-white" />
+              Filter
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5 text-gray-700" />
+              Export
+            </Button>
+
+            {onPrint && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onPrint}
+                className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
+              >
+                <Printer className="w-3.5 h-3.5 text-gray-700" />
+                Print
+              </Button>
+            )}
           </div>
         </div>
 
         {/* 7 STAGE CARDS IN ONE ROW */}
-        <div className="grid grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-7 gap-2">
           {safeFunnel.map((item, idx) => (
             <div
               key={item.id}
               onClick={() => onSelectStatusPill && onSelectStatusPill(item.id)}
-              className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer min-w-0"
+              className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer min-w-0"
             >
               <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
                   Stage {idx + 1}
                 </div>
                 <div className="text-[11px] font-bold text-slate-900 truncate" title={item.label}>
                   {item.label}
                 </div>
               </div>
-              <div className="mt-2.5 flex items-baseline justify-between">
-                <span className="text-base font-extrabold text-slate-900">{item.count}</span>
-                <span className="text-[11px] font-bold text-blue-600">{item.pct}%</span>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-sm font-bold text-slate-900">{item.count}</span>
+                <span className="text-[10px] font-semibold text-blue-600">{item.pct}%</span>
               </div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(100, item.pct)}%`, backgroundColor: item.color || "#3b82f6" }}
@@ -240,45 +283,45 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
       </div>
 
       {/* 2. PERFORMANCE BREAKDOWN GRIDS (LEAD SOURCES & EXECUTIVES) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
         {/* Lead Source Performance */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-bold text-gray-900">Lead Source Performance</h3>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-blue-600" />
+                <h3 className="text-xs font-bold text-slate-800">Lead Source Performance</h3>
               </div>
-              <span className="text-[11px] text-gray-400 font-medium">{safeSources.length} Active Channels</span>
+              <span className="text-[10px] text-gray-500 font-medium">{safeSources.length} Active Channels</span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold text-[10px]">
                   <tr>
-                    <th className="py-2 px-2.5">Source</th>
-                    <th className="py-2 px-2.5 text-center">Leads</th>
-                    <th className="py-2 px-2.5 text-center">Assigned %</th>
-                    <th className="py-2 px-2.5 text-center">Buyer</th>
-                    <th className="py-2 px-2.5 text-center">Seller</th>
-                    <th className="py-2 px-2.5 text-right">Conv %</th>
+                    <th className="py-1.5 px-2">Source</th>
+                    <th className="py-1.5 px-2 text-center">Leads</th>
+                    <th className="py-1.5 px-2 text-center">Assigned %</th>
+                    <th className="py-1.5 px-2 text-center">Buyer</th>
+                    <th className="py-1.5 px-2 text-center">Seller</th>
+                    <th className="py-1.5 px-2 text-right">Conv %</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {safeSources.length > 0 ? (
                     safeSources.slice(0, 6).map((src, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-2 px-2.5 font-bold text-slate-800">{src.source_name}</td>
-                        <td className="py-2 px-2.5 text-center font-bold text-slate-900">{src.total_leads}</td>
-                        <td className="py-2 px-2.5 text-center text-slate-600">{src.assigned_pct}%</td>
-                        <td className="py-2 px-2.5 text-center font-semibold text-emerald-600">{src.buyer_transfers}</td>
-                        <td className="py-2 px-2.5 text-center font-semibold text-orange-600">{src.seller_transfers}</td>
-                        <td className="py-2 px-2.5 text-right font-extrabold text-purple-700">{src.conversion_pct}%</td>
+                        <td className="py-1.5 px-2 font-bold text-slate-800">{src.source_name}</td>
+                        <td className="py-1.5 px-2 text-center font-bold text-slate-900">{src.total_leads}</td>
+                        <td className="py-1.5 px-2 text-center text-slate-600">{src.assigned_pct}%</td>
+                        <td className="py-1.5 px-2 text-center font-semibold text-emerald-600">{src.buyer_transfers}</td>
+                        <td className="py-1.5 px-2 text-center font-semibold text-orange-600">{src.seller_transfers}</td>
+                        <td className="py-1.5 px-2 text-right font-bold text-purple-700">{src.conversion_pct}%</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                      <td colSpan={6} className="py-4 text-center text-slate-400 italic">
                         No lead source breakdown available.
                       </td>
                     </tr>
@@ -290,43 +333,43 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
         </div>
 
         {/* Executive Performance Analysis */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between">
+        <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-purple-600" />
-                <h3 className="text-sm font-bold text-gray-900">Executive Performance</h3>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-purple-600" />
+                <h3 className="text-xs font-bold text-slate-800">Executive Performance</h3>
               </div>
-              <span className="text-[11px] text-gray-400 font-medium">{safeExecutives.length} Team Members</span>
+              <span className="text-[10px] text-gray-500 font-medium">{safeExecutives.length} Team Members</span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold text-[10px]">
                   <tr>
-                    <th className="py-2 px-2.5">Executive</th>
-                    <th className="py-2 px-2.5 text-center">Assigned</th>
-                    <th className="py-2 px-2.5 text-center">Fresh</th>
-                    <th className="py-2 px-2.5 text-center">Interested</th>
-                    <th className="py-2 px-2.5 text-center">Buyer</th>
-                    <th className="py-2 px-2.5 text-right">Conv %</th>
+                    <th className="py-1.5 px-2">Executive</th>
+                    <th className="py-1.5 px-2 text-center">Assigned</th>
+                    <th className="py-1.5 px-2 text-center">Fresh</th>
+                    <th className="py-1.5 px-2 text-center">Interested</th>
+                    <th className="py-1.5 px-2 text-center">Buyer</th>
+                    <th className="py-1.5 px-2 text-right">Conv %</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {safeExecutives.length > 0 ? (
                     safeExecutives.slice(0, 6).map((exec, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-2 px-2.5 font-bold text-slate-800">{exec.executive_name}</td>
-                        <td className="py-2 px-2.5 text-center font-bold text-slate-900">{exec.assigned_leads}</td>
-                        <td className="py-2 px-2.5 text-center text-blue-600 font-medium">{exec.fresh_count}</td>
-                        <td className="py-2 px-2.5 text-center text-purple-600 font-medium">{exec.interested_count}</td>
-                        <td className="py-2 px-2.5 text-center font-semibold text-emerald-600">{exec.buyer_transfers}</td>
-                        <td className="py-2 px-2.5 text-right font-extrabold text-emerald-700">{exec.conversion_rate}%</td>
+                        <td className="py-1.5 px-2 font-bold text-slate-800">{exec.executive_name}</td>
+                        <td className="py-1.5 px-2 text-center font-bold text-slate-900">{exec.assigned_leads}</td>
+                        <td className="py-1.5 px-2 text-center text-blue-600 font-medium">{exec.fresh_count}</td>
+                        <td className="py-1.5 px-2 text-center text-purple-600 font-medium">{exec.interested_count}</td>
+                        <td className="py-1.5 px-2 text-center font-semibold text-emerald-600">{exec.buyer_transfers}</td>
+                        <td className="py-1.5 px-2 text-right font-bold text-emerald-700">{exec.conversion_rate}%</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                      <td colSpan={6} className="py-4 text-center text-slate-400 italic">
                         No executive data available.
                       </td>
                     </tr>
@@ -386,6 +429,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
         onExport={onExport}
         onRefresh={onRefresh}
         onPrint={onPrint}
+        hideHeaderButtons={true}
         pagination={pagination}
         onPageChange={onPageChange}
         onLimitChange={onLimitChange}

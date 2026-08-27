@@ -117,8 +117,7 @@ export const ActivitiesPage: React.FC = () => {
       header: "EXECUTIVE NAME & ROLE",
       searchPlaceholder: "Search executive...",
       render: (row) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
-          
+        <div className="flex items-center gap-1.5 whitespace-nowrap min-w-[200px]">
           <span className="font-bold text-gray-900">{row.user_name || "N/A"}</span>
           <span className="text-[10px] text-gray-400 font-medium capitalize">({row.role || "Executive"})</span>
         </div>
@@ -137,7 +136,7 @@ export const ActivitiesPage: React.FC = () => {
         const cnt = Number(row.general_leads || 0);
         return cnt > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300">
-            📋 {cnt} Client
+            {cnt} Client
           </span>
         ) : (
           <span className="text-gray-400 font-medium">0</span>
@@ -152,7 +151,7 @@ export const ActivitiesPage: React.FC = () => {
         const cnt = Number(row.buyer_leads || 0);
         return cnt > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-800 border border-blue-200">
-            🛒 {cnt} Buyer
+            {cnt} Buyer
           </span>
         ) : (
           <span className="text-gray-400 font-medium">0</span>
@@ -167,7 +166,7 @@ export const ActivitiesPage: React.FC = () => {
         const cnt = Number(row.seller_leads || 0);
         return cnt > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            🏠 {cnt} Seller
+            {cnt} Seller
           </span>
         ) : (
           <span className="text-gray-400 font-medium">0</span>
@@ -182,7 +181,7 @@ export const ActivitiesPage: React.FC = () => {
         const cnt = Number(row.owner_leads || 0);
         return cnt > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
-            🔑 {cnt} Owner
+            {cnt} Owner
           </span>
         ) : (
           <span className="text-gray-400 font-medium">0</span>
@@ -197,7 +196,7 @@ export const ActivitiesPage: React.FC = () => {
         const cnt = Number(row.tenant_leads || 0);
         return cnt > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200">
-            👤 {cnt} Tenant
+            {cnt} Tenant
           </span>
         ) : (
           <span className="text-gray-400 font-medium">0</span>
@@ -216,7 +215,7 @@ export const ActivitiesPage: React.FC = () => {
         const overdue = Number(row.overdue_followups || 0);
         return overdue > 0 ? (
           <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
-            ⚠️ {overdue} Overdue
+            {overdue} Overdue
           </span>
         ) : (
           <span className="text-gray-400 font-semibold">0</span>
@@ -266,15 +265,15 @@ export const ActivitiesPage: React.FC = () => {
         const rate = assigned > 0 ? (interested / assigned) * 100 : 0;
 
         if (overdue > 0) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800">⚠️ Needs Action</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800">Needs Action</span>;
         }
         if (rate >= 25 || (followups > 10 && interested > 2)) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">🔥 Top Performer</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">Top Performer</span>;
         }
         if (followups > 0) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">⚡ Active Staff</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">Active Staff</span>;
         }
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-700">💤 Pending Log</span>;
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-700">Pending Log</span>;
       },
     },
   ];
@@ -286,7 +285,7 @@ export const ActivitiesPage: React.FC = () => {
       header: "STAFF / PERFORMED BY",
       searchPlaceholder: "Search staff...",
       render: (row) => (
-        <div className="flex items-center gap-1.5 whitespace-nowrap">
+        <div className="flex items-center gap-1.5 whitespace-nowrap min-w-[200px]">
           <span className="font-bold text-gray-900">{row.user_name || "Staff Member"}</span>
         </div>
       ),
@@ -298,20 +297,16 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const t = (row.type || "").toLowerCase();
         let badge = "bg-blue-50 text-blue-800 border-blue-200";
-        let icon = "📞";
         if (t.includes("wa") || t.includes("whatsapp")) {
           badge = "bg-emerald-50 text-emerald-800 border-emerald-200";
-          icon = "💬";
         } else if (t.includes("visit") || t.includes("meet") || t.includes("site")) {
           badge = "bg-purple-50 text-purple-800 border-purple-200";
-          icon = "🤝";
         } else if (t.includes("follow")) {
           badge = "bg-amber-50 text-amber-800 border-amber-200";
-          icon = "📝";
         }
         return (
           <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${badge} whitespace-nowrap`}>
-            {icon} {row.type || "Activity"}
+            {row.type || "Activity"}
           </span>
         );
       },
@@ -367,215 +362,178 @@ export const ActivitiesPage: React.FC = () => {
     },
   ];
 
-  // Instant Client-Side CSV Export
+  // CSV Export
   const handleExportCSV = () => {
-    let csv = "";
-    if (activeView === "user_breakdown") {
-      csv = "S.NO,EXECUTIVE NAME,ROLE,DEPARTMENT,ASSIGNED LEADS,CALLS COMPLETED,PENDING CALLS,INTERESTED LEADS,NOT INTERESTED,FOLLOW-UPS LOGGED,CONVERSION RATE\n";
-      displayUserSummary.forEach((r, idx) => {
-        const assigned = Number(r.assigned_leads || 0);
-        const interested = Number(r.interested_leads || 0);
-        const rate = assigned > 0 ? Number(((interested / assigned) * 100).toFixed(1)) : 0;
-        csv += `"${idx + 1}","${r.user_name || ""}","${r.role || ""}","${r.department || ""}","${r.assigned_leads || 0}","${r.calls_done || 0}","${r.pending_calls || 0}","${r.interested_leads || 0}","${r.not_interested_leads || 0}","${r.followups_count || 0}","${rate}%"\n`;
-      });
-    } else {
-      csv = "S.NO,ACTIVITY TYPE,DESCRIPTION,STATUS,DATE,PERFORMED BY\n";
-      activityLogs.forEach((r, idx) => {
-        csv += `"${idx + 1}","${r.type || ""}","${(r.description || "").replace(/"/g, '""')}","${r.status || ""}","${r.scheduled_date || ""}","${r.user_name || ""}"\n`;
-      });
-    }
+    const targetData = activeView === "user_breakdown" ? displayUserSummary : activityLogs;
+    if (!targetData.length) return;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const headers = activeView === "user_breakdown"
+      ? ["Executive Name", "Role", "Department", "Assigned Leads", "Client Leads", "Buyer Leads", "Seller Leads", "Owner Leads", "Tenant Leads", "Followups Taken", "Overdue Actions", "Contacted", "Interested", "Performance Status"]
+      : ["Staff Performed By", "Action & Channel", "Client Lead Target", "Lead Category", "Remark Details", "Outcome Status", "Timestamp"];
+
+    const rows = activeView === "user_breakdown"
+      ? displayUserSummary.map((u) => [
+          `"${u.user_name || "N/A"}"`,
+          `"${u.role || "Executive"}"`,
+          `"${u.department || "Sales"}"`,
+          u.assigned_leads || 0,
+          u.general_leads || 0,
+          u.buyer_leads || 0,
+          u.seller_leads || 0,
+          u.owner_leads || 0,
+          u.tenant_leads || 0,
+          u.followups_count || 0,
+          u.overdue_followups || 0,
+          u.contacted_leads || 0,
+          u.interested_leads || 0,
+          `"${Number(u.overdue_followups || 0) > 0 ? "Needs Action" : "Active Staff"}"`,
+        ])
+      : activityLogs.map((l) => [
+          `"${l.user_name || "Staff Member"}"`,
+          `"${l.type || "Activity"}"`,
+          `"${l.target_lead_name || "Client Lead"}"`,
+          `"${l.lead_type_tag || "Lead"}"`,
+          `"${(l.description || "").replace(/"/g, '""')}"`,
+          `"${l.status || "Completed"}"`,
+          `"${l.created_at || ""}"`,
+        ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `user_activity_report_${Date.now()}.csv`);
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Activities_Report_${activeView}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Print Preview
-  const handlePrint = () => {
-    const orgName = "RESALE EXPERT";
-    const tabName = "USER ACTIVITY REPORT";
-    const pdfTitle = `${orgName}_User_Activity_Report_${new Date().toISOString().slice(0, 10)}`;
+  // Print PDF Trigger
+  const handlePrintPDF = () => {
+    const titleText = activeView === "user_breakdown" ? "Staff Activity Execution Summary" : "Chronological Activity Feed Log";
+    const headerHTML = buildBrandHeaderHTML({ title: titleText, subtitle: "Company Wide Activity Execution & Audit Trail" });
+    const watermarkHTML = buildWatermarkHTML();
 
-    const headerHTML = buildBrandHeaderHTML("", orgName, tabName);
-    const watermarkHTML = buildWatermarkHTML(orgName);
-
-    const activeDataset = activeView === "user_breakdown" ? displayUserSummary : activityLogs;
-
-    const tableRows = activeDataset.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No activity records found for print.</td></tr>`
-      : activeDataset
-          .map((row, idx) => {
-            if (activeView === "user_breakdown") {
-              const name = row.user_name || `Executive #${row.user_id}`;
-              const role = `${row.role || "Executive"} (${row.department || "Sales"})`;
-              const assigned = row.assigned_leads || 0;
-              const calls = row.calls_done || 0;
-              const interested = row.interested_leads || 0;
-              const followups = row.followups_count || 0;
-
-              return `<tr>
-                <td style="text-align:center;font-weight:700">${idx + 1}</td>
-                <td style="font-weight:700">${name}</td>
-                <td>${role}</td>
-                <td style="font-weight:700">${assigned}</td>
-                <td style="color:#1d4ed8;font-weight:700">${calls}</td>
-                <td style="color:#047857;font-weight:700">${interested}</td>
-                <td style="color:#6b21a8;font-weight:700">${followups}</td>
-              </tr>`;
-            } else {
-              const type = row.type || "Call";
-              const desc = row.description || "N/A";
-              const status = row.status || "Completed";
-              const date = row.scheduled_date ? new Date(row.scheduled_date).toLocaleString("en-IN") : "N/A";
-              const agent = row.user_name || "Agent";
-
-              return `<tr>
-                <td style="text-align:center;font-weight:700">${idx + 1}</td>
-                <td style="font-weight:700">${type}</td>
-                <td>${desc}</td>
-                <td><span style="font-weight:700;text-transform:uppercase">${status}</span></td>
-                <td>${date}</td>
-                <td>${agent}</td>
-                <td>Log</td>
-              </tr>`;
-            }
-          })
-          .join("");
-
-    const contentHTML = `
-      ${headerHTML}
-      <div class="meta-line">
-        <span>Report Type: User Lead Activity & Execution Intelligence</span>
-        <span>Executive Count: ${displayUserSummary.length}</span>
-        <span>Generated: ${new Date().toLocaleString("en-IN")}</span>
-      </div>
-      <div class="stats-grid">
-        <div class="stat-box"><span class="stat-lbl">TOTAL EXECUTIVES</span><span class="stat-val">${totalExecutiveUsers}</span></div>
-        <div class="stat-box"><span class="stat-lbl">TOTAL ASSIGNED LEADS</span><span class="stat-val">${totalAssignedLeads}</span></div>
-        <div class="stat-box"><span class="stat-lbl">CALLS COMPLETED</span><span class="stat-val">${totalCallsDone}</span></div>
-        <div class="stat-box"><span class="stat-lbl">INTERESTED LEADS</span><span class="stat-val">${totalInterestedLeads}</span></div>
-      </div>
-      <table>
-        <thead>
+    const tableRowsHTML = activeView === "user_breakdown"
+      ? displayUserSummary.map((u, idx) => `
           <tr>
-            <th style="width:40px;text-align:center">S.NO.</th>
-            <th>EXECUTIVE NAME</th>
-            <th>ROLE / TYPE</th>
-            <th>ASSIGNED LEADS</th>
-            <th>CALLS COMPLETED</th>
-            <th>INTERESTED LEADS</th>
-            <th>FOLLOW-UPS LOGGED</th>
+            <td style="text-align:center;font-weight:700">${idx + 1}</td>
+            <td style="font-weight:800;color:#0f172a">${u.user_name || "N/A"}</td>
+            <td style="text-align:center;font-weight:800;color:#1e1b4b">${u.assigned_leads || 0}</td>
+            <td style="text-align:center">${u.general_leads || 0}</td>
+            <td style="text-align:center">${u.buyer_leads || 0}</td>
+            <td style="text-align:center">${u.seller_leads || 0}</td>
+            <td style="text-align:center">${u.owner_leads || 0}</td>
+            <td style="text-align:center">${u.tenant_leads || 0}</td>
+            <td style="text-align:center;font-weight:800;color:#6b21a8">${u.followups_count || 0}</td>
+            <td style="text-align:center;font-weight:800;color:#991b1b">${u.overdue_followups || 0}</td>
+            <td style="text-align:center;color:#1e40af">${u.contacted_leads || 0}</td>
+            <td style="text-align:center;font-weight:800;color:#166534">${u.interested_leads || 0}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${tableRows}
-        </tbody>
-      </table>
-      ${watermarkHTML}
-      <div class="footer">
-        <span>${orgName} • User Activity Performance Export</span>
-        <span>Page 1 of 1</span>
-      </div>
-    `;
+        `).join("")
+      : activityLogs.map((l, idx) => `
+          <tr>
+            <td style="text-align:center;font-weight:700">${idx + 1}</td>
+            <td style="font-weight:800;color:#0f172a">${l.user_name || "Staff Member"}</td>
+            <td style="text-align:center;font-weight:800">${l.type || "Activity"}</td>
+            <td style="font-weight:700">${l.target_lead_name || "Client Lead"} (${l.lead_type_tag || "Lead"})</td>
+            <td style="color:#334155">${l.description || "N/A"}</td>
+            <td style="text-align:center;font-weight:800;color:#166534">${l.status || "Completed"}</td>
+            <td style="text-align:center;font-size:9px">${l.created_at ? new Date(l.created_at).toLocaleString("en-IN") : ""}</td>
+          </tr>
+        `).join("");
 
-    const fullPrintDoc = `
+    const printHTML = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${pdfTitle}</title>
+          <title>Activity Report</title>
           <style>${PRINT_BRAND_STYLE}</style>
         </head>
         <body>
-          ${contentHTML}
+          ${watermarkHTML}
+          ${headerHTML}
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px;text-align:center">#</th>
+                <th>${activeView === "user_breakdown" ? "EXECUTIVE NAME" : "STAFF"}</th>
+                <th>${activeView === "user_breakdown" ? "TOTAL ASSIGNED" : "ACTION & CHANNEL"}</th>
+                <th>${activeView === "user_breakdown" ? "CLIENT" : "TARGET LEAD"}</th>
+                <th>${activeView === "user_breakdown" ? "BUYER" : "REMARK"}</th>
+                <th>${activeView === "user_breakdown" ? "SELLER" : "OUTCOME"}</th>
+                <th>${activeView === "user_breakdown" ? "OWNER" : "TIMESTAMP"}</th>
+                ${activeView === "user_breakdown" ? `
+                  <th>TENANT</th>
+                  <th>FOLLOWUPS</th>
+                  <th>OVERDUE</th>
+                  <th>CONTACTED</th>
+                  <th>INTERESTED</th>
+                ` : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHTML}
+            </tbody>
+          </table>
         </body>
       </html>
     `;
 
-    triggerIframePrint(fullPrintDoc, pdfTitle);
+    triggerIframePrint(printHTML);
   };
 
   return (
-    <div className="space-y-5 p-4 sm:p-6 bg-slate-50 min-h-screen">
-      
-
-      {/* Soft Pastel Top KPI Stats Header */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#eef2ff] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto bg-slate-50 min-h-screen">
+      {/* Top Banner & Header Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-900 opacity-80 mb-0.5">
-              TOTAL EXECUTIVES
-            </div>
-            <div className="text-xl font-black text-indigo-900 tracking-tight">
-              {totalExecutiveUsers}
-            </div>
-            <div className="text-[11px] font-semibold text-indigo-700 opacity-75 mt-0.5">
-              Active team members
-            </div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Executives</div>
+            <div className="text-xl font-black text-slate-900 mt-0.5">{totalExecutiveUsers}</div>
+            <div className="text-[10px] text-gray-400 font-medium">Active team members</div>
           </div>
-          <div className="p-2.5 rounded-full bg-indigo-100 text-indigo-700">
-            <UserCheck className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-[#e0f2fe] p-4 rounded-xl shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-sky-900 opacity-80 mb-0.5">
-              ASSIGNED LEADS
-            </div>
-            <div className="text-xl font-black text-sky-900 tracking-tight">
-              {totalAssignedLeads.toLocaleString("en-IN")}
-            </div>
-            <div className="text-[11px] font-semibold text-sky-700 opacity-75 mt-0.5">
-              Total distributed leads
-            </div>
-          </div>
-          <div className="p-2.5 rounded-full bg-sky-100 text-sky-700">
+          <div className="p-2.5 rounded-full bg-indigo-50 text-indigo-600">
             <Users className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-[#f3e8ff] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-900 opacity-80 mb-0.5">
-              COMPLETED CALLS
-            </div>
-            <div className="text-xl font-black text-purple-900 tracking-tight">
-              {totalCallsDone.toLocaleString("en-IN")}
-            </div>
-            <div className="text-[11px] font-semibold text-purple-700 opacity-75 mt-0.5">
-              Phone calls done
-            </div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Assigned Leads</div>
+            <div className="text-xl font-black text-indigo-950 mt-0.5">{totalAssignedLeads}</div>
+            <div className="text-[10px] text-gray-400 font-medium">Total distributed leads</div>
           </div>
-          <div className="p-2.5 rounded-full bg-purple-100 text-purple-700">
+          <div className="p-2.5 rounded-full bg-blue-50 text-blue-600">
+            <UserCheck className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Completed Calls</div>
+            <div className="text-xl font-black text-purple-950 mt-0.5">{totalCallsDone || safeStats.call_count || 0}</div>
+            <div className="text-[10px] text-gray-400 font-medium">Phone calls done</div>
+          </div>
+          <div className="p-2.5 rounded-full bg-purple-50 text-purple-600">
             <PhoneCall className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-[#dcfce7] p-4 rounded-xl shadow-2xs flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-900 opacity-80 mb-0.5">
-              INTERESTED LEADS
-            </div>
-            <div className="text-xl font-black text-emerald-900 tracking-tight">
-              {totalInterestedLeads.toLocaleString("en-IN")}
-            </div>
-            <div className="text-[11px] font-semibold text-emerald-700 opacity-75 mt-0.5">
-              Qualified prospects
-            </div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Interested Leads</div>
+            <div className="text-xl font-black text-emerald-950 mt-0.5">{totalInterestedLeads}</div>
+            <div className="text-[10px] text-emerald-600 font-medium">Qualified prospects</div>
           </div>
-          <div className="p-2.5 rounded-full bg-emerald-100 text-emerald-700">
+          <div className="p-2.5 rounded-full bg-emerald-50 text-emerald-600">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
       </div>
 
-      {/* Mode Switcher Banner (Bottom Underline Active Pill Style matching 2nd Screenshot) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-300 shadow-2xs">
+      {/* Main Mode View Toggle */}
+      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -583,10 +541,10 @@ export const ActivitiesPage: React.FC = () => {
               setActiveView("user_breakdown");
               setActiveStatusPill("all");
             }}
-            className={`px-4 py-2 text-xs transition-all border-b-2 ${
+            className={`px-4 py-2 text-xs font-extrabold rounded-lg transition-all ${
               activeView === "user_breakdown"
-                ? "border-indigo-600 text-indigo-900 font-extrabold bg-white shadow-2xs rounded-t-lg"
-                : "border-transparent text-gray-500 hover:text-gray-900 font-semibold"
+                ? "bg-indigo-900 text-white shadow-2xs"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
             Executive Lead Execution Breakdown
@@ -597,23 +555,24 @@ export const ActivitiesPage: React.FC = () => {
               setActiveView("activity_logs");
               setActiveStatusPill("logs");
             }}
-            className={`px-4 py-2 text-xs transition-all border-b-2 ${
+            className={`px-4 py-2 text-xs font-extrabold rounded-lg transition-all ${
               activeView === "activity_logs"
-                ? "border-indigo-600 text-indigo-900 font-extrabold bg-white shadow-2xs rounded-t-lg"
-                : "border-transparent text-gray-500 hover:text-gray-900 font-semibold"
+                ? "bg-indigo-900 text-white shadow-2xs"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
             Chronological Activity Feed
           </button>
         </div>
+
         <div className="text-xs font-semibold text-gray-500">
-          {activeView === "user_breakdown" ? "Showing Per-User Lead Execution & Call Metrics" : "Showing Full System Activity History Logs"}
+          {activeView === "user_breakdown" ? "Showing Per-User Lead Execution & Call Metrics" : "Chronological Audit Log of All User Actions"}
         </div>
       </div>
 
-      {/* Fixed 520px Height Grid Table Component */}
+      {/* Main Interactive Table */}
       <ReportTable
-        title={activeView === "user_breakdown" ? "Executive Lead Activity Report" : "Activity Feed Logs"}
+        title={activeView === "user_breakdown" ? "Executive Activity Summary" : "Activity Logs"}
         columns={activeView === "user_breakdown" ? userColumns : logColumns}
         data={activeView === "user_breakdown" ? displayUserSummary : activityLogs}
         statusPills={statusPills}
@@ -622,24 +581,25 @@ export const ActivitiesPage: React.FC = () => {
         onOpenFilters={() => setIsFilterOpen(true)}
         onExport={handleExportCSV}
         onRefresh={fetchActivityReport}
-        onPrint={handlePrint}
+        onPrint={handlePrintPDF}
         pagination={{ page: 1, limit: 100, totalRecords: activeView === "user_breakdown" ? displayUserSummary.length : activityLogs.length, totalPages: 1 }}
         onPageChange={() => {}}
         onLimitChange={() => {}}
         loading={loading}
       />
 
-      {/* Smart Slide-over Filter Drawer */}
+      {/* Smart Filter Drawer */}
       <SmartFilterDrawer
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         filters={filters}
-        tabKey="activities"
         onApplyFilters={(newFilters) => {
           setFilters(newFilters);
+          setIsFilterOpen(false);
         }}
-        onClearFilters={() => {
+        onResetFilters={() => {
           setFilters({ ignoreDate: true, status: "all" });
+          setIsFilterOpen(false);
         }}
       />
     </div>
