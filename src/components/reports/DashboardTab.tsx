@@ -1,5 +1,5 @@
 // frontend/src/components/reports/DashboardTab.tsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Users,
   Building,
@@ -141,6 +141,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       RentalEngine: Number(rental.propertiesRented || top.propertiesRented || 0),
     },
   ];
+
+  const PALETTE = {
+    emerald: "#10b981",
+    blue: "#3b82f6",
+    rose: "#f43f5e",
+  };
+  const periodMultiplier = 1;
+  const filteredMonthlyRecords = chartTrends.map((t) => ({
+    newLeads: t.Leads,
+    closed: t.Conversions,
+    buyerInquiries: t.Qualified,
+    visits: Math.round(t.Qualified * 0.5),
+  }));
 
   // Dynamic Follow-up Velocity Chart Data filtered by period
   const totalPeriodLeads = filteredMonthlyRecords.reduce((acc, curr) => acc + curr.newLeads, 0);

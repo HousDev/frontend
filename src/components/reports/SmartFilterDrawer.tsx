@@ -51,6 +51,7 @@ export interface SmartFilterParams {
   has_match?: string;
   outcome?: string;
   active_status?: string;
+  audience_mode?: string;
 }
 
 interface SmartFilterDrawerProps {
@@ -58,7 +59,8 @@ interface SmartFilterDrawerProps {
   onClose: () => void;
   filters: SmartFilterParams;
   onApplyFilters: (newFilters: SmartFilterParams) => void;
-  onClearFilters: () => void;
+  onClearFilters?: () => void;
+  onResetFilters?: () => void;
   tabKey?: string;
 }
 
