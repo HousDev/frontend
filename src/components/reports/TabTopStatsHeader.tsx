@@ -12,6 +12,13 @@ import {
   Clock,
   Shield,
   ShieldCheck,
+  Home,
+  Award,
+  CheckCircle,
+  TrendingUp,
+  Eye,
+  FileText,
+  Sparkles,
 } from "lucide-react";
 
 interface TabTopStatsHeaderProps {
@@ -76,17 +83,19 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
 
   const renderStats = () => {
     switch (activeTab) {
-      case "overview":
+      case "overview": {
+        const top = summaryData?.topKpis || {};
         return [
-          { label: "TOTAL CRM LEADS", value: Number(crm.totalLeads || lStats.total_count || 0).toLocaleString("en-IN"), subLabel: "General CRM Leads", icon: Users },
-          { label: "ACTIVE BUYERS", value: Number(bStats.active_count || bStats.total_count || 31).toLocaleString("en-IN"), subLabel: "Property Seekers", icon: Users },
-          { label: "SELLER LISTINGS", value: Number(prop.totalSellers || sStats.total_count || 18).toLocaleString("en-IN"), subLabel: "Resale Sellers", icon: Users },
-          { label: "OWNERS & TENANTS", value: (Number(oStats.total_count || 14) + Number(tStats.total_count || 12)).toLocaleString("en-IN"), subLabel: "Landlords & Tenants", icon: Building },
-          { label: "ACTIVE PROPERTIES", value: Number(prop.activeListings || pStats.active_count || 25).toLocaleString("en-IN"), subLabel: "Verified Inventory", icon: Building },
-          { label: "SITE VISITS", value: Number(vStats.completed_count || vStats.total_count || 16).toLocaleString("en-IN"), subLabel: "Completed Visits", icon: Calendar },
-          { label: "REVENUE COLLECTED", value: `₹${Number(biz.revenueCollected || trStats.total_amount || 2944463).toLocaleString("en-IN")}`, subLabel: "Total Received Payments", icon: IndianRupee },
-          { label: "CONVERTED DEALS", value: Number(crm.convertedLeads || prop.soldProperties || 5).toLocaleString("en-IN"), subLabel: "Closed Deals", icon: UserCheck },
+          { label: "TOTAL LEADS", value: Number(top.totalLeads || crm.totalLeads || 0).toLocaleString("en-IN"), subLabel: "Acquired prospects", icon: Users },
+          { label: "QUALIFIED LEADS", value: Number(top.qualifiedLeads || crm.qualifiedLeads || 0).toLocaleString("en-IN"), subLabel: "High intent leads", icon: UserCheck },
+          { label: "ACTIVE BUYERS", value: Number(top.activeBuyers || bStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Active property seekers", icon: Users },
+          { label: "ACTIVE SELLERS", value: Number(top.activeSellers || sStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Active property sellers", icon: Home },
+          { label: "ACTIVE PROPERTIES", value: Number(top.activeProperties || prop.activeListings || 0).toLocaleString("en-IN"), subLabel: "Live inventory listings", icon: Building },
+          { label: "PROPERTIES SOLD", value: Number(top.propertiesSold || prop.soldProperties || 0).toLocaleString("en-IN"), subLabel: "Closed sale transactions", icon: CheckCircle },
+          { label: "PROPERTIES RENTED", value: Number(top.propertiesRented || 0).toLocaleString("en-IN"), subLabel: "Leased rental properties", icon: Award },
+          { label: "TOTAL COLLECTIONS", value: `₹${Number(top.totalCollections || biz.revenueCollected || 0).toLocaleString("en-IN")}`, subLabel: "Platform revenue & fees", icon: IndianRupee },
         ];
+      }
 
       case "leads":
         return [
@@ -102,9 +111,14 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
 
       case "agent-execution":
         return [
-          { label: "TOTAL AGENTS", value: Number(agStats.total_agents || 0).toLocaleString("en-IN"), subLabel: "Active team executives", icon: UserCheck },
-          { label: "ASSIGNED LEADS", value: Number(agStats.total_assigned_leads || 0).toLocaleString("en-IN"), subLabel: "Total distributed leads", icon: Users },
-          { label: "CONVERTED DEALS", value: Number(agStats.total_converted || 0).toLocaleString("en-IN"), subLabel: "Agent conversions", icon: AwardIcon },
+          { label: "ACTIVE USERS", value: Number(agStats.totalActiveUsers || agStats.total_agents || 0).toLocaleString("en-IN"), subLabel: "Team workforce", icon: UserCheck },
+          { label: "LEADS ASSIGNED", value: Number(agStats.leadsAssigned || agStats.total_assigned_leads || 0).toLocaleString("en-IN"), subLabel: "Total distributed leads", icon: Users },
+          { label: "INTERESTED LEADS", value: Number(agStats.leadsInterested || 0).toLocaleString("en-IN"), subLabel: "High intent prospects", icon: Sparkles },
+          { label: "BUYERS CREATED", value: Number(agStats.buyersCreated || 0).toLocaleString("en-IN"), subLabel: "Property seekers", icon: Users },
+          { label: "PROPERTIES ADDED", value: Number(agStats.propertiesAdded || 0).toLocaleString("en-IN"), subLabel: "Listings onboarding", icon: Building },
+          { label: "SITE VISITS", value: Number(agStats.siteVisits || 0).toLocaleString("en-IN"), subLabel: "Conducted visits", icon: Calendar },
+          { label: "DEALS CLOSED", value: Number(agStats.dealsClosed || agStats.total_converted || 0).toLocaleString("en-IN"), subLabel: "Total closures", icon: CheckCircle },
+          { label: "TOTAL DEAL VALUE", value: `₹${(Number(agStats.totalDealValue || 0) / 10000000).toFixed(2)}Cr`, subLabel: "Transaction volume", icon: IndianRupee },
         ];
 
       case "buyers":
@@ -121,40 +135,50 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
 
       case "sellers":
         return [
-          { label: "TOTAL SELLERS", value: Number(sStats.total_sellers || sStats.total_count || 0).toLocaleString("en-IN"), subLabel: "All registered owners", icon: Users },
-          { label: "ACTIVE SELLERS", value: Number(sStats.active_sellers || sStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Listings in market", icon: Building },
-          { label: "HOT SELLERS", value: Number(sStats.hot_sellers || 0).toLocaleString("en-IN"), subLabel: "High priority / score", icon: UserCheck },
-          { label: "PROPERTIES LINKED", value: Number(sStats.properties_linked || 0).toLocaleString("en-IN"), subLabel: "Verified inventory", icon: Building },
-          { label: "PIPELINE VALUE", value: `₹${(Number(sStats.pipeline_value || 0) / 100000).toFixed(1)}L`, subLabel: "Total valuation", icon: IndianRupee },
-          { label: "EXPECTED CLOSING", value: `₹${(Number(sStats.expected_closing_value || 0) / 100000).toFixed(1)}L`, subLabel: "Open pipeline", icon: IndianRupee },
-          { label: "FOLLOW-UPS DUE", value: Number(sStats.followups_due || 0).toLocaleString("en-IN"), subLabel: "Pending calls/visits", icon: Calendar },
-          { label: "OVERDUE TASKS", value: Number(sStats.overdue_followups || 0).toLocaleString("en-IN"), subLabel: "Needs immediate call", icon: Clock },
-          { label: "PENDING PAPERS", value: Number(sStats.pending_documents || 0).toLocaleString("en-IN"), subLabel: "Verification pending", icon: Activity },
-          { label: "CLOSED / SOLD", value: Number(sStats.closed_sold || sStats.sold_count || 0).toLocaleString("en-IN"), subLabel: "Transacted deals", icon: ShieldCheck },
-          { label: "AVG DEAL VALUE", value: `₹${(Number(sStats.avg_deal_value || 0) / 100000).toFixed(1)}L`, subLabel: "Per seller listing", icon: IndianRupee },
-          { label: "AVG LEAD SCORE", value: `${sStats.avg_lead_score || 0} / 100`, subLabel: "Quality index", icon: UserCheck },
+          { label: "TOTAL SELLERS", value: Number(sStats.total_sellers || sStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Registered sellers", icon: Users },
+          { label: "NEW SELLERS", value: Number(sStats.new_sellers || sStats.new_count || 0).toLocaleString("en-IN"), subLabel: "Intake this period", icon: Clock },
+          { label: "UNASSIGNED SELLERS", value: Number(sStats.unassigned_sellers || 0).toLocaleString("en-IN"), subLabel: "No assigned executive", icon: UserCheck },
+          { label: "SELLERS WITH PROPERTY", value: Number(sStats.sellers_with_properties || sStats.properties_linked || 0).toLocaleString("en-IN"), subLabel: "Linked inventory", icon: Building },
+          { label: "ACTIVE LISTINGS", value: Number(sStats.active_listings || sStats.active_sellers || sStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Listings in market", icon: Building },
+          { label: "UNLISTED PROPERTIES", value: Number(sStats.unlisted_properties || 0).toLocaleString("en-IN"), subLabel: "Verification / Draft", icon: Activity },
+          { label: "IN NEGOTIATION", value: Number(sStats.negotiation_sellers || sStats.negotiation_count || 0).toLocaleString("en-IN"), subLabel: "Offers in discussion", icon: Activity },
+          { label: "CLOSED / SOLD", value: Number(sStats.closed_sold || sStats.sold_count || 0).toLocaleString("en-IN"), subLabel: "Transacted listings", icon: ShieldCheck },
         ];
 
       case "tenants":
         return [
-          { label: "TOTAL TENANTS", value: Number(tStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Rental applicants", icon: Users },
-          { label: "ACTIVE TENANTS", value: Number(tStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Currently residing", icon: Users },
-          { label: "VACATED / INACTIVE", value: Number(tStats.vacated_count || 0).toLocaleString("en-IN"), subLabel: "Lease ended", icon: Users },
+          { label: "TOTAL TENANTS", value: Number(tStats.total_tenants || tStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Rental applicants", icon: Users },
+          { label: "ACTIVE SEARCH", value: Number(tStats.active_search || tStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Looking for rental property", icon: Activity },
+          { label: "VISIT SCHEDULED", value: Number(tStats.visit_scheduled || 0).toLocaleString("en-IN"), subLabel: "Site visits in progress", icon: Clock },
+          { label: "AGREEMENT SIGNED", value: Number(tStats.agreement_signed || 0).toLocaleString("en-IN"), subLabel: "Lease closed / moved in", icon: ShieldCheck },
+          { label: "PROPERTY LINKED", value: Number(tStats.linked_count || 0).toLocaleString("en-IN"), subLabel: "Matched rental property", icon: Building },
+          { label: "UNASSIGNED TENANTS", value: Number(tStats.unassigned_tenants || 0).toLocaleString("en-IN"), subLabel: "No assigned executive", icon: UserCheck },
+          { label: "AVG MAX BUDGET", value: `₹${Number(tStats.avg_budget_max || 0).toLocaleString("en-IN")}/mo`, subLabel: "Target rent budget", icon: Award },
+          { label: "RENTAL CONVERSION RATE", value: `${tStats.conversion_rate || 0}%`, subLabel: "Intake → Moved in %", icon: TrendingUp },
         ];
 
       case "owners":
         return [
-          { label: "TOTAL OWNERS", value: Number(oStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Registered landlords", icon: Building },
-          { label: "ACTIVE OWNERS", value: Number(oStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Properties listed", icon: Building },
-          { label: "CLOSED / RENTED", value: Number(oStats.closed_count || 0).toLocaleString("en-IN"), subLabel: "Occupied units", icon: Building },
+          { label: "TOTAL OWNERS", value: Number(oStats.total_owners || oStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Registered landlords", icon: Users },
+          { label: "NEW OWNERS", value: Number(oStats.new_owners || oStats.new_count || 0).toLocaleString("en-IN"), subLabel: "Intake this period", icon: Clock },
+          { label: "UNASSIGNED OWNERS", value: Number(oStats.unassigned_owners || 0).toLocaleString("en-IN"), subLabel: "No assigned executive", icon: UserCheck },
+          { label: "OWNERS WITH PROPERTY", value: Number(oStats.owners_with_properties || 0).toLocaleString("en-IN"), subLabel: "Linked rental properties", icon: Building },
+          { label: "AVAILABLE RENTAL PROPERTIES", value: Number(oStats.available_properties || oStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Ready for tenant matching", icon: Building },
+          { label: "TENANT INTERESTED", value: Number(oStats.tenant_interested || 0).toLocaleString("en-IN"), subLabel: "Under negotiation", icon: Activity },
+          { label: "RENTED / LEASE ACTIVE", value: Number(oStats.rented_properties || oStats.closed_count || 0).toLocaleString("en-IN"), subLabel: "Active lease signed", icon: ShieldCheck },
+          { label: "RENTAL CONVERSION RATE", value: `${oStats.conversion_rate || 0}%`, subLabel: "Listing → Rental %", icon: UserCheck },
         ];
 
       case "properties":
         return [
-          { label: "TOTAL PROPERTIES", value: Number(pStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Total inventory", icon: Building },
-          { label: "ACTIVE LISTINGS", value: Number(pStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Available on market", icon: Building },
-          { label: "SOLD PROPERTIES", value: Number(pStats.sold_count || 0).toLocaleString("en-IN"), subLabel: "Transacted deals", icon: Building },
-          { label: "STALE (>90 DAYS)", value: Number(pStats.stale_count || 0).toLocaleString("en-IN"), subLabel: "Needs price update", icon: Building },
+          { label: "TOTAL PROPERTIES", value: Number(pStats.total_properties || pStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Total inventory", icon: Building },
+          { label: "FOR SALE", value: Number(pStats.sale_count || 0).toLocaleString("en-IN"), subLabel: "Resale properties", icon: Home },
+          { label: "FOR RENT", value: Number(pStats.rental_count || 0).toLocaleString("en-IN"), subLabel: "Rental listings", icon: Building },
+          { label: "AVAILABLE INVENTORY", value: Number(pStats.available_count || pStats.active_count || 0).toLocaleString("en-IN"), subLabel: "Active on market", icon: CheckCircle },
+          { label: "ON HOLD", value: Number(pStats.on_hold_count || 0).toLocaleString("en-IN"), subLabel: "Verification / draft", icon: Clock },
+          { label: "SOLD", value: Number(pStats.sold_count || 0).toLocaleString("en-IN"), subLabel: "Resale closed", icon: Award },
+          { label: "RENTED", value: Number(pStats.rented_count || 0).toLocaleString("en-IN"), subLabel: "Lease active", icon: ShieldCheck },
+          { label: "PUBLIC LISTINGS", value: Number(pStats.public_count || 0).toLocaleString("en-IN"), subLabel: "Published to website", icon: Activity },
         ];
 
       case "visits":
@@ -167,8 +191,14 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
 
       case "transactions":
         return [
-          { label: "TOTAL TRANSACTIONS", value: Number(trStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Recorded receipts", icon: IndianRupee },
-          { label: "TOTAL REVENUE", value: `₹${Number(trStats.total_amount || 0).toLocaleString("en-IN")}`, subLabel: "Collections total", icon: IndianRupee },
+          { label: "TOTAL TRANSACTIONS", value: Number(trStats.total_count || 0).toLocaleString("en-IN"), subLabel: "Recorded receipts", icon: FileText },
+          { label: "TOTAL AMOUNT", value: `₹${Number(trStats.total_amount || 0).toLocaleString("en-IN")}`, subLabel: "Funds collected/transacted", icon: IndianRupee },
+          { label: "TOTAL DEAL VALUE", value: `₹${Number(trStats.total_deal_value || 0).toLocaleString("en-IN")}`, subLabel: "Associated property volume", icon: TrendingUp },
+          { label: "CLEARED AMOUNT", value: `₹${Number(trStats.cleared_amount || 0).toLocaleString("en-IN")}`, subLabel: "Bank cleared collections", icon: CheckCircle },
+          { label: "PENDING AMOUNT", value: `₹${Number(trStats.pending_amount || 0).toLocaleString("en-IN")}`, subLabel: "Awaiting clearance", icon: Clock },
+          { label: "COMMISSION", value: `₹${Number(trStats.commission_amount || 0).toLocaleString("en-IN")}`, subLabel: "Service fee revenue", icon: Award },
+          { label: "AVG TRANSACTION", value: `₹${Number(trStats.avg_amount || 0).toLocaleString("en-IN")}`, subLabel: "Average payment size", icon: Shield },
+          { label: "COLLECTION RATE", value: `${trStats.collection_rate || 0}%`, subLabel: "Cleared/Received %", icon: Sparkles },
         ];
 
       case "activities":
@@ -190,7 +220,13 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
       case "campaigns":
         return [
           { label: "TOTAL CAMPAIGNS", value: Number(cmpStats.total_campaigns || 0).toLocaleString("en-IN"), subLabel: "Marketing broadcasts", icon: Send },
-          { label: "TOTAL AUDIENCE", value: Number(cmpStats.total_audience || 0).toLocaleString("en-IN"), subLabel: "Target recipients", icon: Send },
+          { label: "ACTIVE RUNNING", value: Number(cmpStats.active_running || 0).toLocaleString("en-IN"), subLabel: "Currently broadcasting", icon: Clock },
+          { label: "TOTAL AUDIENCE", value: Number(cmpStats.total_audience || 0).toLocaleString("en-IN"), subLabel: "Target recipients", icon: Users },
+          { label: "MESSAGES DELIVERED", value: Number(cmpStats.total_delivered || 0).toLocaleString("en-IN"), subLabel: "Successfully delivered", icon: CheckCircle },
+          { label: "DELIVERY RATE", value: `${cmpStats.avg_delivery_rate || 0}%`, subLabel: "Delivered / Sent %", icon: TrendingUp },
+          { label: "MESSAGES READ", value: Number(cmpStats.total_read || 0).toLocaleString("en-IN"), subLabel: "Opened & read", icon: Eye },
+          { label: "READ RATE", value: `${cmpStats.avg_read_rate || 0}%`, subLabel: "Read / Delivered %", icon: Award },
+          { label: "ESTIMATED COST", value: `₹${Number(cmpStats.total_cost || 0).toLocaleString("en-IN")}`, subLabel: "Meta API expenditure", icon: IndianRupee },
         ];
 
       case "login-logs":
@@ -209,29 +245,23 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
   const statsList = renderStats();
   if (statsList.length === 0) return null;
 
-  // Dynamic grid column class depending on exact card count to prevent empty whitespace
+  // Dynamic grid column class depending on exact card count to fit in one window without scrolling
   const numCards = statsList.length;
   const gridColClass =
     numCards === 1
       ? "grid-cols-1"
       : numCards === 2
-      ? "grid-cols-1 sm:grid-cols-2"
+      ? "grid-cols-2"
       : numCards === 3
-      ? "grid-cols-1 sm:grid-cols-3"
-      : numCards >= 8
-      ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8"
-      : "grid-cols-2 md:grid-cols-4";
-
-  const isSingleRowMode = activeTab === "sellers" || statsList.length > 6;
+      ? "grid-cols-3"
+      : numCards === 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : numCards <= 6
+      ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+      : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8";
 
   return (
-    <div
-      className={
-        isSingleRowMode
-          ? "flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1 mb-2 no-scrollbar"
-          : `grid ${gridColClass} gap-2.5 mb-2`
-      }
-    >
+    <div className={`grid ${gridColClass} gap-1.5 mb-1.5 w-full`}>
       {statsList.map((st, idx) => {
         const Icon = st.icon;
         const style = cardStyles[idx % cardStyles.length];
@@ -239,25 +269,23 @@ export const TabTopStatsHeader: React.FC<TabTopStatsHeaderProps> = ({
         return (
           <div
             key={idx}
-            className={`${style.bg} p-2 px-3 rounded-lg shadow-2xs flex items-center justify-between transition-all border border-gray-200/50 ${
-              isSingleRowMode ? "min-w-[150px] sm:min-w-[170px] flex-1 shrink-0" : ""
-            }`}
+            className={`${style.bg} p-1.5 px-2 rounded-lg shadow-2xs flex items-center justify-between transition-all border border-gray-200/50 min-w-0 w-full`}
           >
             <div className="min-w-0 flex-1">
-              <div className={`text-[9px] font-extrabold uppercase tracking-tight ${style.text} opacity-90 mb-0.5 truncate`}>
+              <div className={`text-[9px] font-medium uppercase tracking-tight ${style.text} opacity-90 truncate`}>
                 {st.label}
               </div>
-              <div className={`text-sm font-black ${style.text} tracking-tight truncate`}>
+              <div className={`text-xs font-semibold ${style.text} tracking-tight truncate`}>
                 {st.value}
               </div>
               {st.subLabel && (
-                <div className={`text-[9px] font-semibold ${style.text} opacity-80 mt-0.5 truncate`}>
+                <div className={`text-[8.5px] font-normal ${style.text} opacity-75 truncate`}>
                   {st.subLabel}
                 </div>
               )}
             </div>
-            <div className={`p-1.5 rounded-lg shrink-0 ${style.iconBg} ml-1.5`}>
-              <Icon className="w-3.5 h-3.5" />
+            <div className={`p-1 rounded-md shrink-0 ${style.iconBg} ml-1 flex items-center justify-center`}>
+              <Icon className="w-3 h-3" />
             </div>
           </div>
         );

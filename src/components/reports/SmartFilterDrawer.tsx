@@ -230,55 +230,59 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
               </select>
             </div>
 
+            {/* Universal Custom Date Range Filter for All Tabs */}
+            <div className="space-y-2.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="font-semibold text-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="w-3.5 h-3.5 text-orange-500" />
+                  Custom Date Range Filter
+                </div>
+                {(!draft.ignoreDate && (draft.startDate || draft.endDate)) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleChange("ignoreDate", true);
+                      handleChange("startDate", "");
+                      handleChange("endDate", "");
+                    }}
+                    className="text-[10px] text-red-600 hover:underline font-medium"
+                  >
+                    Reset Dates (All Time)
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={draft.startDate || ""}
+                    onChange={(e) => {
+                      handleChange("startDate", e.target.value);
+                      handleChange("ignoreDate", false);
+                    }}
+                    className="w-full rounded-md border-gray-300 p-2 border text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={draft.endDate || ""}
+                    onChange={(e) => {
+                      handleChange("endDate", e.target.value);
+                      handleChange("ignoreDate", false);
+                    }}
+                    className="w-full rounded-md border-gray-300 p-2 border text-xs bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Tab Specific Fields */}
             {tabKey === "leads" && (
               <>
-                {/* Date By & Range Fields */}
-                <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div className="font-bold text-gray-800 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-orange-500" />
-                    Date Filter Criteria
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-gray-700 mb-1">Date By</label>
-                    <select
-                      value={draft.dateBy || "created_at"}
-                      onChange={(e) => handleChange("dateBy", e.target.value)}
-                      className="w-full rounded-md border-gray-300 shadow-sm p-2 border text-xs"
-                    >
-                      <option value="created_at">Lead Created Date</option>
-                      <option value="updated_at">Last Activity Date</option>
-                      <option value="transferred_to_buyer_at">Buyer Transfer Date</option>
-                      <option value="transferred_to_seller_at">Seller Transfer Date</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-medium text-gray-700 mb-1">From Date</label>
-                      <input
-                        type="date"
-                        value={draft.startDate || ""}
-                        onChange={(e) => {
-                          handleChange("startDate", e.target.value);
-                          handleChange("ignoreDate", false);
-                        }}
-                        className="w-full rounded-md border-gray-300 p-2 border text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-gray-700 mb-1">To Date</label>
-                      <input
-                        type="date"
-                        value={draft.endDate || ""}
-                        onChange={(e) => {
-                          handleChange("endDate", e.target.value);
-                          handleChange("ignoreDate", false);
-                        }}
-                        className="w-full rounded-md border-gray-300 p-2 border text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -949,28 +953,97 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
             )}
 
             {tabKey === "transactions" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5">Min Amount (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 10000"
-                    value={draft.min_amount || ""}
-                    onChange={(e) => handleChange("min_amount", e.target.value)}
-                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
-                  />
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Payment Status</label>
+                    <select
+                      value={draft.status || "all"}
+                      onChange={(e) => handleChange("status", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Payment Statuses</option>
+                      <option value="cleared">Cleared</option>
+                      <option value="received">Received</option>
+                      <option value="pending">Pending</option>
+                      <option value="bounced">Bounced</option>
+                      <option value="refunded">Refunded</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Transaction Type</label>
+                    <select
+                      value={draft.property_type || "all"}
+                      onChange={(e) => handleChange("property_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Transaction Types</option>
+                      <option value="sale">Sale</option>
+                      <option value="resale">Resale</option>
+                      <option value="rent">Rent / Service Fee</option>
+                      <option value="token">Token Advance</option>
+                      <option value="commission">Commission</option>
+                      <option value="advance">Advance</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5">Max Amount (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 500000"
-                    value={draft.max_amount || ""}
-                    onChange={(e) => handleChange("max_amount", e.target.value)}
-                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Related Party</label>
+                    <select
+                      value={draft.lead_type || "all"}
+                      onChange={(e) => handleChange("lead_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Parties</option>
+                      <option value="buyer">Buyer</option>
+                      <option value="seller">Seller</option>
+                      <option value="owner">Owner</option>
+                      <option value="tenant">Tenant</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Payment Method</label>
+                    <select
+                      value={draft.direction || "all"}
+                      onChange={(e) => handleChange("direction", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Payment Methods</option>
+                      <option value="cash">Cash</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="neft_rtgs">NEFT / RTGS</option>
+                      <option value="upi">UPI</option>
+                      <option value="online">Online Payment</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Min Amount (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 10000"
+                      value={draft.min_amount || ""}
+                      onChange={(e) => handleChange("min_amount", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Max Amount (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 500000"
+                      value={draft.max_amount || ""}
+                      onChange={(e) => handleChange("max_amount", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             {tabKey === "activities" && (
@@ -1039,6 +1112,50 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
               </div>
             )}
 
+            {tabKey === "campaigns" && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Audience Mode</label>
+                    <select
+                      value={draft.audience_mode || "all"}
+                      onChange={(e) => handleChange("audience_mode", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Audience Modes</option>
+                      <option value="segment">Segment Dynamic Filters</option>
+                      <option value="upload">Uploaded File Contacts</option>
+                      <option value="manual">Manual Selection</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Template Category</label>
+                    <select
+                      value={draft.campaign_type || "all"}
+                      onChange={(e) => handleChange("campaign_type", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="MARKETING">Marketing (₹0.68)</option>
+                      <option value="UTILITY">Utility (₹0.35)</option>
+                      <option value="AUTHENTICATION">Authentication (₹0.35)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1.5">Min Sent Messages</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={draft.min_amount || ""}
+                    onChange={(e) => handleChange("min_amount", e.target.value)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                  />
+                </div>
+              </>
+            )}
+
             {/* Assigned Executive / User Selection */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1101,33 +1218,6 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
               </label>
             </div>
 
-            {/* Date Pickers */}
-            {!draft.ignoreDate && (
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-orange-500" /> From Date
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.startDate || ""}
-                    onChange={(e) => handleChange("startDate", e.target.value)}
-                    className="w-full text-xs rounded-lg border-gray-300 shadow-sm p-2.5 border"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-gray-800 mb-1.5 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-orange-500" /> To Date
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.endDate || ""}
-                    onChange={(e) => handleChange("endDate", e.target.value)}
-                    className="w-full text-xs rounded-lg border-gray-300 shadow-sm p-2.5 border"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Sticky Bottom Action Bar with ONLY 2 BUTTONS: Reset Filters & Apply Filters */}

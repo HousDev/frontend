@@ -31,6 +31,7 @@ interface ReportTableProps {
   onExport: () => void;
   onRefresh?: () => void;
   onPrint?: () => void;
+  hideHeaderButtons?: boolean;
   pagination: { page: number; limit: number; totalRecords: number; totalPages: number };
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
@@ -49,6 +50,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   onExport,
   onRefresh,
   onPrint,
+  hideHeaderButtons = false,
   pagination,
   onPageChange,
   onLimitChange,
@@ -170,7 +172,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
               >
                 <span>{pill.label}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
                     isSelected ? "bg-white text-[#0f1f38]" : "bg-gray-200 text-gray-700"
                   }`}
                 >
@@ -183,39 +185,43 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
         {/* Right Toolbar Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            size="sm"
-            onClick={onOpenFilters}
-            className="flex items-center gap-1.5 text-xs text-white bg-[#0f1f38] hover:bg-[#1e3b8b] font-bold px-3.5 py-1.5 rounded-lg shadow-sm border-0"
-          >
-            <Filter className="w-3.5 h-3.5 text-white" />
-            Filters
-          </Button>
+          {!hideHeaderButtons && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                onClick={onOpenFilters}
+                className="flex items-center gap-1.5 text-xs text-white bg-[#0f1f38] hover:bg-[#1e3b8b] font-bold px-3.5 py-1.5 rounded-lg shadow-sm border-0"
+              >
+                <Filter className="w-3.5 h-3.5 text-white" />
+                Filters
+              </Button>
 
-          {/* Export: White Button with Gray Border */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5 text-gray-700" />
-            Export
-          </Button>
+              {/* Export: White Button with Gray Border */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onExport}
+                className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5 text-gray-700" />
+                Export
+              </Button>
 
-          {/* Print: White Button with Gray Border */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onPrint}
-            className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
-          >
-            <Printer className="w-3.5 h-3.5 text-gray-700" />
-            Print
-          </Button>
+              {/* Print: White Button with Gray Border */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onPrint}
+                className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
+              >
+                <Printer className="w-3.5 h-3.5 text-gray-700" />
+                Print
+              </Button>
+            </>
+          )}
 
           {onRefresh && (
             <Button
@@ -231,40 +237,63 @@ export const ReportTable: React.FC<ReportTableProps> = ({
         </div>
       </div>
 
-      {/* Fixed Scrollable Table Body Area with Vertical Scrollbar & Zero Horizontal Scrollbar */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden relative bg-white scrollbar-thin">
-        <table className="w-full text-left text-xs border-collapse border border-gray-300 table-fixed">
+      {/* Scrollable Table Area with Horizontal & Vertical Scrollbars */}
+      <div className="flex-1 overflow-auto relative bg-white scrollbar-thin">
+        <table className="min-w-full text-left text-xs border-collapse border border-gray-300">
           {/* Sticky Header Row */}
-          <thead className="sticky top-0 z-10 bg-[#eef2f6] text-gray-800 font-extrabold text-[11px] uppercase tracking-wider shadow-2xs">
+          <thead className="sticky top-0 z-30 bg-[#eef2f6] text-slate-700 font-semibold text-[11px] uppercase tracking-wider shadow-2xs">
             <tr>
-              <th className="px-2 py-2 w-[5%] text-center border border-gray-300 bg-[#eef2f6] truncate">S.NO.</th>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  style={{ width: col.width }}
-                  className={`px-2 py-2 border border-gray-300 bg-[#eef2f6] truncate ${col.className || ""}`}
-                >
-                  {col.header}
-                </th>
-              ))}
+              <th className="px-2.5 py-2 min-w-[50px] w-[50px] text-center border border-gray-300 bg-[#eef2f6] whitespace-nowrap sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]">
+                S.NO.
+              </th>
+              {columns.map((col, index) => {
+                let stickyClass = "";
+                let styleObj: React.CSSProperties = { width: col.width };
+
+                if (index === 0) {
+                  stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-30 bg-[#eef2f6]";
+                } else if (index === 1) {
+                  stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-30 bg-[#eef2f6] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                }
+
+                return (
+                  <th
+                    key={col.key}
+                    style={styleObj}
+                    className={`px-2.5 py-2 border border-gray-300 bg-[#eef2f6] whitespace-nowrap ${stickyClass} ${col.className || ""}`}
+                  >
+                    {col.header}
+                  </th>
+                );
+              })}
             </tr>
 
             {/* Inline Column Search Row */}
             <tr className="bg-[#f8fafc]">
-              <td className="p-1 border border-gray-300 bg-[#f8fafc]"></td>
-              {columns.map((col) => (
-                <td key={`search-${col.key}`} className="p-1 border border-gray-300 bg-[#f8fafc]">
-                  {col.searchable !== false && (
-                    <input
-                      type="text"
-                      placeholder={col.searchPlaceholder || `Search...`}
-                      value={columnSearches[col.key] || ""}
-                      onChange={(e) => handleColumnSearchChange(col.key, e.target.value)}
-                      className="w-full bg-white text-[11px] px-1.5 py-1 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 truncate"
-                    />
-                  )}
-                </td>
-              ))}
+              <td className="p-1 border border-gray-300 bg-[#f8fafc] sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]"></td>
+              {columns.map((col, index) => {
+                let stickyClass = "";
+
+                if (index === 0) {
+                  stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-30 bg-[#f8fafc]";
+                } else if (index === 1) {
+                  stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-30 bg-[#f8fafc] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                }
+
+                return (
+                  <td key={`search-${col.key}`} className={`p-1 border border-gray-300 bg-[#f8fafc] ${stickyClass}`}>
+                    {col.searchable !== false && (
+                      <input
+                        type="text"
+                        placeholder={col.searchPlaceholder || `Search...`}
+                        value={columnSearches[col.key] || ""}
+                        onChange={(e) => handleColumnSearchChange(col.key, e.target.value)}
+                        className="w-full bg-white text-[11px] px-1.5 py-1 border border-gray-300 rounded focus:outline-none focus:border-indigo-500 font-normal"
+                      />
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           </thead>
 
@@ -289,20 +318,30 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                 return (
                   <tr
                     key={row.id || idx}
-                    className="hover:bg-blue-50/40 transition-colors"
+                    className="group hover:bg-blue-50/40 transition-colors"
                   >
-                    <td className="px-2 py-1.5 text-center text-gray-500 font-semibold border border-gray-200 truncate">
+                    <td className="px-2.5 py-1.5 text-center text-gray-500 font-medium border border-gray-200 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[1px_0_3px_rgba(0,0,0,0.08)]">
                       {serialNo}
                     </td>
 
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={`px-2 py-1.5 text-gray-800 border border-gray-200 truncate ${col.className || ""}`}
-                      >
-                        {col.render ? col.render(row, idx) : row[col.key] || "N/A"}
-                      </td>
-                    ))}
+                    {columns.map((col, index) => {
+                      let stickyClass = "";
+
+                      if (index === 0) {
+                        stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-10 bg-white group-hover:bg-blue-50/90";
+                      } else if (index === 1) {
+                        stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-10 bg-white group-hover:bg-blue-50/90 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                      }
+
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-2.5 py-1.5 text-gray-800 border border-gray-200 ${stickyClass} ${col.className || ""}`}
+                        >
+                          {col.render ? col.render(row, idx) : row[col.key] || "N/A"}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })

@@ -1,7 +1,7 @@
 // frontend/src/components/reports/LoggedInReportTab.tsx
 import React, { useState, useEffect } from "react";
 import { ReportTable, ColumnDef, StatusPill } from "./ReportTable";
-import { Shield, ShieldCheck, Users, Clock, MapPin, Monitor, Smartphone } from "lucide-react";
+import { Shield, ShieldCheck, Users, Clock, MapPin, Monitor, Smartphone, Eye, Mail, X } from "lucide-react";
 import { reportAPI } from "@/lib/reportAPI";
 
 interface LoggedInReportTabProps {
@@ -19,6 +19,73 @@ interface LoggedInReportTabProps {
   onRefresh?: () => void;
   onPrint?: () => void;
 }
+
+const ViewEmailCell: React.FC<{ email: string }> = ({ email }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  if (!email || email === "N/A") {
+    return <span className="text-slate-400 text-[11px]">N/A</span>;
+  }
+
+  return (
+    <div className="flex items-center justify-center">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
+        title="View email address"
+        className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors shrink-0 shadow-2xs flex items-center justify-center cursor-pointer"
+      >
+        <Eye className="w-3.5 h-3.5 text-indigo-600" />
+      </button>
+
+      {isOpen && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xs p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-xl border border-slate-200 p-4 max-w-sm w-full space-y-3"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h4 className="font-semibold text-xs text-slate-800 uppercase flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-indigo-600" /> User Email Address
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
+              <span className="font-mono text-xs text-slate-900 font-semibold select-all break-all">{email}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(email);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold shrink-0 transition-colors"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
   data: initialData,
@@ -108,7 +175,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
       header: "SESSION ID",
       searchPlaceholder: "Session ID..",
       render: (row) => (
-        <span className="font-mono text-[10px] font-bold text-slate-600 truncate max-w-[130px] block" title={row.session_id}>
+        <span className="font-mono text-[10px] font-semibold text-slate-600 truncate max-w-[130px] block" title={row.session_id}>
           {row.session_id || `sess_${row.id}`}
         </span>
       ),
@@ -118,7 +185,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
       header: "USER NAME",
       searchPlaceholder: "Search name..",
       render: (row) => (
-        <span className="font-extrabold text-slate-900 text-xs whitespace-nowrap">
+        <span className="font-semibold text-slate-900 text-xs whitespace-nowrap">
           {row.name || row.username || "System User"}
         </span>
       ),
@@ -127,11 +194,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
       key: "email",
       header: "EMAIL ADDRESS",
       searchPlaceholder: "Search email..",
-      render: (row) => (
-        <span className="text-slate-600 font-medium text-[11px] truncate max-w-[140px] block" title={row.email}>
-          {row.email || "N/A"}
-        </span>
-      ),
+      render: (row) => <ViewEmailCell email={row.email} />,
     },
     {
       key: "role",
@@ -144,7 +207,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
         else if (r.includes("manager")) bg = "bg-indigo-50 text-indigo-800 border-indigo-200";
         else if (r.includes("buyer") || r.includes("tenant") || r.includes("client")) bg = "bg-emerald-50 text-emerald-800 border-emerald-200";
         return (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border uppercase tracking-wider ${bg} whitespace-nowrap`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${bg} whitespace-nowrap`}>
             {row.role || "Executive"}
           </span>
         );
@@ -199,7 +262,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
       render: (row) => {
         if (!row.logout_time) {
           return (
-            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-300 whitespace-nowrap">
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-300 whitespace-nowrap">
               Active
             </span>
           );
@@ -219,7 +282,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
         const isLogout = Boolean(row.logout_time);
         const durStr = formatDuration(row.session_duration, isLogout);
         return (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap ${durStr === "Active" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-slate-100 text-slate-700 border border-slate-300"}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${durStr === "Active" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-slate-100 text-slate-700 border border-slate-300"}`}>
             {durStr}
           </span>
         );
@@ -235,7 +298,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             {isMobile ? <Smartphone className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> : <Monitor className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
             <div>
-              <div className="font-bold text-slate-900 text-[11px]">{isMobile ? "Mobile Device" : "Windows PC"}</div>
+              <div className="font-semibold text-slate-900 text-[11px]">{isMobile ? "Mobile Device" : "Windows PC"}</div>
               <div className="font-mono text-[9.5px] text-slate-400 truncate max-w-[110px]">{row.device_id || "dev_browser"}</div>
             </div>
           </div>
@@ -286,7 +349,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {/* High-density Logged-In Report Table */}
       <ReportTable
         title="Logged-In Session Audit Logs"

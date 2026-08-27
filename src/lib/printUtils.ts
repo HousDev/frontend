@@ -38,15 +38,26 @@ export const PRINT_BRAND_STYLE = `
   }
 `;
 
-export function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle: string) {
+export function buildBrandHeaderHTML(orgLogoOrOpts: any, orgName?: string, subtitle?: string) {
+  let name = "Resale Expert";
+  let sub = "Executive Performance Report";
+
+  if (typeof orgLogoOrOpts === "object" && orgLogoOrOpts !== null) {
+    name = orgLogoOrOpts.orgName || orgLogoOrOpts.title || "Resale Expert";
+    sub = orgLogoOrOpts.subtitle || orgLogoOrOpts.reportName || "Executive Performance Report";
+  } else {
+    name = orgName || "Resale Expert";
+    sub = subtitle || "Executive Performance Report";
+  }
+
   const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/logo.png` : "/logo.png";
   return `<div class="brand-header">
     <div class="brand-logo-wrap">
-      <img class="brand-logo" src="${logoUrl}" alt="${orgName} Logo" />
+      <img class="brand-logo" src="${logoUrl}" alt="${name} Logo" />
     </div>
     <div class="brand-center">
-      <div class="brand-name">${orgName}</div>
-      <div class="brand-sub">${subtitle}</div>
+      <div class="brand-name">${name}</div>
+      <div class="brand-sub">${sub}</div>
     </div>
     <div class="brand-right">
       <span class="label">Report Date</span>
@@ -55,8 +66,13 @@ export function buildBrandHeaderHTML(orgLogo: string, orgName: string, subtitle:
   </div>`;
 }
 
-export function buildWatermarkHTML(orgName: string) {
-  const fullName = orgName || "RESALE EXPERT";
+export function buildWatermarkHTML(orgNameOrOpts?: any) {
+  let fullName = "RESALE EXPERT";
+  if (typeof orgNameOrOpts === "string" && orgNameOrOpts.trim()) {
+    fullName = orgNameOrOpts;
+  } else if (typeof orgNameOrOpts === "object" && orgNameOrOpts !== null) {
+    fullName = orgNameOrOpts.orgName || orgNameOrOpts.title || "RESALE EXPERT";
+  }
   return `<div class="watermark" style="position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:90px;font-weight:900;color:rgba(12,56,84,0.25);white-space:nowrap;pointer-events:none;user-select:none;z-index:999999;letter-spacing:8px;text-transform:uppercase;opacity:0.25!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;">${fullName}</div>`;
 }
 
