@@ -541,10 +541,14 @@ interface PropertyFormData {
   lock_in_period?: string;
   agreement_duration?: string;
   available_from?: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 interface InitialDataFromParent {
   id?: string | number;
+  latitude?: string;
+  longitude?: string;
   seller?: string;
   sellerId?: string | number;
   seller_id?: string | number;

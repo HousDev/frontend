@@ -32,7 +32,7 @@ const SharingModal = ({ isOpen, onClose, item, type, onShare }: any) => {
     return item.date || item.created_date || new Date().toLocaleDateString();
   };
 
-  const defaultMessage = type === 'invoice' 
+  const defaultMessage = type === 'invoice'
     ? `Dear ${getClientName()},\n\nPlease find attached your brokerage invoice ${getDocumentId()} for the property transaction.\n\nAmount: ₹${getAmount()?.toLocaleString('en-IN')}\nProperty: ${getPropertyAddress()}\n\nThank you for choosing ResaleExpert.\n\nBest regards,\nResaleExpert Team`
     : `Dear ${getClientName()},\n\nThis is to acknowledge the receipt of payment for ${getDocumentId()}.\n\nAmount: ₹${getAmount()?.toLocaleString('en-IN')}\nDate: ${getDate()}\n\nThank you.\n\nBest regards,\nResaleExpert Team`;
 
@@ -43,8 +43,8 @@ const SharingModal = ({ isOpen, onClose, item, type, onShare }: any) => {
   ];
 
   const handleChannelToggle = (channelId: string) => {
-    setSelectedChannels(prev => 
-      prev.includes(channelId) 
+    setSelectedChannels(prev =>
+      prev.includes(channelId)
         ? prev.filter(id => id !== channelId)
         : [...prev, channelId]
     );
@@ -57,11 +57,11 @@ const SharingModal = ({ isOpen, onClose, item, type, onShare }: any) => {
     }
 
     setIsSharing(true);
-    
+
     try {
       // Simulate sharing process
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       const shareData = {
         channels: selectedChannels,
         message: customMessage || defaultMessage,
@@ -80,24 +80,24 @@ const SharingModal = ({ isOpen, onClose, item, type, onShare }: any) => {
 
   const getRecipients = () => {
     const recipients = [];
-    
+
     // Add client/buyer contact
     const clientPhone = item.client_phone || item.buyer_phone || item.phone;
     const clientName = getClientName();
     if (clientPhone && clientName !== 'N/A') {
       recipients.push({ type: 'client', contact: clientPhone, name: clientName });
     }
-    
+
     // Add seller contact if available
     if (item.seller_phone && item.seller_name) {
       recipients.push({ type: 'seller', contact: item.seller_phone, name: item.seller_name });
     }
-    
+
     // Add additional contacts if available
     if (item.to_party && item.to_party_phone) {
       recipients.push({ type: 'recipient', contact: item.to_party_phone, name: item.to_party });
     }
-    
+
     return recipients;
   };
 
@@ -176,16 +176,15 @@ const SharingModal = ({ isOpen, onClose, item, type, onShare }: any) => {
                   <button
                     key={channel.id}
                     onClick={() => handleChannelToggle(channel.id)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      isSelected
+                    className={`p-4 rounded-xl border-2 transition-all ${isSelected
                         ? `border-${channel.color}-500 bg-${channel.color}-50`
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <Icon 
-                        size={20} 
-                        className={isSelected ? `text-${channel.color}-600` : 'text-gray-400'} 
+                      <Icon
+                        size={20}
+                        className={isSelected ? `text-${channel.color}-600` : 'text-gray-400'}
                       />
                       <span className={`font-medium ${isSelected ? `text-${channel.color}-900` : 'text-gray-600'}`}>
                         {channel.label}

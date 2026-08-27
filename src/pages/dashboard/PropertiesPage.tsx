@@ -1300,9 +1300,73 @@ const PropertiesPage = () => {
       }
       if (!Array.isArray(buyerCoords)) buyerCoords = [];
 
-      // 1. Location match using Haversine Distance (35% weight)
+      // 1. Location match (35% weight)
       if (buyerCoords.length === 0 || isNaN(propLat) || isNaN(propLng) || propLat === 0 || propLng === 0) {
-        locationScore = 15;
+        // Fallback to text-based matching if coordinates are missing
+        const propLoc = (property.location || property.location_name || property.society || property.society_name || property.address || '').toLowerCase().trim();
+        const propCity = (property.city || property.city_name || '').toLowerCase().trim();
+        
+        let reqs = buyer.requirements;
+        if (typeof reqs === 'string') {
+          try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
+        }
+        if (!reqs) reqs = {};
+
+        let buyerLocRaw = buyer.location || '';
+        if (reqs.preferredLocations && Array.isArray(reqs.preferredLocations)) {
+          buyerLocRaw = reqs.preferredLocations.join(', ');
+        }
+        
+        if (!buyerLocRaw) {
+          locationScore = 15;
+        } else {
+          const buyerLocs = buyerLocRaw.toLowerCase().split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean);
+          const hasExactMatch = buyerLocs.some((loc: any) =>
+            propLoc.includes(loc) ||
+            loc.includes(propLoc) ||
+            (propCity && loc.includes(propCity))
+          );
+
+          if (hasExactMatch) {
+            locationScore = 35;
+          } else {
+            const NEARBY_MAP = {
+              tathawade: ['wakad', 'punawale', 'ravet', 'hinjewadi', 'marunji', 'pimpri'],
+              wakad: ['tathawade', 'baner', 'balewadi', 'hinjewadi', 'thergaon', 'rahatani', 'pimple saudagar'],
+              baner: ['balewadi', 'wakad', 'aundh', 'pashan', 'pimple saudagar', 'model colony'],
+              balewadi: ['baner', 'wakad', 'aundh', 'pashan'],
+              kharadi: ['viman nagar', 'wagholi', 'hadapsar', 'kalyani nagar', 'mundhwa', 'chandan nagar'],
+              'viman nagar': ['kharadi', 'kalyani nagar', 'vishrantwadi', 'tingre nagar', 'yerwada'],
+              hinjewadi: ['wakad', 'tathawade', 'marunji', 'punawale', 'pimpri', 'bavdhan'],
+              kothrud: ['bavdhan', 'karve nagar', 'erandwane', 'deccan', 'warje'],
+              bavdhan: ['kothrud', 'pashan', 'baner', 'warje', 'hinjewadi'],
+              hadapsar: ['magarpatta', 'amanora', 'kharadi', 'fursungi', 'wanowrie', 'loni kalbhor'],
+              rahatani: ['pimple saudagar', 'pimple nilakh', 'wakad', 'kalewadi', 'chinchwad'],
+              'pimple saudagar': ['rahatani', 'pimple nilakh', 'wakad', 'baner', 'sangvi'],
+            };
+
+            let isNearby = false;
+            for (const loc of buyerLocs) {
+              for (const [keyLoc, adjList] of Object.entries(NEARBY_MAP)) {
+                if (propLoc.includes(keyLoc) || keyLoc.includes(propLoc)) {
+                  if (adjList.some(adj => loc.includes(adj) || adj.includes(loc))) {
+                    isNearby = true;
+                    break;
+                  }
+                }
+              }
+              if (isNearby) break;
+            }
+
+            if (isNearby) {
+              locationScore = 25;
+            } else {
+              const words = buyerLocs.flatMap((l: any) => l.split(/\s+/));
+              const partial = words.some((word: any) => word.length > 2 && propLoc.includes(word));
+              locationScore = partial ? 20 : (buyer.city && propCity && buyer.city.toLowerCase() === propCity ? 15 : 10);
+            }
+          }
+        }
       } else {
         buyerCoords.forEach((c: any) => {
           if (c.lat && c.lng) {
@@ -1327,9 +1391,11 @@ const PropertiesPage = () => {
         if (tMin > 0 && tMax > 0) {
           if (propPrice >= tMin && propPrice <= tMax) {
             budgetScore = 30;
+          } else if (propPrice < tMin) {
+            budgetScore = 20;
           } else {
-            const diff = Math.min(Math.abs(propPrice - tMin), Math.abs(propPrice - tMax));
-            const tolerance = (tMax || tMin) * 0.2;
+            const diff = propPrice - tMax;
+            const tolerance = tMax * 0.2;
             if (diff <= tolerance) {
               budgetScore = Math.max(5, Math.round(30 * (1 - (diff / tolerance))));
             } else {
@@ -2702,28 +2768,28 @@ const PropertiesPage = () => {
 
             <div className="flex flex-col lg:flex-row gap-3 items-stretch mt-2 sm:mt-3">
               {/* Tab Switcher — Sell | Rent side by side */}
-              <div className="flex flex-row p-1 rounded-xl bg-gray-100 border border-gray-200 gap-1 flex-shrink-0 self-start">
+              <div className="flex flex-row p-1 rounded-xl bg-slate-200/80 border border-slate-300/60 gap-1 flex-shrink-0 self-start shadow-inner">
                 {/* SELL — active */}
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/properties')}
-                  className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-bold transition-all shadow-sm bg-white"
-                  style={{ color: '#E6761D', boxShadow: '0 2px 8px rgba(230,118,29,0.15)' }}
+                  className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all shadow-md text-white"
+                  style={{ background: '#0f2b3d', boxShadow: '0 4px 12px rgba(15,43,61,0.25)' }}
                 >
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md" style={{ background: '#E6761D15' }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E6761D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-white/15">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                   </span>
                   <span>Sell Properties</span>
-                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#E6761D20', color: '#E6761D' }}>{properties.length}</span>
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold text-white" style={{ background: '#e67e22' }}>{properties.length}</span>
                 </button>
                 {/* RENT — inactive */}
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/rental-properties')}
-                  className="relative flex items-center gap-2 px-5 py-3 rounded-lg text-xs font-semibold transition-all text-gray-500 hover:text-gray-800 hover:bg-white/60"
+                  className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-[#0f2b3d] hover:bg-white/70"
                 >
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gray-200/60">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-300/60">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m11.4 11.6 8.6-8.6"/><path d="m16 4 3 3"/><path d="m13 7 3 3"/></svg>
                   </span>
                   <span>Rent Properties</span>
                 </button>

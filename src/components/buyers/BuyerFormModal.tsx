@@ -55,7 +55,9 @@ const buildFormStateFromBuyer = (b: any) => {
     possession: '',
     facing: '',
     floor: '',
-    specialRequirements: ''
+    specialRequirements: '',
+    minCarpetArea: '',
+    maxCarpetArea: ''
   };
 
   const fin = parseMaybeJSON(b?.financials) || b?.financials || {
@@ -93,7 +95,9 @@ const buildFormStateFromBuyer = (b: any) => {
       possession: req?.possession ?? '',
       facing: req?.facing ?? '',
       floor: req?.floor ?? '',
-      specialRequirements: req?.specialRequirements ?? ''
+      specialRequirements: req?.specialRequirements ?? '',
+      minCarpetArea: req?.minCarpetArea ?? '',
+      maxCarpetArea: req?.maxCarpetArea ?? ''
     },
     financials: {
       loanRequired: !!fin?.loanRequired,
@@ -559,6 +563,8 @@ const BuyerFormModal = ({
           possession: toCanonical(possessionOpts, prev.requirements?.possession ?? buyerReqs?.possession ?? ''),
           facing: toCanonical(facingOpts, prev.requirements?.facing ?? buyerReqs?.facing ?? ''),
           floor: toCanonical(floorOpts, prev.requirements?.floor ?? buyerReqs?.floor ?? ''),
+          minCarpetArea: buyerReqs?.minCarpetArea ?? prev.requirements?.minCarpetArea ?? '',
+          maxCarpetArea: buyerReqs?.maxCarpetArea ?? prev.requirements?.maxCarpetArea ?? '',
         },
       };
 
@@ -640,6 +646,12 @@ const BuyerFormModal = ({
     
     if (ageError) {
       newErrors.dob = ageError;
+    }
+
+    const minB = Number(formData.budget_min || 0);
+    const maxB = Number(formData.budget_max || 0);
+    if ((formData.budget_min && minB > 0 && minB < 1000) || (formData.budget_max && maxB > 0 && maxB < 1000)) {
+      newErrors.budget = 'Budget amount cannot be less than ₹1,000';
     }
     
     setErrors(newErrors);
@@ -1116,6 +1128,29 @@ const BuyerFormModal = ({
                     placeholder="Select amenities"
                     withSearch
                   />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField label="Min Carpet Area (sq ft)">
+                      <input
+                        type="number"
+                        value={formData.requirements.minCarpetArea || ''}
+                        onChange={(e) => setReq({ minCarpetArea: e.target.value })}
+                        className="border rounded-lg w-full px-2 py-1 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        placeholder="Min sq ft"
+                      />
+                    </FormField>
+                    <FormField label="Max Carpet Area (sq ft)">
+                      <input
+                        type="number"
+                        value={formData.requirements.maxCarpetArea || ''}
+                        onChange={(e) => setReq({ maxCarpetArea: e.target.value })}
+                        className="border rounded-lg w-full px-2 py-1 text-[10px] focus:outline-none focus:ring-1 bg-white"
+                        style={{ borderColor: BD }}
+                        placeholder="Max sq ft"
+                      />
+                    </FormField>
+                  </div>
 
                   <FormField label="Special Requirements">
                     <textarea

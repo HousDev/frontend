@@ -745,7 +745,7 @@ return;
   // Template headers
  const TEMPLATE_HEADERS_READABLE: string[] = [
   // ── Property Details ──
-  "Seller Name",
+  "Owner / Seller Name",
   "Property Type", "Property Subtype", "Unit Type",
   "Wing", "Unit No",
   "Furnishing", "Parking Type",

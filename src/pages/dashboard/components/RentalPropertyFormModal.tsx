@@ -520,13 +520,18 @@ interface RentalPropertyFormData {
   maintenance_charge: string;
   preferred_tenants: string;
   lock_in_period: string;
+  notice_period: string;
   agreement_duration: string;
   available_from: string;
   budget: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 interface InitialDataFromParent {
   id?: string | number;
+  latitude?: string;
+  longitude?: string;
   seller?: string;
   sellerId?: string | number;
   seller_id?: string | number;
@@ -575,6 +580,7 @@ interface InitialDataFromParent {
   maintenance_charge?: string;
   preferred_tenants?: string;
   lock_in_period?: string;
+  notice_period?: string;
   agreement_duration?: string;
   available_from?: string;
 }
@@ -721,6 +727,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     maintenance_charge: '',
     preferred_tenants: '',
     lock_in_period: '',
+    notice_period: '',
     agreement_duration: '',
     available_from: '',
     latitude: null,
@@ -850,18 +857,40 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
 
   const resolveDropdownField = (
     fieldValue: string | undefined,
-    options: MasterOption[]
+    options: MasterOption[] | undefined
   ): string => {
     if (!fieldValue) return "";
-    if (options.some(opt => String(opt.value) === String(fieldValue))) {
+    if (!options || !Array.isArray(options) || options.length === 0) return String(fieldValue);
+
+    // 1. Direct exact match by value
+    if (options.some(opt => opt && String(opt.value) === String(fieldValue))) {
       return String(fieldValue);
     }
-    const normalizedInput = String(fieldValue).toLowerCase().replace(/\s+/g, '');
-    const match = options.find(opt => {
+
+    const rawStr = String(fieldValue).trim();
+    const normalizedInput = rawStr.toLowerCase().replace(/\s+/g, '');
+    const inputDigits = rawStr.match(/\d+/)?.[0];
+
+    // 2. Exact label/value match (ignoring whitespace & case)
+    let match = options.find(opt => {
+      if (!opt) return false;
       const normalizedLabel = String(opt.label).toLowerCase().replace(/\s+/g, '');
-      return normalizedLabel === normalizedInput;
+      const normalizedVal = String(opt.value).toLowerCase().replace(/\s+/g, '');
+      return normalizedLabel === normalizedInput || normalizedVal === normalizedInput;
     });
-    return match ? String(match.value) : "";
+
+    // 3. Numeric digit match (e.g. "3" matches "3 Month" or "3 Months")
+    if (!match && inputDigits) {
+      match = options.find(opt => {
+        if (!opt) return false;
+        const optVal = String(opt.value).toLowerCase();
+        const optLabel = String(opt.label).toLowerCase();
+        const optDigits = (optVal.match(/\d+/) || optLabel.match(/\d+/))?.[0];
+        return optDigits === inputDigits;
+      });
+    }
+
+    return match ? String(match.value) : String(fieldValue);
   };
 
   const getLabelFromValue = (options: MasterOption[] = [], value: string): string => {
@@ -1094,7 +1123,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
 
   const fetchMasterData = async () => {
     try {
-      const data = await getMasterDropdownOptions(['lead', 'common', 'property']);
+      const data = await getMasterDropdownOptions(['lead', 'common', 'property', 'rental', 'rent']);
       setMasterOptions(prev => ({
         ...prev,
         ...data
@@ -1342,24 +1371,44 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
 
     const updates: Partial<RentalPropertyFormData> = {};
 
-    updates.propertyType = resolveDropdownField(formData.propertyType, masterOptions["property type"]);
-    updates.propertySubtype = resolveDropdownField(formData.propertySubtype, masterOptions["property subtype"]);
-    updates.unitType = resolveDropdownField(formData.unitType, masterOptions["unit type"]);
-    updates.furnishing = resolveDropdownField(formData.furnishing, masterOptions["furnishing"]);
-    updates.parkingType = resolveDropdownField(formData.parkingType, masterOptions["parking type"]);
-    updates.status = resolveDropdownField(formData.status, masterOptions["property status"]);
-    updates.leadSource = resolveDropdownField(formData.leadSource, masterOptions["lead source"]);
-    updates.bedrooms = resolveDropdownField(formData.bedrooms, masterOptions["bedrooms"]);
-    updates.bathrooms = resolveDropdownField(formData.bathrooms, masterOptions["bathrooms"]);
-    updates.facing = resolveDropdownField(formData.facing, masterOptions["facing"]);
-    updates.balcony = resolveDropdownField(formData.balcony, masterOptions["balcony"]);
-    updates.lock_in_period = resolveDropdownField(formData.lock_in_period, masterOptions["lock-in period"]);
-    updates.agreement_duration = resolveDropdownField(formData.agreement_duration, masterOptions["agreement duration"]);
+    const tryResolve = (fieldVal: string, opts: MasterOption[] | undefined) => {
+      const resolved = resolveDropdownField(fieldVal, opts);
+      return resolved || fieldVal; // never overwrite with empty — keep raw value if resolution fails
+    };
+
+    updates.propertyType = tryResolve(formData.propertyType, masterOptions["property type"]);
+    updates.propertySubtype = tryResolve(formData.propertySubtype, masterOptions["property subtype"]);
+    updates.unitType = tryResolve(formData.unitType, masterOptions["unit type"]);
+    updates.furnishing = tryResolve(formData.furnishing, masterOptions["furnishing"]);
+    updates.parkingType = tryResolve(formData.parkingType, masterOptions["parking type"]);
+    updates.status = tryResolve(formData.status, masterOptions["property status"]);
+    updates.leadSource = tryResolve(formData.leadSource, masterOptions["lead source"]);
+    updates.bedrooms = tryResolve(formData.bedrooms, masterOptions["bedrooms"]);
+    updates.bathrooms = tryResolve(formData.bathrooms, masterOptions["bathrooms"]);
+    updates.facing = tryResolve(formData.facing, masterOptions["facing"]);
+    updates.balcony = tryResolve(formData.balcony, masterOptions["balcony"]);
+    updates.lock_in_period = tryResolve(formData.lock_in_period, masterOptions["lock-in period"]);
+    updates.agreement_duration = tryResolve(formData.agreement_duration, masterOptions["agreement duration"]);
+    // notice_period resolved separately below
 
     if (Object.values(updates).some(v => v !== undefined && v !== "")) {
       setFormData(prev => ({ ...prev, ...updates }));
     }
   }, [masterOptions, mode, initialData, isEditDataLoaded, formData.propertyType, formData.propertySubtype, formData.unitType, formData.furnishing, formData.parkingType, formData.status, formData.leadSource, formData.bedrooms, formData.bathrooms, formData.facing, formData.balcony, formData.lock_in_period, formData.agreement_duration]);
+
+  // Separate effect for notice_period — resolves independently when its options load
+  useEffect(() => {
+    if (mode !== 'edit' || !initialData || !isEditDataLoaded) return;
+    const noticePeriodOptions = masterOptions["notice period"];
+    if (!noticePeriodOptions || noticePeriodOptions.length === 0) return;
+    const rawValue = (initialData as any).notice_period || '';
+    if (!rawValue) return;
+    const resolved = resolveDropdownField(rawValue, noticePeriodOptions);
+    if (resolved) {
+      setFormData(prev => ({ ...prev, notice_period: resolved }));
+    }
+  }, [masterOptions, mode, initialData, isEditDataLoaded]);
+
   useEffect(() => {
     if (!isOpen) return;
     if (mode !== 'edit' || !initialData) return;
@@ -1409,6 +1458,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       maintenance_charge: initialData.maintenance_charge || '',
       preferred_tenants: initialData.preferred_tenants || '',
       lock_in_period: initialData.lock_in_period || '',
+      notice_period: (initialData as any).notice_period || '',
       agreement_duration: initialData.agreement_duration || '',
       available_from: initialData.available_from ? initialData.available_from.split('T')[0] : '',
       budget: initialData.monthly_rent || '',
@@ -1488,7 +1538,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       "status", "leadSource", "description",
       "bedrooms", "bathrooms", "facing", "balcony", "assigned_to",
       "listing_type", "monthly_rent", "security_deposit",
-      "maintenance_charge", "preferred_tenants", "lock_in_period",
+      "maintenance_charge", "preferred_tenants", "lock_in_period", "notice_period",
       "agreement_duration", "available_from", "source_url"
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? "")));
@@ -1623,6 +1673,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
       maintenance_charge: fd.maintenance_charge,
       preferred_tenants: fd.preferred_tenants,
       lock_in_period: fd.lock_in_period,
+      notice_period: fd.notice_period,
       agreement_duration: fd.agreement_duration,
       available_from: fd.available_from,
     };
@@ -1666,7 +1717,10 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
     if (key === 'society' && societyOptions.length > 0) {
       return societyOptions;
     }
-    return masterOptions[key] || masterOptions[key.toLowerCase()] || [];
+    const normKey = key.toLowerCase().trim();
+    const underscoreKey = normKey.replace(/\s+/g, '_');
+    const dashKey = normKey.replace(/\s+/g, '-');
+    return masterOptions[key] || masterOptions[normKey] || masterOptions[underscoreKey] || masterOptions[dashKey] || [];
   };
 
   const modalTitle = mode === 'edit' ? 'Edit Rental Property' : 'Add New Rental Property';
@@ -1739,7 +1793,7 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
                 {/* Owner Searchable Dropdown Popup */}
                 {isSellerDropdownOpen && (
                   <div
-                    className="absolute left-0 top-full mt-1 w-full sm:w-[280px] bg-white rounded-lg shadow-xl border z-50 max-h-60 overflow-y-auto py-1 text-left animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute left-0 top-full mt-1 w-full sm:w-[200px] bg-white rounded-lg shadow-xl border z-50 max-h-60 overflow-y-auto py-1 text-left animate-in fade-in zoom-in-95 duration-100"
                     style={{ borderColor: BD }}
                   >
                     <div className="px-2.5 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b flex justify-between items-center bg-gray-50">
@@ -2020,13 +2074,26 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
               <Field label="Lock-in Period (Months)">
                 <SafeDropdown
                   placeholder="Select"
-                  options={getOptions('lock-in period')}
+                  options={sortNumericOptions(getOptions('lock-in period'))}
                   value={formData.lock_in_period}
                   onChange={handleDropdownChange('lock_in_period')}
                   className="w-full"
                 />
               </Field>
 
+              <Field label="Notice Period">
+                <SafeDropdown
+                  placeholder="Select Notice Period"
+                  options={sortNumericOptions(getOptions('notice period'))}
+                  value={formData.notice_period}
+                  onChange={handleDropdownChange('notice_period')}
+                  className="w-full"
+                />
+              </Field>
+            </div>
+
+            {/* ROW 2: Agreement Duration, Preferred Tenants, Maintenance Charges side-by-side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-stretch mt-3">
               <Field label="Agreement Duration (Months)">
                 <SafeDropdown
                   placeholder="Select"
@@ -2036,11 +2103,8 @@ const RentalPropertyFormModal: React.FC<RentalPropertyFormModalProps> = ({
                   className="w-full"
                 />
               </Field>
-            </div>
 
-            {/* ROW 2: Preferred Tenants, Maintenance Charges */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-stretch">
-              <div className="flex flex-col">
+              <div className="flex flex-col md:col-span-2">
                 <Field label="Preferred Tenants" className="relative flex flex-col h-full">
                   <div className="mt-auto">
                     <TenantMultiSelect

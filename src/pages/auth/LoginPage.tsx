@@ -1327,7 +1327,7 @@ const LoginPage: React.FC = () => {
       const deviceId = getDeviceId();
       const source = getBrowserSource();
 
-      const response = (await login({
+      const response = (await (login as any)({
         ...formData,
         latitude: locResult.latitude,
         longitude: locResult.longitude,

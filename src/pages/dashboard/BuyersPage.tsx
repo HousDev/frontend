@@ -82,8 +82,9 @@ type UIBuyer = {
     furnishing?: string | null;
     possession?: string | null;
     facing?: string | null;
-    floor?: string | null;
     specialRequirements?: string | null;
+    minCarpetArea?: string | null;
+    maxCarpetArea?: string | null;
   };
   financials: {
     loanRequired?: boolean | null;
@@ -563,7 +564,9 @@ const BuyersPage = () => {
         facing: toStr(rawReq.facing),
         floor: toStr(rawReq.floor),
         specialRequirements: rawReq.specialRequirements ?? rawReq.special_requirements ?? null,
-      },
+        minCarpetArea: toStr(rawReq.minCarpetArea ?? rawReq.min_carpet_area ?? null),
+        maxCarpetArea: toStr(rawReq.maxCarpetArea ?? rawReq.max_carpet_area ?? null),
+      } as any,
       financials: {
         loanRequired: fin.loanRequired ?? fin.loan_required ?? null,
         loanAmount: toNumOrNull(fin.loanAmount ?? fin.loan_amount),
