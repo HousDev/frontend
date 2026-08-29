@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Building,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 
 interface TenantReportTabProps {
@@ -199,22 +200,16 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
 
   const columns: ColumnDef[] = [
     {
-      key: "tenant_id",
-      header: "TENANT ID",
-      render: (row) => (
-        <span className="font-mono text-xs font-semibold text-slate-700">
-          #{row.tenant_id || `TEN-${row.id}`}
-        </span>
-      ),
-    },
-    {
       key: "name",
       header: "TENANT NAME",
       searchPlaceholder: "Search tenant...",
       render: (row) => (
         <div>
           <div className="font-bold text-slate-900 text-xs">{row.name || "N/A"}</div>
-          <div className="text-[11px] text-teal-700 font-medium">{row.tenant_type || "Family"}</div>
+          <div className="text-[10px] text-teal-700 font-medium flex items-center gap-1.5 mt-0.5">
+            <span>{row.tenant_type || "Family"}</span>
+            <span className="font-mono text-indigo-600 font-semibold">#{row.tenant_id || `TEN-${row.id}`}</span>
+          </div>
         </div>
       ),
     },
@@ -231,7 +226,6 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
           <span>{row.preferred_location || "N/A"}</span>
         </div>
       ),
@@ -300,7 +294,7 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
       {/* 1. LOCATION DEMAND & BHK REQUIREMENTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
         {/* Preferred Location Demand */}
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-teal-600" />
@@ -343,7 +337,7 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
         </div>
 
         {/* BHK Requirement Breakdown */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <Home className="w-4 h-4 text-indigo-600" />
@@ -352,6 +346,20 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
 
             {/* Top Right Action Buttons */}
             <div className="flex items-center gap-2">
+              {activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase()) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+                  className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+                  title="Click to unfilter and view all tenants"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                  Unfilter
+                </Button>
+              )}
+
               <Button
                 type="button"
                 size="sm"
@@ -409,7 +417,7 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
       {/* 3. BUDGET TIERS & EXECUTIVE LEADERBOARD */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Rent Budget Tiers */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
             <IndianRupee className="w-4 h-4 text-emerald-600" />
             Target Rent Budget Distribution
@@ -441,7 +449,7 @@ export const TenantReportTab: React.FC<TenantReportTabProps> = ({
         </div>
 
         {/* Executive Conversion Leaderboard */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-3">
           <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
             <Award className="w-4 h-4 text-purple-600" />
             Executive Tenant Conversion Leaderboard

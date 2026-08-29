@@ -23,6 +23,7 @@ import {
   PieChart,
   Layers,
   BarChart3,
+  RotateCcw,
 } from "lucide-react";
 
 interface TransactionReportTabProps {
@@ -216,7 +217,7 @@ export const TransactionReportTab: React.FC<TransactionReportTabProps> = ({
   return (
     <div className="space-y-6">
       {/* SUB-TABS & ACTION BUTTONS HEADER */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-sm flex flex-wrap items-center justify-between gap-3">
         {/* Navigation Sub-Tabs */}
         <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
           <button
@@ -258,6 +259,20 @@ export const TransactionReportTab: React.FC<TransactionReportTabProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase()) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+              className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+              title="Click to unfilter and view all transactions"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+              Unfilter
+            </Button>
+          )}
+
           <Button
             type="button"
             size="sm"
@@ -300,7 +315,7 @@ export const TransactionReportTab: React.FC<TransactionReportTabProps> = ({
           {/* FINANCIAL STATUS & TRANSACTION TYPE BREAKDOWN */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Financial Status Breakdown */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
               <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
                 <BarChart3 className="w-4 h-4 text-emerald-600" />
                 Financial Status Breakdown
@@ -324,7 +339,7 @@ export const TransactionReportTab: React.FC<TransactionReportTabProps> = ({
             </div>
 
             {/* Transaction Type Breakdown */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
               <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
                 <PieChart className="w-4 h-4 text-indigo-600" />
                 Transaction Type Revenue Distribution

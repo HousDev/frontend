@@ -1,6 +1,6 @@
 // frontend/src/lib/printUtils.ts
 
-export const PRINT_BRAND_STYLE = `
+export const PRINT_BRAND_STYLE = `<style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a;font-size:11px;padding:24px;background:#fff;position:relative}
   .brand-header{display:flex;align-items:center;background:#fff;border-bottom:2.5px solid #0f1f38;border-radius:8px;padding:12px 16px;margin-bottom:14px}
@@ -36,7 +36,7 @@ export const PRINT_BRAND_STYLE = `
     td { background: rgba(255,255,255,0.85) !important; -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
     .chart-section { page-break-inside: avoid; }
   }
-`;
+</style>`;
 
 export function buildBrandHeaderHTML(orgLogoOrOpts: any, orgName?: string, subtitle?: string) {
   let name = "Resale Expert";

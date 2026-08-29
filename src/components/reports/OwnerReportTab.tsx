@@ -32,6 +32,7 @@ import {
   Activity,
   Layers3,
   Building2,
+  RotateCcw,
 } from "lucide-react";
 
 interface OwnerReportTabProps {
@@ -240,18 +241,18 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
   // Owner View Columns
   const ownerColumns: ColumnDef[] = [
     {
-      key: "id",
-      header: "OWNER ID",
-      render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#OWN-{row.id}</span>,
-    },
-    {
       key: "name",
       header: "OWNER NAME",
-      width: "240px",
+      width: "200px",
       searchPlaceholder: "Search owner...",
       render: (row) => (
-        <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug min-w-[220px]">
-          {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+        <div>
+          <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug">
+            {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+          </div>
+          <div className="text-[11px] font-mono text-indigo-600 font-semibold mt-0.5">
+            #OWN-{row.id}
+          </div>
         </div>
       ),
     },
@@ -269,7 +270,6 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
           <span>{row.location || row.city || "N/A"}</span>
         </div>
       ),
@@ -362,7 +362,6 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
       header: "LOCATION",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
           <span>{row.location || "N/A"}</span>
         </div>
       ),
@@ -412,7 +411,7 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
   return (
     <div className="space-y-3.5">
       {/* 1. OWNER RENTAL LIFECYCLE FUNNEL WITH TOP-RIGHT ACTION BUTTONS */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5">
@@ -429,6 +428,20 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
 
           {/* Filter, Export, Print Buttons in Right Corner */}
           <div className="flex items-center gap-2">
+            {activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase()) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+                className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+                title="Click to unfilter and view all owners"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                Unfilter
+              </Button>
+            )}
+
             <Button
               type="button"
               size="sm"
@@ -500,7 +513,7 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
       {/* 2. LOCATION & EXPECTED RENT ANALYSIS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Rental Supply by Location */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-teal-600" />
@@ -545,7 +558,7 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
         </div>
 
         {/* Expected Rent Analysis */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <IndianRupee className="w-4 h-4 text-emerald-600" />
@@ -589,7 +602,7 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
       {/* 3. EXECUTIVE PERFORMANCE & FOLLOW-UP HEALTH */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Executive Leaderboard */}
-        <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <div className="flex items-center gap-1.5">
               <UserCheck2 className="w-4 h-4 text-teal-600" />
@@ -630,7 +643,7 @@ export const OwnerReportTab: React.FC<OwnerReportTabProps> = ({
         </div>
 
         {/* Owner Follow-up Velocity */}
-        <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <div className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-emerald-600" />

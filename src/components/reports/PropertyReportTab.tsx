@@ -26,6 +26,7 @@ import {
   Layers3,
   Award,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 
 interface PropertyReportTabProps {
@@ -214,23 +215,14 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
 
   const columns: ColumnDef[] = [
     {
-      key: "id",
-      header: "PROP ID",
-      render: (row) => (
-        <span className="font-mono text-xs font-semibold text-slate-700">
-          #{row.mode === "rental" ? "RPROP" : "PROP"}-{row.id}
-        </span>
-      ),
-    },
-    {
       key: "title",
       header: "PROPERTY TITLE / SOCIETY",
       searchPlaceholder: "Search property...",
       render: (row) => (
         <div>
-          <div className="font-bold text-slate-900 text-xs">{row.title || row.society_name || `Property #${row.id}`}</div>
-          <div className="text-[11px] text-teal-700 font-medium">
-            {row.mode === "rental" ? "For Rent" : "For Sale"} • {row.property_type || "Residential"} • {row.unit_type || "Any BHK"}
+          <div className="font-bold text-slate-900 text-xs">{row.title || row.society_name}</div>
+          <div className="text-[10px] text-teal-700 font-medium flex items-center gap-1.5 mt-0.5">
+            <span>{row.mode === "rental" ? "For Rent" : "For Sale"} • {row.property_type || "Residential"} • {row.unit_type || "Any BHK"}</span>
           </div>
         </div>
       ),
@@ -259,7 +251,6 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
           <span>{row.location || row.location_name || row.city_name || "N/A"}</span>
         </div>
       ),
@@ -310,7 +301,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
   return (
     <div className="space-y-3.5">
       {/* 1. TOP HEADER INVENTORY OVERVIEW */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-indigo-600" />
@@ -319,6 +310,20 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
 
           {/* Action Buttons in Right Corner */}
           <div className="flex items-center gap-2">
+            {activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase()) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+                className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+                title="Click to unfilter and view all properties"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                Unfilter
+              </Button>
+            )}
+
             <Button
               type="button"
               size="sm"
@@ -397,7 +402,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
       {/* 2. LOCATION SUPPLY & BHK DISTRIBUTION GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Location Inventory Matrix */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-indigo-600" />
@@ -442,7 +447,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
         </div>
 
         {/* BHK / Unit Type Analysis */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <Home className="w-4 h-4 text-teal-600" />
@@ -472,7 +477,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
       {/* 3. PRICE & RENT DISTRIBUTION TIERS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Sale Price Tiers */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
             <IndianRupee className="w-4 h-4 text-indigo-600" />
             Resale Asking Price Distribution
@@ -504,7 +509,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
         </div>
 
         {/* Expected Rent Tiers */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
             <IndianRupee className="w-4 h-4 text-teal-600" />
             Expected Monthly Rent Distribution
@@ -537,7 +542,7 @@ export const PropertyReportTab: React.FC<PropertyReportTabProps> = ({
       </div>
 
       {/* 4. EXECUTIVE LEADERBOARD */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-3">
         <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
           <Award className="w-4 h-4 text-indigo-600" />
           Executive Property Inventory & Conversion Leaderboard

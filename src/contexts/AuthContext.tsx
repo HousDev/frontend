@@ -361,7 +361,15 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: { username: string; password: string }) => Promise<User>;
+  login: (credentials: {
+    username: string;
+    password: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    address?: string | null;
+    device_id?: string;
+    source?: string;
+  }) => Promise<User>;
   register: (userData: {
     username: string;
     email: string;
@@ -532,6 +540,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, [clearSettings]);
 
+  /* ----------------- Inactivity Auto-Logout (15 Minutes) ----------------- */
+  useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes = 900,000 ms
+    let timer: NodeJS.Timeout;
+
+    const performAutoLogout = async () => {
+      console.warn("⚠️ [AUTO-LOGOUT] User inactive for 15 minutes. Logging out...");
+      sessionStorage.setItem(
+        "logout_reason",
+        "You were automatically logged out due to 15 minutes of inactivity."
+      );
+      try {
+        await authAPI.logout();
+      } catch (e) {
+        console.error("Auto-logout API call failed:", e);
+      } finally {
+        clearLocalStorage();
+        clearSettings();
+        setUser(null);
+        window.location.href = "/login?reason=inactivity";
+      }
+    };
+
+    const resetInactivityTimer = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(performAutoLogout, INACTIVITY_LIMIT_MS);
+    };
+
+    const activityEvents = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+
+    // Initial timer start
+    resetInactivityTimer();
+
+    // Attach active user interaction event listeners
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetInactivityTimer, { passive: true });
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetInactivityTimer);
+      });
+    };
+  }, [user, clearSettings]);
+
   /* ----------------- Refresh user data from server ----------------- */
 
   const refreshUser = async (): Promise<void> => {
@@ -562,6 +625,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     password: string;
     latitude?: number | null;
     longitude?: number | null;
+    address?: string | null;
     device_id?: string;
     source?: string;
   }): Promise<User> => {

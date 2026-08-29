@@ -1,5 +1,6 @@
 // frontend/src/components/reports/LoggedInReportTab.tsx
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ReportTable, ColumnDef, StatusPill } from "./ReportTable";
 import { Shield, ShieldCheck, Users, Clock, MapPin, Monitor, Smartphone, Eye, Mail, X } from "lucide-react";
 import { reportAPI } from "@/lib/reportAPI";
@@ -42,47 +43,118 @@ const ViewEmailCell: React.FC<{ email: string }> = ({ email }) => {
         <Eye className="w-3.5 h-3.5 text-indigo-600" />
       </button>
 
-      {isOpen && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(false);
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xs p-4 animate-in fade-in duration-150"
-        >
+      {isOpen &&
+        createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-xl border border-slate-200 p-4 max-w-sm w-full space-y-3"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4 animate-in fade-in duration-150"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h4 className="font-semibold text-xs text-slate-800 uppercase flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-indigo-600" /> User Email Address
-              </h4>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 max-w-sm w-full space-y-3"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h4 className="font-semibold text-xs text-slate-800 uppercase flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-indigo-600" /> User Email Address
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
+                <span className="font-mono text-xs text-slate-900 font-semibold select-all break-all">{email}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(email);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold shrink-0 transition-colors cursor-pointer"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
             </div>
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-slate-900 font-semibold select-all break-all">{email}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(email);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                }}
-                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold shrink-0 transition-colors"
-              >
-                {copied ? "Copied!" : "Copy"}
-              </button>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+const ViewSessionIdCell: React.FC<{ sessionId: string }> = ({ sessionId }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  if (!sessionId || sessionId === "N/A") {
+    return <span className="text-slate-400 text-[11px]">N/A</span>;
+  }
+
+  return (
+    <div className="flex items-center justify-center">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
+        title="View session ID"
+        className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors shrink-0 shadow-2xs flex items-center justify-center cursor-pointer"
+      >
+        <Eye className="w-3.5 h-3.5 text-indigo-600" />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4 animate-in fade-in duration-150"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 max-w-sm w-full space-y-3"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h4 className="font-semibold text-xs text-slate-800 uppercase flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-indigo-600" /> Session ID
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
+                <span className="font-mono text-xs text-slate-900 font-semibold select-all break-all">{sessionId}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(sessionId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[11px] font-semibold shrink-0 transition-colors cursor-pointer"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
@@ -173,16 +245,14 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
     {
       key: "session_id",
       header: "SESSION ID",
+      width: "85px",
       searchPlaceholder: "Session ID..",
-      render: (row) => (
-        <span className="font-mono text-[10px] font-semibold text-slate-600 truncate max-w-[130px] block" title={row.session_id}>
-          {row.session_id || `sess_${row.id}`}
-        </span>
-      ),
+      render: (row) => <ViewSessionIdCell sessionId={row.session_id || `sess_${row.id}`} />,
     },
     {
       key: "name",
       header: "USER NAME",
+      width: "160px",
       searchPlaceholder: "Search name..",
       render: (row) => (
         <span className="font-semibold text-slate-900 text-xs whitespace-nowrap">
@@ -210,6 +280,24 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${bg} whitespace-nowrap`}>
             {row.role || "Executive"}
           </span>
+        );
+      },
+    },
+    {
+      key: "total_user_logins",
+      header: "DAILY / TOTAL LOGINS",
+      render: (row) => {
+        const dayCount = row.day_logins_count || 1;
+        const totalCount = row.total_user_logins || dayCount;
+        return (
+          <div className="flex flex-col text-[10px] whitespace-nowrap">
+            <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full inline-block text-center" title={`Logins on selected date: ${dayCount}`}>
+              {dayCount} {dayCount === 1 ? "login" : "logins"} today
+            </span>
+            <span className="text-[9.5px] text-slate-500 font-medium mt-0.5 text-center">
+              ({totalCount} total)
+            </span>
+          </div>
         );
       },
     },

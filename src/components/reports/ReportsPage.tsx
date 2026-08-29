@@ -46,6 +46,7 @@ import { TransactionReportTab } from "./TransactionReportTab";
 import { ActivityReportTab } from "./ActivityReportTab";
 import { CommunicationReportTab } from "./CommunicationReportTab";
 import { CampaignReportTab } from "./CampaignReportTab";
+import { ExportPreviewModal } from "./ExportPreviewModal";
 import { LoggedInReportTab } from "./LoggedInReportTab";
 import { ShieldCheck } from "lucide-react";
 
@@ -53,7 +54,6 @@ export const REPORT_TABS = [
   { id: "overview", label: "Overall Report", icon: BarChart3 },
   { id: "leads", label: "Leads Report", icon: Users },
   { id: "agent-execution", label: "Agent Lead Execution", icon: UserCheck },
-  { id: "login-logs", label: "Logged-In Report", icon: ShieldCheck },
   { id: "buyers", label: "Buyers Report", icon: Users },
   { id: "sellers", label: "Sellers Report", icon: Users },
   { id: "tenants", label: "Tenants Report", icon: Users },
@@ -410,21 +410,21 @@ export const ReportsPage: React.FC = () => {
 
     if (preset === "last_3_months") {
       const d = new Date();
-      d.setMonth(d.getMonth() - 15);
+      d.setMonth(d.getMonth() - 3);
       startDate = d.toISOString().split("T")[0];
-      setFilters((prev) => ({ ...prev, ignoreDate: false, startDate, endDate }));
+      setFilters((prev) => ({ ...prev, ignoreDate: false, datePreset: preset, startDate, endDate }));
     } else if (preset === "last_6_months") {
       const d = new Date();
-      d.setMonth(d.getMonth() - 18);
+      d.setMonth(d.getMonth() - 6);
       startDate = d.toISOString().split("T")[0];
-      setFilters((prev) => ({ ...prev, ignoreDate: false, startDate, endDate }));
+      setFilters((prev) => ({ ...prev, ignoreDate: false, datePreset: preset, startDate, endDate }));
     } else if (preset === "last_12_months") {
       const d = new Date();
-      d.setFullYear(d.getFullYear() - 2);
+      d.setFullYear(d.getFullYear() - 1);
       startDate = d.toISOString().split("T")[0];
-      setFilters((prev) => ({ ...prev, ignoreDate: false, startDate, endDate }));
+      setFilters((prev) => ({ ...prev, ignoreDate: false, datePreset: preset, startDate, endDate }));
     } else {
-      setFilters((prev) => ({ ...prev, ignoreDate: true, startDate: undefined, endDate: undefined }));
+      setFilters((prev) => ({ ...prev, ignoreDate: true, datePreset: "all_time", startDate: undefined, endDate: undefined }));
     }
   };
 
@@ -444,56 +444,133 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  // Instant Client-Side CSV Export Fallback
-  const handleExportCSV = async () => {
+  // Universal Export Preview Modal State
+  const [universalExportState, setUniversalExportState] = useState<{
+    isOpen: boolean;
+    tabKey: string;
+    tabTitle: string;
+    data: any[];
+  }>({
+    isOpen: false,
+    tabKey: "",
+    tabTitle: "",
+    data: [],
+  });
+
+  const handleOpenExportPreview = (targetTabKey?: string) => {
+    const key = targetTabKey || activeTab;
+    const tabItem = REPORT_TABS.find((t) => t.id === key);
+    const title = tabItem ? tabItem.label : key.replace("-", " ").toUpperCase();
+    let dataset: any[] = [];
+
+    switch (key) {
+      case "overview":
+        dataset = Array.isArray(trendsData) && trendsData.length > 0 ? trendsData : (summaryData?.topKpis ? [summaryData.topKpis] : []);
+        break;
+      case "leads":
+        dataset = leadsData;
+        break;
+      case "agent-execution":
+        dataset = agentsData;
+        break;
+      case "buyers":
+        dataset = buyersData;
+        break;
+      case "sellers":
+        dataset = sellersData;
+        break;
+      case "tenants":
+        dataset = tenantsData;
+        break;
+      case "owners":
+        dataset = ownersData;
+        break;
+      case "properties":
+        dataset = propertiesData;
+        break;
+      case "visits":
+        dataset = visitsData;
+        break;
+      case "transactions":
+        dataset = transactionsData;
+        break;
+      case "activities":
+        dataset = activitiesUserSummary.length > 0 ? activitiesUserSummary : activitiesData;
+        break;
+      case "campaigns":
+        dataset = campaignsData;
+        break;
+      case "login-logs":
+        dataset = loginLogsData;
+        break;
+      default:
+        dataset = [];
+    }
+
+    setUniversalExportState({
+      isOpen: true,
+      tabKey: key,
+      tabTitle: title,
+      data: dataset,
+    });
+  };
+
+  // Client-Side CSV Export Triggered After Preview Confirmation
+  const handleExportCSV = async (targetTabKey?: string, customDataset?: any[]) => {
+    const key = targetTabKey || activeTab;
     try {
-      let activeDataset: any[] = [];
-      let filename = `report_${activeTab}_${Date.now()}.csv`;
+      let activeDataset: any[] = customDataset || [];
+      let filename = `report_${key}_${Date.now()}.csv`;
       let csvHeader = "";
 
-      if (activeTab === "leads") {
-        activeDataset = leadsData;
+      if (!customDataset || customDataset.length === 0) {
+        if (key === "leads") activeDataset = leadsData;
+        else if (key === "buyers") activeDataset = buyersData;
+        else if (key === "sellers") activeDataset = sellersData;
+        else if (key === "tenants") activeDataset = tenantsData;
+        else if (key === "owners") activeDataset = ownersData;
+        else if (key === "properties") activeDataset = propertiesData;
+        else if (key === "visits") activeDataset = visitsData;
+        else if (key === "agent-execution") activeDataset = agentsData;
+        else if (key === "transactions") activeDataset = transactionsData;
+        else if (key === "activities") activeDataset = activitiesUserSummary.length > 0 ? activitiesUserSummary : activitiesData;
+        else if (key === "campaigns") activeDataset = campaignsData;
+      }
+
+      if (key === "leads") {
         csvHeader = "S.NO,LEAD ID,NAME,PHONE,EMAIL,WHATSAPP,CITY,LOCATION,TYPE,SOURCE,STAGE,STATUS,PRIORITY,ASSIGNED AGENT,CREATED DATE,CREATED BY,OUTCOME,BUYER TRANSFERRED,SELLER TRANSFERRED\n";
-      } else if (activeTab === "buyers") {
-        activeDataset = buyersData;
+      } else if (key === "buyers") {
         csvHeader = "S.NO,BUYER NAME,PHONE,EMAIL,LOCATION,MIN BUDGET,MAX BUDGET,STATUS,ASSIGNED AGENT\n";
-      } else if (activeTab === "sellers") {
-        activeDataset = sellersData;
+      } else if (key === "sellers") {
         csvHeader = "S.NO,SELLER NAME,PHONE,EMAIL,LOCATION,EXPECTED PRICE,STATUS,ASSIGNED AGENT\n";
-      } else if (activeTab === "tenants") {
-        activeDataset = tenantsData;
+      } else if (key === "tenants") {
         csvHeader = "S.NO,TENANT NAME,PHONE,EMAIL,LOCATION,PREFERRED BHK,TENANT TYPE,STATUS,ASSIGNED AGENT\n";
-      } else if (activeTab === "owners") {
-        activeDataset = ownersData;
+      } else if (key === "owners") {
         csvHeader = "S.NO,OWNER NAME,PHONE,EMAIL,CITY,LOCATION,STATUS,ASSIGNED AGENT\n";
-      } else if (activeTab === "properties") {
-        activeDataset = propertiesData;
+      } else if (key === "properties") {
         csvHeader = "S.NO,SOCIETY / PROPERTY,TYPE,BEDROOMS,CITY,LOCATION,PRICE,CARPET AREA,STATUS,ASSIGNED AGENT\n";
-      } else if (activeTab === "visits") {
-        activeDataset = visitsData;
+      } else if (key === "visits") {
         csvHeader = "S.NO,BUYER NAME,PROPERTY TITLE,VISIT DATE,TYPE,STATUS,EXECUTIVE\n";
-      } else if (activeTab === "agent-execution") {
-        activeDataset = agentsData;
+      } else if (key === "agent-execution") {
         csvHeader = "S.NO,AGENT NAME,EMAIL,PHONE,ROLE,DEPARTMENT,ASSIGNED LEADS,CALLS COMPLETED,INTERESTED,CONVERTED,RATING\n";
-      } else if (activeTab === "transactions") {
-        activeDataset = transactionsData;
+      } else if (key === "transactions") {
         csvHeader = "S.NO,RECEIPT ID,AMOUNT,DATE,STATUS,CREATED BY\n";
-      } else if (activeTab === "activities") {
-        activeDataset = activitiesUserSummary.length > 0 ? activitiesUserSummary : activitiesData;
+      } else if (key === "activities") {
         csvHeader = "S.NO,EXECUTIVE NAME,ROLE,DEPARTMENT,ASSIGNED LEADS,CALLS COMPLETED,PENDING CALLS,INTERESTED LEADS,NOT INTERESTED,FOLLOW-UPS LOGGED\n";
-      } else if (activeTab === "campaigns") {
-        activeDataset = campaignsData;
+      } else if (key === "campaigns") {
         csvHeader = "S.NO,CAMPAIGN NAME,TYPE,STATUS,AUDIENCE,SENT,DELIVERED,READ,FAILED\n";
+      } else {
+        csvHeader = "S.NO,NAME,PHONE,EMAIL,LOCATION,VALUE,STATUS,AGENT\n";
       }
 
       if (activeDataset.length === 0) {
-        await reportAPI.exportReportCSV(activeTab, filters);
+        await reportAPI.exportReportCSV(key, filters);
         return;
       }
 
       let csv = csvHeader;
       activeDataset.forEach((r, idx) => {
-        if (activeTab === "leads") {
+        if (key === "leads") {
           csv += `"${idx + 1}","${r.id || ''}","${r.salutation ? r.salutation + ' ' : ''}${r.name || ''}","${r.phone || ''}","${r.email || ''}","${r.whatsapp_number || ''}","${r.city || ''}","${r.location || ''}","${r.lead_type || ''}","${r.lead_source || ''}","${r.stage || ''}","${r.status || ''}","${r.priority || ''}","${r.assigned_executive_name || 'Unassigned'}","${r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : ''}","${r.created_by_name || ''}","${r.outcome || ''}","${r.transferred_to_buyer === 1 ? 'Yes' : 'No'}","${r.transferred_to_seller === 1 ? 'Yes' : 'No'}"\n`;
           return;
         }
@@ -519,7 +596,7 @@ export const ReportsPage: React.FC = () => {
       document.body.removeChild(link);
     } catch (e) {
       console.error("Export error:", e);
-      await reportAPI.exportReportCSV(activeTab, filters);
+      await reportAPI.exportReportCSV(key, filters);
     }
   };
 
@@ -2967,7 +3044,7 @@ export const ReportsPage: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleExportCSV}
+                onClick={() => handleOpenExportPreview()}
                 className="flex items-center gap-1.5 text-xs text-gray-800 bg-white hover:bg-gray-50 border-gray-300 font-semibold px-3 py-1.5 rounded-lg shadow-2xs"
               >
                 <Download className="w-3.5 h-3.5 text-gray-700" />
@@ -3003,7 +3080,7 @@ export const ReportsPage: React.FC = () => {
             filters={filters}
             onDrilldown={handleTabChange}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("overview")}
             onPrint={handleTriggerPrint}
           />
         )}
@@ -3046,7 +3123,7 @@ export const ReportsPage: React.FC = () => {
             filters={filters}
             onApplyFilters={(newFilters) => setFilters((prev) => ({ ...prev, ...newFilters }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("agent-execution")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
           />
@@ -3067,6 +3144,24 @@ export const ReportsPage: React.FC = () => {
             financials={buyersFinancials}
             pagination={buyersPagination}
             loading={loading}
+            filters={filters}
+            onResetFilters={() => {
+              setFilters({
+                datePreset: "alltime",
+                dateBy: "created_at",
+                search: "",
+                status: "all",
+                stage: "all",
+                assigned_executive: "all",
+                location: "",
+                budget_min: "",
+                budget_max: "",
+                property_type: "all",
+                unit_type: "all",
+              });
+              setBuyersStatusPill("all");
+              setBuyersPagination((prev) => ({ ...prev, page: 1 }));
+            }}
             onPageChange={(p) => setBuyersPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setBuyersPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
@@ -3171,7 +3266,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setTenantsPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setTenantsPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("tenants")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={tenantsStatusPill}
@@ -3214,7 +3309,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setOwnersPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setOwnersPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("owners")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={ownersStatusPill}
@@ -3252,7 +3347,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setPropertiesPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setPropertiesPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("properties")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={propertiesStatusPill}
@@ -3278,7 +3373,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setVisitsPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setVisitsPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("visits")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={visitsStatusPill}
@@ -3308,7 +3403,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setTransactionsPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setTransactionsPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("transactions")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={transactionsStatusPill}
@@ -3331,7 +3426,7 @@ export const ReportsPage: React.FC = () => {
             loading={loading}
             filters={filters}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("activities")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
           />
@@ -3361,7 +3456,7 @@ export const ReportsPage: React.FC = () => {
             onPageChange={(p) => setCampaignsPagination((prev) => ({ ...prev, page: p }))}
             onLimitChange={(l) => setCampaignsPagination((prev) => ({ ...prev, limit: l, page: 1 }))}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("campaigns")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
             activeStatusPill={campaignsStatusPill}
@@ -3383,7 +3478,7 @@ export const ReportsPage: React.FC = () => {
             filters={filters}
             loading={loading}
             onOpenFilters={() => setIsFilterOpen(true)}
-            onExport={handleExportCSV}
+            onExport={() => handleOpenExportPreview("login-logs")}
             onRefresh={fetchReportData}
             onPrint={handleTriggerPrint}
           />
@@ -3496,6 +3591,17 @@ export const ReportsPage: React.FC = () => {
         executives={sellersExecutives}
         financials={sellersFinancials}
         tableData={sellersData}
+      />
+
+      {/* Universal Export Preview Modal */}
+      <ExportPreviewModal
+        isOpen={universalExportState.isOpen}
+        onClose={() => setUniversalExportState((prev) => ({ ...prev, isOpen: false }))}
+        tabKey={universalExportState.tabKey}
+        tabTitle={universalExportState.tabTitle}
+        data={universalExportState.data}
+        filters={filters}
+        onConfirmDownload={() => handleExportCSV(universalExportState.tabKey, universalExportState.data)}
       />
     </div>
   );

@@ -27,7 +27,11 @@ export const LeadSourceReportTab: React.FC<LeadSourceReportTabProps> = ({ source
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="source" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: "#1e293b", color: "#fff", borderRadius: "8px", fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#1e293b", color: "#fff", borderRadius: "8px", fontSize: "12px" }}
+                  itemStyle={{ color: "#ffffff", fontWeight: 600 }}
+                  labelStyle={{ color: "#94a3b8", fontWeight: 700 }}
+                />
                 <Legend wrapperStyle={{ fontSize: "12px" }} />
                 <Bar dataKey="totalLeads" name="Total Leads" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="qualified" name="Qualified" fill="#8b5cf6" radius={[4, 4, 0, 0]} />

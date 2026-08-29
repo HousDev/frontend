@@ -31,6 +31,7 @@ import {
   Check,
   X,
   MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 
 interface BuyerReportTabProps {
@@ -47,6 +48,8 @@ interface BuyerReportTabProps {
   financials?: any;
   pagination: { page: number; limit: number; totalRecords: number; totalPages: number };
   loading?: boolean;
+  filters?: any;
+  onResetFilters?: () => void;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   onOpenFilters: () => void;
@@ -77,6 +80,8 @@ export const BuyerReportTab: React.FC<BuyerReportTabProps> = ({
   financials = {},
   pagination,
   loading = false,
+  filters = {},
+  onResetFilters,
   onPageChange,
   onLimitChange,
   onOpenFilters,
@@ -93,7 +98,6 @@ export const BuyerReportTab: React.FC<BuyerReportTabProps> = ({
   onFilterByUnitType,
 }) => {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    "id",
     "name",
     "phone",
     "location",
@@ -271,18 +275,18 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
   // All Column Definitions
   const allColumns: ColumnDef[] = [
     {
-      key: "id",
-      header: "BUYER ID",
-      render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#BUY-{row.id}</span>,
-    },
-    {
       key: "name",
       header: "BUYER NAME",
-      width: "240px",
+      width: "200px",
       searchPlaceholder: "Search name...",
       render: (row) => (
-        <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug min-w-[220px]">
-          {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+        <div>
+          <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug">
+            {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+          </div>
+          <div className="text-[11px] font-mono text-indigo-600 font-semibold mt-0.5">
+            #BUY-{row.id}
+          </div>
         </div>
       ),
     },
@@ -300,7 +304,6 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
           <span>{row.location || row.city || row.state || "N/A"}</span>
         </div>
       ),
@@ -386,23 +389,95 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
     },
   ];
 
+  const normalizedFunnel = React.useMemo(() => {
+    if (!Array.isArray(safeFunnel) || safeFunnel.length === 0) {
+      return [
+        { stage: "New", count: 0, percentage: 0 },
+        { stage: "Initial Contact", count: 0, percentage: 0 },
+        { stage: "Contacted", count: 0, percentage: 0 },
+        { stage: "Qualified", count: 0, percentage: 0 },
+        { stage: "Property Hunting", count: 0, percentage: 0 },
+        { stage: "Negotiation", count: 0, percentage: 0 },
+        { stage: "Deal Closure", count: 0, percentage: 0 },
+      ];
+    }
+
+    const stageMap: Record<string, number> = {};
+    let totalCount = 0;
+
+    safeFunnel.forEach((item: any) => {
+      let raw = (item.stage || item.label || "New").trim();
+      let clean = raw.replace(/_/g, " ");
+      clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+      
+      const lower = clean.toLowerCase();
+      if (lower === "initial contact" || lower === "initialcontact") {
+        clean = "Initial Contact";
+      } else if (lower === "contacted" || lower === "connected") {
+        clean = "Contacted";
+      } else if (lower === "qualified" || lower === "qualif") {
+        clean = "Qualified";
+      } else if (lower === "property hunting" || lower === "propertyhunting" || lower === "property shortlisted" || lower === "shortlisted") {
+        clean = "Property Hunting";
+      } else if (lower === "negotiation" || lower === "in negotiation" || lower === "proposal") {
+        clean = "Negotiation";
+      } else if (lower === "closed" || lower === "won" || lower === "closed/won" || lower === "converted" || lower === "deal closure" || lower === "deal closed") {
+        clean = "Deal Closure";
+      } else if (lower === "lost" || lower === "rejected") {
+        clean = "Lost";
+      }
+
+      const count = Number(item.count || 0);
+      stageMap[clean] = (stageMap[clean] || 0) + count;
+      totalCount += count;
+    });
+
+    return Object.entries(stageMap).map(([stage, count]) => ({
+      stage,
+      count,
+      percentage: totalCount > 0 ? Math.round((count / totalCount) * 100) : 0,
+    }));
+  }, [safeFunnel]);
+
+  const isAnyFilterActive =
+    (activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase())) ||
+    Boolean(filters && Object.keys(filters).some((k) => filters[k] && filters[k] !== "all" && filters[k] !== "alltime"));
+
+  const handleClearAllFilters = () => {
+    if (onSelectStatusPill) onSelectStatusPill("all");
+    if (onFilterByStage) onFilterByStage("all");
+    if (onFilterByLocation) onFilterByLocation("");
+    if (onFilterByExecutive) onFilterByExecutive("");
+  };
+
   const filteredColumns = allColumns.filter((col) => visibleColumns.includes(col.key));
 
   return (
     <div className="space-y-3.5">
       {/* ==================== BUYER LIFECYCLE FUNNEL ==================== */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+      <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs space-y-3">
         <div className="flex flex-wrap justify-between items-center gap-2.5">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-orange-500" />
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide">Buyer Sales Lifecycle Funnel</h3>
-            <span className="text-[10px] font-medium px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200 ml-1.5">
-              Click stage to filter table
-            </span>
           </div>
 
           {/* Filter, Export, Print Buttons in Right Corner of Funnel Header */}
           <div className="flex items-center gap-2">
+            {isAnyFilterActive && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearAllFilters}
+                className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+                title="Click to unfilter and view all buyers"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                Unfilter
+              </Button>
+            )}
+
             <Button
               type="button"
               size="sm"
@@ -438,46 +513,53 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-          {(safeFunnel.length > 0
-            ? safeFunnel
-            : [
-                { stage: "New", count: 0, percentage: 0 },
-                { stage: "Contacted", count: 0, percentage: 0 },
-                { stage: "Qualified", count: 0, percentage: 0 },
-                { stage: "Property Shortlisted", count: 0, percentage: 0 },
-                { stage: "Site Visit Scheduled", count: 0, percentage: 0 },
-                { stage: "Negotiation", count: 0, percentage: 0 },
-                { stage: "Closed/Won", count: 0, percentage: 0 },
-              ]
-          ).map((item, idx) => (
-            <div
-              key={idx}
-              onClick={() => onFilterByStage && onFilterByStage(item.stage)}
-              className="bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow-xs group"
-            >
-              <div className="text-[10px] font-bold text-gray-600 group-hover:text-indigo-900 truncate">
-                {item.stage}
+          {normalizedFunnel.map((item, idx) => {
+            const isCardActive = activeStatusPill.toLowerCase().replace(/_/g, ' ') === item.stage.toLowerCase().replace(/_/g, ' ');
+
+            const handleCardClick = () => {
+              if (isCardActive) {
+                handleClearAllFilters();
+              } else {
+                if (onFilterByStage) onFilterByStage(item.stage);
+                if (onSelectStatusPill) onSelectStatusPill(item.stage);
+              }
+            };
+
+            return (
+              <div
+                key={item.stage}
+                onClick={handleCardClick}
+                className={`rounded-lg p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0 border group ${
+                  isCardActive
+                    ? "bg-indigo-50/90 border-indigo-500 ring-1 ring-indigo-500 shadow-xs"
+                    : "bg-slate-50 hover:bg-indigo-50/80 border-slate-200 hover:border-indigo-300 shadow-2xs"
+                }`}
+              >
+                <div className="text-[10px] font-bold text-gray-600 group-hover:text-indigo-900 truncate flex items-center justify-between">
+                  <span>{item.stage}</span>
+                  {isCardActive && <span className="text-[9px] font-extrabold text-indigo-700 bg-indigo-100 px-1 rounded">ACTIVE</span>}
+                </div>
+                <div className="text-lg font-black text-gray-900 group-hover:text-indigo-950 mt-0.5">
+                  {item.count}
+                </div>
+                <div className="flex justify-between items-center text-[10px] text-gray-400 mt-1">
+                  <span>Share</span>
+                  <span className="font-bold text-indigo-600">{item.percentage}%</span>
+                </div>
+                {/* Progress bar */}
+                <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
+                  <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${Math.min(100, item.percentage)}%` }} />
+                </div>
               </div>
-              <div className="text-lg font-black text-gray-900 group-hover:text-indigo-950 mt-0.5">
-                {item.count}
-              </div>
-              <div className="flex justify-between items-center text-[10px] text-gray-400 mt-1">
-                <span>Share</span>
-                <span className="font-bold text-indigo-600">{item.percentage}%</span>
-              </div>
-              {/* Progress bar */}
-              <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
-                <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${Math.min(100, item.percentage)}%` }} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* ==================== 3. REQUIREMENT DEMAND & BUDGET ANALYSIS ==================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Property & BHK Type Demand */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <Home className="w-4 h-4 text-blue-600" />
@@ -488,16 +570,23 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
           <div className="space-y-2 text-xs">
             <div className="font-bold text-[11px] text-gray-500 uppercase">Top Requested Property Types</div>
             <div className="space-y-1.5">
-              {(safeDemands.propertyTypes || []).slice(0, 4).map((pt: any, idx: number) => (
-                <div
-                  key={idx}
-                  onClick={() => onFilterByPropertyType && onFilterByPropertyType(pt.name)}
-                  className="flex items-center justify-between p-2 rounded bg-slate-50 hover:bg-blue-50 border border-slate-100 cursor-pointer transition-colors"
-                >
-                  <span className="font-semibold text-gray-800">{pt.name}</span>
-                  <span className="font-bold text-blue-700">{pt.count} buyers ({pt.percentage}%)</span>
-                </div>
-              ))}
+              {(safeDemands.propertyTypes || []).slice(0, 4).map((pt: any, idx: number) => {
+                const isPtActive = filters?.property_type === pt.name;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => (isPtActive ? handleClearAllFilters() : onFilterByPropertyType && onFilterByPropertyType(pt.name))}
+                    className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors border ${
+                      isPtActive
+                        ? "bg-blue-100 border-blue-400 font-bold"
+                        : "bg-slate-50 hover:bg-blue-50 border-slate-100"
+                    }`}
+                  >
+                    <span className="font-semibold text-gray-800">{pt.name}</span>
+                    <span className="font-bold text-blue-700">{pt.count} buyers ({pt.percentage}%)</span>
+                  </div>
+                );
+              })}
               {(!safeDemands.propertyTypes || safeDemands.propertyTypes.length === 0) && (
                 <div className="text-gray-400 text-[11px] italic">No property type preferences recorded</div>
               )}
@@ -505,22 +594,29 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
 
             <div className="font-bold text-[11px] text-gray-500 uppercase pt-2">BHK Unit Type Demand</div>
             <div className="grid grid-cols-2 gap-1.5">
-              {(safeDemands.unitTypes || []).slice(0, 6).map((ut: any, idx: number) => (
-                <div
-                  key={idx}
-                  onClick={() => onFilterByUnitType && onFilterByUnitType(ut.name)}
-                  className="p-1.5 rounded bg-indigo-50/60 hover:bg-indigo-100 border border-indigo-100 text-center cursor-pointer transition-colors"
-                >
-                  <div className="font-bold text-indigo-900 text-xs">{ut.name}</div>
-                  <div className="text-[10px] text-indigo-600 font-medium">{ut.count} buyers</div>
-                </div>
-              ))}
+              {(safeDemands.unitTypes || []).slice(0, 6).map((ut: any, idx: number) => {
+                const isUtActive = filters?.unit_type === ut.name;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => (isUtActive ? handleClearAllFilters() : onFilterByUnitType && onFilterByUnitType(ut.name))}
+                    className={`p-1.5 rounded text-center cursor-pointer transition-colors border ${
+                      isUtActive
+                        ? "bg-indigo-200 border-indigo-500 font-bold ring-1 ring-indigo-500"
+                        : "bg-indigo-50/60 hover:bg-indigo-100 border-indigo-100"
+                    }`}
+                  >
+                    <div className="font-bold text-indigo-900 text-xs">{ut.name}</div>
+                    <div className="text-[10px] text-indigo-600 font-medium">{ut.count} buyers</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Budget Analysis & Distribution */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <IndianRupee className="w-4 h-4 text-emerald-600" />
@@ -541,11 +637,16 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
             ]).map((b: any, idx: number) => {
               const totalB = safeStats.total_count || 1;
               const pct = Math.round((b.count / totalB) * 100);
+              const isBudgetActive = Number(filters?.budget_min) === b.min && Number(filters?.budget_max) === b.max;
               return (
                 <div
                   key={idx}
-                  onClick={() => onFilterByBudget && onFilterByBudget(b.min, b.max)}
-                  className="p-2 rounded bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 cursor-pointer transition-all text-xs"
+                  onClick={() => (isBudgetActive ? handleClearAllFilters() : onFilterByBudget && onFilterByBudget(b.min, b.max))}
+                  className={`p-2 rounded cursor-pointer transition-all text-xs border ${
+                    isBudgetActive
+                      ? "bg-emerald-100 border-emerald-500 font-bold ring-1 ring-emerald-500"
+                      : "bg-slate-50 hover:bg-emerald-50 border-slate-200 hover:border-emerald-300"
+                  }`}
                 >
                   <div className="flex justify-between font-semibold text-gray-800">
                     <span>{b.label}</span>
@@ -561,7 +662,7 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
         </div>
 
         {/* Property Matching & Site Visit Performance */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
             <Bookmark className="w-4 h-4 text-purple-600" />
             Matching & Site Visit Performance
@@ -598,7 +699,7 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
       {/* ==================== 4. LOCATION DEMAND & EXECUTIVE PERFORMANCE ==================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Top Location Demand Matrix */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-orange-500" />
@@ -619,19 +720,24 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {safeLocations.slice(0, 6).map((loc: any, idx: number) => (
-                  <tr
-                    key={idx}
-                    onClick={() => onFilterByLocation && onFilterByLocation(loc.location_name)}
-                    className="hover:bg-orange-50/60 cursor-pointer transition-colors"
-                  >
-                    <td className="p-2 font-bold text-slate-900">{loc.location_name}</td>
-                    <td className="p-2 font-semibold text-blue-700">{loc.buyer_count}</td>
-                    <td className="p-2 font-semibold text-emerald-700">₹{Number(loc.avg_budget_max || 0).toLocaleString("en-IN")}</td>
-                    <td className="p-2 font-medium text-purple-700">{loc.site_visits}</td>
-                    <td className="p-2 font-bold text-emerald-800">{loc.closed_deals}</td>
-                  </tr>
-                ))}
+                {safeLocations.slice(0, 6).map((loc: any, idx: number) => {
+                  const isLocActive = filters?.location === loc.location_name;
+                  return (
+                    <tr
+                      key={idx}
+                      onClick={() => (isLocActive ? handleClearAllFilters() : onFilterByLocation && onFilterByLocation(loc.location_name))}
+                      className={`cursor-pointer transition-colors ${
+                        isLocActive ? "bg-orange-100 font-bold" : "hover:bg-orange-50/60"
+                      }`}
+                    >
+                      <td className="p-2 font-bold text-slate-900">{loc.location_name}</td>
+                      <td className="p-2 font-semibold text-blue-700">{loc.buyer_count}</td>
+                      <td className="p-2 font-semibold text-emerald-700">₹{Number(loc.avg_budget_max || 0).toLocaleString("en-IN")}</td>
+                      <td className="p-2 font-medium text-purple-700">{loc.site_visits}</td>
+                      <td className="p-2 font-bold text-emerald-800">{loc.closed_deals}</td>
+                    </tr>
+                  );
+                })}
                 {safeLocations.length === 0 && (
                   <tr>
                     <td colSpan={5} className="p-4 text-center text-gray-400 italic">No location demand data available</td>
@@ -643,7 +749,7 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
         </div>
 
         {/* Executive Performance */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <Users className="w-4 h-4 text-indigo-600" />
@@ -665,20 +771,25 @@ const ContactCell: React.FC<{ row: any }> = ({ row }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {safeExecutives.slice(0, 6).map((ex: any, idx: number) => (
-                  <tr
-                    key={idx}
-                    onClick={() => onFilterByExecutive && onFilterByExecutive(String(ex.executive_id))}
-                    className="hover:bg-indigo-50/60 cursor-pointer transition-colors"
-                  >
-                    <td className="p-2 font-bold text-slate-900">{ex.name}</td>
-                    <td className="p-2 font-semibold text-slate-700">{ex.total_buyers}</td>
-                    <td className="p-2 font-medium text-purple-700">{ex.qualified_buyers}</td>
-                    <td className="p-2 font-medium text-teal-700">{ex.site_visits}</td>
-                    <td className="p-2 font-bold text-emerald-700">{ex.closed_buyers}</td>
-                    <td className="p-2 font-bold text-orange-600">{ex.conversion_rate}%</td>
-                  </tr>
-                ))}
+                {safeExecutives.slice(0, 6).map((ex: any, idx: number) => {
+                  const isExecActive = String(filters?.assigned_executive) === String(ex.executive_id);
+                  return (
+                    <tr
+                      key={idx}
+                      onClick={() => (isExecActive ? handleClearAllFilters() : onFilterByExecutive && onFilterByExecutive(String(ex.executive_id)))}
+                      className={`cursor-pointer transition-colors ${
+                        isExecActive ? "bg-indigo-100 font-bold" : "hover:bg-indigo-50/60"
+                      }`}
+                    >
+                      <td className="p-2 font-bold text-slate-900">{ex.name}</td>
+                      <td className="p-2 font-semibold text-slate-700">{ex.total_buyers}</td>
+                      <td className="p-2 font-medium text-purple-700">{ex.qualified_buyers}</td>
+                      <td className="p-2 font-medium text-teal-700">{ex.site_visits}</td>
+                      <td className="p-2 font-bold text-emerald-700">{ex.closed_buyers}</td>
+                      <td className="p-2 font-bold text-orange-600">{ex.conversion_rate}%</td>
+                    </tr>
+                  );
+                })}
                 {safeExecutives.length === 0 && (
                   <tr>
                     <td colSpan={6} className="p-4 text-center text-gray-400 italic">No executive performance data available</td>

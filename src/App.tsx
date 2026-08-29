@@ -32,6 +32,7 @@ import LeadsPage from '@/pages/dashboard/LeadsPage';
 import LeadDetailPage from '@/pages/dashboard/LeadDetailPage';
 import PropertyDetailPage from '@/pages/dashboard/PropertyDetailPage';
 import ActivitiesPage from '@/pages/dashboard/ActivitiesPage';
+import LoggedInReportPage from '@/pages/dashboard/LoggedInReportPage';
 import AnalyticsPage from '@/pages/dashboard/AnalyticsPage';
 import UsersPage from '@/pages/dashboard/UsersPage';
 import SettingsPage from '@/pages/dashboard/SettingsPage';
@@ -158,6 +159,17 @@ function App() {
                     }
                   >
                     <Route index element={<ActivitiesPage />} />
+                  </Route>
+
+                  <Route
+                    path="/reports/logged-in"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<LoggedInReportPage />} />
                   </Route>
 
                   <Route path="/digio/success" element={<DigioSuccess />} />
