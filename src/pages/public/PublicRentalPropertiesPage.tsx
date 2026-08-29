@@ -515,9 +515,9 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
   const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
 
   // views/tags API wrappers
-  const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
+  const fetchPropertyViews = async (propertyId: number, slug?: string): Promise<{ total_views: number }> => {
     try {
-      const viewData = await viewsAPI.getByProperty(propertyId, false);
+      const viewData = await viewsAPI.getByProperty(propertyId, false, slug);
       return { total_views: viewData?.total_views || 0 };
     } catch (err) {
       console.error(`Error fetching views for property ${propertyId}:`, err);
@@ -764,8 +764,9 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
 
       const transformedProperties = await Promise.all(
         list.map(async (p: any, index: number) => {
+          const propSlug = p.slug || p.url_slug || p.generated_slug || p.raw?.slug || (p.id ? `rent-${p.id}` : undefined);
           const [viewCounts] = await Promise.all([
-            fetchPropertyViews(p.id),
+            fetchPropertyViews(p.id, propSlug),
           ]);
           const tags: string[] = allTagsBulk[p.id] || [];
 
@@ -858,11 +859,7 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
               email: 'Not Available'
             },
             highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
-            nearbyPlaces: p.nearby_places || [
-              { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
-              { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
-              { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
-            ],
+            nearbyPlaces: Array.isArray(p.nearby_places) ? p.nearby_places : [],
             public_views: p.public_views ?? null,
             floor: extractFloor({ ...p, _raw: p }),
             tags,

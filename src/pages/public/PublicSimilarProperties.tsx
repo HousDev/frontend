@@ -33,7 +33,8 @@ interface Property {
 interface PublicSimilarPropertiesProps {
   properties: Property[];
   loading: boolean;
-  currentPropertyId?: number;
+  currentPropertyId?: number | string;
+  currentPropertySlug?: string;
   debug?: boolean;
 }
 
@@ -41,6 +42,7 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
   properties,
   loading,
   currentPropertyId,
+  currentPropertySlug,
   debug = false,
 }) => {
   const [tagsMap, setTagsMap] = useState<Record<number, string[]>>({});
@@ -129,8 +131,18 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
       .slice(0, 80);
 
   const displayed = useMemo(
-    () => properties.filter((p) => p.id !== currentPropertyId).slice(0, 6),
-    [properties, currentPropertyId]
+    () => properties.filter((p) => {
+      if (currentPropertyId != null && currentPropertyId !== '') {
+        if (String(p.id) === String(currentPropertyId)) return false;
+      }
+      if (currentPropertySlug && p.slug && String(p.slug).toLowerCase().trim() === String(currentPropertySlug).toLowerCase().trim()) return false;
+      if (currentPropertySlug && p.raw?.slug && String(p.raw.slug).toLowerCase().trim() === String(currentPropertySlug).toLowerCase().trim()) return false;
+
+      const isPub = p.raw?.is_public ?? p.raw?.isPublic ?? (p as any).is_public ?? (p as any).isPublic;
+      if (isPub === 0 || isPub === '0' || isPub === false) return false;
+      return true;
+    }).slice(0, 6),
+    [properties, currentPropertyId, currentPropertySlug]
   );
 
   useEffect(() => {

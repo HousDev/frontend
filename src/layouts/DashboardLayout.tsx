@@ -833,7 +833,8 @@ const DashboardLayout = () => {
       }
       if (item.type === "dropdown") {
         for (const sub of item.submenu) {
-          if (pathname.startsWith(sub.href)) {
+          const isPropertiesRoute = sub.href === "/dashboard/properties" && pathname.startsWith("/dashboard/rental-properties");
+          if (pathname.startsWith(sub.href) || isPropertiesRoute) {
             const config = moduleConfigs[sub.name];
             return {
               title: config?.title || sub.name,

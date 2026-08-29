@@ -1,5 +1,5 @@
 // PublicPropertiesPage.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search, MapPin, Building, Star, Heart, Eye, Phone, Home, Grid, List,
   Bed, Car, Wifi, Dumbbell, Shield, TreePine, Waves, CheckCircle,
@@ -457,7 +457,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   }, []);
 
   // helpers
-  const findMasterOptions = (candidateKeys: string[]) => {
+  const findMasterOptions = useCallback((candidateKeys: string[]) => {
     if (!masters || typeof masters !== 'object') return [];
     const normalizedMap: Record<string, string> = {};
     Object.keys(masters).forEach((k) => {
@@ -484,25 +484,25 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       }
     }
     return [];
-  };
+  }, [masters]);
 
-  const masterCity: any[] = findMasterOptions(['city']);
-  const cityOptions = masterCity.map((o) => ({ value: o.value, label: o.label }));
+  const masterCity: any[] = useMemo(() => findMasterOptions(['city']), [findMasterOptions]);
+  const cityOptions = useMemo(() => masterCity.map((o) => ({ value: o.value, label: o.label })), [masterCity]);
 
-  const budgetMaster: any[] = findMasterOptions(['price range', 'price_range', 'budget', 'budget range', 'priceRange', 'price']);
-  const budgetOptions = budgetMaster.map((o) => ({ value: o.value, label: o.label }));
+  const budgetMaster: any[] = useMemo(() => findMasterOptions(['price range', 'price_range', 'budget', 'budget range', 'priceRange', 'price']), [findMasterOptions]);
+  const budgetOptions = useMemo(() => budgetMaster.map((o) => ({ value: o.value, label: o.label })), [budgetMaster]);
 
-  const propertyTypesMaster: any[] = findMasterOptions(['property type', 'property_type', 'type', 'place type', 'category']);
-  const propertyTypeOptions = propertyTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value }));
+  const propertyTypesMaster: any[] = useMemo(() => findMasterOptions(['property type', 'property_type', 'type', 'place type', 'category']), [findMasterOptions]);
+  const propertyTypeOptions = useMemo(() => propertyTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })), [propertyTypesMaster]);
 
-  const propertySubtypesMaster: any[] = findMasterOptions(['property subtype', 'property_subtype', 'subtype', 'unit subtype']);
-  const propertySubtypeOptions = propertySubtypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value }));
+  const propertySubtypesMaster: any[] = useMemo(() => findMasterOptions(['property subtype', 'property_subtype', 'subtype', 'unit subtype']), [findMasterOptions]);
+  const propertySubtypeOptions = useMemo(() => propertySubtypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })), [propertySubtypesMaster]);
 
-  const unitTypesMaster: any[] = findMasterOptions(['unit type', 'unit_type', 'unit', 'bhk', 'bedrooms']);
-  const unitTypeOptions = unitTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })).filter(Boolean);
+  const unitTypesMaster: any[] = useMemo(() => findMasterOptions(['unit type', 'unit_type', 'unit', 'bhk', 'bedrooms']), [findMasterOptions]);
+  const unitTypeOptions = useMemo(() => unitTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })).filter(Boolean), [unitTypesMaster]);
 
-  const bedroomsMaster: any[] = findMasterOptions(['bedrooms', 'bhk', 'beds', 'unit type', 'unit', 'unit_type']);
-  const bedroomOptions = bedroomsMaster
+  const bedroomsMaster: any[] = useMemo(() => findMasterOptions(['bedrooms', 'bhk', 'beds', 'unit type', 'unit', 'unit_type']), [findMasterOptions]);
+  const bedroomOptions = useMemo(() => bedroomsMaster
     .map((o) => {
       const text = (o.value || o.label || '').toString();
       const m = text.match(/(\d+)/);
@@ -512,14 +512,14 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       }
       return { value: text, label: o.label || text };
     })
-    .filter((v, i, arr) => arr.findIndex((x) => x.value === v.value) === i);
+    .filter((v, i, arr) => arr.findIndex((x) => x.value === v.value) === i), [bedroomsMaster]);
 
-  const masterLocation: MasterOption[] = findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']);
+  const masterLocation: MasterOption[] = useMemo(() => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']), [findMasterOptions]);
 
   // views/tags API wrappers
-  const fetchPropertyViews = async (propertyId: number): Promise<{ total_views: number }> => {
+  const fetchPropertyViews = async (propertyId: number, slug?: string): Promise<{ total_views: number }> => {
     try {
-      const viewData = await viewsAPI.getByProperty(propertyId, false);
+      const viewData = await viewsAPI.getByProperty(propertyId, false, slug);
       return { total_views: viewData?.total_views || 0 };
     } catch (err) {
       console.error(`Error fetching views for property ${propertyId}:`, err);
@@ -765,8 +765,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       const transformedProperties = await Promise.all(
         list.map(async (p: any, index: number) => {
+          const propSlug = p.slug || p.url_slug || p.generated_slug || p.raw?.slug || (p.id ? `sell-${p.id}` : undefined);
           const [viewCounts] = await Promise.all([
-            fetchPropertyViews(p.id),
+            fetchPropertyViews(p.id, propSlug),
           ]);
           const tags: string[] = allTagsBulk[p.id] || [];
 
@@ -859,11 +860,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               email: 'Not Available'
             },
             highlights: p.highlights || ['Prime Location', 'Good Value', 'Verified', 'No Brokerage'].slice(0, (index % 4) + 1),
-            nearbyPlaces: p.nearby_places || [
-              { name: 'Metro Station', distance: `${(Math.random() * 2).toFixed(1)} km` },
-              { name: 'Shopping Mall', distance: `${(Math.random() * 3).toFixed(2)} km` },
-              { name: 'School', distance: `${(Math.random() * 2).toFixed(1)} km` }
-            ],
+            nearbyPlaces: Array.isArray(p.nearby_places) ? p.nearby_places : [],
             public_views: p.public_views ?? null,
             floor: extractFloor({ ...p, _raw: p }),
             tags,
@@ -967,7 +964,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   };
 
   useEffect(() => {
-    setSelectedPropertyType(selectedType || '');
+    if (selectedType !== undefined) {
+      setSelectedPropertyType(prev => prev !== (selectedType || '') ? (selectedType || '') : prev);
+    }
   }, [selectedType]);
 
   // search filtering (client)

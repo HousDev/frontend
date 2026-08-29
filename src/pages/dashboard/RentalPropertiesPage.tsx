@@ -308,11 +308,14 @@ const dash = (val: any) => {
 };
 
 const ExecutiveBadge: React.FC<{ assignedTo?: { id: any; name: string } }> = ({ assignedTo }) => {
-  if (!assignedTo) return null;
+  if (!assignedTo || !assignedTo.name || assignedTo.name.trim() === '' || assignedTo.name === 'Executive') return null;
   return (
-    <div className="inline-flex items-center gap-1 bg-slate-100/80 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-slate-700 border border-slate-200/50">
-      <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-      <span className="truncate max-w-[80px]">{assignedTo.name}</span>
+    <div
+      className="inline-flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded text-[10px] font-semibold text-blue-700 border border-blue-100 max-w-[140px] truncate"
+      title={assignedTo.name}
+    >
+      <UserCheck size={10} className="flex-shrink-0 text-blue-600" />
+      <span className="truncate">{assignedTo.name}</span>
     </div>
   );
 };
@@ -648,6 +651,49 @@ export function RentalPropertiesPage() {
   const [totalViews, setTotalViews] = useState(0);
   const [totalUniqueViews, setTotalUniqueViews] = useState(0);
 
+  const calcHaversineKmForCard = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const airDistance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (airDistance === 0) return 0;
+    return parseFloat((airDistance < 2.0 ? airDistance * 1.35 : airDistance * 1.55).toFixed(1));
+  };
+
+  const getDynDistForCard = (property: any, tenant: any): number | null => {
+    if (tenant?.distance != null && !isNaN(Number(tenant.distance)) && Number(tenant.distance) < 9000) {
+      return parseFloat(Number(tenant.distance).toFixed(1));
+    }
+    const pLat = parseFloat(String(property?.latitude || property?.lat || property?.society?.latitude || 0));
+    const pLng = parseFloat(String(property?.longitude || property?.lng || property?.society?.longitude || 0));
+    if (isNaN(pLat) || isNaN(pLng) || pLat === 0 || pLng === 0) return null;
+
+    let tenantCoords: Array<{ lat: number; lng: number }> = [];
+    if (tenant?.preferred_locations_coords) {
+      let raw = tenant.preferred_locations_coords;
+      if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = []; } }
+      if (Array.isArray(raw)) {
+        tenantCoords = raw
+          .map((c: any) => ({ lat: parseFloat(String(c.lat || c.latitude || 0)), lng: parseFloat(String(c.lng || c.longitude || 0)) }))
+          .filter((c: any) => c.lat > 0 && c.lng > 0);
+      }
+    }
+    const singleTLat = parseFloat(String(tenant?.latitude || tenant?.lat || 0));
+    const singleTLng = parseFloat(String(tenant?.longitude || tenant?.lng || 0));
+    if (singleTLat > 0 && singleTLng > 0) tenantCoords.push({ lat: singleTLat, lng: singleTLng });
+    if (tenantCoords.length === 0) return null;
+
+    let minDistance: number | null = null;
+    for (const tc of tenantCoords) {
+      const d = calcHaversineKmForCard(pLat, pLng, tc.lat, tc.lng);
+      if (minDistance === null || d < minDistance) minDistance = d;
+    }
+    return minDistance;
+  };
+
   const getTenantMatchCount = (property: any) => {
     if (!allTenants || allTenants.length === 0) return 0;
     let matchCount = 0;
@@ -660,33 +706,24 @@ export function RentalPropertiesPage() {
     const propCity = (property.city_name || property.city || "").toLowerCase().trim();
     const propSoc = (property.society_name || property.society || "").toLowerCase().trim();
 
-    const NEARBY_MAP: Record<string, string[]> = {
-      tathawade: ['wakad', 'punawale', 'ravet', 'hinjewadi', 'marunji', 'pimpri'],
-      wakad: ['tathawade', 'baner', 'balewadi', 'hinjewadi', 'thergaon', 'rahatani', 'pimple saudagar'],
-      baner: ['balewadi', 'wakad', 'aundh', 'pashan', 'pimple saudagar', 'model colony'],
-      balewadi: ['baner', 'wakad', 'aundh', 'pashan'],
-      kharadi: ['viman nagar', 'wagholi', 'hadapsar', 'kalyani nagar', 'mundhwa', 'chandan nagar'],
-      'viman nagar': ['kharadi', 'kalyani nagar', 'vishrantwadi', 'tingre nagar', 'yerwada'],
-      hinjewadi: ['wakad', 'tathawade', 'marunji', 'punawale', 'pimpri', 'bavdhan'],
-      kothrud: ['bavdhan', 'karve nagar', 'erandwane', 'deccan', 'warje'],
-      bavdhan: ['kothrud', 'pashan', 'baner', 'warje', 'hinjewadi'],
-      hadapsar: ['magarpatta', 'amanora', 'kharadi', 'fursungi', 'wanowrie', 'loni kalbhor'],
-      rahatani: ['pimple saudagar', 'pimple nilakh', 'wakad', 'kalewadi', 'chinchwad'],
-      'pimple saudagar': ['rahatani', 'pimple nilakh', 'wakad', 'baner', 'sangvi'],
-    };
-
     allTenants.forEach((tenant: any) => {
       let locationScore = 0;
       let budgetScore = 0;
       let bhkScore = 0;
 
+      const distKm = getDynDistForCard(property, tenant);
+
       // 1. Location Match
       const prefLocRaw = tenant.preferred_location || "";
-      if (!prefLocRaw.trim()) {
+      if (distKm !== null) {
+        if (distKm <= 3.0) locationScore = 40;
+        else if (distKm <= 8.0) locationScore = 25;
+        else if (distKm <= 20.0) locationScore = 15;
+        else locationScore = 0;
+      } else if (!prefLocRaw.trim()) {
         locationScore = 15;
       } else {
         const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean);
-        const cleanLocs = prefLocs.map((l: any) => l.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim()).filter(Boolean);
 
         const hasExactLocMatch = prefLocs.some((loc: any) => {
           const cleanL = loc.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim();
@@ -700,25 +737,8 @@ export function RentalPropertiesPage() {
         if (hasExactLocMatch) {
           locationScore = 40;
         } else {
-          let isNearby = false;
-          for (const loc of cleanLocs) {
-            for (const [keyLoc, adjList] of Object.entries(NEARBY_MAP)) {
-              if (propLoc.includes(keyLoc) || keyLoc.includes(propLoc)) {
-                if (adjList.some((adj: any) => loc.includes(adj) || adj.includes(loc))) {
-                  isNearby = true;
-                  break;
-                }
-              }
-            }
-            if (isNearby) break;
-          }
-
-          if (isNearby) {
-            locationScore = 25;
-          } else {
-            const isSameCity = propCity && prefLocs.some((l: any) => l.includes(propCity));
-            locationScore = isSameCity ? 10 : 0;
-          }
+          const isSameCity = propCity && prefLocs.some((l: any) => l.includes(propCity));
+          locationScore = isSameCity ? 15 : 0;
         }
       }
 
@@ -801,7 +821,13 @@ export function RentalPropertiesPage() {
           ...p,
           id: p.id,
           propertyId: p.propertyId || `RENT-${p.id}`,
-          title: p.title || `${p.bedrooms || 0} BHK ${p.property_subtype_name || p.property_type_name || 'Apartment'} in ${p.society_name || p.location_name || 'Society'}`,
+          title: (() => {
+            if (p.title) return p.title;
+            const bhk = p.unit_type || p.unitType || (p.bedrooms > 0 ? `${p.bedrooms} BHK` : '');
+            const sub = p.property_subtype_name || p.property_type_name || 'Apartment';
+            const loc = p.society_name || p.location_name || 'Property';
+            return bhk ? `${bhk} ${sub} in ${loc}` : `${sub} in ${loc}`;
+          })(),
           type: p.property_type_name || p.type || '',
           subtype: p.property_subtype_name || p.subtype || '',
           unitType: p.unit_type || p.unitType || '',
@@ -823,7 +849,12 @@ export function RentalPropertiesPage() {
           available_from: p.available_from || '',
           status: p.status || 'Available',
           isPublic: !!p.is_public,
-          assignedTo: p.assigned_to ? { id: p.assigned_to, name: p.assigned_executive || 'Executive' } : undefined,
+          assignedTo: p.assignedTo && p.assignedTo.name && p.assignedTo.name !== 'Executive'
+            ? p.assignedTo
+            : (p.assigned_to ? {
+                id: p.assigned_to,
+                name: p.executive_name || p.assigned_executive_name || p.assigned_executive || p.assigned_to_name || 'Executive'
+              } : undefined),
           seller: p.seller_id ? { id: p.seller_id, name: p.seller_name || 'Owner' } : undefined,
           leadSource: p.lead_source || '',
           hotLeads: p.hotLeads || 0,
@@ -881,11 +912,58 @@ export function RentalPropertiesPage() {
           setSellers(sellersRes.data.map((s: any) => ({ label: s.name, value: s.name })));
         }
 
-        if (usersRes.success && Array.isArray(usersRes.data)) {
-          const execs = usersRes.data
-            .filter((u: any) => u.role === 'sales_executive' || u.role_name === 'sales_executive')
-            .map((u: any) => ({ label: `${u.first_name || ''} ${u.last_name || ''}`.trim(), value: String(u.id) }));
-          setExecutives(execs);
+        // Fetch sales executive role users (matching Sales / Sales Executive like PropertiesPage)
+        try {
+          const res = await usersAPI.getByDeptRole({
+            department: "Sales",
+            role: "Sales Executive",
+            is_active: 1,
+            limit: 100,
+          }).catch(() => null);
+
+          let items = res?.items ?? res?.data ?? res?.users ?? res ?? [];
+          if (!Array.isArray(items) || items.length === 0) {
+            const allRes = await usersAPI.getAllUsers().catch(() => null);
+            items = allRes?.data ?? allRes?.users ?? (Array.isArray(allRes) ? allRes : []);
+          }
+
+          if (Array.isArray(items)) {
+            items = items.filter((u: any) => u.is_active !== 0 && u.is_active !== false && u.is_active !== '0' && u.is_active !== 'false' && u.is_active !== null);
+            const execs = items.map((user: any) => {
+              const fullName = `${user.first_name || user.name || ''} ${user.last_name || ''}`.trim() || user.username || `User ${user.id || user.userId}`;
+              return {
+                id: user.id || user.userId,
+                value: String(user.id || user.userId),
+                name: fullName,
+                label: fullName,
+                first_name: user.first_name || user.name || '',
+                last_name: user.last_name || '',
+                email: user.email,
+                phone: user.phone || user.mobile,
+                department: user.department,
+                role: user.role,
+              };
+            });
+            setExecutives(execs);
+            const execMap = Object.fromEntries(execs.map((e: any) => [String(e.id), e.name]));
+            setProperties(prev => prev.map(p => {
+              if (p.assignedTo && p.assignedTo.id) {
+                const resolvedName = execMap[String(p.assignedTo.id)];
+                if (resolvedName) {
+                  return {
+                    ...p,
+                    assignedTo: {
+                      ...p.assignedTo,
+                      name: resolvedName
+                    }
+                  };
+                }
+              }
+              return p;
+            }));
+          }
+        } catch (execErr) {
+          console.error("Failed to load sales executives:", execErr);
         }
       } catch (e) {
         console.error("Failed to load filters metadata:", e);
@@ -895,28 +973,53 @@ export function RentalPropertiesPage() {
     fetchFiltersMetadata();
   }, []);
 
-  // Load view statistics
+  // Helper to safely get rental property views count (strictly slug-matched to prevent ID collision with Sell properties)
+  const getPropertyViewsCount = (p: any) => {
+    if (!p) return 0;
+    const slugKey = (p.slug || p.raw?.slug || p.url_slug || '').toLowerCase().trim();
+    if (slugKey && viewsMap[slugKey]) {
+      return viewsMap[slugKey].total_views;
+    }
+    return 0;
+  };
+
+  // Load view statistics specifically for rental properties (slug-matched)
   useEffect(() => {
     async function fetchViewStats() {
       try {
         const res = await viewsAPI.getAll(false);
-        const resUnique = await viewsAPI.getAll(true);
 
-        const views = res?.rows?.reduce((sum: number, row: any) => sum + (row?.total_views || 0), 0) || 0;
-        const unique = resUnique?.rows?.reduce((sum: number, row: any) => sum + (row?.unique_views || 0), 0) || 0;
-        setTotalViews(views);
-        setTotalUniqueViews(unique);
-
-        const map: Record<string, any> = {};
+        const map: Record<string, { total_views: number; unique_views: number }> = {};
         if (res && Array.isArray(res.rows)) {
           res.rows.forEach((row: any) => {
-            map[String(row.property_id)] = {
-              total_views: row.total_views || 0,
-              unique_views: row.unique_views || 0
-            };
+            const total = Number(row.total_views) || 0;
+            const unique = Number(row.unique_views) || 0;
+
+            if (row.slug) {
+              const slugKey = String(row.slug).toLowerCase().trim();
+              const prev = map[slugKey] || { total_views: 0, unique_views: 0 };
+              map[slugKey] = {
+                total_views: prev.total_views + total,
+                unique_views: prev.unique_views + unique,
+              };
+            }
           });
         }
         setViewsMap(map);
+
+        // Sum view stats for properties present in Rental Properties list matching slug
+        let rentTotal = 0;
+        let rentUnique = 0;
+        properties.forEach((p: any) => {
+          const slugKey = (p.slug || p.raw?.slug || p.url_slug || '').toLowerCase().trim();
+          const stats = slugKey && map[slugKey] ? map[slugKey] : null;
+          if (stats && stats.total_views > 0) {
+            rentTotal += stats.total_views;
+            rentUnique += Math.max(1, stats.unique_views);
+          }
+        });
+        setTotalViews(rentTotal);
+        setTotalUniqueViews(rentUnique);
       } catch (e) {
         console.error("Failed to load view stats:", e);
       }
@@ -1455,7 +1558,7 @@ export function RentalPropertiesPage() {
                 className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-[#0f2b3d] hover:bg-white/70"
               >
                 <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-300/60">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                 </span>
                 <span>Sell Properties</span>
               </button>
@@ -1467,7 +1570,7 @@ export function RentalPropertiesPage() {
                 style={{ background: '#0f2b3d', boxShadow: '0 4px 12px rgba(15,43,61,0.25)' }}
               >
                 <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-white/15">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m11.4 11.6 8.6-8.6"/><path d="m16 4 3 3"/><path d="m13 7 3 3"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5" /><path d="m11.4 11.6 8.6-8.6" /><path d="m16 4 3 3" /><path d="m13 7 3 3" /></svg>
                 </span>
                 <span>Rent Properties</span>
                 <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold text-white" style={{ background: '#e67e22' }}>{properties.length}</span>
@@ -1714,9 +1817,9 @@ export function RentalPropertiesPage() {
                           className="px-2 py-1 text-[10px] sm:text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none"
                         >
                           <option value="">Assign Executive...</option>
-                          {executives.map(ex => (
-                            <option key={ex.id} value={ex.id}>
-                              {(`${ex.first_name || ''} ${ex.last_name || ''}`).trim() || ex.name}
+                          {executives.map((ex: any) => (
+                            <option key={ex.id || ex.value} value={ex.id || ex.value}>
+                              {ex.name || ex.label || (`${ex.first_name || ''} ${ex.last_name || ''}`).trim() || `Executive ${ex.id}`}
                             </option>
                           ))}
                         </select>
@@ -2052,7 +2155,7 @@ export function RentalPropertiesPage() {
                             {getStageBadge(property.stage || '', true)}
                             <div className="flex items-center gap-1 text-[9px] text-gray-400">
                               <Eye size={9} />
-                              <span>{viewsMap[String(property.id)]?.total_views ?? 0} views</span>
+                              <span>{getPropertyViewsCount(property)} views</span>
                             </div>
                           </div>
 

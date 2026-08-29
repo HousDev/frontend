@@ -1278,9 +1278,9 @@ const PropertiesPage = () => {
       const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
+      const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
@@ -1305,7 +1305,7 @@ const PropertiesPage = () => {
         // Fallback to text-based matching if coordinates are missing
         const propLoc = (property.location || property.location_name || property.society || property.society_name || property.address || '').toLowerCase().trim();
         const propCity = (property.city || property.city_name || '').toLowerCase().trim();
-        
+
         let reqs = buyer.requirements;
         if (typeof reqs === 'string') {
           try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
@@ -1316,7 +1316,7 @@ const PropertiesPage = () => {
         if (reqs.preferredLocations && Array.isArray(reqs.preferredLocations)) {
           buyerLocRaw = reqs.preferredLocations.join(', ');
         }
-        
+
         if (!buyerLocRaw) {
           locationScore = 15;
         } else {
@@ -1417,7 +1417,7 @@ const PropertiesPage = () => {
       if (!reqs) reqs = {};
 
       const preferredBhkStr = String(reqs.preferred_bhk || reqs.unitTypes || buyer.preferred_bhk || '').toLowerCase();
-      
+
       if (!preferredBhkStr) {
         bhkScore = 10;
       } else {
@@ -2777,7 +2777,7 @@ const PropertiesPage = () => {
                   style={{ background: '#0f2b3d', boxShadow: '0 4px 12px rgba(15,43,61,0.25)' }}
                 >
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-white/15">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                   </span>
                   <span>Sell Properties</span>
                   <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold text-white" style={{ background: '#e67e22' }}>{properties.length}</span>
@@ -2789,7 +2789,7 @@ const PropertiesPage = () => {
                   className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-[#0f2b3d] hover:bg-white/70"
                 >
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-300/60">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m11.4 11.6 8.6-8.6"/><path d="m16 4 3 3"/><path d="m13 7 3 3"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5" /><path d="m11.4 11.6 8.6-8.6" /><path d="m16 4 3 3" /><path d="m13 7 3 3" /></svg>
                   </span>
                   <span>Rent Properties</span>
                 </button>

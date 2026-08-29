@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Target, Search, Star, Phone, MessageCircle, Mail, MapPin, ChevronDown, ChevronUp, IndianRupeeIcon, CheckCircle } from 'lucide-react';
+import { X, Users, Target, Search, Phone, Mail, MapPin, ChevronDown, ChevronUp, IndianRupeeIcon, CheckCircle, Send, Loader2 } from 'lucide-react';
 import { tenantAPI } from '@/lib/tenantAPI';
 import { api } from '@/lib/api';
 import { toast } from 'react-toastify';
 import { FaWhatsapp } from 'react-icons/fa6';
+import PropertyShareModal from './PropertyShareModal';
 
 // Theme Colors matching Resale / Rental portal
 const N = "#0f2b3d";
@@ -34,31 +35,6 @@ interface TenantMatchingModalProps {
   property: any;
 }
 
-const PUNE_LOCALITY_COORDS: Record<string, { lat: number; lng: number }> = {
-  'pimple saudagar': { lat: 18.5987, lng: 73.7932 },
-  'wakad': { lat: 18.5986, lng: 73.7661 },
-  'baner': { lat: 18.5590, lng: 73.7868 },
-  'balewadi': { lat: 18.5789, lng: 73.7707 },
-  'aundh': { lat: 18.5602, lng: 73.8031 },
-  'kalewadi': { lat: 18.6083, lng: 73.7915 },
-  'tathawade': { lat: 18.6186, lng: 73.7516 },
-  'hinjewadi': { lat: 18.5912, lng: 73.7389 },
-  'pashan': { lat: 18.5419, lng: 73.7925 },
-  'kothrud': { lat: 18.5074, lng: 73.8077 },
-  'bavdhan': { lat: 18.5158, lng: 73.7813 },
-  'kharadi': { lat: 18.5515, lng: 73.9349 },
-  'viman nagar': { lat: 18.5679, lng: 73.9143 },
-  'wagholi': { lat: 18.5808, lng: 73.9787 },
-  'hadapsar': { lat: 18.5089, lng: 73.9260 },
-  'magarpatta': { lat: 18.5158, lng: 73.9272 },
-  'amanora': { lat: 18.5190, lng: 73.9335 },
-  'pimpri': { lat: 18.6298, lng: 73.7997 },
-  'chinchwad': { lat: 18.6251, lng: 73.7868 },
-  'rahatani': { lat: 18.5956, lng: 73.7864 },
-  'ambegaon': { lat: 18.4550, lng: 73.8427 },
-  'anand nagar': { lat: 18.4833, lng: 73.8333 },
-};
-
 function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -71,33 +47,51 @@ function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: nu
   const airDistance = R * c;
 
   if (airDistance === 0) return 0;
-  // Convert straight-line air distance to realistic urban driving road distance (~1.55x in Pune)
   const roadDistance = airDistance < 2.0 ? airDistance * 1.35 : airDistance * 1.55;
   return parseFloat(roadDistance.toFixed(1));
 }
 
-function getLocalityKm(propLoc: string, tenantLocStr: string): number | null {
-  if (!propLoc || !tenantLocStr) return null;
-  const pLower = propLoc.toLowerCase();
-  
-  let pCoord = null;
-  for (const [name, coord] of Object.entries(PUNE_LOCALITY_COORDS)) {
-    if (pLower.includes(name)) { pCoord = coord; break; }
+function getDynamicDistance(property: any, tenant: any): number | null {
+  if (tenant?.distance != null && !isNaN(Number(tenant.distance)) && Number(tenant.distance) < 9000) {
+    return parseFloat(Number(tenant.distance).toFixed(1));
   }
-  if (!pCoord) return null;
 
-  const tLocs = tenantLocStr.toLowerCase().split(/[;,]+/).map(s => s.trim());
-  let minKm: number | null = null;
+  const pLat = parseFloat(String(property?.latitude || property?.lat || property?.society?.latitude || property?.society?.lat || 0));
+  const pLng = parseFloat(String(property?.longitude || property?.lng || property?.society?.longitude || property?.society?.lng || 0));
 
-  for (const tLoc of tLocs) {
-    for (const [name, coord] of Object.entries(PUNE_LOCALITY_COORDS)) {
-      if (tLoc.includes(name)) {
-        const d = calculateHaversineKm(pCoord.lat, pCoord.lng, coord.lat, coord.lng);
-        if (minKm === null || d < minKm) minKm = d;
-      }
+  if (isNaN(pLat) || isNaN(pLng) || pLat === 0 || pLng === 0) return null;
+
+  let tenantCoords: Array<{ lat: number; lng: number }> = [];
+
+  if (tenant?.preferred_locations_coords) {
+    let raw = tenant.preferred_locations_coords;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { raw = []; }
+    }
+    if (Array.isArray(raw)) {
+      tenantCoords = raw
+        .map(c => ({ lat: parseFloat(String(c.lat || c.latitude || 0)), lng: parseFloat(String(c.lng || c.longitude || 0)) }))
+        .filter(c => c.lat > 0 && c.lng > 0);
     }
   }
-  return minKm;
+
+  const singleTLat = parseFloat(String(tenant?.latitude || tenant?.lat || 0));
+  const singleTLng = parseFloat(String(tenant?.longitude || tenant?.lng || 0));
+  if (singleTLat > 0 && singleTLng > 0) {
+    tenantCoords.push({ lat: singleTLat, lng: singleTLng });
+  }
+
+  if (tenantCoords.length === 0) return null;
+
+  let minDistance: number | null = null;
+  for (const tc of tenantCoords) {
+    const d = calculateHaversineKm(pLat, pLng, tc.lat, tc.lng);
+    if (minDistance === null || d < minDistance) {
+      minDistance = d;
+    }
+  }
+
+  return minDistance;
 }
 
 const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClose, property }) => {
@@ -106,6 +100,8 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
   const [loading, setLoading] = useState(false);
   const [selectedTenants, setSelectedTenants] = useState<number[]>([]);
   const [expandedTenant, setExpandedTenant] = useState<number | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareTenants, setShareTenants] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen && property) {
@@ -170,15 +166,18 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
 
     // 1. Location Match (Weight: 40)
     const prefLocRaw = tenant.preferred_location || "";
-    if (!prefLocRaw.trim()) {
-      locationScore = 15; // give baseline if tenant has no location preference
+    const distKm = getDynamicDistance(property, tenant);
+
+    if (distKm !== null) {
+      if (distKm <= 3.0) locationScore = 40;
+      else if (distKm <= 8.0) locationScore = 25;
+      else if (distKm <= 20.0) locationScore = 15;
+      else locationScore = 0;
+    } else if (!prefLocRaw.trim()) {
+      locationScore = 15;
     } else {
       const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map(s => s.trim()).filter(Boolean);
-      
-      // Clean locality strings by removing city name ("pune", "mumbai" etc) for exact locality comparison
-      const cleanLocs = prefLocs.map(l => l.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim()).filter(Boolean);
 
-      // Check exact locality/society match
       const hasExactLocMatch = prefLocs.some(loc => {
         const cleanL = loc.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim();
         if (!cleanL) return false;
@@ -190,47 +189,9 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
 
       if (hasExactLocMatch) {
         locationScore = 40;
-      } else if (tenant.distance != null && tenant.distance <= 5.0) {
-        // High accuracy location match via Haversine distance coordinates
-        if (tenant.distance <= 2.0) locationScore = 40;
-        else if (tenant.distance <= 5.0) locationScore = 25;
       } else {
-        // Check adjacent/nearby localities
-        const NEARBY_MAP: Record<string, string[]> = {
-          tathawade: ['wakad', 'punawale', 'ravet', 'hinjewadi', 'marunji', 'pimpri'],
-          wakad: ['tathawade', 'baner', 'balewadi', 'hinjewadi', 'thergaon', 'rahatani', 'pimple saudagar'],
-          baner: ['balewadi', 'wakad', 'aundh', 'pashan', 'pimple saudagar', 'model colony'],
-          balewadi: ['baner', 'wakad', 'aundh', 'pashan'],
-          kharadi: ['viman nagar', 'wagholi', 'hadapsar', 'kalyani nagar', 'mundhwa', 'chandan nagar'],
-          'viman nagar': ['kharadi', 'kalyani nagar', 'vishrantwadi', 'tingre nagar', 'yerwada'],
-          hinjewadi: ['wakad', 'tathawade', 'marunji', 'punawale', 'pimpri', 'bavdhan'],
-          kothrud: ['bavdhan', 'karve nagar', 'erandwane', 'deccan', 'warje'],
-          bavdhan: ['kothrud', 'pashan', 'baner', 'warje', 'hinjewadi'],
-          hadapsar: ['magarpatta', 'amanora', 'kharadi', 'fursungi', 'wanowrie', 'loni kalbhor'],
-          rahatani: ['pimple saudagar', 'pimple nilakh', 'wakad', 'kalewadi', 'chinchwad'],
-          'pimple saudagar': ['rahatani', 'pimple nilakh', 'wakad', 'baner', 'sangvi'],
-        };
-
-        let isNearby = false;
-        for (const loc of cleanLocs) {
-          for (const [keyLoc, adjList] of Object.entries(NEARBY_MAP)) {
-            if (propLoc.includes(keyLoc) || keyLoc.includes(propLoc)) {
-              if (adjList.some(adj => loc.includes(adj) || adj.includes(loc))) {
-                isNearby = true;
-                break;
-              }
-            }
-          }
-          if (isNearby) break;
-        }
-
-        if (isNearby) {
-          locationScore = 25;
-        } else {
-          // City-level match only (e.g. Magarpatta vs Pimple Saudagar in Pune)
-          const isSameCity = propCity && prefLocs.some(l => l.includes(propCity));
-          locationScore = isSameCity ? 10 : 0;
-        }
+        const isSameCity = propCity && prefLocs.some(l => l.includes(propCity));
+        locationScore = isSameCity ? 15 : 0;
       }
     }
 
@@ -292,8 +253,7 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
       }
     }
 
-    const calcKm = getLocalityKm(propLoc || propSoc, prefLocRaw);
-    const finalDistance = tenant.distance != null ? tenant.distance : calcKm;
+    const finalDistance = getDynamicDistance(property, tenant);
 
     const totalScore = locationScore + budgetScore + bhkScore;
     return {
@@ -338,11 +298,12 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
 
   const handleSendToSelectedTenants = () => {
     if (selectedTenants.length === 0) {
-      toast.info('Please select tenants to send property details');
+      toast.error('Please select tenants to share property details');
       return;
     }
-    toast.success(`Rental property details sent to ${selectedTenants.length} tenant(s)`);
-    setSelectedTenants([]);
+    const selectedObjs = tenants.filter(t => selectedTenants.includes(t.id));
+    setShareTenants(selectedObjs);
+    setShareModalOpen(true);
   };
 
   const handleWhatsApp = (tenant: Tenant) => {
@@ -375,20 +336,25 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
 
   const getDisplayPropertyTitle = (prop: any) => {
     if (!prop) return 'Property';
+    // unit_type (DB snake_case) or mapped unitType (camelCase) — e.g. "3.5BHK"
+    const unitType = prop.unit_type || prop.unitType || '';
     const bhkStr = (prop.bedrooms && Number(prop.bedrooms) > 0)
-      ? `${prop.bedrooms}BHK`
-      : (prop.unit_type || prop.unitType || '');
-      
-    const subtypeStr = prop.property_subtype_name || prop.propertySubtype || '';
+      ? `${prop.bedrooms} BHK`
+      : unitType;
+
+    // If prop.title exists and doesn't start with "0 BHK", use it directly
+    if (prop.title && !/^0\s*BHK/i.test(prop.title)) return prop.title;
+
+    const subtypeStr = prop.property_subtype_name || prop.propertySubtype || prop.subtype || '';
     const typeStr = prop.property_type_name || prop.propertyType || prop.type || '';
     const socStr = prop.society_name || prop.society || prop.location_name || prop.location || '';
-    
+
     const titleParts = [];
     if (bhkStr) titleParts.push(bhkStr);
     if (subtypeStr) titleParts.push(subtypeStr);
     else if (typeStr) titleParts.push(typeStr);
     if (socStr) titleParts.push(`in ${socStr}`);
-    
+
     return titleParts.length > 0 ? titleParts.join(' ') : (prop.title || 'Property');
   };
 
@@ -455,48 +421,49 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
             <StatCard label="Total Candidates" value={matchedTenantsList.length} color="#8b5cf6" />
           </div>
 
-          {/* Search bar — Place below statistics cards */}
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
+          {/* Search bar + Share button row */}
+          <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
+            <div className="relative w-full sm:max-w-xs">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search matching tenants by name, location, contact, BHK..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
+                className="w-full h-8 pl-8 pr-3 border rounded-lg text-xs focus:outline-none focus:border-orange-500"
                 style={{ borderColor: BD }}
               />
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => handleSelectAll(matchedTenantsList)}
+                className="h-8 px-3 rounded-lg border text-xs font-semibold hover:bg-slate-50 transition-colors"
+                style={{ borderColor: BD, color: N }}
+              >
+                {selectedTenants.length === matchedTenantsList.length && matchedTenantsList.length > 0 ? 'Deselect All' : 'Select All'}
+              </button>
+              <button
+                onClick={handleSendToSelectedTenants}
+                disabled={selectedTenants.length === 0}
+                className="h-8 px-3 rounded-lg text-white text-xs font-bold transition-all flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: O }}
+              >
+                <Send size={12} />
+                <span>Share Details ({selectedTenants.length})</span>
+              </button>
             </div>
           </div>
 
           {/* Tenants list header */}
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold" style={{ color: N }}>Matched Tenants ({matchedTenantsList.length})</h3>
-            <div className="flex items-center gap-2">
-              {selectedTenants.length > 0 && (
-                <button
-                  onClick={handleSendToSelectedTenants}
-                  className="px-2 py-0.5 text-[9px] rounded text-white flex items-center gap-1 transition-all hover:opacity-90"
-                  style={{ background: O }}
-                >
-                  <span>Send to {selectedTenants.length} Tenant(s)</span>
-                </button>
-              )}
-              <button
-                onClick={() => handleSelectAll(matchedTenantsList)}
-                className="text-[10px] font-semibold"
-                style={{ color: O }}
-              >
-                {selectedTenants.length === matchedTenantsList.length ? 'Deselect All' : 'Select All'}
-              </button>
-            </div>
           </div>
 
           {/* Tenants list */}
           {loading ? (
-            <div className="py-8 flex justify-center items-center">
-              <span className="text-xs text-gray-500">Loading matched tenants...</span>
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+              <Loader2 className="animate-spin text-orange-500" size={24} />
+              <span className="text-xs">Finding matching tenants...</span>
             </div>
           ) : matchedTenantsList.length === 0 ? (
             <div className="py-8 text-center border border-dashed rounded-lg">
@@ -606,9 +573,9 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
                         <span className="flex items-center gap-0.5">
                           <MapPin size={9} />
                           Prefers: {tenant.preferred_location || 'Any'}
-                          {(tenant as any).distance != null && (tenant as any).distance < 900 && (
-                            <span className="ml-1 px-1 py-0.2 rounded text-[9px] font-bold text-orange-600 bg-orange-50 border border-orange-200">
-                              📍 {(tenant as any).distance} km away
+                          {(tenant as any).distance !== null && (tenant as any).distance !== undefined && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-orange-700 bg-orange-50 border border-orange-200 inline-flex items-center gap-0.5">
+                              📍 {(tenant as any).distance === 0 ? '0.0' : (tenant as any).distance} km away
                             </span>
                           )}
                         </span>
@@ -637,16 +604,24 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
 
         {/* Footer */}
         <div className="px-3 py-2 border-t flex items-center justify-between" style={{ borderColor: BD, background: BG }}>
-          <div className="text-[10px]" style={{ color: MU }}>
-            {matchedTenantsList.length} matching tenant(s) • {selectedTenants.length} selected
-          </div>
-          <div className="flex gap-1.5">
-            <button onClick={onClose} className="px-3 py-1 text-xs border rounded transition-colors hover:bg-gray-50 font-semibold" style={{ borderColor: BD, color: N }}>
-              Close
-            </button>
-          </div>
+          <span className="text-[10px]" style={{ color: MU }}>
+            <strong className="text-slate-600">{matchedTenantsList.length}</strong> matched tenant(s) • <strong className="text-slate-600">{selectedTenants.length}</strong> selected
+          </span>
+          <button onClick={onClose} className="px-4 py-1.5 border rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors" style={{ borderColor: BD, color: N }}>
+            Close
+          </button>
         </div>
       </div>
+
+      {shareModalOpen && (
+        <PropertyShareModal
+          isOpen={shareModalOpen}
+          onClose={() => { setShareModalOpen(false); setShareTenants([]); setSelectedTenants([]); }}
+          property={property}
+          buyer={null}
+          buyers={shareTenants}
+        />
+      )}
     </div>
   );
 };

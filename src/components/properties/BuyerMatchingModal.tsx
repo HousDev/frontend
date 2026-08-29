@@ -62,21 +62,7 @@ const getBuyerBHKStr = (buyer: any): string => {
   return '';
 };
 
-// Pune nearby / adjacent localities lookup map
-const NEARBY_MAP: Record<string, string[]> = {
-  tathawade: ['wakad', 'punawale', 'ravet', 'hinjewadi', 'marunji', 'pimpri'],
-  wakad: ['tathawade', 'baner', 'balewadi', 'hinjewadi', 'thergaon', 'rahatani', 'pimple saudagar'],
-  baner: ['balewadi', 'wakad', 'aundh', 'pashan', 'pimple saudagar', 'model colony'],
-  balewadi: ['baner', 'wakad', 'aundh', 'pashan'],
-  kharadi: ['viman nagar', 'wagholi', 'hadapsar', 'kalyani nagar', 'mundhwa', 'chandan nagar'],
-  'viman nagar': ['kharadi', 'kalyani nagar', 'vishrantwadi', 'tingre nagar', 'yerwada'],
-  hinjewadi: ['wakad', 'tathawade', 'marunji', 'punawale', 'pimpri', 'bavdhan'],
-  kothrud: ['bavdhan', 'karve nagar', 'erandwane', 'deccan', 'warje'],
-  bavdhan: ['kothrud', 'pashan', 'baner', 'warje', 'hinjewadi'],
-  hadapsar: ['magarpatta', 'amanora', 'kharadi', 'fursungi', 'wanowrie', 'loni kalbhor'],
-  rahatani: ['pimple saudagar', 'pimple nilakh', 'wakad', 'kalewadi', 'chinchwad'],
-  'pimple saudagar': ['rahatani', 'pimple nilakh', 'wakad', 'baner', 'sangvi'],
-};
+
 
 const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
