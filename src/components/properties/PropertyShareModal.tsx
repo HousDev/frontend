@@ -628,28 +628,37 @@ const PropertyShareModal = ({ isOpen, onClose, property, buyer, buyers }: any) =
 
   if (!isOpen || !property) return null;
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    return `₹${amount.toLocaleString('en-IN')}`;
+  const formatCurrency = (amount: any) => {
+    const v = Number(amount || 0);
+    if (!isFinite(v) || v <= 0) return '—';
+    if (v >= 10000000) return `₹${(v / 10000000).toFixed(1)}Cr`;
+    if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`;
+    if (v >= 1000) return `₹${(v / 1000).toFixed(0)}K`;
+    return `₹${v.toLocaleString('en-IN')}`;
   };
 
-  const defaultMessage = `🏠 *${property.title}*
+  // Resolve fields that differ between resale vs rental properties
+  const propUnitType = property?.unitType || property?.unit_type || (property?.bedrooms && Number(property.bedrooms) > 0 ? `${property.bedrooms} BHK` : '');
+  const rawTitle = property?.title || '';
+  // Fix: if title starts with "0 BHK", replace with real unit type
+  const propTitle = rawTitle.replace(/^0\s*BHK\s*/i, propUnitType ? `${propUnitType} ` : '') || propUnitType || 'Property';
+  const propLocation = property?.location || property?.location_name || '';
+  const propCity = property?.city || property?.city_name || '';
+  const propArea = property?.carpetArea || property?.carpet_area || property?.builtupArea || property?.built_up_area || '';
+  const propPrice = Number(property?.budget || property?.final_price || property?.expected_price || property?.monthly_rent || 0);
+  const isRental = !!(property?.monthly_rent && !property?.budget);
+  const propPriceLabel = isRental ? `₹${Number(property.monthly_rent).toLocaleString('en-IN')}/mo` : formatCurrency(propPrice);
+  const defaultMessage = `🏠 *${propTitle}*
 
-📍 *Location:* ${property.location}, ${property.city}
-🏢 *Type:* ${property.unitType} • ${property.carpetArea} sq ft
-💰 *Price:* ${formatCurrency(property.budget)}
-🏗️ *Floor:* ${property.floor} of ${property.totalFloors}
-🚗 *Parking:* ${property.parkingQty} ${property.parkingType}
-🛋️ *Furnishing:* ${property.furnishing}
+📍 *Location:* ${propLocation}, ${propCity}
+🏢 *Type:* ${propUnitType}${propArea ? ` • ${propArea} sq ft` : ''}
+💰 *${isRental ? 'Rent' : 'Price'}:* ${propPriceLabel}
 
 ✨ *Amenities:*
-${property.amenities?.slice(0, 5).map((amenity: string) => `• ${amenity}`).join('\n') || '• Premium amenities available'}
+${property?.amenities?.slice(0, 5).map((a: string) => `• ${a}`).join('\n') || '• Premium amenities available'}
 
-📞 *Contact:* ${property.seller?.phone}
-📧 *Email:* ${property.seller?.email}
-
-*Interested? Contact us for a site visit!*
+${property?.seller?.phone ? `📞 *Contact:* ${property.seller.phone}` : ''}
+*Interested? Contact us for a ${isRental ? 'site visit' : 'viewing'}!*
 
 ---
 Shared via ResaleExpert
@@ -854,46 +863,46 @@ Shared via ResaleExpert
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
 
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between" style={{ background: N }}>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-lg" style={{ background: `${O}20` }}>
-              <Share size={16} className="sm:w-5 sm:h-5" style={{ color: O }} />
+        <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: N }}>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg" style={{ background: `${O}20` }}>
+              <Share size={14} style={{ color: O }} />
             </div>
             <div>
-              <h2 className="text-sm sm:text-lg font-bold text-white">Share Property</h2>
-              <p className="text-[10px] sm:text-xs text-white/70">{property?.title}</p>
+              <h2 className="text-sm font-bold text-white">Share Property</h2>
+              <p className="text-[9px] text-white/70 truncate max-w-xs">{propTitle}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 sm:p-1.5 rounded hover:bg-white/10 transition-colors text-white">
-            <X size={16} className="sm:w-5 sm:h-5" />
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors text-white">
+            <X size={14} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ scrollbarWidth: 'thin' }}>
 
           {/* Property Summary */}
-          <div className="rounded-lg p-2 sm:p-3" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <div className="rounded-lg p-2" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
-                <p className="text-[9px] sm:text-xs font-medium" style={{ color: O }}>Property</p>
-                <p className="text-[11px] sm:text-sm font-semibold truncate" style={{ color: N }}>{property?.title}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: O }}>Property</p>
+                <p className="text-[11px] font-semibold truncate" style={{ color: N }}>{propTitle}</p>
               </div>
               <div>
-                <p className="text-[9px] sm:text-xs font-medium" style={{ color: O }}>Location</p>
-                <p className="text-[11px] sm:text-sm font-semibold truncate" style={{ color: N }}>{property?.location}, {property?.city}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: O }}>Location</p>
+                <p className="text-[11px] font-semibold truncate" style={{ color: N }}>{propLocation}{propCity ? `, ${propCity}` : ''}</p>
               </div>
               <div>
-                <p className="text-[9px] sm:text-xs font-medium" style={{ color: O }}>Type</p>
-                <p className="text-[11px] sm:text-sm font-semibold truncate" style={{ color: N }}>{property?.unitType} • {property?.carpetArea} sq ft</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: O }}>Type</p>
+                <p className="text-[11px] font-semibold truncate" style={{ color: N }}>{propUnitType}{propArea ? ` • ${propArea} sq ft` : ''}</p>
               </div>
               <div>
-                <p className="text-[9px] sm:text-xs font-medium" style={{ color: O }}>Price</p>
-                <p className="text-[11px] sm:text-sm font-semibold truncate" style={{ color: N }}>{formatCurrency(property?.budget)}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: O }}>{isRental ? 'Rent' : 'Price'}</p>
+                <p className="text-[11px] font-semibold truncate" style={{ color: N }}>{propPriceLabel}</p>
               </div>
             </div>
           </div>

@@ -1676,10 +1676,10 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
               row.assignedTo ||
               (row.executive_name || row.executive_email || row.executive_phone
                 ? {
-                    name: row.executive_name || null,
-                    email: row.executive_email || null,
-                    phone: row.executive_phone || null,
-                  }
+                  name: row.executive_name || null,
+                  email: row.executive_email || null,
+                  phone: row.executive_phone || null,
+                }
                 : null);
 
             const status = normalizeAvailabilityStatus(row);
@@ -1716,8 +1716,8 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
             const tags: string[] = Array.isArray(r.tags)
               ? r.tags
               : typeof r.tags === "string"
-              ? r.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
-              : [];
+                ? r.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
+                : [];
             if (tags.length) acc[key] = tags;
             return acc;
           }, {});
@@ -1730,8 +1730,8 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                 const tags = Array.isArray((r as any)?.tags)
                   ? (r as any).tags
                   : typeof (r as any)?.tags === "string"
-                  ? (r as any).tags.split(",").map((s: string) => s.trim()).filter(Boolean)
-                  : [];
+                    ? (r as any).tags.split(",").map((s: string) => s.trim()).filter(Boolean)
+                    : [];
                 return { id: pid, tags };
               } catch {
                 return { id: pid, tags: [] as string[] };
@@ -1826,7 +1826,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
         rentalYield,
         appreciationRate:
           investmentPotential === "very_high" ? "10-15%" :
-          investmentPotential === "high"      ? "8-12%"  : "6-9%",
+            investmentPotential === "high" ? "8-12%" : "6-9%",
         raw: p,
         tags: tagsByProperty[String(p.id)] || [],
         assignedTo: p.assignedTo || null,
@@ -1922,7 +1922,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-        
+
         {/* Header */}
         <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between" style={{ background: N }}>
           <div className="flex items-center gap-2">
@@ -1941,7 +1941,7 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4" style={{ scrollbarWidth: 'thin' }}>
-          
+
           {/* Buyer Profile */}
           <div className="rounded-lg p-2.5 mb-3" style={{ background: `${O}5`, border: `1px solid ${O}20` }}>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1969,11 +1969,10 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
               <button
                 key={filter.id}
                 onClick={() => setFilterType(filter.id as any)}
-                className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium transition-all ${
-                  filterType === (filter.id as any)
+                className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium transition-all ${filterType === (filter.id as any)
                     ? "text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
                 style={filterType === (filter.id as any) ? { background: O } : {}}
               >
                 {filter.label}
@@ -2080,41 +2079,41 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
                         )}
 
                         {/* Stats Grid */}
-                       <div className="grid grid-cols-3 gap-1 mt-1.5">
-  <div className="rounded p-1" style={{ background: `${O}5` }}>
-    <div className="flex items-center gap-0.5">
-      <TrendingUp size={7} style={{ color: O }} />
-      <span className="text-[6px] font-medium" style={{ color: MU }}>Price Trend</span>
-    </div>
-    <div className="text-[8px] font-bold" style={{ color: O }}>{property.priceHistory.change}</div>
-    <div className="text-[6px]" style={{ color: MU }}>{property.priceHistory.period || "6 months"}</div>
-  </div>
-  
-  <div className="rounded p-1" style={{ background: `${O}5` }}>
-    <div className="flex items-center gap-0.5">
-      <Percent size={7} style={{ color: O }} />
-      <span className="text-[6px] font-medium" style={{ color: MU }}>Rental Yield</span>
-    </div>
-    <div className="text-[8px] font-bold" style={{ color: O }}>{property.rentalYield}</div>
-    <div className="text-[6px]" style={{ color: MU }}>per annum</div>
-  </div>
-  
-  <div className="rounded p-1" style={{ background: `${O}5` }}>
-    <div className="flex items-center gap-0.5">
-      <Award size={7} style={{ color: O }} />
-      <span className="text-[6px] font-medium" style={{ color: MU }}>Appreciation</span>
-    </div>
-    <div className="text-[8px] font-bold" style={{ color: O }}>{property.appreciationRate}</div>
-    <div className="text-[6px]" style={{ color: MU }}>expected</div>
-  </div>
-</div>
+                        <div className="grid grid-cols-3 gap-1 mt-1.5">
+                          <div className="rounded p-1" style={{ background: `${O}5` }}>
+                            <div className="flex items-center gap-0.5">
+                              <TrendingUp size={7} style={{ color: O }} />
+                              <span className="text-[6px] font-medium" style={{ color: MU }}>Price Trend</span>
+                            </div>
+                            <div className="text-[8px] font-bold" style={{ color: O }}>{property.priceHistory.change}</div>
+                            <div className="text-[6px]" style={{ color: MU }}>{property.priceHistory.period || "6 months"}</div>
+                          </div>
+
+                          <div className="rounded p-1" style={{ background: `${O}5` }}>
+                            <div className="flex items-center gap-0.5">
+                              <Percent size={7} style={{ color: O }} />
+                              <span className="text-[6px] font-medium" style={{ color: MU }}>Rental Yield</span>
+                            </div>
+                            <div className="text-[8px] font-bold" style={{ color: O }}>{property.rentalYield}</div>
+                            <div className="text-[6px]" style={{ color: MU }}>per annum</div>
+                          </div>
+
+                          <div className="rounded p-1" style={{ background: `${O}5` }}>
+                            <div className="flex items-center gap-0.5">
+                              <Award size={7} style={{ color: O }} />
+                              <span className="text-[6px] font-medium" style={{ color: MU }}>Appreciation</span>
+                            </div>
+                            <div className="text-[8px] font-bold" style={{ color: O }}>{property.appreciationRate}</div>
+                            <div className="text-[6px]" style={{ color: MU }}>expected</div>
+                          </div>
+                        </div>
 
                         {/* Executive Info */}
                         <div className="mt-1.5 p-1 rounded" style={{ background: BG }}>
                           <div className="flex flex-wrap items-center justify-between gap-1">
                             <div className="text-[7px] truncate" style={{ color: MU }}>
                               Executive: <span className="font-medium" style={{ color: N }}>{property?.assignedTo?.name || "—"}</span>
-                                                         <div className="text-gray-600 truncate">{property?.assignedTo?.email || "—"}</div>
+                              <div className="text-gray-600 truncate">{property?.assignedTo?.email || "—"}</div>
 
                               {property?.assignedTo?.phone && <span className="ml-1"> {property.assignedTo.phone}</span>}
                             </div>
@@ -2137,55 +2136,55 @@ const PropertySuggestionModal: React.FC<Props> = ({ isOpen, onClose, buyer, sear
 
                         {/* Action Buttons */}
                         <div className="flex flex-wrap items-center gap-1 mt-1.5 pt-1" style={{ borderTop: `1px solid ${BD}` }}>
-  <button
-    onClick={() => handleScheduleVisit(property)}
-    disabled={property.status === "sold"}
-    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium text-white transition-all hover:opacity-80 disabled:opacity-40"
-    style={{ background: O }}
-  >
-    <Calendar size={8} /> Visit
-  </button>
-  <button
-    onClick={() => handleSaveToShortlist(property)}
-    disabled={property.status === "sold"}
-    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80 disabled:opacity-40"
-    style={{ background: `${O}10`, color: O }}
-  >
-    <Heart size={8} /> Shortlist
-  </button>
-  {property?.assignedTo?.phone && (
-    <button
-      onClick={() => handleContactExecutive(property)}
-      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium text-white transition-all hover:opacity-80"
-      style={{ background: '#25D366' }}
-    >
-      <MessageCircle size={8} /> WhatsApp
-    </button>
-  )}
-  <button
-    onClick={() => handleRequestMoreInfo(property)}
-    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
-    style={{ background: `${O}10`, color: O }}
-  >
-    <ShareIcon size={8} /> More Info
-  </button>
-  <button
-    onClick={() => openShareFor(property)}
-    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
-    style={{ background: `${O}10`, color: O }}
-  >
-    <ShareIcon size={8} /> Share
-  </button>
-  <a
-    href={property.publicUrl}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
-    style={{ background: BG, color: N }}
-  >
-    <ExternalLink size={8} /> View Website
-  </a>
-</div>
+                          <button
+                            onClick={() => handleScheduleVisit(property)}
+                            disabled={property.status === "sold"}
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium text-white transition-all hover:opacity-80 disabled:opacity-40"
+                            style={{ background: O }}
+                          >
+                            <Calendar size={8} /> Visit
+                          </button>
+                          <button
+                            onClick={() => handleSaveToShortlist(property)}
+                            disabled={property.status === "sold"}
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80 disabled:opacity-40"
+                            style={{ background: `${O}10`, color: O }}
+                          >
+                            <Heart size={8} /> Shortlist
+                          </button>
+                          {property?.assignedTo?.phone && (
+                            <button
+                              onClick={() => handleContactExecutive(property)}
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium text-white transition-all hover:opacity-80"
+                              style={{ background: '#25D366' }}
+                            >
+                              <MessageCircle size={8} /> WhatsApp
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRequestMoreInfo(property)}
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
+                            style={{ background: `${O}10`, color: O }}
+                          >
+                            <ShareIcon size={8} /> More Info
+                          </button>
+                          <button
+                            onClick={() => openShareFor(property)}
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
+                            style={{ background: `${O}10`, color: O }}
+                          >
+                            <ShareIcon size={8} /> Share
+                          </button>
+                          <a
+                            href={property.publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[7px] font-medium transition-all hover:opacity-80"
+                            style={{ background: BG, color: N }}
+                          >
+                            <ExternalLink size={8} /> View Website
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>

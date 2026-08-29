@@ -426,10 +426,10 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
           row.assignedTo ||
           (row.executive_name || row.executive_email || row.executive_phone
             ? {
-                name: row.executive_name || null,
-                email: row.executive_email || null,
-                phone: row.executive_phone || null,
-              }
+              name: row.executive_name || null,
+              email: row.executive_email || null,
+              phone: row.executive_phone || null,
+            }
             : null);
 
         const status: AvailabilityStatus = normalizeAvailabilityStatus(row);
@@ -526,7 +526,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
         rentalYield,
         appreciationRate:
           investmentPotential === "very_high" ? "10-15%" :
-          investmentPotential === "high"      ? "8-12%"  : "6-9%",
+            investmentPotential === "high" ? "8-12%" : "6-9%",
         raw: p,
         tags: tagsByPropertyId[String(p.id)] || [],
         assignedTo: p.assignedTo || null,
@@ -563,16 +563,16 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
 
     const searchFiltered = searchTerm
       ? byTab.filter((property: any) => {
-          const searchLower = searchTerm.toLowerCase();
-          return (
-            property.title?.toLowerCase().includes(searchLower) ||
-            property.address?.toLowerCase().includes(searchLower) ||
-            property.propertyType?.toLowerCase().includes(searchLower) ||
-            property.unitType?.toLowerCase().includes(searchLower) ||
-            property.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower)) ||
-            property.status?.toLowerCase().includes(searchLower)
-          );
-        })
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          property.title?.toLowerCase().includes(searchLower) ||
+          property.address?.toLowerCase().includes(searchLower) ||
+          property.propertyType?.toLowerCase().includes(searchLower) ||
+          property.unitType?.toLowerCase().includes(searchLower) ||
+          property.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower)) ||
+          property.status?.toLowerCase().includes(searchLower)
+        );
+      })
       : byTab;
 
     return searchFiltered.sort((a, b) => (b.matchScore - a.matchScore) || ((a.price || 0) - (b.price || 0)));
@@ -656,7 +656,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4" style={{ background: 'rgba(15,43,61,0.6)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-        
+
         {/* Header */}
         <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between" style={{ background: N }}>
           <div className="flex items-center gap-2">
@@ -675,7 +675,7 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4" style={{ scrollbarWidth: 'thin' }}>
-          
+
           {/* Buyer Requirements */}
           <div className="rounded-lg p-2.5 mb-3" style={{ background: `${O}5`, border: `1px solid ${O}20` }}>
             <h3 className="text-[8px] font-semibold mb-1.5" style={{ color: O }}>BUYER REQUIREMENTS</h3>
@@ -712,11 +712,10 @@ const PropertyMatchModal: React.FC<PropertyMatchModalProps> = ({ isOpen, onClose
                 <button
                   key={filter.id}
                   onClick={() => setFilterType(filter.id as any)}
-                  className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium transition-all ${
-                    filterType === (filter.id as any)
+                  className={`px-1.5 py-0.5 rounded-full text-[8px] font-medium transition-all ${filterType === (filter.id as any)
                       ? "text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                    }`}
                   style={filterType === (filter.id as any) ? { background: O } : {}}
                 >
                   {filter.label}

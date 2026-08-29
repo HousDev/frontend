@@ -48,12 +48,21 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   BedDouble, Bath, Ruler, IndianRupee, Grid,
   Bed,
   ArrowRight,
   Building2,
   ShieldCheck,
-  FileText
+  FileText,
+  GraduationCap,
+  Stethoscope,
+  Train,
+  ShoppingBag,
+  Utensils,
+  Compass,
+  Navigation
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -69,6 +78,7 @@ import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 import PropertyDescriptionSmart from './PropertyDescriptionSmart';
 import PublicSimilarProperties from './PublicSimilarProperties';
+import { fetchLiveNearbyPlaces, classifyPlaceCategory, NearbyPlaceItem } from '@/lib/nearbyPlacesAPI';
 // NEW
 import { useAuth } from '@/contexts/AuthContext';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
@@ -158,19 +168,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
   const [interestRate, setInterestRate] = useState<number>(8.5); // Default 8.5%
   const [tenureYears, setTenureYears] = useState<number>(30); // Default 20 years
 
-const getGalleryPhotos = () => {
-  if (!property) return [];
-  const all = property.mediaItems || [];
-  if (galleryFilter === 'all') return all;
-  return all.filter((m: any) => galleryFilter === 'image' ? m.type !== 'video' : m.type === 'video');
-};
+  const getGalleryPhotos = () => {
+    if (!property) return [];
+    const all = property.mediaItems || [];
+    if (galleryFilter === 'all') return all;
+    return all.filter((m: any) => galleryFilter === 'image' ? m.type !== 'video' : m.type === 'video');
+  };
   // NEW: auth
   const { currentUser, user } = useAuth() as any;
 
   const isRental = isRentalProp || Boolean(
-    property?.monthly_rent || 
-    property?.expected_rent || 
-    (property?.listing_type && String(property.listing_type).toLowerCase() === 'rent') || 
+    property?.monthly_rent ||
+    property?.expected_rent ||
+    (property?.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
     (property?.transaction_type && String(property.transaction_type).toLowerCase() === 'rent') ||
     (property?.purpose && String(property.purpose).toLowerCase() === 'rent') ||
     (property?.raw?.purpose && String(property.raw.purpose).toLowerCase() === 'rent') ||
@@ -623,19 +633,19 @@ const getGalleryPhotos = () => {
 
 
   const openWhatsAppFromGallery = (e?: React.MouseEvent) => {
-  if (e) { e.stopPropagation(); e.preventDefault(); }
-  const phone = getexecutiveToPhone().replace(/\D/g, '');
-  if (!phone) return;
-  const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
-  const title = property?.title || [property?.unitType, property?.type].filter(Boolean).join(' ') || 'a property';
-  const loc = property?.locationNormalized || property?.location || property?.city || 'your listed property location';
-  const priceValue = Number(property?.price || 0);
-  const priceText = !isNaN(priceValue) ? `₹${priceValue.toLocaleString('en-IN')}` : 'Price on request';
-  const slugValue = property?.slug || property?.raw?.slug || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
-  const link = `${window.location.origin}/properties/${encodeURIComponent(String(slugValue))}`;
-  const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
-  window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-};
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    const phone = getexecutiveToPhone().replace(/\D/g, '');
+    if (!phone) return;
+    const cc = phone.startsWith('91') || phone.length > 10 ? '' : '91';
+    const title = property?.title || [property?.unitType, property?.type].filter(Boolean).join(' ') || 'a property';
+    const loc = property?.locationNormalized || property?.location || property?.city || 'your listed property location';
+    const priceValue = Number(property?.price || 0);
+    const priceText = !isNaN(priceValue) ? `₹${priceValue.toLocaleString('en-IN')}` : 'Price on request';
+    const slugValue = property?.slug || property?.raw?.slug || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
+    const link = `${window.location.origin}/properties/${encodeURIComponent(String(slugValue))}`;
+    const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+    window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
 
   // Normalize amenities into array
   const normalizeAmenities = (p: RawProperty): string[] => {
@@ -648,7 +658,7 @@ const getGalleryPhotos = () => {
     return [];
   };
 
-  
+
 
   // put above PropertyTags (same place where old extractLocalityCity lived)
   const isPin = (s: string) => /^\d{5,6}$/.test((s || "").replace(/\s+/g, ""));
@@ -799,28 +809,28 @@ const getGalleryPhotos = () => {
       return Number.isFinite(n) && n > 0 ? n : acc;
     }, undefined);
 
- // ✅ FIX: 'photos' ko pehle check karo (same priority jo HomePage/PublicPropertiesPage/dashboard
-  // sab jagah use karte hain). Pehle 'images' pehle check hota tha jo kabhi-kabhi alag/stale order
-  // wala hota tha aur carousel + gallery modal (dono isi array se data lete hain) card se mismatch
-  // dikhate the.
-  const rawMediaList: any[] = Array.isArray(p?.photos) ? p.photos
-  : Array.isArray(p?.photoUrls) ? p.photoUrls
-    : Array.isArray(p?.images) ? p.images
-      : Array.isArray(p?.media) ? p.media : [];
-
-      
-// object {url,label,type} aur plain string dono handle karo
-const mediaItems = rawMediaList.map((m: any) => {
-  const rawUrl = typeof m === 'string' ? m : (m?.url ?? '');
-  const resolvedUrl = getImageUrl(rawUrl) || rawUrl;
-  if (typeof m === 'string') {
-    return { url: resolvedUrl, type: /\.(mp4|mov|webm|mkv)$/i.test(m) ? 'video' : 'image' };
-  }
-  return { url: resolvedUrl, type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
-}).filter((m: any) => m.url);
+    // ✅ FIX: 'photos' ko pehle check karo (same priority jo HomePage/PublicPropertiesPage/dashboard
+    // sab jagah use karte hain). Pehle 'images' pehle check hota tha jo kabhi-kabhi alag/stale order
+    // wala hota tha aur carousel + gallery modal (dono isi array se data lete hain) card se mismatch
+    // dikhate the.
+    const rawMediaList: any[] = Array.isArray(p?.photos) ? p.photos
+      : Array.isArray(p?.photoUrls) ? p.photoUrls
+        : Array.isArray(p?.images) ? p.images
+          : Array.isArray(p?.media) ? p.media : [];
 
 
-const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
+    // object {url,label,type} aur plain string dono handle karo
+    const mediaItems = rawMediaList.map((m: any) => {
+      const rawUrl = typeof m === 'string' ? m : (m?.url ?? '');
+      const resolvedUrl = getImageUrl(rawUrl) || rawUrl;
+      if (typeof m === 'string') {
+        return { url: resolvedUrl, type: /\.(mp4|mov|webm|mkv)$/i.test(m) ? 'video' : 'image' };
+      }
+      return { url: resolvedUrl, type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
+    }).filter((m: any) => m.url);
+
+
+    const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
 
     // const rawLocation = p?.location ?? p?.address ?? p?.place ?? p?.locality ?? p;
     const rawLocation =
@@ -901,7 +911,10 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
           p?.display_lat ??
           p?.lat ??
           p?.latitude ??
+          p?.society?.latitude ??
+          p?.society?.lat ??
           p?.raw?.lat ??
+          p?.raw?.latitude ??
           NaN),
 
       lng_display:
@@ -909,7 +922,10 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
           p?.display_lng ??
           p?.lng ??
           p?.longitude ??
+          p?.society?.longitude ??
+          p?.society?.lng ??
           p?.raw?.lng ??
+          p?.raw?.longitude ??
           NaN),
 
 
@@ -922,7 +938,7 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
       amenities: normalizeAmenities(p),
       images: images.length ? images : undefined,
       photos: images.length ? images : undefined,
-      mediaItems: mediaItems.length ? mediaItems : undefined, 
+      mediaItems: mediaItems.length ? mediaItems : undefined,
       description: p?.description ?? p?.desc ?? p?.about ?? '',
       verified: Boolean(p?.verified ?? p?.is_verified ?? p?.isVerified),
       featured: Boolean(p?.featured ?? p?.is_featured ?? p?.isFeatured),
@@ -970,10 +986,14 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
       furnishingItems: Array.isArray(p?.furnishingItems) ? p.furnishingItems
         : Array.isArray(p?.furnishing_items) ? p.furnishing_items
           : [],
-      nearby_places: Array.isArray(p?.nearby_places) ? p.nearby_places
-        : Array.isArray(p?.nearbyPlaces) ? p.nearbyPlaces
-          : Array.isArray(p?.nearby) ? p.nearby
-            : [],
+      nearby_places: (() => {
+        const raw = p?.nearby_places ?? p?.nearbyPlaces ?? p?.nearby;
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+          try { return JSON.parse(raw); } catch (e) { }
+        }
+        return [];
+      })(),
       // ✅ ADD BALCONY FIELD HERE
       balcony: p?.balcony ?? p?.balconies ?? p?.balcony_count ?? '',
     };
@@ -1040,6 +1060,48 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
     }
   }, [property]);
 
+  // Dynamic Nearby Places State & Real-Time Coordinates Query
+  const [nearbyCategory, setNearbyCategory] = useState<string>('all');
+  const [showAllPlaces, setShowAllPlaces] = useState<boolean>(false);
+  const [livePlaces, setLivePlaces] = useState<NearbyPlaceItem[]>([]);
+  const [livePlacesLoading, setLivePlacesLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!property) return;
+    const lat = property.latitude ?? property.lat ?? property.lat_display ?? property.location_lat ?? property.raw?.lat ?? property.raw?.latitude ?? property.raw?.society?.latitude ?? property.raw?.society?.lat;
+    const lng = property.longitude ?? property.lng ?? property.lng_display ?? property.location_lng ?? property.raw?.lng ?? property.raw?.longitude ?? property.raw?.society?.longitude ?? property.raw?.society?.lng;
+    const propId = property.id ?? property.property_id ?? property.raw?.id;
+
+    const parts = [
+      property.society || property.society_name,
+      property.locality || property.location_name || property.location,
+      property.city || property.city_name,
+      property.state,
+      property.pincode
+    ].filter(p => p && typeof p === 'string' && !p.includes('[object') && p.trim() !== '');
+
+    const uniqueParts: string[] = [];
+    parts.forEach(part => {
+      const clean = part.trim();
+      if (!uniqueParts.some(u => u.toLowerCase() === clean.toLowerCase())) {
+        uniqueParts.push(clean);
+      }
+    });
+
+    let locName = uniqueParts.join(', ');
+    if (!locName && typeof property.location === 'string' && property.location.trim()) {
+      locName = property.location.trim();
+    }
+
+    setLivePlacesLoading(true);
+    fetchLiveNearbyPlaces(Number(lat) || 0, Number(lng) || 0, locName, 3500, propId)
+      .then(places => {
+        setLivePlaces(Array.isArray(places) ? places : []);
+      })
+      .catch(err => console.warn('Failed to fetch live nearby places:', err))
+      .finally(() => setLivePlacesLoading(false));
+  }, [property]);
+
   // Canonical redirect for rentals accessed via property route
   useEffect(() => {
     if (isRental && !isRentalProp && slug) {
@@ -1100,7 +1162,7 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
     if (hasRecordedViewRef.current[instanceKey]) {
       try {
         if (propertyId) {
-          const resp = await viewsAPI.getByProperty(propertyId, false);
+          const resp = await viewsAPI.getByProperty(propertyId, false, slugId);
           if (resp?.success && resp?.total_views !== undefined) {
             setProperty((prev: any) => {
               if (!prev) return prev;
@@ -1134,7 +1196,7 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
             hasRecordedViewRef.current[instanceKey] = true;
             try {
               if (propertyId) {
-                const resp = await viewsAPI.getByProperty(propertyId, false);
+                const resp = await viewsAPI.getByProperty(propertyId, false, slugId);
                 if (resp?.success && resp?.total_views !== undefined) {
                   setProperty((prev: any) => {
                     if (!prev) return prev;
@@ -1169,7 +1231,7 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
 
     try {
       if (propertyId) {
-        const resp = await viewsAPI.getByProperty(propertyId, false);
+        const resp = await viewsAPI.getByProperty(propertyId, false, slugId);
         if (resp?.success && resp?.total_views !== undefined) {
           setProperty((prev: any) => {
             if (!prev) return prev;
@@ -1288,15 +1350,15 @@ const images: string[] = mediaItems.map((m: any) => m.url); // backward compatib
     );
   }
 
-const imageOnlyMediaItems = (property?.mediaItems || []).filter((m: any) => m.type !== 'video');
+  const imageOnlyMediaItems = (property?.mediaItems || []).filter((m: any) => m.type !== 'video');
 
-const images: string[] = imageOnlyMediaItems.length
+  const images: string[] = imageOnlyMediaItems.length
     ? imageOnlyMediaItems.map((m: any) => m.url)
     : [
-        'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg',
-        'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg',
-        'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg'
-      ];
+      'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg',
+      'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg',
+      'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg'
+    ];
 
   const unitType = property?.unitType ?? '';
   const subtype = property?.subtype ?? '';
@@ -1371,7 +1433,7 @@ const images: string[] = imageOnlyMediaItems.length
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header (hidden on mobile) */}
-     {/* Header (hidden on mobile) */}
+      {/* Header (hidden on mobile) */}
       {!showPhotoGallery && (
         <div
           className=" bg-white shadow-sm border-b pt-20 sticky top-0 z-40 mb-1"
@@ -1395,55 +1457,55 @@ const images: string[] = imageOnlyMediaItems.length
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Main Content */}
-<div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6 flex flex-col">            {/* Image Carousel - Responsive */}
-<div
-onClick={() => {
-  const currentMedia = imageOnlyMediaItems[currentImageIndex];
-  const fullList = property.mediaItems || [];
-  const idx = fullList.findIndex((m: any) => m.url === currentMedia?.url);
-  setPhotoGalleryStartIndex(idx >= 0 ? idx : 0);
-  setGalleryFilter('all');
-  setShowPhotoGallery(true);
-}}  className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group cursor-pointer"
->
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5 lg:space-y-6 flex flex-col">            {/* Image Carousel - Responsive */}
+            <div
+              onClick={() => {
+                const currentMedia = imageOnlyMediaItems[currentImageIndex];
+                const fullList = property.mediaItems || [];
+                const idx = fullList.findIndex((m: any) => m.url === currentMedia?.url);
+                setPhotoGalleryStartIndex(idx >= 0 ? idx : 0);
+                setGalleryFilter('all');
+                setShowPhotoGallery(true);
+              }} className="relative w-full h-72 sm:h-80 md:h-[420px] lg:h-[520px] bg-gray-900 overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl ring-1 ring-black/10 group cursor-pointer"
+            >
               {(() => {
-const currentMedia = imageOnlyMediaItems[currentImageIndex];
-const isVideo = false; // ab yahan kabhi video nahi aayegi
-const currentUrl = images[currentImageIndex];
+                const currentMedia = imageOnlyMediaItems[currentImageIndex];
+                const isVideo = false; // ab yahan kabhi video nahi aayegi
+                const currentUrl = images[currentImageIndex];
 
-return (
-  <img
-    src={currentUrl}
-    alt={property?.title || "Property Image"}
-    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
-    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
-  />
-);
+                return (
+                  <img
+                    src={currentUrl}
+                    alt={property?.title || "Property Image"}
+                    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+                    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
+                  />
+                );
 
-  if (isVideo) {
-    const yt = currentUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    return yt ? (
-      <iframe
-        src={`https://www.youtube.com/embed/${yt[1]}`}
-        className="w-full h-full"
-        frameBorder="0"
-        allow="autoplay; encrypted-media"
-      />
-    ) : (
-      <video src={currentUrl} className="w-full h-full object-cover" controls muted />
-    );
-  }
+                if (isVideo) {
+                  const yt = currentUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                  return yt ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${yt[1]}`}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="autoplay; encrypted-media"
+                    />
+                  ) : (
+                    <video src={currentUrl} className="w-full h-full object-cover" controls muted />
+                  );
+                }
 
- return (
-  <img
-    src={currentUrl}
-    alt={property?.title || "Property Image"}
-    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
-    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
-  />
-);
-})()}
-<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
+                return (
+                  <img
+                    src={currentUrl}
+                    alt={property?.title || "Property Image"}
+                    onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
+                    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
+                  />
+                );
+              })()}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
 
               {/* Watermark Overlay */}
               <div className="absolute inset-0 pointer-events-none select-none z-10">
@@ -1479,31 +1541,31 @@ return (
                 </div>
               </div>
               <div className="absolute top-14 left-2 z-20 block sm:hidden">
-  <PropertyTags tags={propertyTags} />
-</div>
+                <PropertyTags tags={propertyTags} />
+              </div>
 
 
 
-           {/* Property Tags + Image Label */}
-{/* Property Tags + Image Label */}
-<div className="absolute top-0 left-4 right-4 flex items-center justify-between">
-  {/* Left - Image Label */}
-  {imageOnlyMediaItems[currentImageIndex]?.label && (
-    <div className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-gray-700 px-2 py-0   mt-0 mb-2 text-sm rounded-sm shadow-lg ring-1 ring-white/20">
-      {imageOnlyMediaItems[currentImageIndex].label}
-    </div>
-  )}
+              {/* Property Tags + Image Label */}
+              {/* Property Tags + Image Label */}
+              <div className="absolute top-0 left-4 right-4 flex items-center justify-between">
+                {/* Left - Image Label */}
+                {imageOnlyMediaItems[currentImageIndex]?.label && (
+                  <div className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-gray-700 px-2 py-0   mt-0 mb-2 text-sm rounded-sm shadow-lg ring-1 ring-white/20">
+                    {imageOnlyMediaItems[currentImageIndex].label}
+                  </div>
+                )}
 
-  {/* Right - Property Tags */}
-  <div className="hidden sm:block ml-auto">
-    <PropertyTags tags={propertyTags} />
-  </div>
-</div>
+                {/* Right - Property Tags */}
+                <div className="hidden sm:block ml-auto">
+                  <PropertyTags tags={propertyTags} />
+                </div>
+              </div>
 
               {/* Top-Right Action Buttons - Responsive */}
               <div className="absolute top-2 sm:top-3 md:top-8 right-2 sm:right-3 md:right-4 z-20 flex flex-col space-y-1.5 sm:space-y-2">
                 <button
-onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+                  onClick={(e) => { e.stopPropagation(); setOpen(true); }}
                   className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-white/70 hover:bg-white/80 backdrop-blur-md text-white  shadow-lg ring-1 ring-black/10 hover:bg-white hover:scale-110 hover:shadow-xl transition-all duration-200"
                   aria-label="Share property"
                 >
@@ -1525,19 +1587,19 @@ onClick={(e) => { e.stopPropagation(); setOpen(true); }}
 
               </div>
               {/* Bottom-Left Price - Responsive */}
-<div className="absolute bottom-3 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">               
-   <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
+              <div className="absolute bottom-3 sm:bottom-10 md:bottom-12 left-2 sm:left-3 md:left-4 z-20 w-[90%]">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 md:gap-5 items-start sm:items-center">
                   <div className="flex flex-col text-left">
-<div className="text-base sm:text-2xl md:text-3xl font-bold text-white leading-tight">                      
-  {formatCurrency(property?.price)}{isRental ? ' / mo' : ''}
-</div>
-<div className="text-[10px] sm:text-sm md:text-base text-white mt-0 sm:mt-1 font-medium">                   
-  {isRental ? `Deposit: ₹${(property.raw?.security_deposit ?? property.raw?.deposit ?? (property.price * 3))?.toLocaleString('en-IN')}` : (pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - ')}
-</div>
+                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-white leading-tight">
+                      {formatCurrency(property?.price)}{isRental ? ' / mo' : ''}
+                    </div>
+                    <div className="text-[10px] sm:text-sm md:text-base text-white mt-0 sm:mt-1 font-medium">
+                      {isRental ? `Deposit: ₹${(property.raw?.security_deposit ?? property.raw?.deposit ?? (property.price * 3))?.toLocaleString('en-IN')}` : (pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ' - ')}
+                    </div>
                   </div>
 
                   <div className="flex flex-col items-left">
-<span className="text-xs sm:text-sm md:text-base text-white">                      Carpet Area
+                    <span className="text-xs sm:text-sm md:text-base text-white">                      Carpet Area
                     </span>
                     <span className="text-xs sm:text-sm md:text-base text-white">
                       {displayOrDash(property?.square_feet)} sq ft
@@ -1550,7 +1612,7 @@ onClick={(e) => { e.stopPropagation(); setOpen(true); }}
               {images.length > 1 && (
                 <>
                   <button
-onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p - 1 + images.length) % images.length); }}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p - 1 + images.length) % images.length); }}
                     className="absolute left-2 sm:left-3 md:left-4 top-1/2 -translate-y-1/2
                     bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
@@ -1558,7 +1620,7 @@ onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p - 1 + imag
                     <ChevronLeft size={12} className="sm:w-4 sm:h-4" />
                   </button>
                   <button
-onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p + 1) % images.length); }}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p + 1) % images.length); }}
                     className="absolute right-2 sm:right-3 md:right-4 top-1/2 -translate-y-1/2
                     bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-2 sm:p-2.5 md:p-3 rounded-full z-20 
                     transition-all duration-200 shadow-xl ring-1 ring-white/30 hover:scale-110"
@@ -1570,90 +1632,90 @@ onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p + 1) % ima
 
 
 
-{/* Image Counter - Responsive */}
-<div className="absolute bottom-3 sm:bottom-4 right-2 sm:right-3 md:right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs shadow-lg ring-1 ring-white/20">
-  {currentImageIndex + 1} / {images.length}
-</div>
+              {/* Image Counter - Responsive */}
+              <div className="absolute bottom-3 sm:bottom-4 right-2 sm:right-3 md:right-4 z-20 bg-gradient-to-r from-slate-900/70 to-black/60 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs shadow-lg ring-1 ring-white/20">
+                {currentImageIndex + 1} / {images.length}
+              </div>
 
               {/* Dot Indicators - Responsive */}
               {images.length > 1 && images.length <= 8 && (
-<div className="absolute bottom-2 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">                  {images.map((_, idx) => (
-                    <button
-                      key={idx}
-onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
-                      className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
-                        ? "bg-white w-6 sm:w-8 shadow-lg"
-                        : "bg-white/50 hover:bg-white/75"
-                        }`}
-                    />
-                  ))}
+                <div className="absolute bottom-2 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 sm:space-x-2">                  {images.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                    className={`w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 rounded-full transition-all duration-300 ${idx === currentImageIndex
+                      ? "bg-white w-6 sm:w-8 shadow-lg"
+                      : "bg-white/50 hover:bg-white/75"
+                      }`}
+                  />
+                ))}
                 </div>
               )}
 
               {/* View Options Buttons - Responsive */}
               <div className="absolute bottom-14 sm:bottom-16 right-2 sm:right-3 md:right-4 z-20 flex flex-col sm:flex-row space-y-1.5 sm:space-y-0 sm:space-x-1.5">
- <button
-   onClick={(e) => {
-  e.stopPropagation(); // ✅ FIX: parent hero-carousel div ke onClick tak bubble hone se roko
-  e.preventDefault();
-  const imageList = property.mediaItems?.filter((m: any) => m.type !== 'video') || [];
-  if (imageList.length === 0) {
-    toast.info('No images available');
-    return;
-  }
-  const start = Math.min(currentImageIndex, imageList.length - 1);
-  setPhotoGalleryStartIndex(start);
-  setGalleryFilter('image');
-  setShowPhotoGallery(true);
-}}
-    className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
-  >
-    <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
-    <span className="hidden xs:inline">Photos</span>
-  </button>
-{showPhotoGallery && (
-  <PropertyGalleryPage
-  key={galleryFilter} 
-photos={getGalleryPhotos()}
-    title={[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ')}
-    price={formatCurrency(property?.price)}
-    pricePerSqft={pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ''}
-    initialIndex={photoGalleryStartIndex}
-    liked={liked}
-    onToggleSave={handleSaveClick}
-    executive={property?.executiveTo}
-    onClose={() => setShowPhotoGallery(false)}
-    onCall={callexecutiveTo}
-    onWhatsapp={openWhatsAppFromGallery}
-    onMessage={() => setShowContactForm(true)}
-    onSchedule={() => setShowContactForm(true)}
-  />
-)}
-<button
-onClick={(e) => {
-  e.stopPropagation(); // ✅ FIX: yahi bubbling issue tha, isse video filter bhi override ho jaata tha
-  e.preventDefault();
-  const videoList = property.mediaItems?.filter((m: any) => m.type === 'video') || [];
-  if (videoList.length === 0) {
-    toast.info('No videos available');
-    return;
-  }
-  setPhotoGalleryStartIndex(0);
-  setGalleryFilter('video');
-  setShowPhotoGallery(true);
-}}  className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
->
-  <Video size={12} className="sm:w-3.5 sm:h-3.5" />
-  <span className="hidden xs:inline">Tour</span>
-</button>
-</div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // ✅ FIX: parent hero-carousel div ke onClick tak bubble hone se roko
+                    e.preventDefault();
+                    const imageList = property.mediaItems?.filter((m: any) => m.type !== 'video') || [];
+                    if (imageList.length === 0) {
+                      toast.info('No images available');
+                      return;
+                    }
+                    const start = Math.min(currentImageIndex, imageList.length - 1);
+                    setPhotoGalleryStartIndex(start);
+                    setGalleryFilter('image');
+                    setShowPhotoGallery(true);
+                  }}
+                  className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
+                >
+                  <Camera size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">Photos</span>
+                </button>
+                {showPhotoGallery && (
+                  <PropertyGalleryPage
+                    key={galleryFilter}
+                    photos={getGalleryPhotos()}
+                    title={[property?.type, property?.unitType, property?.subtype].filter(Boolean).join(' ')}
+                    price={formatCurrency(property?.price)}
+                    pricePerSqft={pricePerSqFt ? `₹${pricePerSqFt.toLocaleString('en-IN')}/sq ft` : ''}
+                    initialIndex={photoGalleryStartIndex}
+                    liked={liked}
+                    onToggleSave={handleSaveClick}
+                    executive={property?.executiveTo}
+                    onClose={() => setShowPhotoGallery(false)}
+                    onCall={callexecutiveTo}
+                    onWhatsapp={openWhatsAppFromGallery}
+                    onMessage={() => setShowContactForm(true)}
+                    onSchedule={() => setShowContactForm(true)}
+                  />
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // ✅ FIX: yahi bubbling issue tha, isse video filter bhi override ho jaata tha
+                    e.preventDefault();
+                    const videoList = property.mediaItems?.filter((m: any) => m.type === 'video') || [];
+                    if (videoList.length === 0) {
+                      toast.info('No videos available');
+                      return;
+                    }
+                    setPhotoGalleryStartIndex(0);
+                    setGalleryFilter('video');
+                    setShowPhotoGallery(true);
+                  }} className="bg-white/70 hover:bg-white/80 backdrop-blur-md text-black px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl flex items-center gap-1 hover:bg-white hover:scale-105 transition-all duration-200 text-[10px] sm:text-xs font-semibold shadow-xl border border-white/60"
+                >
+                  <Video size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">Tour</span>
+                </button>
+              </div>
             </div>
 
             {/* Property Details Section - Responsive */}
             <div >
-              
 
-             
+
+
               <div className="bg-white  backdrop-blur rounded-xl sm:rounded-2xl border  shadow-sm -mt-3 p-2 sm:p-3 mb-1 sm:mb-2">
                 <PropertyDescriptionSmart
                   description={property?.description}
@@ -1662,322 +1724,489 @@ onClick={(e) => {
               </div>
 
               {/* Property Details Grid - Fully Responsive */}
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm mb-2">
-  <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
-    <h3 className="font-bold text-black text-lg sm:text-xl mb-3 sm:mb-4">
-      Property Details
-    </h3>
-  </div>
+              <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm mb-2">
+                <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4">
+                  <h3 className="font-bold text-black text-lg sm:text-xl mb-3 sm:mb-4">
+                    Property Details
+                  </h3>
+                </div>
 
-  <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
-    <div className="grid grid-cols-1 sm:grid-cols-2">
-      {(isRental ? [
-        { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: property.raw?.property_type || property.raw?.property_type_name || 'Apartment' },
-        { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
-        { icon: <Ruler size={16} className="text-gray-400" />, label: "Built-up Area", value: property.raw?.builtup_area ? `${property.raw.builtup_area} Sq.ft.` : (property.square_feet ? `${property.square_feet} Sq.ft.` : '-') },
-        { icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: property.raw?.carpet_area ? `${property.raw.carpet_area} Sq.ft.` : '-' },
-        { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Monthly Rent", value: property.monthly_rent || property.price ? `₹${(property.monthly_rent || property.price).toLocaleString('en-IN')}/mo` : '-' },
-        { icon: <Lock size={16} className="text-gray-400" />, label: "Security Deposit", value: property.raw?.security_deposit || property.raw?.deposit ? `₹${(property.raw.security_deposit || property.raw.deposit).toLocaleString('en-IN')}` : '-' },
-        { icon: <ShieldCheck size={16} className="text-gray-400" />, label: "Maintenance", value: property.raw?.maintenance_charge || 'Included' },
-        { icon: <Users size={16} className="text-gray-400" />, label: "Preferred Tenant", value: property.raw?.preferred_tenants || property.raw?.preferredTenant || 'Family / Bachelors' },
-        { icon: <Calendar size={16} className="text-gray-400" />, label: "Available From", value: formatAvailableFromDate(property.raw?.available_from || property.raw?.availableFrom) },
-        { icon: <FileText size={16} className="text-gray-400" />, label: "Lease Duration", value: property.raw?.agreement_duration || property.raw?.agreementDuration || '11 Months' },
-      ] : [
-        { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: displayOrDash(property?.type) },
-        { icon: <Home size={16} className="text-gray-400" />, label: "Unit Type", value: displayOrDash(property?.unitType) },
-        { icon: <Grid size={16} className="text-gray-400" />, label: "Subtype", value: displayOrDash(property?.subtype) },
-        { icon: <Car size={16} className="text-gray-400" />, label: "Parking Type", value: displayOrDash(property?.parkingType) },
-        { icon: <Building2 size={16} className="text-gray-400" />, label: "Floor", value: property?.floor && property?.totalFloors ? `${property.floor}st Floor / ${property.totalFloors}th Floor` : displayOrDash(property?.floor) },
-        ...(property?.square_feet ? [{ icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: `${displayOrDash(property.square_feet)} Sq.ft.` }] : []),
-        { icon: <CheckCircle size={16} className="text-gray-400" />, label: "Status", value: displayOrDash(property?.status) },
-        { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Price", value: `${formatCurrency(property?.price)} (${displayOrDash(property?.priceType)})` },
-        { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
-        ...((property?.possessionMonth || property?.possessionYear) ? [{
-          icon: <Calendar size={16} className="text-gray-400" />,
-          label: "Property Age",
-          value: [getMonthName(property?.possessionMonth), property?.possessionYear].filter(Boolean).join(' ')
-        }] : []),
-      ]).map((item, idx) => (
-        <div
-          key={idx}
-          className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100
+                <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    {(isRental ? [
+                      { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: property.raw?.property_type || property.raw?.property_type_name || 'Apartment' },
+                      { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
+                      { icon: <Ruler size={16} className="text-gray-400" />, label: "Built-up Area", value: property.raw?.builtup_area ? `${property.raw.builtup_area} Sq.ft.` : (property.square_feet ? `${property.square_feet} Sq.ft.` : '-') },
+                      { icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: property.raw?.carpet_area ? `${property.raw.carpet_area} Sq.ft.` : '-' },
+                      { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Monthly Rent", value: property.monthly_rent || property.price ? `₹${(property.monthly_rent || property.price).toLocaleString('en-IN')}/mo` : '-' },
+                      { icon: <Lock size={16} className="text-gray-400" />, label: "Security Deposit", value: property.raw?.security_deposit || property.raw?.deposit ? `₹${(property.raw.security_deposit || property.raw.deposit).toLocaleString('en-IN')}` : '-' },
+                      { icon: <ShieldCheck size={16} className="text-gray-400" />, label: "Maintenance", value: property.raw?.maintenance_charge || 'Included' },
+                      { icon: <Users size={16} className="text-gray-400" />, label: "Preferred Tenant", value: property.raw?.preferred_tenants || property.raw?.preferredTenant || 'Family / Bachelors' },
+                      { icon: <Calendar size={16} className="text-gray-400" />, label: "Available From", value: formatAvailableFromDate(property.raw?.available_from || property.raw?.availableFrom) },
+                      { icon: <FileText size={16} className="text-gray-400" />, label: "Lease Duration", value: property.raw?.agreement_duration || property.raw?.agreementDuration || '11 Months' },
+                    ] : [
+                      { icon: <Building size={16} className="text-gray-400" />, label: "Property Type", value: displayOrDash(property?.type) },
+                      { icon: <Home size={16} className="text-gray-400" />, label: "Unit Type", value: displayOrDash(property?.unitType) },
+                      { icon: <Grid size={16} className="text-gray-400" />, label: "Subtype", value: displayOrDash(property?.subtype) },
+                      { icon: <Car size={16} className="text-gray-400" />, label: "Parking Type", value: displayOrDash(property?.parkingType) },
+                      { icon: <Building2 size={16} className="text-gray-400" />, label: "Floor", value: property?.floor && property?.totalFloors ? `${property.floor}st Floor / ${property.totalFloors}th Floor` : displayOrDash(property?.floor) },
+                      ...(property?.square_feet ? [{ icon: <Ruler size={16} className="text-gray-400" />, label: "Carpet Area", value: `${displayOrDash(property.square_feet)} Sq.ft.` }] : []),
+                      { icon: <CheckCircle size={16} className="text-gray-400" />, label: "Status", value: displayOrDash(property?.status) },
+                      { icon: <IndianRupee size={16} className="text-gray-400" />, label: "Price", value: `${formatCurrency(property?.price)} (${displayOrDash(property?.priceType)})` },
+                      { icon: <Home size={16} className="text-gray-400" />, label: "Furnishing", value: displayOrDash(property?.furnishing) },
+                      ...((property?.possessionMonth || property?.possessionYear) ? [{
+                        icon: <Calendar size={16} className="text-gray-400" />,
+                        label: "Property Age",
+                        value: [getMonthName(property?.possessionMonth), property?.possessionYear].filter(Boolean).join(' ')
+                      }] : []),
+                    ]).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 px-3 py-2.5 border-b border-gray-100
             ${idx % 2 === 0 ? 'sm:border-r sm:border-gray-100' : ''}`}
-        >
-          <div className="w-7 h-7 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg shrink-0">
-            {item.icon}
-          </div>
-          <span className="text-xs text-gray-500 w-24 sm:w-28 shrink-0">
-            {item.label}
-          </span>
-          <span className="text-xs font-bold text-gray-900 break-words">
-            {item.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  </div>
-</div>
+                      >
+                        <div className="w-7 h-7 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg shrink-0">
+                          {item.icon}
+                        </div>
+                        <span className="text-xs text-gray-500 w-24 sm:w-28 shrink-0">
+                          {item.label}
+                        </span>
+                        <span className="text-xs font-bold text-gray-900 break-words">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               {/* Amenities & Furnishing - Responsive Grid */}
-           {/* Amenities & Furnishing - Responsive Grid */}
-{/* Amenities & Furnishing - Compact without scroll */}
-<div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2 sm:mt-1 mb-2">
-  {/* Amenities */}
-  <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
-    <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Amenities</h3>
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
-      {(() => {
-        let amenitiesList: string[] = [];
-        if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
-          amenitiesList = property.amenities;
-        } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
-          amenitiesList = property.raw.amenities;
-        } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
-          amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-        } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
-          amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
-        }
+              {/* Amenities & Furnishing - Responsive Grid */}
+              {/* Amenities & Furnishing - Compact without scroll */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2 sm:mt-1 mb-2">
+                {/* Amenities */}
+                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
+                  <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Amenities</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
+                    {(() => {
+                      let amenitiesList: string[] = [];
+                      if (Array.isArray(property?.amenities) && property.amenities.length > 0) {
+                        amenitiesList = property.amenities;
+                      } else if (Array.isArray(property?.raw?.amenities) && property.raw.amenities.length > 0) {
+                        amenitiesList = property.raw.amenities;
+                      } else if (typeof property?.amenities === 'string' && property.amenities.trim()) {
+                        amenitiesList = property.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      } else if (typeof property?.raw?.amenities === 'string' && property.raw.amenities.trim()) {
+                        amenitiesList = property.raw.amenities.split(',').map((s: string) => s.trim()).filter(Boolean);
+                      }
 
-        return amenitiesList.length > 0 ? (
-          amenitiesList.map((name, i) => <AmenityPill key={i} name={name} size={8} compact />)
-        ) : (
-          <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No amenities listed</span>
-        );
-      })()}
-    </div>
-  </div>
+                      return amenitiesList.length > 0 ? (
+                        amenitiesList.map((name, i) => <AmenityPill key={i} name={name} size={8} compact />)
+                      ) : (
+                        <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No amenities listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
 
-  {/* Furnishing Items */}
-  <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
-    <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Furnishing Items</h3>
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
-      {(() => {
-        let furnishingList: string[] = [];
-        if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
-          furnishingList = property.furnishingItems;
-        } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
-          furnishingList = property.raw.furnishingItems;
-        } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
-          furnishingList = property.raw.furnishing_items;
-        }
+                {/* Furnishing Items */}
+                <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2 sm:p-2.5 ring-1 ring-gray-100">
+                  <h3 className="font-semibold text-gray-900 text-[10px] sm:text-xs mb-1 sm:mb-1.5">Furnishing Items</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5">
+                    {(() => {
+                      let furnishingList: string[] = [];
+                      if (Array.isArray(property?.furnishingItems) && property.furnishingItems.length > 0) {
+                        furnishingList = property.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishingItems) && property.raw.furnishingItems.length > 0) {
+                        furnishingList = property.raw.furnishingItems;
+                      } else if (Array.isArray(property?.raw?.furnishing_items) && property.raw.furnishing_items.length > 0) {
+                        furnishingList = property.raw.furnishing_items;
+                      }
 
-        return furnishingList.length > 0 ? (
-          furnishingList.map((item: string, index: number) => (
-            <FurnishingPill key={index} name={item} size={8} compact />
-          ))
-        ) : (
-          <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No furnishing items listed</span>
-        );
-      })()}
-    </div>
-  </div>
-</div>
+                      return furnishingList.length > 0 ? (
+                        furnishingList.map((item: string, index: number) => (
+                          <FurnishingPill key={index} name={item} size={8} compact />
+                        ))
+                      ) : (
+                        <span className="text-[10px] sm:text-xs text-gray-500 col-span-full">No furnishing items listed</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
 
               {/* AI Insights Banner - Responsive */}
-<div className="bg-white rounded-xl border border-purple-100 p-3 sm:p-4">
-    <div className="flex items-center gap-2 mb-3">
-    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-      <Bot className="text-purple-600" size={14} />
-    </div>
-    <h3 className="font-medium text-gray-900 text-sm sm:text-base">AI Property Analysis</h3>
-  </div>
+              <div className="bg-white rounded-xl border border-purple-100 p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <Bot className="text-purple-600" size={14} />
+                  </div>
+                  <h3 className="font-medium text-gray-900 text-sm sm:text-base">AI Property Analysis</h3>
+                </div>
 
-  {hasSubscription || !isLoggedIn ? (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {[
-        { label: 'AI Score', value: `${displayOrDash(property?.aiScore ?? '94')}/100`, color: 'text-purple-600' },
-        { label: 'Growth', value: displayOrDash(property?.priceGrowth ?? '+12.5%'), color: 'text-green-600' },
-        { label: 'Investment', value: displayOrDash(property?.investmentGrade ?? 'A+'), color: 'text-blue-600' },
-        { label: 'ROI Potential', value: '18.2%', color: 'text-orange-600' },
-      ].map((item, i) => (
-        <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-          <span className="text-[11px] text-gray-500">{item.label}</span>
-          <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="relative">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 blur-sm pointer-events-none select-none">
-        {[
-          { label: 'AI Score', value: '••/100', color: 'text-purple-600' },
-          { label: 'Growth', value: '+••.•%', color: 'text-green-600' },
-          { label: 'Investment', value: '••', color: 'text-blue-600' },
-          { label: 'ROI Potential', value: '••.•%', color: 'text-orange-600' },
-        ].map((item, i) => (
-          <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-            <span className="text-[11px] text-gray-500">{item.label}</span>
-            <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
-          </div>
-        ))}
-      </div>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <button onClick={() => handlePaywallOpen('ai-investment')}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-md flex items-center gap-2">
-          <Lock size={13} />Unlock AI Analysis · ₹299
-        </button>
-      </div>
-    </div>
-  )}
-</div>
-<div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 mt-3 ring-gray-100">  <div className="flex items-center gap-2 mb-3">
-    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-      <Lightbulb className="text-blue-600" size={14} />
-    </div>
-    <h2 className="font-medium text-gray-900 text-sm sm:text-base">AI Recommendations</h2>
-  </div>
-
-  {hasSubscription ? (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-      {[
-        { label: 'Price Appreciation', value: '+15.2%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
-        { label: 'Market Position', value: 'Top 10%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Investment Timing', value: 'Excellent', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
-      ].map((item, i) => (
-        <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
-          <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
-          <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="relative">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 blur-md pointer-events-none select-none">
-        {[
-          { label: 'Price Appreciation', value: '+••.•%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Market Position', value: 'Top ••%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Investment Timing', value: '••••••••', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
-        ].map((item, i) => (
-          <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
-            <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
-            <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
-          </div>
-        ))}
-      </div>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="bg-white/95 border border-gray-200 rounded-xl p-4 text-center w-[85%] sm:w-64 shadow-sm -mt-6">
-          <Lock className="text-blue-600 mx-auto mb-1.5" size={16} />
-          <p className="font-medium text-gray-900 text-sm mb-1">Premium AI Insights</p>
-          <p className="text-[11px] text-gray-500 mb-3 leading-snug">Detailed recommendations &amp; market analysis</p>
-          <button onClick={() => handlePaywallOpen('ai-recommendations')}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium w-full">
-            Unlock for ₹299
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
-            </div>
-
-
-
-            {/* Location & Nearby - Responsive */}
-<div className="bg-white rounded-xl shadow-sm p-4 sm:p-2 md:p-2 ring-1 ring-gray-100 -mt-9">              {/* Header */}
-              <h2 className="font-bold text-[#0b3856] text-base sm:text-lg mb-3 flex items-center gap-2">
-                <MapPin className="text-[#E6761D] w-5 h-5" />
-                Location & Connectivity
-              </h2>
-
-              <div className="relative rounded-lg overflow-hidden mb-4 ring-1 ring-[#0b3856]/20">
-                {/* click blocker for privacy */}
-                <div className="absolute inset-0 z-10 cursor-not-allowed" />
-
-                {Number.isFinite(property?.lat_display) &&
-                  Number.isFinite(property?.lng_display) ? (
-
-                  <iframe
-                    src={getMaskedMapUrl(property.lat_display, property.lng_display)}
-                    width="100%"
-                    height="250"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
+                {hasSubscription || !isLoggedIn ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: 'AI Score', value: `${displayOrDash(property?.aiScore ?? '94')}/100`, color: 'text-purple-600' },
+                      { label: 'Growth', value: displayOrDash(property?.priceGrowth ?? '+12.5%'), color: 'text-green-600' },
+                      { label: 'Investment', value: displayOrDash(property?.investmentGrade ?? 'A+'), color: 'text-blue-600' },
+                      { label: 'ROI Potential', value: '18.2%', color: 'text-orange-600' },
+                    ].map((item, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <span className="text-[11px] text-gray-500">{item.label}</span>
+                        <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="h-[250px] flex items-center justify-center text-gray-500">
-                    Location not available
+                  <div className="relative">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 blur-sm pointer-events-none select-none">
+                      {[
+                        { label: 'AI Score', value: '••/100', color: 'text-purple-600' },
+                        { label: 'Growth', value: '+••.•%', color: 'text-green-600' },
+                        { label: 'Investment', value: '••', color: 'text-blue-600' },
+                        { label: 'ROI Potential', value: '••.•%', color: 'text-orange-600' },
+                      ].map((item, i) => (
+                        <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <span className="text-[11px] text-gray-500">{item.label}</span>
+                          <span className={`text-sm font-medium ${item.color}`}>{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <button onClick={() => handlePaywallOpen('ai-investment')}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-md flex items-center gap-2">
+                        <Lock size={13} />Unlock AI Analysis · ₹299
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                {/* Transportation */}
-                <div className="rounded-lg p-3 bg-[#0b3856]/5 ring-1 ring-[#0b3856]/20 hover:bg-[#0b3856]/10 transition-all duration-200">
-                  <h3 className="font-semibold text-[#0b3856] mb-2 flex items-center gap-1.5 text-sm">
-                    🚆 Transportation
-                  </h3>
-                  <ul className="space-y-1 text-sm text-[#0b3856] leading-tight">
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
-                      Pune Station – 0.5 km
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
-                      Airport – 8 km
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <ArrowRight className="w-3.5 h-3.5 text-[#E6761D]" />
-                      Highway Access – 1 km
-                    </li>
-                  </ul>
+              <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 ring-1 mt-3 ring-gray-100">  <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Lightbulb className="text-blue-600" size={14} />
                 </div>
+                <h2 className="font-medium text-gray-900 text-sm sm:text-base">AI Recommendations</h2>
+              </div>
 
-                {/* Essential Services */}
-                <div className="rounded-lg p-3 bg-[#E6761D]/10 ring-1 ring-[#E6761D]/20 hover:bg-[#E6761D]/20 transition-all duration-200">
-                  <h3 className="font-semibold text-[#E6761D] mb-2 flex items-center gap-1.5 text-sm">
-                    🏥 Essential Services
-                  </h3>
-                  <div className="mt-0.5 text-[12px] text-slate-800">
-                    {property.nearby_places?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {property.nearby_places.map((p: any, i: number) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-slate-700"
-                          >
-                            <li className="flex items-center gap-2" >
-                              <ArrowRight className="w-3.5 h-3.5 text-slate-700" />
-                              {p.type || ""} {p.distance ? ` – ${p.distance} ${p.unit || ""}` : ""}  {p.name || ""}
-                            </li>
-                          </span>
-                        ))}
+                {hasSubscription ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                    {[
+                      { label: 'Price Appreciation', value: '+15.2%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
+                      { label: 'Market Position', value: 'Top 10%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
+                      { label: 'Investment Timing', value: 'Excellent', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
+                    ].map((item, i) => (
+                      <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
+                        <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
+                        <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
                       </div>
-                    ) : (
-                      <span className="text-[12px] font-semibold text-slate-800/80">Not Available</span>
-                    )}
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="relative">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 blur-md pointer-events-none select-none">
+                      {[
+                        { label: 'Price Appreciation', value: '+••.•%', sub: 'Next 12 months', color: 'text-green-600', bg: 'bg-green-50' },
+                        { label: 'Market Position', value: 'Top ••%', sub: 'In this locality', color: 'text-blue-600', bg: 'bg-blue-50' },
+                        { label: 'Investment Timing', value: '••••••••', sub: 'Buy now recommended', color: 'text-orange-600', bg: 'bg-orange-50' },
+                      ].map((item, i) => (
+                        <div key={i} className={`${item.bg} rounded-lg p-3 border border-gray-100`}>
+                          <div className="text-[11px] text-gray-500 mb-1">{item.label}</div>
+                          <div className={`text-lg font-medium ${item.color}`}>{item.value}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5">{item.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-white/95 border border-gray-200 rounded-xl p-4 text-center w-[85%] sm:w-64 shadow-sm -mt-6">
+                        <Lock className="text-blue-600 mx-auto mb-1.5" size={16} />
+                        <p className="font-medium text-gray-900 text-sm mb-1">Premium AI Insights</p>
+                        <p className="text-[11px] text-gray-500 mb-3 leading-snug">Detailed recommendations &amp; market analysis</p>
+                        <button onClick={() => handlePaywallOpen('ai-recommendations')}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium w-full">
+                          Unlock for ₹299
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* CTA Button */}
-              <div className="mt-5 text-center">
-                <a
-                  href={
-                    Number.isFinite(property?.lat_display) &&
-                      Number.isFinite(property?.lng_display)
-
-                      ? `https://www.google.com/maps?q=${property.lat_display},${property.lng_display}`
-                      : "#"
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex items-center justify-center gap-2 px-5 py-2.5
-               rounded-lg text-white bg-[#E6761D] font-semibold text-sm shadow-md"
-                >
-                  View Nearby Location
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </a>
-              </div>
-
             </div>
 
+
+
+            {/* Dynamic Location & Connectivity (Ultra Modern UI + View More / Show Less Toggle) */}
+            {(() => {
+              const dbPlaces: NearbyPlaceItem[] = Array.isArray(property?.nearby_places)
+                ? (property.nearby_places
+                  .map((p: any) => {
+                    const name = p.name || p.title || p.label || 'Landmark';
+                    const type = p.type || p.category || 'Landmark';
+                    const distNum = parseFloat(String(p.distance || '1.0'));
+                    if (!Number.isFinite(distNum) || distNum > 15.0) return null;
+                    const catResult = classifyPlaceCategory(type, '', '', '', '', name);
+                    return {
+                      name,
+                      category: (p.category && ['education', 'healthcare', 'transit', 'shopping', 'dining'].includes(p.category) ? p.category : catResult.category) as any,
+                      type: catResult.typeName || type,
+                      distance: distNum.toFixed(1),
+                      unit: p.unit || 'km'
+                    };
+                  })
+                  .filter(Boolean) as NearbyPlaceItem[])
+                : [];
+
+              const combinedPlacesMap = new Map<string, NearbyPlaceItem>();
+              dbPlaces.forEach(p => combinedPlacesMap.set(p.name.toLowerCase().trim(), p));
+              livePlaces.forEach(p => {
+                const key = p.name.toLowerCase().trim();
+                if (!combinedPlacesMap.has(key)) {
+                  combinedPlacesMap.set(key, p);
+                }
+              });
+
+              const allMergedPlaces = Array.from(combinedPlacesMap.values());
+
+              const categories = [
+                { id: 'all', label: 'All Places', icon: Compass },
+                { id: 'education', label: 'Education', icon: GraduationCap },
+                { id: 'healthcare', label: 'Healthcare', icon: Stethoscope },
+                { id: 'transit', label: 'Transport', icon: Train },
+                { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
+                { id: 'dining', label: 'Dining & Parks', icon: Utensils },
+              ];
+
+              const filteredPlaces = nearbyCategory === 'all'
+                ? allMergedPlaces
+                : allMergedPlaces.filter(p => p.category === nearbyCategory);
+
+              const visiblePlaces = showAllPlaces ? filteredPlaces : filteredPlaces.slice(0, 6);
+
+              const getCategoryStyle = (category: string) => {
+                switch (category) {
+                  case 'education':
+                    return {
+                      icon: <GraduationCap size={16} className="text-purple-600" />,
+                      bg: 'bg-purple-50/80 border-purple-100',
+                      badge: 'bg-purple-100 text-purple-700',
+                    };
+                  case 'healthcare':
+                    return {
+                      icon: <Stethoscope size={16} className="text-rose-600" />,
+                      bg: 'bg-rose-50/80 border-rose-100',
+                      badge: 'bg-rose-100 text-rose-700',
+                    };
+                  case 'transit':
+                    return {
+                      icon: <Train size={16} className="text-blue-600" />,
+                      bg: 'bg-blue-50/80 border-blue-100',
+                      badge: 'bg-blue-100 text-blue-700',
+                    };
+                  case 'shopping':
+                    return {
+                      icon: <ShoppingBag size={16} className="text-amber-600" />,
+                      bg: 'bg-amber-50/80 border-amber-100',
+                      badge: 'bg-amber-100 text-amber-700',
+                    };
+                  case 'dining':
+                    return {
+                      icon: <Utensils size={16} className="text-emerald-600" />,
+                      bg: 'bg-emerald-50/80 border-emerald-100',
+                      badge: 'bg-emerald-100 text-emerald-700',
+                    };
+                  default:
+                    return {
+                      icon: <MapPin size={16} className="text-slate-600" />,
+                      bg: 'bg-slate-50 border-slate-200',
+                      badge: 'bg-slate-200 text-slate-700',
+                    };
+                }
+              };
+
+              const getDistanceBadge = (distStr: string) => {
+                const d = parseFloat(distStr);
+                if (!Number.isFinite(d)) return <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium">{distStr}</span>;
+                if (d <= 1.0) {
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                      ⚡ {d} km
+                    </span>
+                  );
+                } else if (d <= 3.0) {
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-blue-500/10 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
+                      📍 {d} km
+                    </span>
+                  );
+                } else {
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
+                      🚘 {d} km
+                    </span>
+                  );
+                }
+              };
+
+              return (
+                <div className="bg-gradient-to-b from-white to-slate-50/50 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200/80 my-5 backdrop-blur-sm">
+                  {/* Modern Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-[#E6761D]/10 text-[#E6761D]">
+                          <MapPin size={20} />
+                        </div>
+                        <div>
+                          <h2 className="font-extrabold text-[#0b3856] text-base sm:text-xl tracking-tight">
+                            Location &amp; Connectivity
+                          </h2>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {[property.location, property.city].filter(Boolean).join(', ') || 'Explore surrounding hubs, transit & essential landmarks'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {Number.isFinite(property?.lat_display) && Number.isFinite(property?.lng_display) && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${property.lat_display},${property.lng_display}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E6761D] to-[#d66712] text-white hover:shadow-md transition-all duration-300 rounded-xl text-xs font-bold self-start sm:self-auto active:scale-95"
+                      >
+                        <Navigation size={14} />
+                        Get Directions
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Masked Interactive Map */}
+                  <div className="relative rounded-2xl overflow-hidden mb-5 border border-slate-200 shadow-inner group">
+                    <div className="absolute inset-0 z-10 cursor-pointer pointer-events-none" />
+                    {Number.isFinite(property?.lat_display) && Number.isFinite(property?.lng_display) ? (
+                      <iframe
+                        src={getMaskedMapUrl(property.lat_display, property.lng_display)}
+                        width="100%"
+                        height="260"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    ) : (
+                      <div className="h-[180px] bg-slate-100/70 flex flex-col items-center justify-center text-slate-400 gap-2">
+                        <MapPin size={32} className="text-slate-300 animate-bounce" />
+                        <span className="text-xs font-semibold text-slate-500">Location coordinates not specified</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Category Filter Pills Bar */}
+                  <div className="mb-5 overflow-x-auto pb-1.5 scrollbar-none">
+                    <div className="flex items-center gap-2">
+                      {categories.map(cat => {
+                        const Icon = cat.icon;
+                        const isActive = nearbyCategory === cat.id;
+                        const count = cat.id === 'all'
+                          ? allMergedPlaces.length
+                          : allMergedPlaces.filter(p => p.category === cat.id).length;
+
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => {
+                              setNearbyCategory(cat.id);
+                              setShowAllPlaces(false);
+                            }}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 border ${isActive
+                                ? 'bg-[#0b3856] text-white border-[#0b3856] shadow-md shadow-[#0b3856]/20'
+                                : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300'
+                              }`}
+                          >
+                            <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                            <span>{cat.label}</span>
+                            {count > 0 && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}>
+                                {count}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Places Grid */}
+                  {livePlacesLoading && allMergedPlaces.length === 0 ? (
+                    <div className="py-10 text-center bg-white rounded-2xl border border-dashed border-slate-200 shadow-2xs">
+                      <div className="animate-pulse flex flex-col items-center gap-2 text-slate-400">
+                        <Compass size={28} className="animate-spin text-[#E6761D]" />
+                        <span className="text-xs font-semibold text-slate-600">Discovering nearby landmarks &amp; connectivity...</span>
+                      </div>
+                    </div>
+                  ) : filteredPlaces.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {visiblePlaces.map((place, idx) => {
+                          const style = getCategoryStyle(place.category);
+                          return (
+                            <div
+                              key={idx}
+                              className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 bg-white hover:border-[#E6761D]/50 hover:shadow-md transition-all duration-300"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`p-2.5 rounded-xl border ${style.bg} flex-shrink-0 group-hover:scale-105 transition-transform`}>
+                                  {style.icon}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-800 truncate group-hover:text-[#0b3856] transition-colors" title={place.name}>
+                                    {place.name}
+                                  </div>
+                                  <div className="text-[10px] font-medium text-slate-400 truncate capitalize">
+                                    {place.type}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0 ml-2">
+                                {getDistanceBadge(place.distance)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* View More / Show Less Toggle Button */}
+                      {filteredPlaces.length > 6 && (
+                        <div className="mt-5 text-center pt-2">
+                          <button
+                            onClick={() => setShowAllPlaces(prev => !prev)}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-[#0b3856] shadow-2xs hover:shadow-xs transition-all duration-300 active:scale-95"
+                          >
+                            <span>{showAllPlaces ? 'Show Less' : `View More (${filteredPlaces.length - 6} more landmarks)`}</span>
+                            {showAllPlaces ? (
+                              <ChevronUp size={15} className="text-[#E6761D] transition-transform" />
+                            ) : (
+                              <ChevronDown size={15} className="text-[#E6761D] transition-transform" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="py-8 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                      <MapPin size={26} className="text-slate-300 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-slate-700">No landmarks listed in this category</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Click "Get Directions" above to explore live surroundings on Google Maps</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Reviews - Responsive */}
-{/* Reviews - Desktop only (mobile version is below grid) */}
-<div className="hidden lg:block bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
+            {/* Reviews - Desktop only (mobile version is below grid) */}
+            <div className="hidden lg:block bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 ring-gray-100">
               <div className="flex items-center mb-3 sm:mb-4">
                 <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -2025,287 +2254,291 @@ onClick={(e) => {
           {/* Sidebar (hidden on mobile/tablet; shows on lg+) */}
           <div className="space-y-2">
             {/* Desktop View - Sticky Card */}
-<div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24 z-10">
-  <div className="sticky top-20">
-    <div className="bg-white rounded-lg border border-blue-400 p-2 w-auto">
+            <div className="hidden md:block lg:self-start lg:overflow-visible sticky top-24 z-10">
+              <div className="sticky top-20">
+                <div className="bg-white rounded-lg border border-blue-400 p-2 w-auto">
 
-      {/* Agent Info - Ultra Compact */}
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-          <User size={11} className="text-blue-600" aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-medium text-gray-900 text-[11px] truncate leading-tight">
-            {displayOrDash(property?.executiveTo?.name) === ' - '
-              ? ' - '
-              : property?.executiveTo?.name || '-'}
-          </h3>
-          <p className="text-[9px] text-gray-400 leading-tight">Property Executive</p>
-        </div>
-      </div>
+                  {/* Agent Info - Ultra Compact */}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                      <User size={11} className="text-blue-600" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-gray-900 text-[11px] truncate leading-tight">
+                        {displayOrDash(property?.executiveTo?.name) === ' - '
+                          ? ' - '
+                          : property?.executiveTo?.name || '-'}
+                      </h3>
+                      <p className="text-[9px] text-gray-400 leading-tight">Property Executive</p>
+                    </div>
+                  </div>
 
-      <hr className="border-blue-100 mb-1.5" />
+                  <hr className="border-blue-100 mb-1.5" />
 
-      {/* Action Buttons Row - Ultra Compact with Light Background Colors */}
-      <div className="grid grid-cols-4 gap-0.5">
+                  {/* Action Buttons Row - Ultra Compact with Light Background Colors */}
+                  <div className="grid grid-cols-4 gap-0.5">
 
-        {/* Call - Light Blue Background */}
-        <button
-          onClick={callexecutiveTo}
-          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+                    {/* Call - Light Blue Background */}
+                    <button
+                      onClick={callexecutiveTo}
+                      className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-blue-50 border border-blue-100
             hover:bg-blue-100 hover:border-blue-200
             transition-all text-[9px] text-gray-500"
-        >
-          <Phone size={11} className="text-blue-600" />
-          <span className="mt-0.5">Call</span>
-        </button>
+                    >
+                      <Phone size={11} className="text-blue-600" />
+                      <span className="mt-0.5">Call</span>
+                    </button>
 
-        {/* WhatsApp - Light Green Background */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
+                    {/* WhatsApp - Light Green Background */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
 
-            const phone = getexecutiveToPhone();
-            if (!phone) return;
+                        const phone = getexecutiveToPhone();
+                        if (!phone) return;
 
-            const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-            const title =
-              property?.title ||
-              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-              "a property";
+                        const title =
+                          property?.title ||
+                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+                          "a property";
 
-            const loc =
-              property?.locationNormalized ||
-              property?.location ||
-              property?.city ||
-              "your listed property location";
+                        const loc =
+                          property?.locationNormalized ||
+                          property?.location ||
+                          property?.city ||
+                          "your listed property location";
 
-            const priceValue = Number(property?.price || 0);
-            const priceText = !isNaN(priceValue)
-              ? `₹${priceValue.toLocaleString("en-IN")}`
-              : "Price on request";
+                        const priceValue = Number(property?.price || 0);
+                        const priceText = !isNaN(priceValue)
+                          ? `₹${priceValue.toLocaleString("en-IN")}`
+                          : "Price on request";
 
-            const slugValue =
-              property?.slug ||
-              property?.raw?.slug ||
-              (typeof window !== "undefined"
-                ? window.location.pathname.split("/").pop()
-                : "") ||
-              "";
-            const link = `${window.location.origin}/properties/${encodeURIComponent(
-              String(slugValue)
-            )}`;
+                        const slugValue =
+                          property?.slug ||
+                          property?.raw?.slug ||
+                          (typeof window !== "undefined"
+                            ? window.location.pathname.split("/").pop()
+                            : "") ||
+                          "";
+                        const link = `${window.location.origin}/properties/${encodeURIComponent(
+                          String(slugValue)
+                        )}`;
 
-            const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
+                        const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
 
-            if (typeof window !== "undefined") {
-              window.open(
-                `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-                "_blank",
-                "noopener,noreferrer"
-              );
-            }
-          }}
-          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+                        if (typeof window !== "undefined") {
+                          window.open(
+                            `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }
+                      }}
+                      className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-green-50 border border-green-100
             hover:bg-green-100 hover:border-green-200
             transition-all text-[9px] text-gray-500"
-        >
-          <FaWhatsapp size={11} className="text-[#16a34a]" />
-          <span className="mt-0.5">WhatsApp</span>
-        </button>
+                    >
+                      <FaWhatsapp size={11} className="text-[#16a34a]" />
+                      <span className="mt-0.5">WhatsApp</span>
+                    </button>
 
-        {/* Message - Light Purple Background */}
-        <button
-          onClick={() => setShowContactForm(true)}
-          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+                    {/* Message - Light Purple Background */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-purple-50 border border-purple-100
             hover:bg-purple-100 hover:border-purple-200
             transition-all text-[9px] text-gray-500"
-        >
-          <MessageCircle size={11} className="text-purple-600" />
-          <span className="mt-0.5">Message</span>
-        </button>
+                    >
+                      <MessageCircle size={11} className="text-purple-600" />
+                      <span className="mt-0.5">Message</span>
+                    </button>
 
-        {/* Schedule - Light Cyan Background */}
-        <button
-          onClick={() => setShowContactForm(true)}
-          className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
+                    {/* Schedule - Light Cyan Background */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-cyan-50 border border-cyan-100
             hover:bg-cyan-100 hover:border-cyan-200
             transition-all text-[9px] text-gray-500"
-        >
-          <Calendar size={11} className="text-cyan-600" />
-          <span className="mt-0.5">Schedule</span>
-        </button>
+                    >
+                      <Calendar size={11} className="text-cyan-600" />
+                      <span className="mt-0.5">Schedule</span>
+                    </button>
 
-      </div>
-    </div>
-  </div>
-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
             {/* Mobile View - Fixed Bottom Bar */}
-           <div className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom,0),8px)] z-[60] md:hidden pointer-events-none">
-  <div className="mx-auto max-w-sm px-3">
-    <div
-      className="pointer-events-auto bg-white rounded-2xl border border-gray-100
+            <div className="fixed inset-x-0 bottom-[max(env(safe-area-inset-bottom,0),8px)] z-[60] md:hidden pointer-events-none">
+              <div className="mx-auto max-w-sm px-3">
+                <div
+                  className="pointer-events-auto bg-white rounded-2xl border border-gray-100
         shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)] px-3 py-2"
-      role="toolbar"
-      aria-label="Mobile quick actions"
-    >
-      {/* executiveTo Info */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-          <User size={12} className="text-blue-600" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 text-[12px] truncate leading-tight">
-            {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
-          </h3>
-          <p className="text-[10px] text-gray-400">Property Executive</p>
-        </div>
-      </div>
+                  role="toolbar"
+                  aria-label="Mobile quick actions"
+                >
+                  {/* executiveTo Info */}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                      <User size={12} className="text-blue-600" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-900 text-[12px] truncate leading-tight">
+                        {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
+                      </h3>
+                      <p className="text-[10px] text-gray-400">Property Executive</p>
+                    </div>
+                  </div>
 
-      <hr className="border-gray-100 mb-1.5" />
+                  <hr className="border-gray-100 mb-1.5" />
 
-      {/* Action Buttons Grid */}
-      <div className="grid grid-cols-4 gap-1.5">
+                  {/* Action Buttons Grid */}
+                  <div className="grid grid-cols-4 gap-1.5">
 
-        {/* Call */}
-        <button
-          onClick={callexecutiveTo}
-          aria-label="Call executiveTo"
-          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+                    {/* Call */}
+                    <button
+                      onClick={callexecutiveTo}
+                      aria-label="Call executiveTo"
+                      className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-blue-50 hover:border-blue-100
             active:scale-95 transition-all text-[10px] text-gray-400"
-        >
-          <Phone size={13} className="text-blue-600" aria-hidden="true" />
-          <span>Call</span>
-        </button>
+                    >
+                      <Phone size={13} className="text-blue-600" aria-hidden="true" />
+                      <span>Call</span>
+                    </button>
 
-        {/* WhatsApp */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
+                    {/* WhatsApp */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
 
-            const phone =
-              property?.executiveTo?.phone?.replace(/\D/g, "") ||
-              property?.executive?.phone?.replace(/\D/g, "") ||
-              "919637009639";
+                        const phone =
+                          property?.executiveTo?.phone?.replace(/\D/g, "") ||
+                          property?.executive?.phone?.replace(/\D/g, "") ||
+                          "919637009639";
 
-            if (!phone) return;
+                        if (!phone) return;
 
-            const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
+                        const cc = phone.startsWith("91") || phone.length > 10 ? "" : "91";
 
-            const title =
-              property?.title ||
-              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-              "a property";
+                        const title =
+                          property?.title ||
+                          [property?.unitType, property?.type].filter(Boolean).join(" ") ||
+                          "a property";
 
-            const loc =
-              property?.locationNormalized ||
-              property?.location ||
-              property?.city ||
-              "your listed property location";
+                        const loc =
+                          property?.locationNormalized ||
+                          property?.location ||
+                          property?.city ||
+                          "your listed property location";
 
-            const priceValue = Number(property?.price || 0);
-            const priceText = !isNaN(priceValue)
-              ? `₹${priceValue.toLocaleString("en-IN")}`
-              : "Price on request";
+                        const priceValue = Number(property?.price || 0);
+                        const priceText = !isNaN(priceValue)
+                          ? `₹${priceValue.toLocaleString("en-IN")}`
+                          : "Price on request";
 
-            const slugValue =
-              property?.slug ||
-              property?.raw?.slug ||
-              (typeof window !== "undefined"
-                ? window.location.pathname.split("/").pop()
-                : "") ||
-              "";
-            const link = `${window.location.origin}/properties/${encodeURIComponent(
-              String(slugValue)
-            )}`;
+                        const slugValue =
+                          property?.slug ||
+                          property?.raw?.slug ||
+                          (typeof window !== "undefined"
+                            ? window.location.pathname.split("/").pop()
+                            : "") ||
+                          "";
+                        const link = `${window.location.origin}/properties/${encodeURIComponent(
+                          String(slugValue)
+                        )}`;
 
-            const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
+                        const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
 
-            window.open(
-              `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
-              "_blank",
-              "noopener,noreferrer"
-            );
-          }}
-          aria-label="WhatsApp executiveTo"
-          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+                        window.open(
+                          `https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`,
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
+                      }}
+                      aria-label="WhatsApp executiveTo"
+                      className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-green-50 hover:border-green-100
             active:scale-95 transition-all text-[10px] text-gray-400"
-        >
-          <FaWhatsapp size={13} className="text-[#16a34a]" aria-hidden="true" />
-          <span>WhatsApp</span>
-        </button>
+                    >
+                      <FaWhatsapp size={13} className="text-[#16a34a]" aria-hidden="true" />
+                      <span>WhatsApp</span>
+                    </button>
 
-        {/* Message */}
-        <button
-          onClick={() => setShowContactForm(true)}
-          aria-label="Message executiveTo"
-          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+                    {/* Message */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      aria-label="Message executiveTo"
+                      className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-purple-50 hover:border-purple-100
             active:scale-95 transition-all text-[10px] text-gray-400"
-        >
-          <MessageCircle size={13} className="text-purple-600" aria-hidden="true" />
-          <span>Message</span>
-        </button>
+                    >
+                      <MessageCircle size={13} className="text-purple-600" aria-hidden="true" />
+                      <span>Message</span>
+                    </button>
 
-        {/* Schedule */}
-        <button
-          onClick={() => setShowContactForm(true)}
-          aria-label="Schedule visit"
-          className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
+                    {/* Schedule */}
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      aria-label="Schedule visit"
+                      className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-cyan-50 hover:border-cyan-100
             active:scale-95 transition-all text-[10px] text-gray-400"
-        >
-          <Calendar size={13} className="text-cyan-600" aria-hidden="true" />
-          <span>Schedule</span>
-        </button>
+                    >
+                      <Calendar size={13} className="text-cyan-600" aria-hidden="true" />
+                      <span>Schedule</span>
+                    </button>
 
-      </div>
-    </div>
-  </div>
-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Interest & Shortlisted */}
-          <div className="px-3 py-2 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-  <h3 className="font-bold text-gray-900 text-sm mb-3">Property Activity</h3>
-  <div className="space-y-2.5">
-    <div className="flex items-center justify-between p-1.5 bg-green-50 rounded-lg">
-      <div className="flex items-center space-x-2.5">
-        <Eye className="text-green-600" size={15} />
-        <span className="text-xs sm:text-sm font-medium text-gray-700">Total Views</span>
-      </div>
-      <span className="text-green-600 text-xs sm:text-sm font-medium">{property?.views ?? '—'}</span>
-    </div>
+            <div className="px-3 py-2 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <h3 className="font-bold text-gray-900 text-sm mb-3">Property Activity</h3>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between p-1.5 bg-green-50 rounded-lg">
+                  <div className="flex items-center space-x-2.5">
+                    <Eye className="text-green-600" size={15} />
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Total Views</span>
+                  </div>
+                  <span className="text-green-600 text-xs sm:text-sm font-medium">{property?.views ?? property?.total_views ?? 0}</span>
+                </div>
 
-    <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-lg">
-      <div className="flex items-center space-x-2.5">
-        <Heart className="text-blue-600" size={15} />
-        <span className="text-xs sm:text-sm font-medium text-gray-700">Shortlisted By</span>
-      </div>
-      <span className="text-blue-600 text-xs sm:text-sm font-medium">23 People</span>
-    </div>
+                <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2.5">
+                    <Heart className="text-blue-600" size={15} />
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Shortlisted By</span>
+                  </div>
+                  <span className="text-blue-600 text-xs sm:text-sm font-medium">
+                    {property?.shortlistedBy ?? property?.raw?.public_inquiries ?? (liked ? 1 : 0)} People
+                  </span>
+                </div>
 
-    <div className="flex items-center justify-between p-1.5 bg-orange-50 rounded-lg">
-      <div className="flex items-center space-x-2.5">
-        <Phone className="text-orange-600" size={15} />
-        <span className="text-xs sm:text-sm font-medium text-gray-700">Contact Requests</span>
-      </div>
-      <span className="text-orange-600 text-xs sm:text-sm font-medium">12 This Week</span>
-    </div>
-  </div>
-</div>
+                <div className="flex items-center justify-between p-1.5 bg-orange-50 rounded-lg">
+                  <div className="flex items-center space-x-2.5">
+                    <Phone className="text-orange-600" size={15} />
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">Contact Requests</span>
+                  </div>
+                  <span className="text-orange-600 text-xs sm:text-sm font-medium">
+                    {property?.contactRequests ?? property?.raw?.public_inquiries ?? 0} This Week
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Property Highlights */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden ring-1 ring-gray-100">
@@ -2812,63 +3045,65 @@ onClick={(e) => {
             <PublicSimilarProperties
               properties={similarProperties}
               loading={similarPropertiesLoading}
+              currentPropertyId={property?.id}
+              currentPropertySlug={property?.slug || (property?.raw as any)?.slug}
               debug={true}
             />
 
           </div>
         </div>
-     
-     <div className="bg-white lg:hidden  rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 mt-2 ring-gray-100 order-last lg:order-none">              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Customer Reviews</h2>
 
-              <div className="flex items-center mb-3 sm:mb-4">
-                <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={14} className="sm:w-4 sm:h-4 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <span className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 leading-none">4.8</span>
-                <span className="text-gray-600 ml-1.5 sm:ml-2 text-xs sm:text-sm leading-none">(24 reviews)</span>
-              </div>
+        <div className="bg-white lg:hidden  rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 ring-1 mt-2 ring-gray-100 order-last lg:order-none">              <h2 className="font-bold text-gray-900 text-sm sm:text-base mb-2 sm:mb-3">Customer Reviews</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-                {[
-                  { name: 'Rajesh Kumar', rating: 5, comment: 'Excellent property with great amenities. Highly recommended!', date: '2 days ago' },
-                  { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
-                  { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
-                ].map((review, index) => (
-                  <div key={index} className="border border-gray-100 rounded-lg p-2.5 sm:p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
-                    <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-                      <div className="flex items-center space-x-1.5 sm:space-x-2">
-                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={12} className="sm:w-3.5 sm:h-3.5 text-blue-600" />
-                        </div>
-                        <span className="font-medium text-gray-900 text-xs sm:text-sm truncate">{review.name}</span>
-                      </div>
-                      <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={10}
-                              className={`sm:w-3 sm:h-3 ${star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-[10px] sm:text-xs text-gray-500">{review.date}</span>
-                      </div>
-                    </div>
-                    <p className="text-gray-700 text-xs sm:text-sm leading-snug">{review.comment}</p>
-                  </div>
-                ))}
-              </div>
+          <div className="flex items-center mb-3 sm:mb-4">
+            <div className="flex items-center space-x-0.5 sm:space-x-1 mr-2 sm:mr-3">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star key={star} size={14} className="sm:w-4 sm:h-4 text-yellow-400 fill-current" />
+              ))}
             </div>
+            <span className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 leading-none">4.8</span>
+            <span className="text-gray-600 ml-1.5 sm:ml-2 text-xs sm:text-sm leading-none">(24 reviews)</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+            {[
+              { name: 'Rajesh Kumar', rating: 5, comment: 'Excellent property with great amenities. Highly recommended!', date: '2 days ago' },
+              { name: 'Priya Sharma', rating: 4, comment: 'Beautiful location and well-maintained property.', date: '1 week ago' },
+              { name: 'Amit Patel', rating: 5, comment: 'Perfect for families. Great connectivity and facilities.', date: '2 weeks ago' }
+            ].map((review, index) => (
+              <div key={index} className="border border-gray-100 rounded-lg p-2.5 sm:p-3 bg-white shadow-sm hover:shadow ring-1 ring-gray-100/70 transition">
+                <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User size={12} className="sm:w-3.5 sm:h-3.5 text-blue-600" />
+                    </div>
+                    <span className="font-medium text-gray-900 text-xs sm:text-sm truncate">{review.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          size={10}
+                          className={`sm:w-3 sm:h-3 ${star <= review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] sm:text-xs text-gray-500">{review.date}</span>
+                  </div>
+                </div>
+                <p className="text-gray-700 text-xs sm:text-sm leading-snug">{review.comment}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      
+
 
       {/* Contact Form Modal */}
-    {showContactForm && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-[#0b3856]">Call Back Request</h3>
               <button
@@ -2995,8 +3230,8 @@ onClick={(e) => {
               ? property.description
               : (property?.raw?.description ?? property?.raw?.short_description ?? '');
 
-         const firstImageMedia = (property?.mediaItems || []).find((m: any) => m.type !== 'video');
-const shareImage = firstImageMedia?.url || property?.raw?.image || property?.raw?.photo || '';
+          const firstImageMedia = (property?.mediaItems || []).find((m: any) => m.type !== 'video');
+          const shareImage = firstImageMedia?.url || property?.raw?.image || property?.raw?.photo || '';
 
           const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 

@@ -18,31 +18,6 @@ interface TenantsTabProps {
   onMatchTenants: () => void;
 }
 
-const PUNE_LOCALITY_COORDS: Record<string, { lat: number; lng: number }> = {
-  'pimple saudagar': { lat: 18.5987, lng: 73.7932 },
-  'wakad': { lat: 18.5986, lng: 73.7661 },
-  'baner': { lat: 18.5590, lng: 73.7868 },
-  'balewadi': { lat: 18.5789, lng: 73.7707 },
-  'aundh': { lat: 18.5602, lng: 73.8031 },
-  'kalewadi': { lat: 18.6083, lng: 73.7915 },
-  'tathawade': { lat: 18.6186, lng: 73.7516 },
-  'hinjewadi': { lat: 18.5912, lng: 73.7389 },
-  'pashan': { lat: 18.5419, lng: 73.7925 },
-  'kothrud': { lat: 18.5074, lng: 73.8077 },
-  'bavdhan': { lat: 18.5158, lng: 73.7813 },
-  'kharadi': { lat: 18.5515, lng: 73.9349 },
-  'viman nagar': { lat: 18.5679, lng: 73.9143 },
-  'wagholi': { lat: 18.5808, lng: 73.9787 },
-  'hadapsar': { lat: 18.5089, lng: 73.9260 },
-  'magarpatta': { lat: 18.5158, lng: 73.9272 },
-  'amanora': { lat: 18.5190, lng: 73.9335 },
-  'pimpri': { lat: 18.6298, lng: 73.7997 },
-  'chinchwad': { lat: 18.6251, lng: 73.7868 },
-  'rahatani': { lat: 18.5956, lng: 73.7864 },
-  'ambegaon': { lat: 18.4550, lng: 73.8427 },
-  'anand nagar': { lat: 18.4833, lng: 73.8333 },
-};
-
 function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -59,28 +34,47 @@ function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: nu
   return parseFloat(roadDistance.toFixed(1));
 }
 
-function getLocalityKm(propLoc: string, tenantLocStr: string): number | null {
-  if (!propLoc || !tenantLocStr) return null;
-  const pLower = propLoc.toLowerCase();
-  
-  let pCoord = null;
-  for (const [name, coord] of Object.entries(PUNE_LOCALITY_COORDS)) {
-    if (pLower.includes(name)) { pCoord = coord; break; }
+function getDynamicDistance(property: any, tenant: any): number | null {
+  if (tenant?.distance != null && !isNaN(Number(tenant.distance)) && Number(tenant.distance) < 9000) {
+    return parseFloat(Number(tenant.distance).toFixed(1));
   }
-  if (!pCoord) return null;
 
-  const tLocs = tenantLocStr.toLowerCase().split(/[;,]+/).map(s => s.trim());
-  let minKm: number | null = null;
+  const pLat = parseFloat(String(property?.latitude || property?.lat || property?.society?.latitude || property?.society?.lat || 0));
+  const pLng = parseFloat(String(property?.longitude || property?.lng || property?.society?.longitude || property?.society?.lng || 0));
 
-  for (const tLoc of tLocs) {
-    for (const [name, coord] of Object.entries(PUNE_LOCALITY_COORDS)) {
-      if (tLoc.includes(name)) {
-        const d = calculateHaversineKm(pCoord.lat, pCoord.lng, coord.lat, coord.lng);
-        if (minKm === null || d < minKm) minKm = d;
-      }
+  if (isNaN(pLat) || isNaN(pLng) || pLat === 0 || pLng === 0) return null;
+
+  let tenantCoords: Array<{ lat: number; lng: number }> = [];
+
+  if (tenant?.preferred_locations_coords) {
+    let raw = tenant.preferred_locations_coords;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { raw = []; }
+    }
+    if (Array.isArray(raw)) {
+      tenantCoords = raw
+        .map(c => ({ lat: parseFloat(String(c.lat || c.latitude || 0)), lng: parseFloat(String(c.lng || c.longitude || 0)) }))
+        .filter(c => c.lat > 0 && c.lng > 0);
     }
   }
-  return minKm;
+
+  const singleTLat = parseFloat(String(tenant?.latitude || tenant?.lat || 0));
+  const singleTLng = parseFloat(String(tenant?.longitude || tenant?.lng || 0));
+  if (singleTLat > 0 && singleTLng > 0) {
+    tenantCoords.push({ lat: singleTLat, lng: singleTLng });
+  }
+
+  if (tenantCoords.length === 0) return null;
+
+  let minDistance: number | null = null;
+  for (const tc of tenantCoords) {
+    const d = calculateHaversineKm(pLat, pLng, tc.lat, tc.lng);
+    if (minDistance === null || d < minDistance) {
+      minDistance = d;
+    }
+  }
+
+  return minDistance;
 }
 
 const TenantsTab: React.FC<TenantsTabProps> = ({
@@ -120,32 +114,23 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
         const propCity = (property.city_name || property.city || "").toLowerCase().trim();
         const propSoc = (property.society_name || property.society || "").toLowerCase().trim();
 
-        const NEARBY_MAP: Record<string, string[]> = {
-          tathawade: ['wakad', 'punawale', 'ravet', 'hinjewadi', 'marunji', 'pimpri'],
-          wakad: ['tathawade', 'baner', 'balewadi', 'hinjewadi', 'thergaon', 'rahatani', 'pimple saudagar'],
-          baner: ['balewadi', 'wakad', 'aundh', 'pashan', 'pimple saudagar', 'model colony'],
-          balewadi: ['baner', 'wakad', 'aundh', 'pashan'],
-          kharadi: ['viman nagar', 'wagholi', 'hadapsar', 'kalyani nagar', 'mundhwa', 'chandan nagar'],
-          'viman nagar': ['kharadi', 'kalyani nagar', 'vishrantwadi', 'tingre nagar', 'yerwada'],
-          hinjewadi: ['wakad', 'tathawade', 'marunji', 'punawale', 'pimpri', 'bavdhan'],
-          kothrud: ['bavdhan', 'karve nagar', 'erandwane', 'deccan', 'warje'],
-          bavdhan: ['kothrud', 'pashan', 'baner', 'warje', 'hinjewadi'],
-          hadapsar: ['magarpatta', 'amanora', 'kharadi', 'fursungi', 'wanowrie', 'loni kalbhor'],
-          rahatani: ['pimple saudagar', 'pimple nilakh', 'wakad', 'kalewadi', 'chinchwad'],
-          'pimple saudagar': ['rahatani', 'pimple nilakh', 'wakad', 'baner', 'sangvi'],
-        };
-
         const processed = (allTenants || []).map((tenant: any) => {
           let locationScore = 0;
           let budgetScore = 0;
           let bhkScore = 0;
 
           const prefLocRaw = tenant.preferred_location || "";
-          if (!prefLocRaw.trim()) {
+          const distKm = getDynamicDistance(property, tenant);
+
+          if (distKm !== null) {
+            if (distKm <= 3.0) locationScore = 40;
+            else if (distKm <= 8.0) locationScore = 25;
+            else if (distKm <= 20.0) locationScore = 15;
+            else locationScore = 0;
+          } else if (!prefLocRaw.trim()) {
             locationScore = 15;
           } else {
             const prefLocs = prefLocRaw.toLowerCase().split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean);
-            const cleanLocs = prefLocs.map((l: any) => l.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim()).filter(Boolean);
 
             const hasExactLocMatch = prefLocs.some((loc: any) => {
               const cleanL = loc.replace(/,?\s*(pune|mumbai|pcmc|maharashtra).*/i, '').trim();
@@ -159,25 +144,8 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
             if (hasExactLocMatch) {
               locationScore = 40;
             } else {
-              let isNearby = false;
-              for (const loc of cleanLocs) {
-                for (const [keyLoc, adjList] of Object.entries(NEARBY_MAP)) {
-                  if (propLoc.includes(keyLoc) || keyLoc.includes(propLoc)) {
-                    if (adjList.some((adj: any) => loc.includes(adj) || adj.includes(loc))) {
-                      isNearby = true;
-                      break;
-                    }
-                  }
-                }
-                if (isNearby) break;
-              }
-
-              if (isNearby) {
-                locationScore = 25;
-              } else {
-                const isSameCity = propCity && prefLocs.some((l: any) => l.includes(propCity));
-                locationScore = isSameCity ? 10 : 0;
-              }
+              const isSameCity = propCity && prefLocs.some((l: any) => l.includes(propCity));
+              locationScore = isSameCity ? 15 : 0;
             }
           }
 
@@ -234,9 +202,7 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
             else bhkScore = 0;
           }
 
-          const apiMatch = apiData.find((m: any) => String(m.id) === String(tenant.id) || String(m.tenant_id) === String(tenant.tenant_id));
-          const calcKm = getLocalityKm(propLoc || propSoc, prefLocRaw);
-          const distance = apiMatch?.distance != null ? apiMatch.distance : calcKm;
+          const distance = getDynamicDistance(property, tenant);
 
           const matchScore = locationScore + budgetScore + bhkScore;
           return {
@@ -372,9 +338,9 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
       </div>
 
       {/* Main List Box */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-y-auto max-h-[460px] flex flex-col">
         {/* Search & Actions Bar */}
-        <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 sticky top-0 z-10">
           <div className="relative flex-1 w-full sm:w-auto">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -447,7 +413,7 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
                           </span>
                         </div>
                         <div className="text-[9.5px] mt-0.5 text-gray-500 truncate flex items-center gap-2 flex-wrap">
-                          <span>📍 {tenant.displayLocation} {tenant.distance != null ? `(${tenant.distance} km away)` : ''}</span>
+                          <span>📍 {tenant.displayLocation} {tenant.distance !== null && tenant.distance !== undefined ? `(${tenant.distance === 0 ? '0.0' : tenant.distance} km away)` : ''}</span>
                           <span>•</span>
                           <span>🏢 BHK: {tenant.displayBHK}</span>
                           <span>•</span>
@@ -513,7 +479,7 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
 
         {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+          <div className="p-3 border-t border-slate-100 bg-white flex items-center justify-between text-xs text-slate-500 sticky bottom-0 z-10">
             <span>Showing {(modalPage - 1) * PAGE_SIZE + 1}–{Math.min(modalPage * PAGE_SIZE, filteredMatchedTenants.length)} of {filteredMatchedTenants.length} tenants</span>
             <div className="flex items-center gap-1">
               <button

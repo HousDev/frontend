@@ -15,11 +15,11 @@ export const viewsAPI = {
     }
   },
 
-  // Get property views (optionally unique)
-  getByProperty: async (id: number, unique: boolean = false) => {
+  // Get property views (optionally unique, optionally filtered by slug)
+  getByProperty: async (id: number, unique: boolean = false, slug?: string) => {
     try {
       const response = await api.get(`${BASE_URL}/property/${id}`, {
-        params: { unique },
+        params: { unique, ...(slug ? { slug } : {}) },
       });
       return response.data;
     } catch (err) {
