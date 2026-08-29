@@ -305,10 +305,13 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
 
       <div className="text-center mt-4 pt-4 border-t border-gray-100">
         <button
-          className="bg-[#E6761D]  hover:bg-[#E6761D]  text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm w-full"
-          onClick={() => (window.location.href = "/properties")}
+          className="bg-[#E6761D] hover:bg-[#E6761D] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm w-full"
+          onClick={() => {
+            const isRentalContext = displayed.some(p => Boolean(p.raw?.monthly_rent || p.raw?.listing_type === 'rent'));
+            window.location.href = isRentalContext ? "/rentals" : "/properties";
+          }}
         >
-          View All Properties
+          View All {displayed.some(p => Boolean(p.raw?.monthly_rent || p.raw?.listing_type === 'rent')) ? "Rentals" : "Properties"}
         </button>
       </div>
     </div>
