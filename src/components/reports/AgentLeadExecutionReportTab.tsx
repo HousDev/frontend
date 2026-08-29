@@ -737,7 +737,7 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
           <div>
-            <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <h3 className="font-bold text-xs text-slate-900 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-indigo-600" />
               Employee Work Execution & Output Trends
             </h3>
@@ -751,35 +751,35 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
             <button
               type="button"
               onClick={() => setTrendMetric("leads")}
-              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "leads" ? "bg-white text-indigo-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"}`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "leads" ? "bg-white text-indigo-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
             >
               Leads Handled
             </button>
             <button
               type="button"
               onClick={() => setTrendMetric("followups")}
-              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "followups" ? "bg-white text-indigo-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"}`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "followups" ? "bg-white text-indigo-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
             >
               Followups Done
             </button>
             <button
               type="button"
               onClick={() => setTrendMetric("visits")}
-              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "visits" ? "bg-white text-indigo-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"}`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "visits" ? "bg-white text-indigo-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
             >
               Site Visits
             </button>
             <button
               type="button"
               onClick={() => setTrendMetric("deals")}
-              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "deals" ? "bg-white text-indigo-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"}`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "deals" ? "bg-white text-indigo-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
             >
               Deals Closed
             </button>
             <button
               type="button"
               onClick={() => setTrendMetric("collections")}
-              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "collections" ? "bg-white text-indigo-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"}`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${trendMetric === "collections" ? "bg-white text-indigo-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"}`}
             >
               Collections (₹)
             </button>
@@ -869,8 +869,8 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
           {/* LEAD PERFORMANCE CARD */}
           {(selectedModuleView === "all" || selectedModuleView === "leads") && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-1">
                 <span>🎯 Lead Performance Metrics</span>
                 <span className="text-[10px] text-indigo-600 ">Lifecycle & Conversion</span>
               </h4>
@@ -903,7 +903,7 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
 
           {/* FOLLOW-UP PERFORMANCE CARD */}
           {(selectedModuleView === "all" || selectedModuleView === "leads") && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-2">
                 <span>⏱️ Follow-up Execution & Discipline</span>
                 <span className="text-[10px] text-teal-600 font-bold">CRM Activity</span>
@@ -935,8 +935,8 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
 
           {/* BUYERS & SELLERS CARD */}
           {(selectedModuleView === "all" || selectedModuleView === "buyers_sellers") && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-1">
                 <span>👥 Buyers & Sellers Activity</span>
                 <span className="text-[10px] text-blue-600 font-bold">Profiles & Onboarding</span>
               </h4>
@@ -963,8 +963,8 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
 
           {/* PROPERTIES CARD */}
           {(selectedModuleView === "all" || selectedModuleView === "buyers_sellers") && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-bold text-xs uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-1">
                 <span>🏠 Properties & Listings Onboarding</span>
                 <span className="text-[10px] text-emerald-600 font-bold">Inventory Output</span>
               </h4>

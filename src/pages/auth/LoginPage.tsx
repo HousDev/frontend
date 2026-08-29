@@ -1279,6 +1279,14 @@ const LoginPage: React.FC = () => {
   const companyName = systemSettings?.company_name;
 
   useEffect(() => {
+    const reason = sessionStorage.getItem("logout_reason");
+    if (reason) {
+      toast.info(reason, { autoClose: 5000 });
+      sessionStorage.removeItem("logout_reason");
+    }
+  }, []);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setFadeIn(false);
       setTimeout(() => {
@@ -1331,6 +1339,7 @@ const LoginPage: React.FC = () => {
         ...formData,
         latitude: locResult.latitude,
         longitude: locResult.longitude,
+        address: locResult.address,
         device_id: deviceId,
         source: source,
       })) as unknown as User;

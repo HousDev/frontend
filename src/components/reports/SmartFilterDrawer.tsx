@@ -19,6 +19,8 @@ export interface SmartFilterParams {
   transferred_to_buyer?: string;
   transferred_to_seller?: string;
   dateBy?: string;
+  datePreset?: string;
+  role?: string;
   followupStatus?: string;
   activityStatus?: string;
   sort_by?: string;
@@ -57,7 +59,8 @@ export interface SmartFilterParams {
 interface SmartFilterDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  filters: SmartFilterParams;
+  filters?: SmartFilterParams;
+  activeFilters?: SmartFilterParams;
   onApplyFilters: (newFilters: SmartFilterParams) => void;
   onClearFilters?: () => void;
   onResetFilters?: () => void;
@@ -68,16 +71,18 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
   isOpen,
   onClose,
   filters,
+  activeFilters,
   onApplyFilters,
   onClearFilters,
   tabKey = "leads",
 }) => {
-  const [draft, setDraft] = useState<SmartFilterParams>({ ...filters });
+  const currentFilters = activeFilters || filters || {};
+  const [draft, setDraft] = useState<SmartFilterParams>({ ...currentFilters });
   const [usersList, setUsersList] = useState<any[]>([]);
 
   useEffect(() => {
-    setDraft({ ...filters });
-  }, [filters, isOpen]);
+    setDraft({ ...currentFilters });
+  }, [filters, activeFilters, isOpen]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -675,6 +680,54 @@ export const SmartFilterDrawer: React.FC<SmartFilterDrawerProps> = ({
                       className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
                     />
                   </div>
+                </div>
+              </>
+            )}
+
+            {(tabKey === "logged-in" || tabKey === "login-logs") && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">User Role</label>
+                    <select
+                      value={draft.role || "all"}
+                      onChange={(e) => handleChange("role", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="admin">Admin</option>
+                      <option value="manager">Manager</option>
+                      <option value="sales executive">Sales Executive</option>
+                      <option value="presales executive">Presales Executive</option>
+                      <option value="buyer">Buyer</option>
+                      <option value="seller">Seller</option>
+                      <option value="tenant">Tenant</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-gray-800 mb-1.5">Session Status</label>
+                    <select
+                      value={draft.active_status || "all"}
+                      onChange={(e) => handleChange("active_status", e.target.value)}
+                      className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                    >
+                      <option value="all">All Sessions</option>
+                      <option value="active">Active Sessions Only</option>
+                      <option value="inactive">Logged Out Sessions</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-800 mb-1.5">Search User / IP / Location</label>
+                  <input
+                    type="text"
+                    placeholder="Search name, email, IP, location..."
+                    value={draft.search || ""}
+                    onChange={(e) => handleChange("search", e.target.value)}
+                    className="w-full rounded-lg border-gray-300 shadow-sm p-2.5 border text-xs"
+                  />
                 </div>
               </>
             )}

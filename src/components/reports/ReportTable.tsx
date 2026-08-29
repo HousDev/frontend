@@ -1,6 +1,6 @@
 // frontend/src/components/reports/ReportTable.tsx
 import React, { useState } from "react";
-import { Download, Filter, RefreshCw, Printer } from "lucide-react";
+import { Download, Filter, RefreshCw, Printer, X, RotateCcw } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import Button from "@/components/ui/Button";
 
@@ -39,6 +39,16 @@ interface ReportTableProps {
   onColumnSearch?: (columnKey: string, value: string) => void;
 }
 
+const parseWidthPx = (w?: string, fallback = 150): number => {
+  if (!w) return fallback;
+  if (w.endsWith("%")) {
+    const pct = parseFloat(w);
+    return Math.max(100, Math.round((pct / 100) * 850));
+  }
+  const val = parseInt(w, 10);
+  return isNaN(val) || val <= 0 ? fallback : val;
+};
+
 export const ReportTable: React.FC<ReportTableProps> = ({
   title = "Report Data",
   columns,
@@ -70,9 +80,22 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
   const currentPillKey = (onSelectStatusPill ? activeStatusPill : internalStatusPill) || "all";
 
+  const isFilterActive =
+    (currentPillKey && !["all", "logs", "activity_logs", "total", "summary", "records", "active_staff", "active staff"].includes(currentPillKey.toLowerCase())) ||
+    Object.values(columnSearches).some((val) => val && val.trim() !== "");
+
   const handlePillClick = (key: string) => {
-    setInternalStatusPill(key);
-    if (onSelectStatusPill) onSelectStatusPill(key);
+    const isCurrentlySelected = currentPillKey.toLowerCase() === key.toLowerCase();
+    // Toggle off to "all" if clicking the currently selected filter pill
+    const targetKey = isCurrentlySelected && !["all", "total"].includes(key.toLowerCase()) ? "all" : key;
+    setInternalStatusPill(targetKey);
+    if (onSelectStatusPill) onSelectStatusPill(targetKey);
+  };
+
+  const handleClearAllFilters = () => {
+    setInternalStatusPill("all");
+    setColumnSearches({});
+    if (onSelectStatusPill) onSelectStatusPill("all");
   };
 
   const handleColumnSearchChange = (key: string, value: string) => {
@@ -104,9 +127,15 @@ export const ReportTable: React.FC<ReportTableProps> = ({
       } else if (pill === "contacted") {
         const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
         if (!statusStr.includes('contact')) return false;
-      } else if (pill === "qualified" || pill === "active") {
+      } else if (pill === "qualified") {
+        const stageStr = String(row.stage || row.seller_lead_stage || row.buyer_lead_stage || '').toLowerCase().replace(/_/g, ' ');
         const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
-        if (!statusStr.includes('qualif') && !statusStr.includes('active') && !statusStr.includes('published') && !statusStr.includes('interest')) return false;
+        if (stageStr.includes('initial') || stageStr.includes('new') || stageStr.includes('contacted')) return false;
+        const isQualified = (stageStr.includes('interested') || stageStr.includes('qualif')) || (statusStr.includes('connected') || statusStr.includes('qualif'));
+        if (!isQualified) return false;
+      } else if (pill === "active") {
+        const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
+        if (statusStr.includes('closed') || statusStr.includes('won') || statusStr.includes('lost') || statusStr.includes('reject')) return false;
       } else if (pill === "unqualified" || pill === "lost") {
         const statusStr = String(row.status || row.seller_lead_status || row.buyer_lead_status || '').toLowerCase();
         if (!statusStr.includes('unqualif') && !statusStr.includes('lost') && !statusStr.includes('reject')) return false;
@@ -147,9 +176,15 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
   const handleLimitChange = (newLimit: number) => {
     setInternalLimit(newLimit);
-    setInternalPage(1);
     if (onLimitChange) onLimitChange(newLimit);
   };
+
+  // Dynamic Sticky Left calculations for S.NO (col 0), Column 0 (col 1), and Column 1 (col 2)
+  const SNO_WIDTH = 55;
+  const col0WidthPx = parseWidthPx(columns[0]?.width, 180);
+  const col0WidthStr = `${col0WidthPx}px`;
+  const col1LeftPx = SNO_WIDTH + col0WidthPx;
+  const col1LeftStr = `${col1LeftPx}px`;
 
   return (
     <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[520px] no-print">
@@ -185,10 +220,25 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
         {/* Right Toolbar Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {isFilterActive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleClearAllFilters}
+              className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+              title="Click to clear all active status filters & column searches"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+              <span>Unfilter</span>
+            </Button>
+          )}
+
           {!hideHeaderButtons && (
             <>
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
                 onClick={onOpenFilters}
                 className="flex items-center gap-1.5 text-xs text-white bg-[#0f1f38] hover:bg-[#1e3b8b] font-bold px-3.5 py-1.5 rounded-lg shadow-sm border-0"
@@ -236,14 +286,15 @@ export const ReportTable: React.FC<ReportTableProps> = ({
           )}
         </div>
       </div>
-
-      {/* Scrollable Table Area with Horizontal & Vertical Scrollbars */}
       <div className="flex-1 overflow-auto relative bg-white scrollbar-thin">
         <table className="min-w-full text-left text-xs border-collapse border border-gray-300">
           {/* Sticky Header Row */}
           <thead className="sticky top-0 z-30 bg-[#eef2f6] text-slate-700 font-semibold text-[11px] uppercase tracking-wider shadow-2xs">
             <tr>
-              <th className="px-2.5 py-2 min-w-[50px] w-[50px] text-center border border-gray-300 bg-[#eef2f6] whitespace-nowrap sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]">
+              <th
+                style={{ width: `${SNO_WIDTH}px`, minWidth: `${SNO_WIDTH}px`, maxWidth: `${SNO_WIDTH}px` }}
+                className="px-2 py-2 text-center border border-gray-300 bg-[#eef2f6] whitespace-nowrap sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]"
+              >
                 S.NO.
               </th>
               {columns.map((col, index) => {
@@ -251,9 +302,11 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                 let styleObj: React.CSSProperties = { width: col.width };
 
                 if (index === 0) {
-                  stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-30 bg-[#eef2f6]";
+                  stickyClass = "sticky z-30 bg-[#eef2f6]";
+                  styleObj = { left: `${SNO_WIDTH}px`, width: col0WidthStr, minWidth: col0WidthStr, maxWidth: col0WidthStr };
                 } else if (index === 1) {
-                  stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-30 bg-[#eef2f6] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                  stickyClass = "sticky z-30 bg-[#eef2f6] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                  styleObj = { left: col1LeftStr, width: col.width || "140px", minWidth: col.width || "140px" };
                 }
 
                 return (
@@ -270,18 +323,24 @@ export const ReportTable: React.FC<ReportTableProps> = ({
 
             {/* Inline Column Search Row */}
             <tr className="bg-[#f8fafc]">
-              <td className="p-1 border border-gray-300 bg-[#f8fafc] sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]"></td>
+              <td
+                style={{ width: `${SNO_WIDTH}px`, minWidth: `${SNO_WIDTH}px`, maxWidth: `${SNO_WIDTH}px` }}
+                className="p-1 border border-gray-300 bg-[#f8fafc] sticky left-0 z-30 shadow-[1px_0_3px_rgba(0,0,0,0.08)]"
+              ></td>
               {columns.map((col, index) => {
                 let stickyClass = "";
+                let styleObj: React.CSSProperties = { width: col.width };
 
                 if (index === 0) {
-                  stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-30 bg-[#f8fafc]";
+                  stickyClass = "sticky z-30 bg-[#f8fafc]";
+                  styleObj = { left: `${SNO_WIDTH}px`, width: col0WidthStr, minWidth: col0WidthStr, maxWidth: col0WidthStr };
                 } else if (index === 1) {
-                  stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-30 bg-[#f8fafc] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                  stickyClass = "sticky z-30 bg-[#f8fafc] shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                  styleObj = { left: col1LeftStr, width: col.width || "140px", minWidth: col.width || "140px" };
                 }
 
                 return (
-                  <td key={`search-${col.key}`} className={`p-1 border border-gray-300 bg-[#f8fafc] ${stickyClass}`}>
+                  <td key={`search-${col.key}`} style={styleObj} className={`p-1 border border-gray-300 bg-[#f8fafc] ${stickyClass}`}>
                     {col.searchable !== false && (
                       <input
                         type="text"
@@ -320,22 +379,29 @@ export const ReportTable: React.FC<ReportTableProps> = ({
                     key={row.id || idx}
                     className="group hover:bg-blue-50/40 transition-colors"
                   >
-                    <td className="px-2.5 py-1.5 text-center text-gray-500 font-medium border border-gray-200 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[1px_0_3px_rgba(0,0,0,0.08)]">
+                    <td
+                      style={{ width: `${SNO_WIDTH}px`, minWidth: `${SNO_WIDTH}px`, maxWidth: `${SNO_WIDTH}px` }}
+                      className="px-2 py-1.5 text-center text-gray-500 font-medium border border-gray-200 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[1px_0_3px_rgba(0,0,0,0.08)]"
+                    >
                       {serialNo}
                     </td>
 
                     {columns.map((col, index) => {
                       let stickyClass = "";
+                      let styleObj: React.CSSProperties = { width: col.width };
 
                       if (index === 0) {
-                        stickyClass = "sticky left-[50px] min-w-[190px] w-[190px] z-10 bg-white group-hover:bg-blue-50/90";
+                        stickyClass = "sticky z-10 bg-white group-hover:bg-blue-50/90";
+                        styleObj = { left: `${SNO_WIDTH}px`, width: col0WidthStr, minWidth: col0WidthStr, maxWidth: col0WidthStr };
                       } else if (index === 1) {
-                        stickyClass = "sticky left-[240px] min-w-[140px] w-[140px] z-10 bg-white group-hover:bg-blue-50/90 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                        stickyClass = "sticky z-10 bg-white group-hover:bg-blue-50/90 shadow-[4px_0_8px_-3px_rgba(0,0,0,0.18)]";
+                        styleObj = { left: col1LeftStr, width: col.width || "140px", minWidth: col.width || "140px" };
                       }
 
                       return (
                         <td
                           key={col.key}
+                          style={styleObj}
                           className={`px-2.5 py-1.5 text-gray-800 border border-gray-200 ${stickyClass} ${col.className || ""}`}
                         >
                           {col.render ? col.render(row, idx) : row[col.key] || "N/A"}

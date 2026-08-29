@@ -93,15 +93,15 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "name",
       header: "NAME",
-      width: "22%",
+      width: "180px",
       searchPlaceholder: "Search name...",
       render: (row) => (
         <div className="truncate">
           <div className="font-bold text-gray-900 truncate">
             {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
           </div>
-          <div className="text-[10px] text-gray-500 font-medium truncate">
-            Type: <span className="font-semibold text-gray-700">{row.lead_type || "Buyer"}</span>
+          <div className="text-[10px] text-gray-500 font-medium truncate flex items-center gap-1">
+            <span>Type: <span className="font-semibold text-gray-700">{row.lead_type || "Buyer"}</span></span>
           </div>
         </div>
       ),
@@ -109,7 +109,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "phone",
       header: "CONTACT",
-      width: "18%",
+      width: "140px",
       searchPlaceholder: "Search contact...",
       render: (row) => (
         <div className="truncate">
@@ -121,7 +121,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "city",
       header: "CITY / LOCATION",
-      width: "17%",
+      width: "150px",
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="truncate">
@@ -133,7 +133,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "lead_source",
       header: "SOURCE",
-      width: "10%",
+      width: "110px",
       className: "text-center",
       searchPlaceholder: "Search...",
       render: (row) => (
@@ -145,7 +145,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "priority",
       header: "PRIORITY",
-      width: "7%",
+      width: "90px",
       className: "text-center",
       searchPlaceholder: "Search...",
       render: (row) => {
@@ -164,7 +164,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "status",
       header: "STATUS",
-      width: "8%",
+      width: "110px",
       className: "text-center",
       searchPlaceholder: "Search...",
       render: (row) => {
@@ -185,7 +185,7 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
     {
       key: "assigned_executive_name",
       header: "ASSIGNED AGENT",
-      width: "13%",
+      width: "140px",
       searchPlaceholder: "Search...",
       render: (row) => (
         <span className={`font-medium text-xs truncate block ${row.assigned_executive_name === "Unassigned" ? "text-gray-400 italic" : "text-gray-900"}`}>
@@ -253,32 +253,52 @@ export const LeadReportTab: React.FC<LeadReportTabProps> = ({
 
         {/* 7 STAGE CARDS IN ONE ROW */}
         <div className="grid grid-cols-7 gap-2">
-          {safeFunnel.map((item, idx) => (
-            <div
-              key={item.id}
-              onClick={() => onSelectStatusPill && onSelectStatusPill(item.id)}
-              className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer min-w-0"
-            >
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
-                  Stage {idx + 1}
+          {safeFunnel.map((item, idx) => {
+            const isCardActive = activeStatusPill.toLowerCase() === item.id.toLowerCase();
+
+            const handleCardClick = () => {
+              if (!onSelectStatusPill) return;
+              if (isCardActive && !["all", "total"].includes(item.id.toLowerCase())) {
+                onSelectStatusPill("all");
+              } else {
+                onSelectStatusPill(item.id);
+              }
+            };
+
+            return (
+              <div
+                key={item.id}
+                onClick={handleCardClick}
+                className={`rounded-lg p-2.5 flex flex-col justify-between transition-all cursor-pointer min-w-0 border ${
+                  isCardActive && !["all", "total"].includes(item.id.toLowerCase())
+                    ? "bg-blue-50/80 border-blue-500 ring-1 ring-blue-500 shadow-xs"
+                    : "bg-slate-50 border-slate-200 hover:border-blue-400 hover:shadow-xs"
+                }`}
+              >
+                <div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 flex items-center justify-between">
+                    <span>Stage {idx + 1}</span>
+                    {isCardActive && !["all", "total"].includes(item.id.toLowerCase()) && (
+                      <span className="text-[9px] text-blue-700 font-extrabold bg-blue-100 px-1 rounded">ACTIVE</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-900 truncate" title={item.label}>
+                    {item.label}
+                  </div>
                 </div>
-                <div className="text-[11px] font-bold text-slate-900 truncate" title={item.label}>
-                  {item.label}
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-slate-900">{item.count}</span>
+                  <span className="text-[10px] font-semibold text-blue-600">{item.pct}%</span>
+                </div>
+                <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, item.pct)}%`, backgroundColor: item.color || "#3b82f6" }}
+                  />
                 </div>
               </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-sm font-bold text-slate-900">{item.count}</span>
-                <span className="text-[10px] font-semibold text-blue-600">{item.pct}%</span>
-              </div>
-              <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, item.pct)}%`, backgroundColor: item.color || "#3b82f6" }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

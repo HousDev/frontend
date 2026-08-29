@@ -32,6 +32,7 @@ import {
   Activity,
   Layers3,
   Building2,
+  RotateCcw,
 } from "lucide-react";
 
 interface SellerReportTabProps {
@@ -263,18 +264,18 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
   // Seller View Columns
   const sellerColumns: ColumnDef[] = [
     {
-      key: "id",
-      header: "SELLER ID",
-      render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#SEL-{row.id}</span>,
-    },
-    {
       key: "name",
       header: "SELLER NAME",
-      width: "240px",
+      width: "200px",
       searchPlaceholder: "Search seller...",
       render: (row) => (
-        <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug min-w-[220px]">
-          {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+        <div>
+          <div className="font-bold text-slate-900 text-xs whitespace-normal break-words leading-snug">
+            {row.salutation ? `${row.salutation} ` : ""}{row.name || "N/A"}
+          </div>
+          <div className="text-[11px] font-mono text-indigo-600 font-semibold mt-0.5">
+            #SEL-{row.id}
+          </div>
         </div>
       ),
     },
@@ -292,7 +293,6 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
       searchPlaceholder: "Search location...",
       render: (row) => (
         <div className="flex items-center gap-1 text-xs text-slate-700">
-          <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
           <span>{row.location || row.city || "N/A"}</span>
         </div>
       ),
@@ -437,7 +437,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
   return (
     <div className="space-y-3.5">
       {/* 1. SELLER SALES LIFECYCLE FUNNEL WITH TOP-RIGHT ACTION BUTTONS */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-2xs space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-2 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5">
@@ -454,6 +454,20 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
 
           {/* Filter, Export, Print Buttons in Right Corner */}
           <div className="flex items-center gap-2">
+            {activeStatusPill && !["all", "total"].includes(activeStatusPill.toLowerCase()) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onSelectStatusPill && onSelectStatusPill("all")}
+                className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer transition-all animate-in fade-in duration-150"
+                title="Click to unfilter and view all sellers"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                Unfilter
+              </Button>
+            )}
+
             <Button
               type="button"
               size="sm"
@@ -527,7 +541,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
       {/* 3. LOCATION & PRICE ANALYSIS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Location Demand Matrix */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-orange-500" />
@@ -570,7 +584,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
         </div>
 
         {/* Property Price Analysis */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs uppercase text-gray-900 flex items-center gap-1.5">
               <IndianRupee className="w-4 h-4 text-emerald-600" />
@@ -614,7 +628,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
       {/* 4. CREATIVE 3-COLUMN BI DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {/* Card A: Listing Aging Analytics */}
-        <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <div className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-blue-600" />
@@ -653,7 +667,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
         </div>
 
         {/* Card B: Follow-up Velocity */}
-        <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <div className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-emerald-600" />
@@ -708,7 +722,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
         </div>
 
         {/* Card C: Legal Documents Verification */}
-        <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
+        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5 flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <div className="flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-purple-600" />
@@ -757,7 +771,7 @@ export const SellerReportTab: React.FC<SellerReportTabProps> = ({
       </div>
 
       {/* 5. EXECUTIVE PERFORMANCE LEADERBOARD */}
-      <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
+      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2.5">
         <div className="flex justify-between items-center border-b border-gray-100 pb-2">
           <div className="flex items-center gap-1.5">
             <UserCheck2 className="w-4 h-4 text-indigo-600" />
