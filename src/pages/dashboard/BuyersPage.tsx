@@ -36,6 +36,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Pagination from '@/components/ui/Pagination';
 import * as XLSX from 'xlsx';
 import BuyerFollowupModal from '@/components/buyers/BuyerFollowupModal';
+import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 
 
@@ -2423,19 +2424,37 @@ const BuyersPage = () => {
       <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} onImportComplete={fetchBuyers} />
       {/* Buyer Follow-up Modal */}
       {showBuyerFollowupModal && selectedBuyerForFollowup && (
-        <BuyerFollowupModal
-          isOpen={showBuyerFollowupModal}
+        <SmartFollowupModal
+          open={showBuyerFollowupModal}
+          record={{
+            id: selectedBuyerForFollowup.id,
+            name: (selectedBuyerForFollowup as any).full_name || (selectedBuyerForFollowup as any).name || 'Buyer',
+            entity: 'buyer',
+            stage: (selectedBuyerForFollowup as any).stage || (selectedBuyerForFollowup as any).buyer_stage || 'Requirement Captured',
+            status: (selectedBuyerForFollowup as any).status || (selectedBuyerForFollowup as any).buyer_status || 'Qualified',
+          }}
           onClose={() => {
             setShowBuyerFollowupModal(false);
             setSelectedBuyerForFollowup(null);
           }}
-          onSave={async (payload) => {
+          onSaved={async (payload) => {
             try {
-              // Call API to save follow-up
-              const response = await buyerFollowupAPI.create(payload);
+              const apiPayload = {
+                buyerId: selectedBuyerForFollowup.id,
+                followupType: payload.followUpType,
+                outcome: payload.outcome,
+                reason: payload.reason,
+                remarks: payload.note,
+                nextFollowupDate: payload.nextFollowUp?.date,
+                nextFollowupTime: payload.nextFollowUp?.time,
+                nextAction: payload.nextAction,
+                priority: payload.priority,
+                nextStage: payload.nextStage,
+                nextStatus: payload.nextStatus,
+              };
+              const response = await buyerFollowupAPI.create(apiPayload);
               if (response) {
                 toast.success("Follow-up added successfully");
-                // Refresh buyers to update follow-ups count
                 fetchBuyers();
               }
               setShowBuyerFollowupModal(false);
@@ -2445,9 +2464,6 @@ const BuyersPage = () => {
               toast.error("Failed to add follow-up");
             }
           }}
-          tabId="buyer"
-          buyerId={selectedBuyerForFollowup.id}
-          initialForm={undefined}
         />
       )}
     </div>

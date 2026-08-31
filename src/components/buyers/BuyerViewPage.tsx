@@ -36,6 +36,7 @@ import PropertyMatchModal from './PropertyMatchModal';
 import PropertySuggestionModal from './PropertySuggestionModal';
 import LoanApplicationModal from './LoanApplicationModal';
 import BuyerFollowupModal from './BuyerFollowupModal';
+import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 import { toast } from 'react-toastify';
 import DocumentsTab from './buyerviewcomponents/DocumentsTab';
@@ -765,16 +766,35 @@ ResaleExpert Team`;
       )}
 
       {showFollowupModal && (
-        <BuyerFollowupModal
-          isOpen={showFollowupModal}
+        <SmartFollowupModal
+          open={showFollowupModal}
+          record={{
+            id: buyer?.id ?? buyer?.buyerId ?? '',
+            name: buyer?.name || buyer?.full_name || 'Buyer',
+            entity: 'buyer',
+            stage: buyer?.stage || buyer?.buyer_stage || 'Requirement Captured',
+            status: buyer?.status || buyer?.buyer_status || 'Qualified',
+          }}
           onClose={() => {
             setShowFollowupModal(false);
             setEditingFollowup(null);
           }}
-          onSave={handleSaveFollowup}
-          tabId="buyer"
-          buyerId={buyer?.id ?? buyer?.buyerId ?? ""}
-          initialForm={editingFollowup ?? undefined}
+          onSaved={async (payload) => {
+            const apiPayload = {
+              buyerId: buyer?.id ?? buyer?.buyerId ?? '',
+              followupType: payload.followUpType,
+              outcome: payload.outcome,
+              reason: payload.reason,
+              remarks: payload.note,
+              nextFollowupDate: payload.nextFollowUp?.date,
+              nextFollowupTime: payload.nextFollowUp?.time,
+              nextAction: payload.nextAction,
+              priority: payload.priority,
+              nextStage: payload.nextStage,
+              nextStatus: payload.nextStatus,
+            };
+            await handleSaveFollowup(apiPayload);
+          }}
         />
       )}
 

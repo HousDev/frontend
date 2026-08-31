@@ -20,6 +20,7 @@ import { notificationAPI } from "@/lib/notificationAPI";
 import { getAssignableExecutives } from "@/utils/roleBasedOptions";
 
 import FollowupModal, { FOLLOWUP_TYPES, FollowupForm } from "@/pages/dashboard/components/FollowupModal";
+import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
 import BuyerFormModal from "./components/BuyerFormModal";
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
@@ -987,7 +988,35 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
       </div>
 
       {/* Modals */}
-      <FollowupModal isOpen={isFollowupModalOpen} onClose={() => { setIsFollowupModalOpen(false); setEditingFollowup(null); }} onSave={handleFollowupSave} tabId={tabId} leadId={leadId} initialForm={editingFollowup ? { id: editingFollowup.id, followupType: editingFollowup.type, leadStage: editingFollowup.stage || "", leadStatus: editingFollowup.status || "", remark: editingFollowup.remark || "", customRemark: editingFollowup.customRemark || "", nextAction: editingFollowup.nextAction || "", scheduleDate: editingFollowup.scheduledDate ? new Date(editingFollowup.scheduledDate).toISOString().slice(0, 10) : "", scheduleTime: editingFollowup.scheduledDate ? new Date(editingFollowup.scheduledDate).toTimeString().slice(0, 5) : "", priority: editingFollowup.priority || lead.priority || "Medium", lead_id: leadId } : { priority: lead.priority || "Medium" }} />
+      <SmartFollowupModal
+        open={isFollowupModalOpen}
+        record={{
+          id: leadId,
+          name: lead?.name || 'Lead',
+          entity: 'lead',
+          stage: lead?.stage || 'Connected',
+          status: lead?.status || 'Qualified',
+        }}
+        onClose={() => {
+          setIsFollowupModalOpen(false);
+          setEditingFollowup(null);
+        }}
+        onSaved={async (payload) => {
+          const followupPayload: FollowupForm & { lead_id?: string } = {
+            followupType: payload.followUpType,
+            leadStage: payload.nextStage,
+            leadStatus: payload.nextStatus,
+            remark: payload.outcome + (payload.reason ? ` - ${payload.reason}` : ''),
+            customRemark: payload.note,
+            nextAction: payload.nextAction,
+            scheduleDate: payload.nextFollowUp?.date || '',
+            scheduleTime: payload.nextFollowUp?.time || '',
+            priority: payload.priority,
+            lead_id: leadId
+          };
+          await handleFollowupSave(followupPayload);
+        }}
+      />
       {showBuyerComponent && lead && <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />}
       {showSellerComponent && lead && <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />}
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
