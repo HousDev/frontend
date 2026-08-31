@@ -452,7 +452,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
       setSimilarPropertiesLoading(true);
 
       try {
-        const isRental = Boolean(
+        const isRental = isRentalProp || Boolean(
           property.raw?.listing_type === 'rent' ||
           property.raw?.monthly_rent ||
           property.raw?.security_deposit ||
@@ -994,8 +994,11 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
         }
         return [];
       })(),
-      // ✅ ADD BALCONY FIELD HERE
+      // ✅ ADD BALCONY & RENTAL FIELDS HERE
       balcony: p?.balcony ?? p?.balconies ?? p?.balcony_count ?? '',
+      monthly_rent: p?.monthly_rent ?? p?.expected_rent ?? null,
+      security_deposit: p?.security_deposit ?? null,
+      listing_type: p?.listing_type ?? (p?.monthly_rent ? 'rent' : null),
     };
 
     return normalized;
@@ -1027,15 +1030,31 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
       try {
         setLoading(true);
         let res: any = null;
-        try {
-          res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
-        } catch (e) {
+
+        const isRentalPath = isRentalProp || (typeof window !== 'undefined' && window.location.pathname.startsWith('/rentals'));
+
+        if (isRentalPath) {
           try {
             res = await rentalPropertiesAPI.PublicgetPropertyBySlug(slug as string);
-          } catch (rentalErr) {
-            throw e;
+          } catch (e) {
+            try {
+              res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
+            } catch (resaleErr) {
+              throw e;
+            }
+          }
+        } else {
+          try {
+            res = await propertiesAPI.PublicgetPropertyBySlug(slug as string);
+          } catch (e) {
+            try {
+              res = await rentalPropertiesAPI.PublicgetPropertyBySlug(slug as string);
+            } catch (rentalErr) {
+              throw e;
+            }
           }
         }
+
         const payload = res?.data ?? res ?? null;
         const normalized = normalizeProperty(payload);
         setProperty(normalized);
@@ -1048,7 +1067,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     };
 
     if (!propertyProp && slug) fetchProperty();
-  }, [slug, propertyProp]);
+  }, [slug, propertyProp, isRentalProp]);
 
   // Fetch tags when property is loaded
   useEffect(() => {

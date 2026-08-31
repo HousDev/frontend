@@ -27,6 +27,7 @@ import { can } from "@/utils/permission";
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import Swal from 'sweetalert2';
 import FollowupModal from '../../pages/dashboard/components/FollowupModal'; // or wherever your modal is located
+import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
 
 import * as XLSX from 'xlsx';
 import { FaWhatsapp } from 'react-icons/fa6';
@@ -2088,18 +2089,23 @@ const LeadsPage: React.FC = () => {
 
         {/* Lead Follow-up Modal */}
         {showLeadFollowupModal && selectedLeadForFollowup && (
-          <FollowupModal
-            isOpen={showLeadFollowupModal}
+          <SmartFollowupModal
+            open={showLeadFollowupModal}
+            record={{
+              id: selectedLeadForFollowup.id,
+              name: (selectedLeadForFollowup as any).name || (selectedLeadForFollowup as any).lead_name || 'Lead',
+              entity: 'lead',
+              stage: (selectedLeadForFollowup as any).stage || (selectedLeadForFollowup as any).lead_stage || 'Connected',
+              status: (selectedLeadForFollowup as any).status || (selectedLeadForFollowup as any).lead_status || 'Qualified',
+            }}
             onClose={() => {
               setShowLeadFollowupModal(false);
               setSelectedLeadForFollowup(null);
             }}
-            onSave={async (payload) => {
-              // 👇 Replace with actual API call if you have one
+            onSaved={async (payload) => {
               try {
-                console.log('Follow-up payload:', payload);
+                console.log('Smart Follow-up payload:', payload);
                 toast.success('Follow-up saved successfully');
-                // Optionally refresh leads
                 await fetchLeads();
                 setShowLeadFollowupModal(false);
                 setSelectedLeadForFollowup(null);
@@ -2107,9 +2113,6 @@ const LeadsPage: React.FC = () => {
                 toast.error('Failed to save follow-up');
               }
             }}
-            tabId="lead"
-            leadId={selectedLeadForFollowup.id}
-            initialForm={undefined}
           />
         )}
       </div>

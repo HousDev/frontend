@@ -57,6 +57,7 @@ import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
 import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
+import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
@@ -2631,20 +2632,38 @@ table tbody td {
 
         {/* Seller Follow-up Modal */}
         {showSellerFollowupModal && selectedSellerForFollowup && (
-          <SellerFollowupModal
-            isOpen={showSellerFollowupModal}
+          <SmartFollowupModal
+            open={showSellerFollowupModal}
+            record={{
+              id: selectedSellerForFollowup.id,
+              name: selectedSellerForFollowup.full_name || selectedSellerForFollowup.name || 'Seller',
+              entity: 'seller',
+              stage: selectedSellerForFollowup.stage || selectedSellerForFollowup.seller_stage || 'Requirement Discussion',
+              status: selectedSellerForFollowup.status || selectedSellerForFollowup.seller_status || 'Qualified',
+            }}
             onClose={() => {
               setShowSellerFollowupModal(false);
               setSelectedSellerForFollowup(null);
             }}
-            onSave={async (payload) => {
+            onSaved={async (payload) => {
               try {
-                // Call API to save follow-up
-                await sellerFollowupAPI.create(payload);
+                const apiPayload = {
+                  sellerId: selectedSellerForFollowup.id,
+                  followupType: payload.followUpType,
+                  outcome: payload.outcome,
+                  reason: payload.reason,
+                  remarks: payload.note,
+                  nextFollowupDate: payload.nextFollowUp?.date,
+                  nextFollowupTime: payload.nextFollowUp?.time,
+                  nextAction: payload.nextAction,
+                  priority: payload.priority,
+                  nextStage: payload.nextStage,
+                  nextStatus: payload.nextStatus,
+                };
+                await sellerFollowupAPI.create(apiPayload);
                 toast.success("Follow-up added successfully");
                 setShowSellerFollowupModal(false);
                 setSelectedSellerForFollowup(null);
-                // Refresh sellers to show updated follow-ups count
                 const apiSellers = await sellerAPI.getAll();
                 const normalized = Array.isArray(apiSellers)
                   ? apiSellers.map(mapApiSellerToUI)
@@ -2655,9 +2674,6 @@ table tbody td {
                 toast.error("Failed to add follow-up");
               }
             }}
-            tabId="seller"
-            sellerId={selectedSellerForFollowup.id}
-            initialForm={undefined}
           />
         )}
 

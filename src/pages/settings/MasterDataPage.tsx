@@ -2298,6 +2298,7 @@ import Swal from "sweetalert2";
 import SocietyForm from "./master/SocietyForm";
 import * as XLSX from 'xlsx';
 import { SocietyImportModal } from "./master/SocietyImportModal";
+import AutomationMasterTab from "./master/AutomationMasterTab";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
@@ -2338,6 +2339,7 @@ interface ItemsByTab {
   common: MasterItem[];
   connectedRemark: MasterItem[];
   society: MasterItem[];
+  automationMaster?: MasterItem[];
 }
 
 interface SocietyData {
@@ -2440,6 +2442,7 @@ export default function MasterDataPage(): JSX.Element {
     { id: "common", title: "Common Master" },
     { id: "connectedRemark", title: "Connected Remark" },
     { id: "society", title: "Society with locality" },
+    { id: "automationMaster", title: "Automation Master" },
   ]);
 
   const [activeId, setActiveId] = useState<TabId>(() => {
@@ -2458,6 +2461,7 @@ export default function MasterDataPage(): JSX.Element {
     common: [],
     connectedRemark: [],
     society: [],
+    automationMaster: [],
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -2484,6 +2488,7 @@ export default function MasterDataPage(): JSX.Element {
 
   const isConnectedRemarkTab = activeId === "connectedRemark";
   const isSocietyTab = activeId === "society";
+  const isAutomationMasterTab = activeId === "automationMaster";
   const [selectedValueIds, setSelectedValueIds] = useState<string[]>([]);
 
   const [connectedRemarks, setConnectedRemarks] = useState<ConnectedRemark[]>([]);
@@ -4390,6 +4395,10 @@ export default function MasterDataPage(): JSX.Element {
                     );
                   })()
                 )}
+              </div>
+            ) : isAutomationMasterTab ? (
+              <div className="bg-[#f8fafc] rounded-lg p-2">
+                <AutomationMasterTab />
               </div>
             ) : isSocietyTab ? (
               <div className="bg-white rounded-lg shadow-sm">

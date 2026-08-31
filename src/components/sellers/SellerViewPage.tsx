@@ -65,6 +65,7 @@ import { getImageUrl } from "@/lib/helpers";
 import SellerFollowupModal, {
   SellerFollowupPayload,
 } from "./SellerFollowupModal";
+import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
@@ -2789,48 +2790,44 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         />
       )}
       {showFollowupModal && (
-        <SellerFollowupModal
-          isOpen={showFollowupModal}
+        <SmartFollowupModal
+          open={showFollowupModal}
+          record={{
+            id: (seller as any)?.id ?? (seller as any)?.sellerId ?? '',
+            name: (seller as any)?.name || (seller as any)?.full_name || 'Seller',
+            entity: 'seller',
+            stage: (seller as any)?.stage || (seller as any)?.seller_stage || 'Requirement Discussion',
+            status: (seller as any)?.status || (seller as any)?.seller_status || 'Qualified',
+          }}
           onClose={() => {
             setShowFollowupModal(false);
             setEditingFollowup(null);
           }}
-          onSave={handleModalSave}
-          tabId="seller"
-          sellerId={(seller as any)?.id ?? (seller as any)?.sellerId ?? ""}
-          initialForm={
-            editingFollowup
-              ? {
-                id: String(editingFollowup.id),
-                created_by: (editingFollowup as any).created_by,
-                created_at: editingFollowup.created_at,
-                followupType: editingFollowup.followup_type ?? "Phone Call",
-                followup_type: editingFollowup.followup_type ?? "Phone Call",
-                sellerLeadStatus: editingFollowup.status ?? "",
-                seller_lead_status: editingFollowup.status ?? "",
-                sellerLeadStage:
-                  (seller as any)?.stage_label ??
-                  (seller as any)?.stage ??
-                  "",
-                seller_lead_stage:
-                  (seller as any)?.stage_label ??
-                  (seller as any)?.stage ??
-                  "",
-                remark: editingFollowup.notes ?? "",
-                customRemark: editingFollowup.notes ?? "",
-                custom_remark: editingFollowup.notes ?? "",
-                nextAction: editingFollowup.next_action ?? "",
-                next_action: editingFollowup.next_action ?? "",
-                scheduleDate: editingFollowup.followup_date ?? "",
-                schedule_date: editingFollowup.followup_date ?? "",
-                scheduleTime:
-                  editingFollowup.followup_time?.slice(0, 5) ?? "",
-                schedule_time:
-                  editingFollowup.followup_time?.slice(0, 5) ?? "",
-                priority: editingFollowup.priority ?? "",
-              }
-              : undefined
-          }
+          onSaved={async (payload) => {
+            try {
+              const apiPayload = {
+                sellerId: (seller as any)?.id ?? (seller as any)?.sellerId ?? '',
+                followupType: payload.followUpType,
+                outcome: payload.outcome,
+                reason: payload.reason,
+                remarks: payload.note,
+                nextFollowupDate: payload.nextFollowUp?.date,
+                nextFollowupTime: payload.nextFollowUp?.time,
+                nextAction: payload.nextAction,
+                priority: payload.priority,
+                nextStage: payload.nextStage,
+                nextStatus: payload.nextStatus,
+              };
+              await sellerFollowupAPI.create(apiPayload);
+              toast.success("Follow-up added successfully");
+              setShowFollowupModal(false);
+              setEditingFollowup(null);
+              fetchFollowups();
+            } catch (error) {
+              console.error("Error adding follow-up:", error);
+              toast.error("Failed to add follow-up");
+            }
+          }}
         />
       )}
       {showActivityModal && (
