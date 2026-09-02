@@ -222,12 +222,31 @@ export const automationEngineAPI = {
   // SUBMIT TRANSACTIONAL FOLLOW-UP
   // ----------------------------------------------------
   submitFollowup: async (payload: FollowupSubmitPayload) => {
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${API_BASE}/followup/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload)
     });
     return res.json();
+  },
+
+  // ----------------------------------------------------
+  // EVALUATE RULE (SIMULATOR)
+  // ----------------------------------------------------
+  evaluateRule: async (params: { entity: string; currentStageId: number; outcomeId: number }) => {
+    try {
+      const res = await fetch(`${API_BASE}/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      return res.json();
+    } catch (err) {
+      return { success: false, data: null };
+    }
   },
 
   // ----------------------------------------------------

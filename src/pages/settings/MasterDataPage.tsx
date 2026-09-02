@@ -3996,19 +3996,133 @@ export default function MasterDataPage(): JSX.Element {
       <main className="p-1 sm:p-2">
         {currentView === "list" ? (
           <>
-            <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
+            {!isAutomationMasterTab && (
+              <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
 
-              {/* 🔹 MOBILE: Heading + Create button in same row */}
-              <div className="flex items-center justify-between md:block">
-                <h2 className="text-base sm:text-lg font-semibold truncate">
-                  {activeTab.title}
-                </h2>
+                {/* 🔹 MOBILE: Heading + Create button in same row */}
+                <div className="flex items-center justify-between md:block">
+                  <h2 className="text-base sm:text-lg font-semibold truncate">
+                    {activeTab.title}
+                  </h2>
 
-                {/* Create button (mobile only) */}
-                <div className="md:hidden">
+                  {/* Create button (mobile only) */}
+                  <div className="md:hidden">
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+                    >
+                      <Plus size={14} />
+                      <span className="whitespace-nowrap">
+                        {isConnectedRemarkTab
+                          ? "Add Connected Remark"
+                          : isSocietyTab
+                            ? "Add Society"
+                            : `Create ${activeTab.title} types`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 🔹 RIGHT SECTION */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
+
+                  {/* Search & Advanced Filters Toggle */}
+                  {!isConnectedRemarkTab && !isSocietyTab && (
+                    <div className="flex gap-2 w-full sm:w-auto flex-1">
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${showFilters
+                          ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm animate-pulse-fast"
+                          : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
+                          }`}
+                      >
+                        <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
+                        <span className="hidden sm:inline">Filters</span>
+                        {activeFiltersCount > 0 && (
+                          <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
+                            {activeFiltersCount}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 🔹 Import + Export */}
+                  {!isConnectedRemarkTab && !isSocietyTab && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => {
+                          setImportType("master");
+                          setIsImportModalOpen(true);
+                        }}
+                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                      >
+                        <Upload size={14} />
+                        <span className="whitespace-nowrap">
+                          Import {activeTab.title}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={handleMasterExport}
+                        disabled={!filteredMasterItems.length}
+                        className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                      >
+                        <Download size={14} />
+                        <span className="whitespace-nowrap">Export</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 🔹 Society Tab - Export button */}
+                  {isSocietyTab && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                      {/* 🆕 IMPORT BUTTON — Export ke bajule, Add Society se pehle */}
+                      <button
+                        onClick={() => setIsSocietyImportModalOpen(true)}
+                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
+                      >
+                        <Upload size={14} />
+                        <span className="whitespace-nowrap">Import Societies</span>
+                      </button>
+
+                      <button
+                        onClick={handleMasterExport}
+                        disabled={!filteredSocieties.length}
+                        className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                      >
+                        <Download size={14} />
+                        <span className="whitespace-nowrap">Export Societies</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 🔹 Connected Remark Tab - Export button */}
+                  {isConnectedRemarkTab && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <button
+                        onClick={handleMasterExport}
+                        disabled={!filteredConnectedRemarks.length}
+                        className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
+                      >
+                        <Download size={14} />
+                        <span className="whitespace-nowrap">Export Remarks</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 🔹 DESKTOP: Create button */}
                   <button
                     onClick={() => setIsModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+                    className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
                   >
                     <Plus size={14} />
                     <span className="whitespace-nowrap">
@@ -4021,120 +4135,7 @@ export default function MasterDataPage(): JSX.Element {
                   </button>
                 </div>
               </div>
-
-              {/* 🔹 RIGHT SECTION */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 md:gap-3 md:flex-wrap w-full md:w-auto">
-
-                {/* Search & Advanced Filters Toggle */}
-                {!isConnectedRemarkTab && !isSocietyTab && (
-                  <div className="flex gap-2 w-full sm:w-auto flex-1">
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full sm:w-56 md:w-64 border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${showFilters
-                        ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm animate-pulse-fast"
-                        : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"
-                        }`}
-                    >
-                      <Filter size={14} className={showFilters ? "fill-blue-600/10 text-blue-600" : "text-gray-400"} />
-                      <span className="hidden sm:inline">Filters</span>
-                      {activeFiltersCount > 0 && (
-                        <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
-                          {activeFiltersCount}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* 🔹 Import + Export */}
-                {!isConnectedRemarkTab && !isSocietyTab && (
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <button
-                      onClick={() => {
-                        setImportType("master");
-                        setIsImportModalOpen(true);
-                      }}
-                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-                    >
-                      <Upload size={14} />
-                      <span className="whitespace-nowrap">
-                        Import {activeTab.title}
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={handleMasterExport}
-                      disabled={!filteredMasterItems.length}
-                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                    >
-                      <Download size={14} />
-                      <span className="whitespace-nowrap">Export</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* 🔹 Society Tab - Export button */}
-                {isSocietyTab && (
-                  <div className="flex gap-2 w-full md:w-auto">
-                    {/* 🆕 IMPORT BUTTON — Export ke bajule, Add Society se pehle */}
-                    <button
-                      onClick={() => setIsSocietyImportModalOpen(true)}
-                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-xs"
-                    >
-                      <Upload size={14} />
-                      <span className="whitespace-nowrap">Import Societies</span>
-                    </button>
-
-                    <button
-                      onClick={handleMasterExport}
-                      disabled={!filteredSocieties.length}
-                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                    >
-                      <Download size={14} />
-                      <span className="whitespace-nowrap">Export Societies</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* 🔹 Connected Remark Tab - Export button */}
-                {isConnectedRemarkTab && (
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <button
-                      onClick={handleMasterExport}
-                      disabled={!filteredConnectedRemarks.length}
-                      className="flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 disabled:opacity-50 text-xs"
-                    >
-                      <Download size={14} />
-                      <span className="whitespace-nowrap">Export Remarks</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* 🔹 DESKTOP: Create button */}
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="hidden md:flex w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg items-center justify-center gap-2 text-xs"
-                >
-                  <Plus size={14} />
-                  <span className="whitespace-nowrap">
-                    {isConnectedRemarkTab
-                      ? "Add Connected Remark"
-                      : isSocietyTab
-                        ? "Add Society"
-                        : `Create ${activeTab.title} types`}
-                  </span>
-                </button>
-
-              </div>
-            </div>
+            )}
 
             {isLoading ? (
               <div className="text-center py-10 sm:py-12">

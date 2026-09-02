@@ -357,8 +357,8 @@ const ActivityTimeline = ({ seller }: any) => {
       {/* Activity Timeline - Mobile compact */}
       <div className="space-y-2 sm:space-y-3">
         {filteredActivities.map((activity) => (
-          <div key={activity.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all" style={{ border: `1px solid ${BD}`, borderLeftWidth: '3px sm:4px', borderLeftColor: O }}>
-            <div className="p-2.5 sm:p-4">
+          <div key={activity.id} className="bg-white rounded-lg shadow-2xs hover:shadow-xs transition-all" style={{ border: `1px solid ${BD}`, borderLeftWidth: '3px sm:4px', borderLeftColor: O }}>
+            <div className="p-2 sm:p-2.5">
               {/* Activity Header - Mobile: stacked, Desktop: row */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">

@@ -626,7 +626,7 @@ const BuyerSidebarFilter: React.FC<Props> = ({
               <select value={draft.assigned_executive} onChange={(e) => updateDraft("assigned_executive", e.target.value)} style={selectStyle}>
                 <option value="all">All</option>
                 <option value="unassigned">Unassigned</option>
-                {executives.map((ex) => (
+                {(executives || []).filter(ex => ex && ex.id !== undefined).map((ex) => (
                   <option key={ex.id} value={String(ex.id)}>{ex.name}</option>
                 ))}
               </select>

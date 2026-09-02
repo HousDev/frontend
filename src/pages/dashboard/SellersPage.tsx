@@ -58,6 +58,7 @@ import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
 import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
 import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
+import { automationEngineAPI } from "@/lib/automationEngineAPI";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
@@ -129,6 +130,8 @@ type UISeller = {
   priority: string;
   stage: string;
   status: string;
+  seller_lead_status?: string | null;
+  seller_lead_stage?: string | null;
   leadType: string;
   assigned: string;
   assigned_to: number;
@@ -1541,6 +1544,20 @@ const SellersPage: React.FC = () => {
     );
   }, [user]);
 
+  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
+  const [masterStages, setMasterStages] = useState<any[]>([]);
+
+  useEffect(() => {
+    automationEngineAPI.getMastersGraph('seller').then((graph) => {
+      if (graph?.statuses && Array.isArray(graph.statuses)) {
+        setMasterStatuses(graph.statuses);
+      }
+      if (graph?.stages && Array.isArray(graph.stages)) {
+        setMasterStages(graph.stages);
+      }
+    }).catch(() => {});
+  }, []);
+
   const stageOptions = useMemo(() => {
     const stages = [...new Set(roleFilteredSellers.map((s) => s.stage))];
     return stages.map((s) => ({
@@ -1854,8 +1871,22 @@ table tbody td {
                         className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
                       >
                         <option value="">Status...</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        {masterStatuses.length > 0 ? (
+                          masterStatuses.map((st: any) => (
+                            <option key={st.id || st.name} value={st.name}>
+                              {st.name}
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="New">New</option>
+                            <option value="Contacted">Contacted</option>
+                            <option value="Follow-up Required">Follow-up Required</option>
+                            <option value="Need More Time">Need More Time</option>
+                            <option value="Qualified">Qualified</option>
+                            <option value="Unqualified">Unqualified</option>
+                          </>
+                        )}
                       </select>
                       <select
                         onChange={(e) => {
@@ -1866,11 +1897,17 @@ table tbody td {
                         className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white"
                       >
                         <option value="">Stage...</option>
-                        {stageOptions.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
-                          </option>
-                        ))}
+                        {masterStages.length > 0
+                          ? masterStages.map((st: any) => (
+                              <option key={st.id || st.name} value={st.name}>
+                                {st.name}
+                              </option>
+                            ))
+                          : stageOptions.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
                       </select>
                       <select
                         onChange={(e) => {
@@ -2358,7 +2395,12 @@ table tbody td {
                           <td className="px-2 py-1">
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1 flex-wrap">
-                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getStageBadgeClass(seller.stage)}`}>{seller.stage?.replace(/_/g, " ")}</span>
+                                <span
+                                  className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-100 text-blue-800 border border-blue-200 whitespace-nowrap truncate max-w-[130px] inline-block align-middle"
+                                  title={`Status: ${seller.status || seller.seller_lead_status || 'New'}`}
+                                >
+                                  Status: {seller.status || seller.seller_lead_status || 'New'}
+                                </span>
                                 <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium ${getPriorityBadgeClass(seller.priority)}`}>{seller.priority}</span>
                               </div>
                               <div className="text-[9px] text-gray-600">Source: <span className="font-medium">{seller.source}</span></div>
@@ -2368,6 +2410,9 @@ table tbody td {
                           {/* PROGRESS & ACTIVITY */}
                           <td className="px-2 py-1">
                             <div className="space-y-0.5">
+                              <div className="text-[9px] font-semibold text-slate-800 truncate max-w-[140px]" title={seller.stage}>
+                                Stage: <span className="text-orange-600 font-bold">{seller.stage?.replace(/_/g, " ") || 'Initial Contact'}</span>
+                              </div>
                               <div><div className="flex justify-between text-[9px] mb-0.5"><span> Stage Progress</span><span>{seller.stageProgress}%</span></div><div className="w-20 bg-gray-200 rounded-full h-1"><div className="bg-orange-500 h-1 rounded-full" style={{ width: `${seller.stageProgress}%` }} /></div></div>
                               <div className="text-[9px] text-gray-600">Visits: <span className="font-medium">{seller.visits}</span></div>
                             </div>
@@ -2645,34 +2690,15 @@ table tbody td {
               setShowSellerFollowupModal(false);
               setSelectedSellerForFollowup(null);
             }}
-            onSaved={async (payload) => {
-              try {
-                const apiPayload = {
-                  sellerId: selectedSellerForFollowup.id,
-                  followupType: payload.followUpType,
-                  outcome: payload.outcome,
-                  reason: payload.reason,
-                  remarks: payload.note,
-                  nextFollowupDate: payload.nextFollowUp?.date,
-                  nextFollowupTime: payload.nextFollowUp?.time,
-                  nextAction: payload.nextAction,
-                  priority: payload.priority,
-                  nextStage: payload.nextStage,
-                  nextStatus: payload.nextStatus,
-                };
-                await sellerFollowupAPI.create(apiPayload);
-                toast.success("Follow-up added successfully");
-                setShowSellerFollowupModal(false);
-                setSelectedSellerForFollowup(null);
-                const apiSellers = await sellerAPI.getAll();
-                const normalized = Array.isArray(apiSellers)
-                  ? apiSellers.map(mapApiSellerToUI)
-                  : [];
-                setAllSellers(normalized);
-              } catch (error) {
-                console.error("Error adding follow-up:", error);
-                toast.error("Failed to add follow-up");
-              }
+            onSaved={async () => {
+              setShowSellerFollowupModal(false);
+              setSelectedSellerForFollowup(null);
+              sellerFollowupAPI.clearCache();
+              const apiSellers = await sellerAPI.getAll();
+              const normalized = Array.isArray(apiSellers)
+                ? apiSellers.map(mapApiSellerToUI)
+                : [];
+              setAllSellers(normalized);
             }}
           />
         )}

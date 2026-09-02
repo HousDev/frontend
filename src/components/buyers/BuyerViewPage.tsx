@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Plus,
   Edit,
+  Trash2,
   MessageCircle,
   TrendingUp,
   ChevronLeft,
@@ -772,28 +773,43 @@ ResaleExpert Team`;
             id: buyer?.id ?? buyer?.buyerId ?? '',
             name: buyer?.name || buyer?.full_name || 'Buyer',
             entity: 'buyer',
-            stage: buyer?.stage || buyer?.buyer_stage || 'Requirement Captured',
-            status: buyer?.status || buyer?.buyer_status || 'Qualified',
+            isEdit: Boolean(editingFollowup),
+            stage: editingFollowup
+              ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any).buyerLeadStage || (editingFollowup as any)?.buyer_lead_stage || (editingFollowup as any).stage || buyer?.stage || buyer?.buyer_stage || 'Requirement Captured')
+              : (buyer?.stage || buyer?.buyer_stage || 'Requirement Captured'),
+            status: editingFollowup
+              ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any).buyerLeadStatus || (editingFollowup as any)?.buyer_lead_status || (editingFollowup as any).status || buyer?.status || buyer?.buyer_status || 'Qualified')
+              : (buyer?.status || buyer?.buyer_status || 'Qualified'),
+            followup: editingFollowup
           }}
           onClose={() => {
             setShowFollowupModal(false);
             setEditingFollowup(null);
           }}
-          onSaved={async (payload) => {
-            const apiPayload = {
-              buyerId: buyer?.id ?? buyer?.buyerId ?? '',
-              followupType: payload.followUpType,
-              outcome: payload.outcome,
-              reason: payload.reason,
-              remarks: payload.note,
-              nextFollowupDate: payload.nextFollowUp?.date,
-              nextFollowupTime: payload.nextFollowUp?.time,
-              nextAction: payload.nextAction,
-              priority: payload.priority,
-              nextStage: payload.nextStage,
-              nextStatus: payload.nextStatus,
+          onSaved={async (savedData?: any) => {
+            setShowFollowupModal(false);
+            setEditingFollowup(null);
+
+            const newOrUpdated = savedData?.data ?? savedData;
+            let currentFollowups = Array.isArray(buyer?.followups) ? [...buyer.followups] : [];
+            if (editingFollowup) {
+              currentFollowups = currentFollowups.map((f: any) =>
+                (f.id === editingFollowup.id || (newOrUpdated?.id && f.id === newOrUpdated.id)) ? { ...f, ...newOrUpdated } : f
+              );
+            } else if (newOrUpdated && typeof newOrUpdated === 'object') {
+              currentFollowups = [newOrUpdated, ...currentFollowups];
+            }
+
+            const updatedBuyer = {
+              ...buyer,
+              followups: currentFollowups,
+              stage: newOrUpdated?.buyer_lead_stage || newOrUpdated?.buyerLeadStage || newOrUpdated?.current_stage || newOrUpdated?.stage || buyer?.stage,
+              status: newOrUpdated?.buyer_lead_status || newOrUpdated?.buyerLeadStatus || newOrUpdated?.current_status || newOrUpdated?.status || buyer?.status,
             };
-            await handleSaveFollowup(apiPayload);
+
+            if (onUpdateBuyer) {
+              await onUpdateBuyer(updatedBuyer);
+            }
           }}
         />
       )}
@@ -1261,31 +1277,31 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
           f._id ??
           `${f.buyerId ?? "b"}-${Math.random().toString(36).slice(2, 8)}`,
         description: f.description ?? f.remark ?? f.customRemark ?? f.title ?? "Follow-up",
-        status: (f.status ?? f.buyerLeadStatus ?? f.leadStatus ?? null) as string | null,
-        date: f.date ?? f.scheduleDate ?? f.createdAt ?? null,
-        time: f.time ?? f.scheduleTime ?? null,
+        status: (f.status ?? f.buyerLeadStatus ?? f.buyer_lead_status ?? buyer?.status ?? null) as string | null,
+        date: f.date ?? f.scheduleDate ?? f.schedule_date ?? f.createdAt ?? null,
+        time: f.time ?? f.scheduleTime ?? f.schedule_time ?? null,
         transferredAt: transferredAtRaw ?? null,
-        priority: f.priority ?? null,
-        assignedTo: assignedToName,
-        type: f.type ?? f.followupType ?? null,
-        remark: f.remark ?? f.customRemark ?? null,
+        priority: f.priority ?? "Medium",
+        assignedTo: assignedToName ?? buyer?.assigned_executive_name ?? buyer?.assigned_to_name ?? buyer?.assigned_executive ?? "Unassigned",
+        type: f.type ?? f.followupType ?? f.followup_type ?? "phone",
+        remark: f.remark ?? f.customRemark ?? f.custom_remark ?? f.notes ?? f.outcome ?? null,
         reminder: !!(f.reminder ?? false),
         raw: f,
         category: transferredFromLead ? "presales" : "sales",
         transferredFromLead,
 
-        buyerLeadStage: f.buyerLeadStage ?? f.buyer_lead_stage ?? null,
-        buyerLeadStatus: f.buyerLeadStatus ?? f.buyer_lead_status ?? null,
-        customRemark: f.customRemark ?? f.custom_remark ?? null,
-        followupType: f.followupType ?? f.followup_type ?? null,
+        buyerLeadStage: f.buyerLeadStage ?? f.buyer_lead_stage ?? f.stage ?? buyer?.stage ?? null,
+        buyerLeadStatus: f.buyerLeadStatus ?? f.buyer_lead_status ?? f.status ?? buyer?.status ?? null,
+        customRemark: f.customRemark ?? f.custom_remark ?? f.remark ?? f.notes ?? f.outcome ?? null,
+        followupType: f.followupType ?? f.followup_type ?? f.type ?? "phone",
         nextAction: f.nextAction ?? f.next_action ?? null,
-        scheduleDate: f.scheduleDate ?? f.schedule_date ?? null,
-        scheduleTime: f.scheduleTime ?? f.schedule_time ?? null,
+        scheduleDate: f.scheduleDate ?? f.schedule_date ?? f.date ?? null,
+        scheduleTime: f.scheduleTime ?? f.schedule_time ?? f.time ?? null,
 
         createdAt: createdAtRaw ?? null,
         updatedAt: updatedAtRaw ?? null,
         // prefer name fields for display
-        createdBy: createdByRaw ?? null,
+        createdBy: createdByRaw ?? (f.created_by ? `User #${f.created_by}` : "System"),
         updatedBy: updatedByRaw ?? null
       } as Followup;
     });
@@ -1310,7 +1326,14 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
           res ??
           (res?.data?.data ? res.data.data : undefined);
         const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : raw ?? [];
-        if (!cancelled) setFollowups(mapAndNormalize(list));
+        const propFollowups = Array.isArray(buyer?.followups) ? buyer.followups : [];
+        const combined = [...list];
+        for (const pf of propFollowups) {
+          if (pf && pf.id && !combined.some((item: any) => String(item.id) === String(pf.id))) {
+            combined.unshift(pf);
+          }
+        }
+        if (!cancelled) setFollowups(mapAndNormalize(combined.length ? combined : propFollowups));
       } catch (err: any) {
         toast.warn("Error fetching followups by buyerId:", err);
         if (!cancelled) {
@@ -1391,81 +1414,132 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredFollowups.map((followup, idx) => {
-          const key =
-            followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
-          const dynamicFields = renderDynamicFields(followup);
+          const key = followup.id ?? `${idx}-${(followup.description ?? "followup").slice(0, 20)}`;
+          const stage = followup.buyerLeadStage || followup.raw?.buyer_lead_stage || buyer?.stage || null;
+          const status = followup.buyerLeadStatus || followup.raw?.buyer_lead_status || buyer?.status || null;
+          const outcome = followup.customRemark || followup.remark || followup.raw?.notes || followup.raw?.outcome || null;
+          const nextAction = followup.nextAction || followup.raw?.next_action || null;
+          const typeName = followup.followupType || followup.type || followup.raw?.followup_type || "phone";
+          const priority = followup.priority || "Medium";
+          const createdBy = followup.createdBy || followup.raw?.created_by_name || (followup.raw?.created_by ? `User #${followup.raw.created_by}` : "System");
+          const assignedTo = followup.assignedTo || buyer?.assigned_executive_name || buyer?.assigned_to_name || "Unassigned";
+          const schedDateStr = followup.scheduleDate || followup.raw?.schedule_date || followup.date || null;
+          const schedTimeStr = followup.scheduleTime || followup.raw?.schedule_time || followup.time || null;
+          const schedFormatted = schedDateStr ? `${formatDate(schedDateStr)}${schedTimeStr ? ` at ${formatTime(schedTimeStr)}` : ''}` : null;
 
           return (
             <div
               key={key}
-              className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${getPriorityColor(
-                followup.priority
-              )}`}
+              className={`bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm hover:shadow-md transition-all border-l-4 ${getPriorityColor(priority)}`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                <div className="flex justify-between items-center text-[11px]">
-                  {/* Badge: show Pre-Sales or Sales depending on category */}
-                  {followup.category === "presales" && (
-                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-indigo-100 text-indigo-700 font-medium flex items-center">
-                      📋 <span className="ml-1">Pre-Sales</span>
-                    </span>
-                  )}
-                  {followup.category === "sales" && (
-                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-700 font-medium flex items-center">
-                      💼 <span className="ml-1">Sales</span>
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end space-x-2 w-full sm:w-auto">
-                  <span className="text-[10px] text-gray-500 whitespace-normal sm:whitespace-nowrap">
-                    {followup.transferredAt && (
-                      <span className="text-gray-500">
-                        Transferred Date:{" "}
-                        <span className="font-medium text-gray-700">
-                          {formatDate(followup.transferredAt)}
-                          {formatTime(followup.transferredAt)
-                            ? ` • ${formatTime(followup.transferredAt)}`
-                            : ""}
-                        </span>
-                      </span>
-                    )}
+              {/* Header Row */}
+              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-gray-100 flex-wrap">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-100 text-purple-800 capitalize flex items-center gap-1">
+                    📞 {typeName}
                   </span>
 
-                  {followup.category !== "presales" && (
+                  {stage && (
+                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Stage: {stage}
+                    </span>
+                  )}
+
+                  {status && (
+                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                      Status: {status}
+                    </span>
+                  )}
+
+                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-amber-100 text-amber-800">
+                    {priority}
+                  </span>
+                </div>
+
+                {followup.category !== "presales" && (
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         if (followup.transferredFromLead) return;
                         onEditFollowup(followup.raw ?? followup);
                       }}
                       disabled={!!followup.transferredFromLead}
-                      className={`p-1.5 rounded-md transition-all duration-200 ${
-                        followup.transferredFromLead
-                          ? "text-gray-400 cursor-not-allowed"
-                          : "text-purple-600 hover:bg-purple-100 hover:scale-110"
-                      }`}
-                      title={
-                        followup.transferredFromLead
-                          ? "This follow-up was transferred (pre-sales) and cannot be edited."
-                          : "Edit follow-up"
-                      }
+                      className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-40"
+                      title={followup.transferredFromLead ? "Pre-sales cannot be edited" : "Edit Follow-up"}
                     >
-                      <Edit size={14} />
+                      <Edit size={13} />
                     </button>
-                  )}
-                </div>
+                    <button
+                      onClick={async () => {
+                        if (followup.transferredFromLead) return;
+                        const result = await Swal.fire({
+                          title: "Delete Follow-up?",
+                          text: "Are you sure you want to delete this follow-up?",
+                          icon: "warning",
+                          showCancelButton: true,
+                          confirmButtonColor: "#d33",
+                          cancelButtonColor: "#3085d6",
+                          confirmButtonText: "Yes, delete it!",
+                        });
+                        if (!result.isConfirmed) return;
+                        try {
+                          await buyerFollowupAPI.remove(followup.id);
+                          setFollowups((prev) => prev.filter((x) => String(x.id) !== String(followup.id)));
+                          toast.success("Follow-up deleted successfully");
+                        } catch (e: any) {
+                          toast.error(e?.message || "Failed to delete follow-up");
+                        }
+                      }}
+                      disabled={!!followup.transferredFromLead}
+                      className="p-1 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                      title={followup.transferredFromLead ? "Pre-sales cannot be deleted" : "Delete Follow-up"}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {dynamicFields}
+              {/* Body Content */}
+              <div className="space-y-1.5 text-xs">
+                {/* Outcome / Remarks */}
+                {outcome && (
+                  <div className="bg-amber-50/70 border border-amber-200/60 rounded px-2.5 py-1.5 text-gray-800">
+                    <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
+                      Outcome / Remarks:
+                    </span>
+                    <p className="text-[11px] font-medium text-gray-700 whitespace-pre-wrap">{outcome}</p>
+                  </div>
+                )}
 
-              {followup.reminder && (
-                <div className="mt-3 flex items-center space-x-1 text-[11px] bg-purple-50 rounded-md px-2 py-1">
-                  <Bell className="text-purple-600" size={12} />
-                  <span className="text-purple-700 font-medium">
-                    🔔 Reminder set
-                  </span>
+                {/* Next Action */}
+                {nextAction && (
+                  <div className="flex items-center gap-2 bg-orange-50/80 border border-orange-200/80 rounded px-2.5 py-1.5 text-xs">
+                    <span className="font-bold text-orange-950 whitespace-nowrap">⚡ Next Action:</span>
+                    <span className="font-semibold text-orange-800 truncate">{nextAction}</span>
+                  </div>
+                )}
+
+                {/* Scheduled Date */}
+                {schedFormatted && (
+                  <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 rounded px-2.5 py-1.5 text-xs text-emerald-950">
+                    <span className="font-bold">📅 Scheduled:</span>
+                    <span className="font-semibold text-emerald-800">{schedFormatted}</span>
+                  </div>
+                )}
+
+                {/* Audit Metadata */}
+                <div className="pt-2 mt-2 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>👤 Created by: <strong className="text-gray-700">{createdBy}</strong></span>
+                    <span>🎯 Assigned: <strong className="text-gray-700">{assignedTo}</strong></span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-gray-400">
+                    {followup.createdAt && <span>Created: {formatDate(followup.createdAt)}</span>}
+                    {followup.updatedAt && followup.updatedAt !== followup.createdAt && <span>Updated: {formatDate(followup.updatedAt)}</span>}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

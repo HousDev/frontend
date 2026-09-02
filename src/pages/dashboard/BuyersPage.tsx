@@ -29,6 +29,7 @@ import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import { automationEngineAPI } from '@/lib/automationEngineAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { can } from '@/utils/permission';
 import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
@@ -65,6 +66,8 @@ type UIBuyer = {
   priority: 'high' | 'medium' | 'low' | string | null;
   stage: string | null;
   status: string | null;
+  buyer_lead_status?: string | null;
+  buyer_lead_stage?: string | null;
   assigned: string | null;
   assigned_executive?: string | number | null;
   assigned_executive_name?: string | null;
@@ -157,6 +160,16 @@ const BuyersPage = () => {
     if (isExecutive) return String(buyer.assigned_executive) === String(user?.id);
     return false;
   };
+
+  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
+
+  useEffect(() => {
+    automationEngineAPI.getMastersGraph('buyer').then((graph) => {
+      if (graph?.statuses && Array.isArray(graph.statuses)) {
+        setMasterStatuses(graph.statuses);
+      }
+    }).catch(() => {});
+  }, []);
   const canDeleteBuyer = (buyer: UIBuyer) => {
     if (!canDelete) return false;
     if (isAdmin) return true;
@@ -266,6 +279,7 @@ const BuyersPage = () => {
   }, []);
 
   const getBuyerBudget = (buyer: UIBuyer) => {
+    if (!buyer) return { min: null, max: null };
     const rawMin = Number(buyer?.budget?.min ?? 0);
     const rawMax = Number(buyer?.budget?.max ?? 0);
     const min = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : null;
@@ -274,6 +288,7 @@ const BuyersPage = () => {
   };
 
   const isWithinBuyerBudget = (p: any, buyer: UIBuyer) => {
+    if (!buyer) return false;
     const { min: bMin, max: bMax } = getBuyerBudget(buyer);
     const hasMin = bMin != null;
     const hasMax = bMax != null;
@@ -287,13 +302,13 @@ const BuyersPage = () => {
   };
 
   const countMatchingProperties = (buyer: UIBuyer) => {
-    if (!properties.length) return 0;
+    if (!buyer || !properties.length) return 0;
     return properties.filter((property) => isWithinBuyerBudget(property, buyer)).length;
   };
 
   useEffect(() => {
     if (!properties.length || !allBuyers.length) return;
-    setAllBuyers(prev => prev.map(b => ({ ...b, matchedPropertiesCount: countMatchingProperties(b) })));
+    setAllBuyers(prev => (prev || []).filter(Boolean).map(b => ({ ...b, matchedPropertiesCount: countMatchingProperties(b) })));
   }, [properties]);
 
   // Debounce searchTerm — 300ms to avoid re-filtering 5555 rows on every keystroke
@@ -387,11 +402,13 @@ const BuyersPage = () => {
   }, []);
 
 
-  const filteredExecutives = executives.filter(exec =>
-    execSearch.trim() === '' ? true :
-      exec.name.toLowerCase().includes(execSearch.toLowerCase()) ||
-      (exec.email && exec.email.toLowerCase().includes(execSearch.toLowerCase())) ||
-      (exec.phone && exec.phone.includes(execSearch))
+  const filteredExecutives = (executives || []).filter(exec =>
+    exec && (
+      execSearch.trim() === '' ? true :
+        (exec.name && exec.name.toLowerCase().includes(execSearch.toLowerCase())) ||
+        (exec.email && exec.email.toLowerCase().includes(execSearch.toLowerCase())) ||
+        (exec.phone && exec.phone.includes(execSearch))
+    )
   );
 
   // Masters Loading
@@ -434,8 +451,8 @@ const BuyersPage = () => {
   const stageRaw = getMasterArray(masters, ['buyer_lead_stage', 'buyer stage']);
   const priorityRaw = getMasterArray(masters, ['lead_priority', 'lead priority']);
 
-  const stageOptions = stageRaw.map((o) => ({ value: toOptionValue(o), label: toOptionLabel(o) })).filter((o) => o.value);
-  const priorityOptions = priorityRaw.map((o) => ({ value: toOptionValue(o).toLowerCase(), label: toOptionLabel(o) })).filter((o) => o.value);
+  const stageOptions = (stageRaw || []).filter(Boolean).map((o) => ({ value: toOptionValue(o), label: toOptionLabel(o) })).filter((o) => o.value);
+  const priorityOptions = (priorityRaw || []).filter(Boolean).map((o) => ({ value: toOptionValue(o).toLowerCase(), label: toOptionLabel(o) })).filter((o) => o.value);
 
   const stageOptionsFallback = [
     { value: 'initial_contact', label: 'Initial Contact' },
@@ -516,7 +533,7 @@ const BuyersPage = () => {
     if (!executiveId || executiveId === 0) return { name: 'Not assigned', isCurrentUser: false };
     const isCurrentUser = String(executiveId) === String(user?.id);
     if (isCurrentUser) return { name: user?.name || 'You', isCurrentUser: true };
-    const exec = executives.find(e => String(e.id) === String(executiveId));
+    const exec = (executives || []).find(e => e && String(e.id) === String(executiveId));
     return exec ? { name: exec.name, isCurrentUser: false } : { name: `Executive (ID: ${executiveId})`, isCurrentUser: false };
   }, [user, executives]);
 
@@ -609,13 +626,14 @@ const BuyersPage = () => {
         setAllBuyers([]);
         return;
       }
-      const normalized = apiBuyers.map(normalizeBuyerForUI);
+      const normalized = (apiBuyers || []).filter(Boolean).map(normalizeBuyerForUI).filter(Boolean);
       const uniqueBuyers = normalized.reduce((acc: UIBuyer[], current: UIBuyer) => {
-        const exists = acc.some(buyer => buyer.id === current.id || (buyer.phone && current.phone && buyer.phone === current.phone));
+        if (!current) return acc;
+        const exists = acc.some(buyer => buyer && (buyer.id === current.id || (buyer.phone && current.phone && buyer.phone === current.phone)));
         if (!exists) acc.push(current);
         return acc;
       }, []);
-      const sorted = [...uniqueBuyers].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const sorted = [...uniqueBuyers].sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime());
       setAllBuyers(sorted);
     } catch (err) {
       toast.error('Failed to fetch buyers');
@@ -628,9 +646,9 @@ const BuyersPage = () => {
   useEffect(() => { fetchBuyers(); }, [fetchBuyers]);
 
   useEffect(() => {
-    if (allBuyers.length > 0 && user) {
-      const filtered = filterBuyersByRole(user, allBuyers, executives, showUnassignedToExecutives);
-      setRoleFilteredBuyers(filtered);
+    if (Array.isArray(allBuyers) && allBuyers.length > 0 && user) {
+      const filtered = filterBuyersByRole(user, allBuyers.filter(Boolean), executives, showUnassignedToExecutives);
+      setRoleFilteredBuyers((filtered || []).filter(Boolean));
     } else {
       setRoleFilteredBuyers([]);
     }
@@ -639,8 +657,8 @@ const BuyersPage = () => {
   useEffect(() => {
     const updateBuyersWithExecutiveNames = async () => {
       if (allBuyers.length > 0 && executives.length > 0) {
-        const updatedBuyers = allBuyers.map(buyer => {
-          if (buyer.assigned_executive) {
+        const updatedBuyers = allBuyers.filter(Boolean).map(buyer => {
+          if (buyer && buyer.assigned_executive) {
             const { name: execName } = resolveExecutiveName(buyer.assigned_executive);
             if (execName !== buyer.assigned_executive_name) {
               return { ...buyer, assigned_executive_name: execName };
@@ -649,7 +667,7 @@ const BuyersPage = () => {
           return buyer;
         });
         const hasChanges = updatedBuyers.some((buyer, index) =>
-          buyer.assigned_executive_name !== allBuyers[index]?.assigned_executive_name
+          buyer && buyer.assigned_executive_name !== allBuyers[index]?.assigned_executive_name
         );
         if (hasChanges) setAllBuyers(updatedBuyers);
       }
@@ -657,14 +675,14 @@ const BuyersPage = () => {
     updateBuyersWithExecutiveNames();
   }, [executives, allBuyers, resolveExecutiveName]);
   const tabs = [
-    { id: 'all', label: 'All', count: roleFilteredBuyers.length },
-    { id: 'uncontacts', label: 'Uncontacts', count: roleFilteredBuyers.filter(b => (b.source || '').toLowerCase() === 'whatsapp').length },
+    { id: 'all', label: 'All', count: (roleFilteredBuyers || []).filter(Boolean).length },
+    { id: 'uncontacts', label: 'Uncontacts', count: (roleFilteredBuyers || []).filter(b => b && (b.source || '').toLowerCase() === 'whatsapp').length },
 
-    { id: 'hot_leads', label: 'Hot Leads', count: roleFilteredBuyers.filter(b => priorityKey(b.priority) === 'high').length },
-    { id: 'active', label: 'Active', count: roleFilteredBuyers.filter(b => b.is_active === true).length },
-    { id: 'property_hunting', label: 'Property Hunting', count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'property_hunting').length },
-    { id: 'loan_processing', label: 'Loan Processing', count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'loan_processing').length },
-    { id: 'ready_to_buy', label: 'Ready to Buy', count: roleFilteredBuyers.filter(b => stageKey(b.stage) === 'property_finalization').length }
+    { id: 'hot_leads', label: 'Hot Leads', count: (roleFilteredBuyers || []).filter(b => b && priorityKey(b.priority) === 'high').length },
+    { id: 'active', label: 'Active', count: (roleFilteredBuyers || []).filter(b => b && b.is_active === true).length },
+    { id: 'property_hunting', label: 'Property Hunting', count: (roleFilteredBuyers || []).filter(b => b && stageKey(b.stage) === 'property_hunting').length },
+    { id: 'loan_processing', label: 'Loan Processing', count: (roleFilteredBuyers || []).filter(b => b && stageKey(b.stage) === 'loan_processing').length },
+    { id: 'ready_to_buy', label: 'Ready to Buy', count: (roleFilteredBuyers || []).filter(b => b && stageKey(b.stage) === 'property_finalization').length }
   ];
 
   const sources = ['all', 'Website', 'Referral', 'Social Media', 'Advertisement', 'Walk-in', 'Cold Call'];
@@ -678,7 +696,8 @@ const BuyersPage = () => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  const filteredSortedBuyers = roleFilteredBuyers.filter(buyer => {
+  const filteredSortedBuyers = (roleFilteredBuyers || []).filter(buyer => {
+    if (!buyer) return false;
     const s = debouncedSearchTerm.toLowerCase();
     const matchesSearch = (buyer.name ?? '').toLowerCase().includes(s) ||
       (buyer.phone ?? '').includes(debouncedSearchTerm) ||
@@ -742,10 +761,10 @@ const BuyersPage = () => {
       )) &&
       (!cs.requirements || (
         buyer.requirements?.propertyType?.toLowerCase().includes(cs.requirements.toLowerCase()) ||
-        formatCurrency(buyer.budget.min).toLowerCase().includes(cs.requirements.toLowerCase()) ||
-        formatCurrency(buyer.budget.max).toLowerCase().includes(cs.requirements.toLowerCase()) ||
-        String(buyer.budget.min || '').includes(cs.requirements) ||
-        String(buyer.budget.max || '').includes(cs.requirements)
+        formatCurrency(buyer.budget?.min ?? null).toLowerCase().includes(cs.requirements.toLowerCase()) ||
+        formatCurrency(buyer.budget?.max ?? null).toLowerCase().includes(cs.requirements.toLowerCase()) ||
+        String(buyer.budget?.min || '').includes(cs.requirements) ||
+        String(buyer.budget?.max || '').includes(cs.requirements)
       )) &&
       (!cs.progress || (
         buyer.stage?.toLowerCase().includes(cs.progress.toLowerCase())
@@ -756,7 +775,7 @@ const BuyersPage = () => {
       ));
 
     return matchesSearch && matchesTab && matchesFilters && matchesDate && matchesColSearch;
-  }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }).sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime());
 
   // Reset page when debounced filters change (not on every keystroke)
   useEffect(() => { setCurrentPage(1); }, [filters, debouncedSearchTerm, activeTab, debouncedColSearch]);
@@ -861,7 +880,7 @@ const BuyersPage = () => {
       if (!response) throw new Error('No response received from server');
       const normalizedBuyer = normalizeBuyerForUI({ ...response, assigned_executive: response.assigned_executive ?? user?.id ?? null });
       if (editingBuyer) {
-        setAllBuyers(prev => prev.map(b => b.id === editingBuyer.id ? normalizedBuyer : b));
+        setAllBuyers(prev => (prev || []).filter(Boolean).map(b => (b && editingBuyer && b.id === editingBuyer.id) ? normalizedBuyer : b));
         toast.success('Buyer updated successfully');
       } else {
         setAllBuyers(prev => [normalizedBuyer, ...prev]);
@@ -925,9 +944,9 @@ const BuyersPage = () => {
       const apiExecutiveId = executiveId === 0 ? null : executiveId;
       const result = await buyerAPI.bulkAssignExecutive(buyerIds, apiExecutiveId, false);
       if (result.success) {
-        const executive = executives.find(exec => exec.id == executiveId);
+        const executive = (executives || []).find(exec => exec && exec.id == executiveId);
         const execName = executive ? executive.name : 'Not assigned';
-        setAllBuyers(prev => prev.map(buyer => selectedBuyers.includes(buyer.id) ? { ...buyer, assigned_executive: apiExecutiveId, assigned_executive_name: execName !== 'Not assigned' ? execName : null } : buyer));
+        setAllBuyers(prev => (prev || []).filter(Boolean).map(buyer => (buyer && selectedBuyers.includes(buyer.id)) ? { ...buyer, assigned_executive: apiExecutiveId, assigned_executive_name: execName !== 'Not assigned' ? execName : null } : buyer));
         setSelectedBuyers([]);
         setSelectedExecId(null);
         setExecDropdownOpen(false);
@@ -1073,7 +1092,7 @@ const BuyersPage = () => {
   const handleBulkUpdateLeadField = async (field: string, value: any, onlyEmpty: boolean = false) => {
     if (selectedBuyers.length === 0) { toast.info('Please select buyers to update'); return; }
     if (!canUpdate) { toast.error('You do not have permission to update buyers'); return; }
-    const buyersToUpdate = allBuyers.filter(b => selectedBuyers.includes(b.id));
+    const buyersToUpdate = (allBuyers || []).filter(b => b && selectedBuyers.includes(b.id));
     const unauthorizedBuyers = buyersToUpdate.filter(b => !canEditBuyer(b));
     if (unauthorizedBuyers.length > 0) { toast.error(`You do not have permission to update ${unauthorizedBuyers.length} buyer(s)`); return; }
 
@@ -1081,8 +1100,8 @@ const BuyersPage = () => {
       const buyerIds = selectedBuyers.map(id => String(id));
       const result = await buyerAPI.bulkUpdateLeadField(buyerIds, field, value, onlyEmpty);
       if (result.success) {
-        setAllBuyers(prev => prev.map(buyer => {
-          if (!selectedBuyers.includes(buyer.id)) return buyer;
+        setAllBuyers(prev => (prev || []).filter(Boolean).map(buyer => {
+          if (!buyer || !selectedBuyers.includes(buyer.id)) return buyer;
           const updatedBuyer = { ...buyer };
           if (field === 'buyer_lead_stage') { updatedBuyer.stage = value; updatedBuyer.currentStage = value; }
           else if (field === 'buyer_lead_status') updatedBuyer.status = value;
@@ -1119,7 +1138,7 @@ const BuyersPage = () => {
     }
 
     // Prepare data for Excel export
-    const exportData = source.map(b => ({
+    const exportData = (source || []).filter(Boolean).map(b => ({
       'ID': b.id,
       'Name': b.name || '',
       'Salutation': b.salutation || '',
@@ -1219,7 +1238,7 @@ const BuyersPage = () => {
     return colSpan;
   };
 
-  const assignableExecutives = useMemo(() => executives.filter(e => e.id !== 0).map(e => ({ id: String(e.id), name: e.name })), [executives]);
+  const assignableExecutives = useMemo(() => (executives || []).filter(e => e && e.id !== undefined && e.id !== 0).map(e => ({ id: String(e.id), name: e.name })), [executives]);
 
   const getInitials = (name: string | null) => {
     if (!name) return 'B';
@@ -1242,8 +1261,8 @@ const BuyersPage = () => {
           totalBuyers={filteredSortedBuyers.length}
           onUpdateBuyer={(updatedBuyer: UIBuyer) => {
             setAllBuyers(prev => {
-              const next = prev.map(b => (b.id === updatedBuyer.id ? updatedBuyer : b));
-              return next.sort((a, b) => new Date(b.created_at || b.lastActivity || 0).getTime() - new Date(a.created_at || a.lastActivity || 0).getTime());
+              const next = (prev || []).filter(Boolean).map(b => (b && updatedBuyer && b.id === updatedBuyer.id ? updatedBuyer : b));
+              return next.sort((a, b) => new Date(b?.created_at || b?.lastActivity || 0).getTime() - new Date(a?.created_at || a?.lastActivity || 0).getTime());
             });
             setCurrentBuyerView(updatedBuyer);
           }}
@@ -1494,6 +1513,24 @@ const BuyersPage = () => {
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val) {
+                        handleBulkUpdateLeadField("buyer_lead_status", val);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-[140px]"
+                  >
+                    <option value="">Update Status...</option>
+                    {masterStatuses.map((st) => (
+                      <option key={st.id || st.name} value={st.name}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
                         handleBulkUpdateLeadField("buyer_lead_stage", val);
                         e.target.value = "";
                       }
@@ -1726,7 +1763,7 @@ const BuyersPage = () => {
 
                 <table
                   className="w-full"
-                  style={{ minWidth: '1400px', borderCollapse: 'separate', borderSpacing: 0 }}
+                  style={{ minWidth: '1480px', borderCollapse: 'separate', borderSpacing: 0 }}
                 >
                   {/* ── THEAD: sticky so it never scrolls away ── */}
                   <thead
@@ -2204,23 +2241,33 @@ const BuyersPage = () => {
 
                           {/* ACTIVITY */}
                           <td className="px-2 py-1">
-                            <div className="text-[9px] text-gray-600">
+                            <div className="text-[10px] text-gray-600 font-medium whitespace-nowrap">
                               Last: {formatDate(buyer.lastActivity)}
                             </div>
                           </td>
 
                           {/* MATCHES & ACTS */}
                           <td className="px-2 py-1">
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 whitespace-nowrap">
                               <div className="flex items-center gap-1">
-                                <Target size={9} className="text-green-500" />
-                                <span className={`text-[9px] font-medium ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                                  {buyer.matchedPropertiesCount || 0} matches
+                                <span
+                                  className="px-1.5 py-0.5 rounded-full text-[8px] font-semibold bg-blue-100 text-blue-800 border border-blue-200 whitespace-nowrap truncate max-w-[130px] inline-block align-middle"
+                                  title={`Status: ${buyer.status || buyer.buyer_lead_status || 'New'}`}
+                                >
+                                  Status: {buyer.status || buyer.buyer_lead_status || 'New'}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Activity size={9} className="text-orange-500" />
-                                <span className="text-[9px] text-gray-600">{buyer.activities?.length ?? 0} acts</span>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  <Target size={9} className="text-green-500" />
+                                  <span className={`text-[9px] font-bold ${(buyer.matchedPropertiesCount || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                                    {buyer.matchedPropertiesCount || 0} Matches
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Activity size={9} className="text-orange-500" />
+                                  <span className="text-[9px] text-gray-600 font-medium">{buyer.activities?.length ?? 0} Acts</span>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -2419,7 +2466,7 @@ const BuyersPage = () => {
       </div>
 
       {/* Modals */}
-      <BuyerSidebarFilter isOpen={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} resetFilters={resetFilters} sources={sources} stages={stagesFromMasters} priorities={prioritiesFromMasters} budgetRanges={budgetRanges} propertyTypes={propertyTypes} executives={executives.map(e => ({ id: e.id, name: e.name }))} />
+      <BuyerSidebarFilter isOpen={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} resetFilters={resetFilters} sources={sources} stages={stagesFromMasters} priorities={prioritiesFromMasters} budgetRanges={budgetRanges} propertyTypes={propertyTypes} executives={(executives || []).filter(e => e && e.id !== undefined).map(e => ({ id: e.id, name: e.name }))} />
       <BuyerFormModal isOpen={showBuyerForm} onClose={() => { setShowBuyerForm(false); setEditingBuyer(null); }} buyer={editingBuyer} onSave={handleSaveBuyer} />
       <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} onImportComplete={fetchBuyers} />
       {/* Buyer Follow-up Modal */}
@@ -2437,32 +2484,10 @@ const BuyersPage = () => {
             setShowBuyerFollowupModal(false);
             setSelectedBuyerForFollowup(null);
           }}
-          onSaved={async (payload) => {
-            try {
-              const apiPayload = {
-                buyerId: selectedBuyerForFollowup.id,
-                followupType: payload.followUpType,
-                outcome: payload.outcome,
-                reason: payload.reason,
-                remarks: payload.note,
-                nextFollowupDate: payload.nextFollowUp?.date,
-                nextFollowupTime: payload.nextFollowUp?.time,
-                nextAction: payload.nextAction,
-                priority: payload.priority,
-                nextStage: payload.nextStage,
-                nextStatus: payload.nextStatus,
-              };
-              const response = await buyerFollowupAPI.create(apiPayload);
-              if (response) {
-                toast.success("Follow-up added successfully");
-                fetchBuyers();
-              }
-              setShowBuyerFollowupModal(false);
-              setSelectedBuyerForFollowup(null);
-            } catch (error) {
-              console.error("Error adding follow-up:", error);
-              toast.error("Failed to add follow-up");
-            }
+          onSaved={async () => {
+            setShowBuyerFollowupModal(false);
+            setSelectedBuyerForFollowup(null);
+            await fetchBuyers();
           }}
         />
       )}
