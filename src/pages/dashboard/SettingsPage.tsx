@@ -27,8 +27,13 @@ import {
   Star,
   CheckCircle,
   X,
-  ChevronRight,
   Key,
+  LogOut,
+  Clock,
+  Timer,
+  Activity,
+  ShieldAlert,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
@@ -77,6 +82,10 @@ interface SystemSettings {
   auto_assign_leads?: boolean;
   lead_scoring_enabled?: boolean;
   property_auto_approval?: boolean;
+  inactivity_timeout_minutes?: number;
+  enable_inactivity_logout?: boolean;
+  enable_guest_property_limit?: boolean;
+  guest_property_view_limit?: number;
   [k: string]: any;
 }
 
@@ -108,7 +117,9 @@ const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "system" | "security">("profile");
+  const [activeTab, setActiveTab] = useState<
+    "profile" | "notifications" | "system" | "security" | "auth_settings"
+  >("profile");
   const [passwordData, setPasswordData] = useState({
     current_password: "",
     new_password: "",
@@ -293,10 +304,8 @@ const SettingsPage: React.FC = () => {
     try {
       setSaving(true);
       await saveSystemSettings();
-      toast.success("System settings updated successfully");
     } catch (error: any) {
       console.error("Error updating system settings:", error);
-      toast.error("Failed to update system settings");
     } finally {
       setSaving(false);
     }
@@ -367,7 +376,12 @@ const SettingsPage: React.FC = () => {
     { id: "profile", label: "Profile", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Lock },
-    ...(user?.role === "admin" ? [{ id: "system" as const, label: "System", icon: Settings }] : []),
+    ...(user?.role === "admin"
+      ? [
+          { id: "auth_settings" as const, label: "Login / Logout", icon: LogOut },
+          { id: "system" as const, label: "System", icon: Settings },
+        ]
+      : []),
   ];
 
   // ── Shared input classes ──
@@ -714,6 +728,225 @@ const SettingsPage: React.FC = () => {
               </div>
             )}
 
+            {/* ══ LOGIN & LOGOUT SETTINGS TAB ══ */}
+            {activeTab === "auth_settings" && user?.role === "admin" && systemSettings && (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-base font-bold text-[#1a3a5c] flex items-center gap-2">
+                    <LogOut className="h-5 w-5 text-[#e87722]" />
+                    Login &amp; Logout Settings
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Configure session timeouts, automatic inactivity logout rules, and authentication security.
+                  </p>
+                </div>
+
+                {/* Status banner */}
+                <div className="flex items-start gap-3 p-4 bg-blue-50/80 border border-blue-200/80 rounded-xl">
+                  <Clock className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                  <div className="flex-1 text-xs">
+                    <p className="font-semibold text-blue-900">
+                      Active Inactivity Policy:{" "}
+                      <span className="text-[#e87722]">
+                        {systemSettings.enable_inactivity_logout !== false
+                          ? `${systemSettings.inactivity_timeout_minutes || 15} Minutes`
+                          : "Disabled"}
+                      </span>
+                    </p>
+                    <p className="text-blue-700 mt-0.5 leading-relaxed">
+                      {systemSettings.enable_inactivity_logout !== false
+                        ? `Users without interaction for ${systemSettings.inactivity_timeout_minutes || 15} minutes will be safely signed out to prevent unauthorized access.`
+                        : "Inactivity auto-logout is currently disabled. Users will remain logged in until their token expires or they manually sign out."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Card 1: Inactivity Logout Controls */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Timer className="h-4 w-4 text-[#e87722]" />
+                        <h4 className="text-sm font-bold text-[#1a3a5c]">
+                          Inactivity Timeout Configuration
+                        </h4>
+                      </div>
+                      <span
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                          systemSettings.enable_inactivity_logout !== false
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {systemSettings.enable_inactivity_logout !== false ? "Enabled" : "Disabled"}
+                      </span>
+                    </div>
+
+                    {/* Enable / Disable Switch */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-gray-200 rounded-xl">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800">
+                          Enable Automatic Inactivity Logout
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          Automatically log out users after period of no detected activity
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                        <input
+                          type="checkbox"
+                          checked={systemSettings.enable_inactivity_logout !== false}
+                          onChange={(e) =>
+                            updateSystemSettings({
+                              enable_inactivity_logout: e.target.checked,
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#e87722] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                      </label>
+                    </div>
+
+                    {/* Inactivity Limit Input */}
+                    <div
+                      className={`space-y-3 ${
+                        systemSettings.enable_inactivity_logout === false
+                          ? "opacity-50 pointer-events-none"
+                          : ""
+                      }`}
+                    >
+                      <div>
+                        <label className={labelCls}>
+                          Inactivity Duration (in Minutes)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={1}
+                            max={720}
+                            value={systemSettings.inactivity_timeout_minutes ?? 15}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              updateSystemSettings({
+                                inactivity_timeout_minutes: isNaN(val) ? 15 : Math.max(1, val),
+                              });
+                            }}
+                            className={inputCls}
+                            placeholder="e.g. 15"
+                          />
+                          <span className="absolute right-3 top-2 text-xs font-medium text-gray-400">
+                            minutes ({(Number(systemSettings.inactivity_timeout_minutes) || 15) * 60} sec)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div>
+                        <p className="text-[11px] font-semibold text-gray-500 mb-1.5">
+                          Quick Presets:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: "5 Min", value: 5 },
+                            { label: "10 Min", value: 10 },
+                            { label: "15 Min (Standard)", value: 15 },
+                            { label: "30 Min", value: 30 },
+                            { label: "60 Min (1 Hr)", value: 60 },
+                            { label: "120 Min (2 Hr)", value: 120 },
+                          ].map((preset) => {
+                            const isSelected =
+                              (systemSettings.inactivity_timeout_minutes ?? 15) === preset.value;
+                            return (
+                              <button
+                                key={preset.value}
+                                type="button"
+                                onClick={() =>
+                                  updateSystemSettings({
+                                    inactivity_timeout_minutes: preset.value,
+                                  })
+                                }
+                                className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
+                                  isSelected
+                                    ? "bg-[#1a3a5c] text-white border-[#1a3a5c] shadow-sm"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Security Details & Tracked Events */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-[#e87722]" />
+                        <h4 className="text-sm font-bold text-[#1a3a5c]">
+                          User Activity Detection
+                        </h4>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        The dynamic timer monitors interactions across the portal and resets on any of the following user actions:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: "Mouse Movement", desc: "mousemove" },
+                          { label: "Mouse Clicks", desc: "click / mousedown" },
+                          { label: "Keyboard Press", desc: "keydown" },
+                          { label: "Page Scrolling", desc: "scroll" },
+                          { label: "Touch Gestures", desc: "touchstart" },
+                          { label: "Navigation", desc: "route change" },
+                        ].map((evt, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2 bg-white rounded-lg border border-gray-200 text-xs"
+                          >
+                            <p className="font-semibold text-gray-700">{evt.label}</p>
+                            <p className="text-[10px] text-gray-400 font-mono">{evt.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs flex items-start gap-2 mt-2">
+                      <ShieldAlert className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-amber-800 text-[11px] leading-tight">
+                        <strong>Security Recommendation:</strong> Setting a timeout between 15 to 30 minutes protects sensitive customer and lead CRM data on shared or unattended devices.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={handleSystemSettingsUpdate}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors shadow-sm"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {saving ? "Saving…" : "Save Login / Logout Settings"}
+                  </button>
+                  <button
+                    onClick={() =>
+                      updateSystemSettings({
+                        enable_inactivity_logout: true,
+                        inactivity_timeout_minutes: 15,
+                      })
+                    }
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Reset to Defaults (15 min)
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ══ SYSTEM TAB ══ */}
             {activeTab === "system" && user?.role === "admin" && systemSettings && (
               <div className="space-y-5">
@@ -885,6 +1118,63 @@ const SettingsPage: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Public Lead Capture & Guest View Limits */}
+                  <div className="lg:col-span-2 p-4 bg-gradient-to-r from-orange-50/50 to-amber-50/30 border border-orange-200/70 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-[#1a3a5c] flex items-center gap-2">
+                          <ShieldAlert className="h-4 w-4 text-[#e87722]" />
+                          Guest Property View Limit (Lead Generation)
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Require unauthenticated visitors to register or sign in after viewing a set number of properties.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={systemSettings.enable_guest_property_limit !== false}
+                          onChange={(e) =>
+                            updateSystemSettings({
+                              enable_guest_property_limit: e.target.checked,
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-6 bg-gray-200 rounded-full peer peer-checked:bg-[#e87722] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4 shadow-sm" />
+                      </label>
+                    </div>
+
+                    {systemSettings.enable_guest_property_limit !== false && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-orange-100">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Free Property Views Before Registration
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={systemSettings.guest_property_view_limit ?? 5}
+                              onChange={(e) =>
+                                updateSystemSettings({
+                                  guest_property_view_limit: parseInt(e.target.value, 10) || 5,
+                                })
+                              }
+                              className="w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#e87722] focus:border-transparent outline-none bg-white"
+                            />
+                            <span className="text-xs text-gray-500">properties allowed</span>
+                          </div>
+                        </div>
+                        <div className="p-2.5 bg-white/80 border border-orange-100 rounded-lg text-xs text-gray-600 flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                          <span>Visitors will see the OTP Lead Registration modal on property #{Number(systemSettings.guest_property_view_limit ?? 5) + 1}.</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

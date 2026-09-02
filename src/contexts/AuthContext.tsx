@@ -384,6 +384,7 @@ interface AuthContextType {
   hasRole: (roles: string | string[]) => boolean;
   updateUser: (updatedUser: Partial<User>) => void;
   refreshUser: () => Promise<void>;
+  setAuthSession: (userData: any, accessToken: string, session_id?: string) => User | null;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -405,6 +406,7 @@ const defaultAuthContext: AuthContextType = {
   hasRole: () => true,
   updateUser: () => {},
   refreshUser: async () => {},
+  setAuthSession: () => null,
 };
 
 export const useAuth = (): AuthContextType => {
@@ -421,8 +423,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ SystemSettings context (for clearing on logout)
-  const { clearSettings } = useSystemSettings();
+  // ✅ SystemSettings context (for clearing on logout and dynamic inactivity timeout)
+  const { systemSettings, clearSettings } = useSystemSettings();
 
   /* ----------------- Helper: normalize + validate user ----------------- */
 
@@ -540,18 +542,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, [clearSettings]);
 
-  /* ----------------- Inactivity Auto-Logout (15 Minutes) ----------------- */
+  /* ----------------- Dynamic Inactivity Auto-Logout ----------------- */
   useEffect(() => {
     if (!user) return;
 
-    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes = 900,000 ms
+    // Check if inactivity logout is enabled (defaults to true)
+    const isEnabled = systemSettings?.enable_inactivity_logout !== false;
+    if (!isEnabled) {
+      return;
+    }
+
+    const timeoutMinutes = Math.max(1, Number(systemSettings?.inactivity_timeout_minutes) || 15);
+    const INACTIVITY_LIMIT_MS = timeoutMinutes * 60 * 1000;
     let timer: NodeJS.Timeout;
 
     const performAutoLogout = async () => {
-      console.warn("⚠️ [AUTO-LOGOUT] User inactive for 15 minutes. Logging out...");
+      console.warn(`⚠️ [AUTO-LOGOUT] User inactive for ${timeoutMinutes} minutes. Logging out...`);
       sessionStorage.setItem(
         "logout_reason",
-        "You were automatically logged out due to 15 minutes of inactivity."
+        `You were automatically logged out due to ${timeoutMinutes} minutes of inactivity.`
       );
       try {
         await authAPI.logout();
@@ -593,7 +602,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         window.removeEventListener(event, resetInactivityTimer);
       });
     };
-  }, [user, clearSettings]);
+  }, [
+    user,
+    systemSettings?.enable_inactivity_logout,
+    systemSettings?.inactivity_timeout_minutes,
+    clearSettings,
+  ]);
 
   /* ----------------- Refresh user data from server ----------------- */
 
@@ -763,6 +777,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
+  const setAuthSession = (userData: any, accessToken: string, session_id?: string): User | null => {
+    const validatedUser = validateAndNormalizeUser(userData);
+    if (validatedUser) {
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("user", JSON.stringify(validatedUser));
+      if (session_id) {
+        localStorage.setItem("session_id", session_id);
+      }
+      setUser(validatedUser);
+      return validatedUser;
+    }
+    return null;
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -773,6 +801,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     hasRole,
     updateUser,
     refreshUser,
+    setAuthSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -4,10 +4,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { sellerAPI } from '@/lib/sellersAPI';
 import SellerAccountPage from './SellerAccountPage';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
 const StandaloneSellerAccountPage = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [seller, setSeller] = useState<any>(null);
@@ -16,9 +18,10 @@ const StandaloneSellerAccountPage = () => {
 
   useEffect(() => {
     let isMounted = true;
+    const targetId = id || (user as any)?.seller_id || (user as any)?.id;
 
     const fetchSeller = async () => {
-      if (!id) {
+      if (!targetId) {
         if (isMounted) {
           setLoading(false);
           setError('No seller id provided');
@@ -27,29 +30,43 @@ const StandaloneSellerAccountPage = () => {
       }
 
       try {
-  setLoading(true);
-  const sellerData = await sellerAPI.getById(id);
-  if (isMounted) {
-    setSeller({
-      ...sellerData.data.seller,
-      properties: sellerData.data.properties || [],
-      properties_count: sellerData.data.properties?.length || 0,
-    });
-    setError(null);
-  }
-} catch (err) {
-  toast.error("Error fetching seller:", err);
-  if (isMounted) {
-    setError("Failed to load seller data");
-    setSeller(null);
-  }
-} finally {
-  if (isMounted) setLoading(false);
-}}
+        setLoading(true);
+        const sellerData = await sellerAPI.getById(targetId);
+        if (isMounted) {
+          setSeller({
+            ...sellerData.data?.seller,
+            properties: sellerData.data?.properties || [],
+            properties_count: sellerData.data?.properties?.length || 0,
+          });
+          setError(null);
+        }
+      } catch (err) {
+        console.warn('Seller fetch note:', err);
+        if (isMounted) {
+          if (user) {
+            setSeller({
+              id: targetId,
+              name: `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).username || 'Seller',
+              email: (user as any).email,
+              phone: (user as any).phone,
+              salutation: (user as any).salutation || 'Mr.',
+              properties: [],
+              properties_count: 0,
+            });
+            setError(null);
+          } else {
+            setError('Failed to load seller data');
+            setSeller(null);
+          }
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
     fetchSeller();
     return () => { isMounted = false; };
-  }, [id]);
+  }, [id, user]);
 
   const handleBack = () => navigate('/');
 

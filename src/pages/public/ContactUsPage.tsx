@@ -1920,6 +1920,7 @@ const ContactUsPage: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
       const commonPayload = {
         salutation: form.salutation,
         name: form.fullName.trim(),
@@ -1929,6 +1930,7 @@ const ContactUsPage: React.FC = () => {
         state: form.state.trim(),
         location: form.location.trim(),
         notes: form.messageBody.trim(),
+        guest_id: guestId,
       };
 
       if (form.enquiryType === 'buyer') {
@@ -1956,23 +1958,23 @@ const ContactUsPage: React.FC = () => {
       } else {
         // General enquiry → client_leads table
         await leadsAPI.createLead({
-  salutation        : form.salutation,
-  name              : form.fullName.trim(),
-  phone             : form.phoneNumber.trim().replace(/\D/g, ''),
-  email             : form.emailAddress.trim().toLowerCase(),
-  lead_source       : 'Website',
-  lead_type         : 'General Enquiry',
-  status            : 'new',
-  priority          : 'medium',
-  whatsapp_number   : form.phoneNumber.trim().replace(/\D/g, '') || null,
-  notes             : form.messageBody.trim(),
-  // 👇 Location fields – convert empty strings to null
-  state             : form.state.trim() || null,
-  city              : form.city.trim() || null,
-  location          : form.location.trim() || null,
-  // 👇 Missing field that was causing undefined
-  assigned_executive: null,
-});
+          salutation        : form.salutation,
+          name              : form.fullName.trim(),
+          phone             : form.phoneNumber.trim().replace(/\D/g, ''),
+          email             : form.emailAddress.trim().toLowerCase(),
+          lead_source       : 'Website',
+          lead_type         : 'General Enquiry',
+          status            : 'new',
+          priority          : 'medium',
+          whatsapp_number   : form.phoneNumber.trim().replace(/\D/g, '') || null,
+          notes             : form.messageBody.trim(),
+          guest_id          : guestId,
+          // 👇 Location fields – convert empty strings to null
+          state             : form.state.trim() || null,
+          city              : form.city.trim() || null,
+          location          : form.location.trim() || null,
+          assigned_executive: null,
+        });
       }
 
       await swal({

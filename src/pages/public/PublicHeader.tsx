@@ -91,35 +91,36 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     }
   }, [isHome, isMobileMenuOpen]);
 
+  const getDashboardPath = (): string => {
+    if (!isAuthenticated || !user) return '/login';
+    const role = (user as AnyUser).role?.toLowerCase() || '';
+    const buyerId = (user as AnyUser).buyer_id || (user as any)?.id;
+    const sellerId = (user as AnyUser).seller_id || (user as any)?.id;
+
+    if (role === 'buyer') {
+      return buyerId ? `/buyer-dashboard/${buyerId}` : '/buyer-dashboard';
+    }
+    if (role === 'seller' || role === 'owner') {
+      return sellerId ? `/seller-dashboard/${sellerId}` : '/seller-dashboard';
+    }
+    if (role === 'tenant') {
+      return buyerId ? `/buyer-dashboard/${buyerId}` : '/properties';
+    }
+    return '/dashboard';
+  };
+  const dashboardHref = getDashboardPath();
+
   /* ---------------- Navigation logic ---------------- */
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     const path = location.pathname;
-    const isPublicAuthPage = path === '/login' || path === '/register';
-    if (!isPublicAuthPage && !path.includes('dashboard')) return;
-
-    if (hasBuyerId(user)) {
-      const buyerDashPath = `/buyer-dashboard/${String((user as any).buyer_id)}`;
-      if (path !== buyerDashPath) navigate(buyerDashPath, { replace: true });
-      return;
-    }
-    if (hasSellerId(user)) {
-      const sellerDashPath = `/seller-dashboard/${String((user as any).seller_id)}`;
-      if (path !== sellerDashPath) navigate(sellerDashPath, { replace: true });
-      return;
-    }
-    if (isAdminRole(user) || user) {
-      if (path !== '/dashboard') navigate('/dashboard', { replace: true });
+    if (path === '/dashboard') {
+      const targetDash = getDashboardPath();
+      if (targetDash !== '/dashboard') {
+        navigate(targetDash, { replace: true });
+      }
     }
   }, [isAuthenticated, user, location.pathname, navigate]);
-
-  const getDashboardPath = (): string => {
-    if (!isAuthenticated || !user) return '/login';
-    if (hasBuyerId(user)) return `/buyer-dashboard/${String((user as any).buyer_id)}`;
-    if (hasSellerId(user)) return `/seller-dashboard/${String((user as any).seller_id)}`;
-    return '/dashboard';
-  };
-  const dashboardHref = getDashboardPath();
 
   useEffect(() => {
     if (user) {
@@ -429,22 +430,40 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                       onClick={() => setIsUserDropdownOpen((s) => !s)}
                       aria-haspopup="true"
                       aria-expanded={isUserDropdownOpen}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center border"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center border overflow-hidden p-0.5 transition-transform hover:scale-105"
                       style={{
                         background: `linear-gradient(to right, ${colors.brand}1A, ${colors.accent}1A)`,
                         borderColor: `${colors.brand}4D`,
                       }}
                     >
-                      <UserIcon size={16} style={{ color: "#E6761D" }} />
-
+                      {(user as any)?.avatar ? (
+                        <img
+                          src={(user as any).avatar}
+                          alt={displayName}
+                          className="w-full h-full object-cover rounded-lg"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <UserIcon size={16} style={{ color: "#E6761D" }} />
+                      )}
                     </button>
 
                     {isUserDropdownOpen && (
-                      <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50">
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <div className="text-sm font-semibold text-gray-900">{displayName}</div>
-                          <div className="text-xs text-[#E6761D] bg-orange-50 px-2 py-1 rounded-full inline-block mt-1">
-                            {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} User` : 'User'}
+                      <div className="absolute top-full right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 animate-in fade-in duration-200">
+                        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+                          {(user as any)?.avatar && (
+                            <img
+                              src={(user as any).avatar}
+                              alt={displayName}
+                              className="w-10 h-10 rounded-xl object-cover border border-orange-200 shrink-0 shadow-xs"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          <div className="overflow-hidden">
+                            <div className="text-sm font-bold text-gray-900 truncate">{displayName}</div>
+                            <div className="text-[11px] font-semibold text-[#E6761D] bg-orange-50 px-2 py-0.5 rounded-full inline-block mt-0.5 capitalize">
+                              {userRole ? `${userRole} Account` : 'User'}
+                            </div>
                           </div>
                         </div>
 

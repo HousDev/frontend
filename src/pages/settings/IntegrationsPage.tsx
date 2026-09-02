@@ -34,6 +34,7 @@ const TAB_HEADER_COLORS: Record<IntegrationTab, { bg: string; border: string; te
   razorpay:  { bg: "#0b132b", border: "#1e2a5e", text: "#ffffff" }, // Dark blue for Razorpay
   stripe:    { bg: "#635bff", border: "#4a42d9", text: "#ffffff" }, // Stripe purple
   chatgpt:   { bg: "#10a37f", border: "#0e8a6b", text: "#ffffff" }, // OpenAI green
+  google:    { bg: "#ea4335", border: "#c5221f", text: "#ffffff" }, // Google red
 };
 
 // ─── Toggle Switch ────────────────────────────────────────────────────────────
@@ -108,6 +109,11 @@ const PROVIDER_FIELDS: Record<IntegrationTab, FieldDef[]> = {
     { key: "model",   label: "Model",          type: "select",   required: false,
       options: ["gpt-4o","gpt-4o-mini","gpt-4-turbo","gpt-3.5-turbo"] },
   ],
+  google: [
+    { key: "client_id",     label: "Google Client ID",         type: "text",     required: true, placeholder: "1234567890-xxx.apps.googleusercontent.com", icon: "key" },
+    { key: "client_secret", label: "Google Client Secret",     type: "password", required: true, placeholder: "GOCSPX-...", icon: "key" },
+    { key: "redirect_uri",  label: "Authorized Redirect URI",  type: "url",      required: false, placeholder: "http://localhost:5173", icon: "link" },
+  ],
 };
 
 // ─── Card meta ────────────────────────────────────────────────────────────────
@@ -117,7 +123,7 @@ interface CardMeta {
   subLabel: string;
   description: string;
   icon: React.ReactNode;
-  category: "email" | "communication" | "payment" | "ai";
+  category: "email" | "communication" | "payment" | "ai" | "auth";
   previewKeys: Array<{ key: string; label: string }>;
 }
 
@@ -182,9 +188,18 @@ const CARD_META: CardMeta[] = [
       { key: "model",   label: "Model" },
     ],
   },
+  {
+    tab: "google", label: "Google OAuth / Login", subLabel: "Google Cloud", description: "Allow users to register and sign in seamlessly with Google.",
+    icon: <Globe className="h-5 w-5" />, category: "auth",
+    previewKeys: [
+      { key: "client_id",     label: "Client ID" },
+      { key: "client_secret", label: "Client Secret" },
+      { key: "redirect_uri",  label: "Redirect URI" },
+    ],
+  },
 ];
 
-type TabFilter = "all" | "email" | "communication" | "payment" | "ai";
+type TabFilter = "all" | "email" | "communication" | "payment" | "ai" | "auth";
 
 const TAB_FILTERS: Array<{ key: TabFilter; label: string; icon: React.ReactNode }> = [
   { key: "all",           label: "All",           icon: <Globe          className="h-4 w-4" /> },
@@ -192,6 +207,7 @@ const TAB_FILTERS: Array<{ key: TabFilter; label: string; icon: React.ReactNode 
   { key: "communication", label: "Communication",  icon: <MessageSquare  className="h-4 w-4" /> },
   { key: "payment",       label: "Payment",        icon: <IndianRupee    className="h-4 w-4" /> },
   { key: "ai",            label: "AI",             icon: <Brain          className="h-4 w-4" /> },
+  { key: "auth",          label: "Authentication", icon: <Shield         className="h-4 w-4" /> },
 ];
 
 // ─── Category icon bg ─────────────────────────────────────────────────────────
@@ -200,6 +216,7 @@ const catStyle = (cat: string) => ({
   communication: { bg: `${O}12`,   color: O    },
   payment:       { bg: "#dcfce7",  color: "#15803d" },
   ai:            { bg: "#f3e8ff",  color: "#7c3aed" },
+  auth:          { bg: "#fee2e2",  color: "#dc2626" },
 }[cat] ?? { bg: `${N}12`, color: N });
 
 // ─── Truncate display value ───────────────────────────────────────────────────

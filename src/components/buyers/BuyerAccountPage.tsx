@@ -2,6 +2,7 @@
 
 // export default BuyerAccountPage;
 import React, { useEffect, useState, useMemo, useRef } from "react";
+import { trackEvent } from "@/utils/tracker";
 import {
   ArrowLeft,
   User,
@@ -74,6 +75,20 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
   const [showVisitModal, setShowVisitModal] = useState(false);
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
+
+  // Track Buyer portal tab switching
+  useEffect(() => {
+    trackEvent({
+      eventType: 'portal',
+      eventName: `buyer_${activeTab}_viewed`,
+      source: 'buyer_portal',
+      payload: {
+        buyer_id: buyer?.id,
+        buyer_name: buyer?.name,
+        tab: activeTab,
+      },
+    });
+  }, [activeTab, buyer?.id]);
 
   // Close on ESC
   useEffect(() => {

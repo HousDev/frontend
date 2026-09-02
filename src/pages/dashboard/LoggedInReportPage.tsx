@@ -1,6 +1,6 @@
 // frontend/src/pages/dashboard/LoggedInReportPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { ShieldCheck, Filter, Download, Printer } from "lucide-react";
+import { ShieldCheck, Globe, Activity } from "lucide-react";
 import { reportAPI } from "@/lib/reportAPI";
 import {
   PRINT_BRAND_STYLE,
@@ -9,10 +9,11 @@ import {
 } from "@/lib/printUtils";
 import { SmartFilterDrawer, SmartFilterParams } from "@/components/reports/SmartFilterDrawer";
 import { LoggedInReportTab } from "@/components/reports/LoggedInReportTab";
+import { VisitorAnalyticsTab } from "@/components/reports/VisitorAnalyticsTab";
 import { TabTopStatsHeader } from "@/components/reports/TabTopStatsHeader";
-import Button from "@/components/ui/Button";
 
 export const LoggedInReportPage: React.FC = () => {
+  const [activeSubTab, setActiveSubTab] = useState<"audit-logs" | "visitor-activity">("audit-logs");
   const [loading, setLoading] = useState<boolean>(true);
   const [logsData, setLogsData] = useState<any[]>([]);
   const [statsData, setStatsData] = useState<any>(null);
@@ -36,8 +37,10 @@ export const LoggedInReportPage: React.FC = () => {
   }, [filters]);
 
   useEffect(() => {
-    fetchLoginLogs();
-  }, [fetchLoginLogs]);
+    if (activeSubTab === "audit-logs") {
+      fetchLoginLogs();
+    }
+  }, [fetchLoginLogs, activeSubTab]);
 
   // Export to CSV
   const handleExport = () => {
@@ -101,19 +104,30 @@ export const LoggedInReportPage: React.FC = () => {
       </div>
     `;
 
-    let tableRowsHTML = logsData
+    const tableRowsHTML = logsData
       .map(
-        (r, idx) => `
-      <tr>
-        <td style="text-align: center;">${idx + 1}</td>
-        <td><strong>${r.name || "User #" + r.user_id}</strong><br/><span style="color:#64748b; font-size:9.5px;">${r.email || "—"}</span></td>
-        <td><span style="text-transform: uppercase; font-size:9.5px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">${r.role || "Agent"}</span></td>
-        <td>${r.login_time ? new Date(r.login_time).toLocaleString() : "—"}</td>
-        <td>${r.logout_time ? new Date(r.logout_time).toLocaleString() : '<span style="color:#16a34a; font-weight:bold;">ACTIVE</span>'}</td>
-        <td>${r.ip_address || "—"}</td>
-        <td>${r.address || "Location Captured"}</td>
-      </tr>
-    `
+        (row, idx) => `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10px;">
+          <td style="padding: 6px 8px; text-align: center; color: #64748b;">${idx + 1}</td>
+          <td style="padding: 6px 8px; font-weight: 700; color: #0f1f38;">
+            ${row.name || row.username || "N/A"}
+            <div style="font-size: 8.5px; color: #94a3b8; font-weight: 500;">${row.email || ""}</div>
+          </td>
+          <td style="padding: 6px 8px; text-transform: uppercase; font-size: 9px; font-weight: 600;">
+            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">${row.role || "agent"}</span>
+          </td>
+          <td style="padding: 6px 8px; color: #334155;">${row.login_time ? new Date(row.login_time).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
+          <td style="padding: 6px 8px;">
+            ${
+              row.logout_time
+                ? `<span style="color: #64748b;">${new Date(row.logout_time).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</span>`
+                : `<span style="color: #16a34a; font-weight: 700; background: #dcfce7; padding: 2px 5px; border-radius: 3px; font-size: 8.5px;">ACTIVE</span>`
+            }
+          </td>
+          <td style="padding: 6px 8px; font-family: monospace; color: #475569; font-size: 9px;">${row.ip_address || "—"}</td>
+          <td style="padding: 6px 8px; color: #64748b; font-size: 9px;">${row.address || "N/A"}</td>
+        </tr>
+      `
       )
       .join("");
 
@@ -158,34 +172,71 @@ export const LoggedInReportPage: React.FC = () => {
   };
 
   return (
-    <div className="p-3.5 space-y-3.5 max-w-[1700px] mx-auto min-h-screen bg-slate-50/50">
-      
+    <div className="p-3 space-y-3 max-w-[1700px] mx-auto min-h-screen bg-slate-50/50">
+      {/* Compact Top Tab Switcher */}
+      <div className="flex items-center gap-1 p-1 bg-white rounded-lg border border-gray-200/90 shadow-2xs max-w-fit">
+        <button
+          onClick={() => setActiveSubTab("audit-logs")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === "audit-logs"
+              ? "bg-[#0f1f38] text-white shadow-2xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          User Login & Security Logs
+        </button>
 
-      {/* Top Stats Cards Header */}
-      <TabTopStatsHeader activeTab="login-logs" loginLogsStats={statsData} />
+        <button
+          onClick={() => setActiveSubTab("visitor-activity")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === "visitor-activity"
+              ? "bg-indigo-600 text-white shadow-2xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          Visitor & Web Activity Tracking
+        </button>
+      </div>
 
-      {/* Main Logged In Report Component */}
-      <LoggedInReportTab
-        data={logsData}
-        stats={statsData}
-        loading={loading}
-        onOpenFilters={() => setIsFilterOpen(true)}
-        onExport={handleExport}
-        onRefresh={fetchLoginLogs}
-        onPrint={handlePrint}
-      />
+      {/* Tab 1: User Login Audit Trail */}
+      {activeSubTab === "audit-logs" && (
+        <div className="space-y-3.5 animate-fadeIn">
+          {/* Top Stats Cards Header */}
+          <TabTopStatsHeader activeTab="login-logs" loginLogsStats={statsData} />
 
-      {/* Smart Filter Drawer customized for Logged-In Report */}
-      <SmartFilterDrawer
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        activeFilters={filters}
-        tabKey="logged-in"
-        onApplyFilters={(newFilters) => {
-          setFilters(newFilters);
-          setIsFilterOpen(false);
-        }}
-      />
+          {/* Main Logged In Report Component */}
+          <LoggedInReportTab
+            data={logsData}
+            stats={statsData}
+            loading={loading}
+            onOpenFilters={() => setIsFilterOpen(true)}
+            onExport={handleExport}
+            onRefresh={fetchLoginLogs}
+            onPrint={handlePrint}
+          />
+
+          {/* Smart Filter Drawer customized for Logged-In Report */}
+          <SmartFilterDrawer
+            isOpen={isFilterOpen}
+            onClose={() => setIsFilterOpen(false)}
+            activeFilters={filters}
+            tabKey="logged-in"
+            onApplyFilters={(newFilters) => {
+              setFilters(newFilters);
+              setIsFilterOpen(false);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Tab 2: Visitor & Web Activity Tracking */}
+      {activeSubTab === "visitor-activity" && (
+        <div className="animate-fadeIn">
+          <VisitorAnalyticsTab />
+        </div>
+      )}
     </div>
   );
 };

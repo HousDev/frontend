@@ -1,5 +1,6 @@
 // PublicPropertyDetailPage.tsx
 import React, { useEffect, useState } from 'react';
+import { trackEvent } from '@/utils/tracker';
 import {
   ArrowLeft,
   MapPin,
@@ -81,6 +82,9 @@ import PublicSimilarProperties from './PublicSimilarProperties';
 import { fetchLiveNearbyPlaces, classifyPlaceCategory, NearbyPlaceItem } from '@/lib/nearbyPlacesAPI';
 // NEW
 import { useAuth } from '@/contexts/AuthContext';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
+import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
@@ -174,8 +178,20 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     if (galleryFilter === 'all') return all;
     return all.filter((m: any) => galleryFilter === 'image' ? m.type !== 'video' : m.type === 'video');
   };
-  // NEW: auth
+  // NEW: auth & settings
   const { currentUser, user } = useAuth() as any;
+  const { systemSettings } = useSystemSettings();
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
+
+  // Track Guest Property Views
+  useEffect(() => {
+    if (property?.id) {
+      const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user || currentUser, systemSettings);
+      setShowGuestLimitModal(isLocked);
+    } else {
+      setShowGuestLimitModal(false);
+    }
+  }, [property?.id, user, currentUser, systemSettings]);
 
   const isRental = isRentalProp || Boolean(
     property?.monthly_rent ||
@@ -308,7 +324,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     };
   };
 
-  // Update calculations when property changes
+  // Update calculations and track property view
   useEffect(() => {
     if (property) {
       const charges = calculatePropertyCharges(property);
@@ -321,8 +337,48 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
       // Calculate EMI
       const emi = calculateEMI(baseLoanAmount, interestRate, tenureYears);
       setEmiDetails(emi);
+
+      // Track property view
+      const pid = resolvePropertyIdNumber(property);
+      if (pid) {
+        trackEvent({
+          eventType: 'property',
+          eventName: 'property_viewed',
+          propertyId: pid,
+          payload: {
+            title: property.title,
+            price: property.price,
+            locality: property.locality || property.address,
+            city: property.city,
+            bhk: property.bhk || property.bedrooms,
+            property_type: property.type,
+          }
+        });
+      }
     }
-  }, [property, loanPercentage, interestRate, tenureYears]);
+  }, [property]);
+
+  // Track EMI interaction on user input
+  useEffect(() => {
+    if (property && loanAmount > 0 && interestRate > 0 && tenureYears > 0) {
+      const pid = resolvePropertyIdNumber(property);
+      const timer = setTimeout(() => {
+        trackEvent({
+          eventType: 'calculator',
+          eventName: 'emi_calculated',
+          propertyId: pid || null,
+          payload: {
+            property_title: property.title,
+            loan_amount: loanAmount,
+            interest_rate: interestRate,
+            tenure_years: tenureYears,
+            monthly_emi: emiDetails.emi,
+          }
+        });
+      }, 1000); // 1s debounce
+      return () => clearTimeout(timer);
+    }
+  }, [loanAmount, interestRate, tenureYears]);
 
   // Handle loan percentage change
   const handleLoanPercentageChange = (percentage: number) => {
@@ -3254,7 +3310,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
 
           const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
-          return (
+              return (
             <ShareModal
               url={shareUrl}
               title={shareTitle}
@@ -3267,6 +3323,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
           );
         })()
       )}
+
+      {/* Guest Property View Limit Modal */}
+      <PropertyAccessModal
+        isOpen={showGuestLimitModal}
+        limit={systemSettings?.guest_property_view_limit ?? 5}
+        companyName={systemSettings?.company_name}
+        onSuccess={() => setShowGuestLimitModal(false)}
+      />
     </div>
   );
 };

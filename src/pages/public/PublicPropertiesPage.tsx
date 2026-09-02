@@ -1,5 +1,6 @@
 // PublicPropertiesPage.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { trackEvent } from '@/utils/tracker';
 import {
   Search, MapPin, Building, Star, Heart, Eye, Phone, Home, Grid, List,
   Bed, Car, Wifi, Dumbbell, Shield, TreePine, Waves, CheckCircle,
@@ -15,9 +16,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import viewsAPI from '@/lib/viewAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 
-// ✅ Import property tags API and styles
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import { getTagStyle } from "@/lib/tagStyles";
+import { useAuth } from '@/contexts/AuthContext';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
+import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 
 /* ==============================
    Types
@@ -390,6 +394,9 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
 const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({ onPropertyView }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { systemSettings } = useSystemSettings();
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
 
   // core UI states
   const [searchQuery, setSearchQuery] = useState('');
@@ -455,6 +462,29 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     };
     fetchMasters();
   }, []);
+
+  // Track search & filter intent (Debounced)
+  useEffect(() => {
+    const hasFilter = searchQuery || selectedBudget || selectedBedrooms || selectedLocation || selectedPropertyType;
+    if (!hasFilter) return;
+
+    const timer = setTimeout(() => {
+      trackEvent({
+        eventType: 'search',
+        eventName: searchQuery ? 'search_performed' : 'filter_applied',
+        payload: {
+          search_query: searchQuery || undefined,
+          locality: selectedLocation || undefined,
+          budget: selectedBudget || undefined,
+          bhk: selectedBedrooms || undefined,
+          property_type: selectedPropertyType || undefined,
+          transaction_type: transactionType,
+        },
+      });
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedLocation, selectedBudget, selectedBedrooms, selectedPropertyType, transactionType]);
 
   // helpers
   const findMasterOptions = useCallback((candidateKeys: string[]) => {
@@ -1082,6 +1112,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   };
 
   const handleNavigateToProperty = async (property: Property) => {
+    // Check if guest view limit is exceeded
+    const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
+    if (isLocked) {
+      setShowGuestLimitModal(true);
+      return;
+    }
+
     const id = property.id;
     const slug = property.slug;
     if (!slug) {
@@ -2236,6 +2273,14 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           </div>
         )}
       </div>
+
+      {/* Guest Property View Limit Modal */}
+      <PropertyAccessModal
+        isOpen={showGuestLimitModal}
+        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
+        companyName={systemSettings?.company_name}
+        onSuccess={() => setShowGuestLimitModal(false)}
+      />
     </div>
   );
 };

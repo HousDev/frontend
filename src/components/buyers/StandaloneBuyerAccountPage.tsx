@@ -4,44 +4,54 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { buyerAPI } from '@/lib/buyerAPI';
 import BuyerAccountPage from '@/components/buyers/BuyerAccountPage';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
 const StandaloneBuyerAccountPage = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [buyer, setBuyer] = useState(null);
+  const [buyer, setBuyer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBuyer = async () => {
-      if (!id) {
-        setLoading(false);
-        setError('No buyer id provided');
-        return;
-      }
+    const targetId = id || (user as any)?.buyer_id || (user as any)?.id;
+    if (!targetId) {
+      setLoading(false);
+      setError('No buyer id provided');
+      return;
+    }
 
+    const fetchBuyer = async () => {
       try {
         setLoading(true);
-        // ensure this API method exists in your lib; rename to buyerAPI.get if needed
-        const buyerData = await buyerAPI.getById(id);
-       
-        const normalized = buyerData ? buyerData : null;
-       
-        setBuyer(normalized);
+        const buyerData = await buyerAPI.getById(targetId);
+        setBuyer(buyerData || null);
         setError(null);
       } catch (err) {
-        
-        setError('Failed to load buyer data');
-        setBuyer(null);
+        console.warn('Buyer fetch note:', err);
+        if (user) {
+          setBuyer({
+            id: targetId,
+            name: `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).username || 'Buyer',
+            email: (user as any).email,
+            phone: (user as any).phone,
+            salutation: (user as any).salutation || 'Mr.',
+          });
+          setError(null);
+        } else {
+          setError('Failed to load buyer data');
+          setBuyer(null);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchBuyer();
-  }, [id]);
+  }, [id, user]);
 
   const handleBack = () => navigate('/');
 

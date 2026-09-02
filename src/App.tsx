@@ -88,6 +88,12 @@ import VariableCenter from './pages/settings/VariableCenter';
 import HomePageCMS from './pages/dashboard/HomePageCMS';
 import DigioSuccess from './pages/DigioSuccess';
 import WhatsAppCRM from './pages/WhatsAppCRM/WhatsAppCRM';
+import usePageTracking from './hooks/usePageTracking';
+
+const PageTrackingWrapper = () => {
+  usePageTracking();
+  return null;
+};
 
 function App() {
   useDynamicHead(); 
@@ -115,11 +121,20 @@ function App() {
           {/* ✅ Wrap with SystemSettingsProvider */}
           <SystemSettingsProvider>
             <Router>
+              <PageTrackingWrapper />
               <ScrollToTop smooth={false} />
               <div className="min-h-screen bg-gray-50">
                 <Routes>
                   {/* 🎯 SEPARATE BUYER PORTAL ROUTES */}
                   
+                  <Route
+                    path="/buyer-dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneBuyerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/buyer-dashboard/:id"
                     element={
@@ -129,6 +144,14 @@ function App() {
                     }
                   />
                  
+                  <Route
+                    path="/seller-dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneSellerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/seller-dashboard/:id"
                     element={
@@ -203,14 +226,14 @@ function App() {
                       </PublicRoute>
                     }
                   />
-                  {/* <Route
+                  <Route
                     path="/register"
                     element={
                       <PublicRoute>
                         <RegisterPage />
                       </PublicRoute>
                     }
-                  /> */}
+                  />
 
                   {/* Protected Dashboard Routes (EXISTING - NO CHANGE) */}
                   <Route
