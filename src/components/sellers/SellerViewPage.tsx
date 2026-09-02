@@ -137,6 +137,10 @@ export type Followup = {
   sellerId?: string | number | null;
   assignedExecutive?: string | number | null;
   completedDate?: string | null;
+  outcome_name?: string | null;
+  outcome_id?: number | string | null;
+  outcomeId?: number | string | null;
+  custom_remark?: string | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -513,6 +517,8 @@ const normalize = (f: Followup) => {
     truthyFlag((f as any).transferred_from_lead) ||
     truthyFlag(f.transferredFromLead);
   const type = f.followupType || f.followup_type || f.type || null;
+  const stage = (f as any).seller_lead_stage || (f as any).sellerLeadStage || f.buyerLeadStage || (f as any).stage || null;
+  const status = (f as any).seller_lead_status || (f as any).sellerLeadStatus || f.buyerLeadStatus || (f as any).status || null;
   const scheduleDate =
     f.scheduleDate ??
     (f as any).schedule_date ??
@@ -540,21 +546,35 @@ const normalize = (f: Followup) => {
     (f as any).assigned_to,
     f.assignedExecutive ?? f.assignedTo,
   );
-  const remarks = f.customRemark ?? f.remark ?? f.notes ?? null;
+  const rawRemark = f.remark || (f as any).outcome || (f as any).outcome_name || (f as any).outcomeName || null;
+  const rawNotes = (f as any).custom_remark || f.customRemark || f.notes || null;
   return {
     ...f,
     id: String(f.id),
     category: isPreSales ? "presales" : "sales",
+    buyerLeadStage: stage,
+    buyerLeadStatus: status,
+    seller_lead_stage: stage,
+    seller_lead_status: status,
     followupType: type ?? null,
+    followup_type: type ?? null,
     scheduleDate: scheduleDate ?? null,
+    schedule_date: scheduleDate ?? null,
     scheduleTime: scheduleTime ?? null,
+    schedule_time: scheduleTime ?? null,
     assignedTo: assignedToDisplay ?? null,
     createdBy: createdByDisplay ?? null,
     updatedBy: updatedByDisplay ?? null,
-    customRemark: remarks,
+    outcome: rawRemark,
+    outcome_name: rawRemark,
+    outcomeName: rawRemark,
+    remark: rawRemark,
+    customRemark: rawNotes,
+    custom_remark: rawNotes,
     createdAt: f.createdAt ?? (f as any).created_at ?? null,
     updatedAt: f.updatedAt ?? (f as any).updated_at ?? null,
     nextAction: f.nextAction ?? (f as any).next_action ?? null,
+    next_action: f.nextAction ?? (f as any).next_action ?? null,
     transferredAt: f.transferredAt ?? null,
   } as Followup;
 };
@@ -628,6 +648,7 @@ const FieldChips: React.FC<{ f: Followup }> = ({ f }) => {
 /* ------------------------------------------------------------------ */
 interface SellerFollowupsTabProps {
   followups: Followup[];
+  seller?: AnyObj;
   onAddFollowup: () => void;
   onEditFollowup: (f: Followup) => void;
   onDeleteFollowup: (f: Followup) => void;
@@ -638,6 +659,7 @@ interface SellerFollowupsTabProps {
 
 const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   followups,
+  seller,
   onAddFollowup,
   onEditFollowup,
   onDeleteFollowup,
@@ -716,52 +738,54 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredFollowups.map((f, i) => {
             const idKey = (f.id ?? `f-${i}`).toString();
+            const rawDate = f.scheduleDate || (f as any).schedule_date || (f as any).followup_date || f.date;
+            const parsedDate = parseSqlish(rawDate);
+            const dateOnlyStr = parsedDate ? fmtDateDDMMYYYY(parsedDate) : (rawDate ? String(rawDate).split('T')[0] : null);
+            const timeOnlyStr = f.scheduleTime || (f as any).schedule_time || (f as any).followup_time || f.time ? fmtTime12h(f.scheduleTime || (f as any).schedule_time || (f as any).followup_time || f.time) : null;
+            const schedFormatted = dateOnlyStr ? `${dateOnlyStr}${timeOnlyStr ? ` at ${timeOnlyStr}` : ''}` : null;
+
+            const rawStage = f.buyerLeadStage || (f as any).seller_lead_stage || (f as any).stage || null;
+            const stageVal = rawStage ? String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
+            const rawStatus = f.buyerLeadStatus || (f as any).seller_lead_status || (f as any).status || null;
+            const statusVal = rawStatus ? String(rawStatus).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
+            
+            const rawCustom = f.customRemark || (f as any).custom_remark || '';
+            const rawRemark = (f as any).remark || (f as any).outcome || f.notes || '';
+            const outcomeVal = (rawCustom && rawCustom.trim().length > 0) ? rawCustom : (rawRemark && rawRemark.trim().length > 0 ? rawRemark : null);
+
+            const createdByVal = f.createdByName || f.createdBy || ((f as any).created_by ? `User #${(f as any).created_by}` : "Admin");
+            const assignedToVal = f.assignedExecutiveName || f.assignedTo || "Unassigned";
+
             return (
               <div key={idKey} className="h-full">
                 <div
-                  className={`h-full bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-shadow border-l-4 ${cardBorder(f.priority ?? undefined)}`}
+                  className={`h-full bg-white rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all border-l-4 ${cardBorder(f.priority ?? undefined)}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-gray-100 rounded-lg">
-                      {typeIcon(
-                        f.followupType ||
-                        f.followup_type ||
-                        f.type ||
-                        undefined,
+                  {/* Top Bar: Channel Badge, Stage, Status, Priority, Action Buttons */}
+                  <div className="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-gray-100 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-orange-100 text-orange-800 flex items-center gap-1">
+                        {typeIcon(f.followupType || f.followup_type || f.type || undefined)}
+                        <span>{f.followupType || f.followup_type || f.type || 'Phone Call'}</span>
+                      </span>
+
+                      {stageVal && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          Stage: {stageVal}
+                        </span>
                       )}
+
+                      {statusVal && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                          Status: {statusVal}
+                        </span>
+                      )}
+
+                      {priorityBadge(f.priority ?? undefined)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        {f.category === "presales" && (
-                          <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-purple-100 text-purple-700 font-medium">
-                            Pre-Sales
-                          </span>
-                        )}
-                        {f.category === "sales" && (
-                          <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-blue-100 text-blue-700 font-medium">
-                            Sales
-                          </span>
-                        )}
-                        {statusBadge(f.status ?? undefined)}
-                        {priorityBadge(f.priority ?? undefined)}
-                      </div>
-                      <FieldChips f={f} />
-                      <div className="mt-1.5 text-[10px] text-gray-500">
-                        {f.scheduleDate && (
-                          <>
-                            <span className="font-medium">When:</span>{" "}
-                            {fmtDateTimeHuman(f.scheduleDate) ||
-                              fmtDateDDMMYYYY(
-                                parseSqlish(f.scheduleDate) as Date,
-                              )}
-                            {f.scheduleTime
-                              ? ` • ${fmtTime12h(f.scheduleTime)}`
-                              : ""}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-1">
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => {
                           if (!canUpdate) {
@@ -771,14 +795,10 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
                           onEditFollowup(f);
                         }}
                         disabled={!canUpdate || f.category === "presales"}
-                        className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40"
-                        title={
-                          f.category === "presales"
-                            ? "Cannot edit pre-sales"
-                            : "Edit"
-                        }
+                        className="p-1.5 rounded-lg hover:bg-orange-50 text-gray-500 hover:text-orange-600 transition-colors disabled:opacity-40"
+                        title={f.category === "presales" ? "Cannot edit pre-sales" : "Edit Follow-up"}
                       >
-                        <Pencil size={12} className="text-gray-500" />
+                        <Pencil size={13} />
                       </button>
                       <button
                         onClick={() => {
@@ -789,15 +809,72 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
                           onDeleteFollowup(f);
                         }}
                         disabled={!canDelete || f.category === "presales"}
-                        className="p-1.5 rounded hover:bg-red-50 disabled:opacity-40"
-                        title={
-                          f.category === "presales"
-                            ? "Cannot delete pre-sales"
-                            : "Delete"
-                        }
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                        title={f.category === "presales" ? "Cannot delete pre-sales" : "Delete Follow-up"}
                       >
-                        <Trash2 size={12} className="text-red-500" />
+                        <Trash2 size={13} />
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="space-y-1.5 text-xs">
+                    {/* Outcome & Custom Remark */}
+                    {outcomeVal && (
+                      <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2 text-gray-800">
+                        <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
+                          Outcome / Remarks:
+                        </span>
+                        <p className="text-[11px] leading-relaxed text-gray-700 font-medium whitespace-pre-wrap">
+                          {outcomeVal}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Next Action */}
+                    {f.nextAction && (
+                      <div className="flex items-center gap-2 bg-orange-50/80 border border-orange-200/80 rounded-lg px-2.5 py-1.5 text-xs">
+                        <span className="font-bold text-orange-900 whitespace-nowrap flex items-center gap-1">
+                          ⚡ Next Action:
+                        </span>
+                        <span className="font-semibold text-orange-700 truncate">
+                          {f.nextAction}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Scheduled Date & Time */}
+                    {schedFormatted && (
+                      <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 text-xs text-emerald-900">
+                        <CalendarIcon size={13} className="text-emerald-600 flex-shrink-0" />
+                        <span className="font-medium text-[11px]">Scheduled:</span>
+                        <span className="font-bold text-[11px] text-emerald-700">
+                          {schedFormatted}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Footer Audit Metadata: Created By, Assigned To, Created At, Updated At */}
+                    <div className="pt-2 mt-2 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="flex items-center gap-1">
+                          <UserIcon size={11} className="text-gray-400" />
+                          <span>Created by:</span>
+                          <strong className="text-gray-700 font-semibold">{createdByVal}</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span>Assigned to:</span>
+                          <strong className="text-gray-700 font-semibold">{assignedToVal}</strong>
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {f.createdAt && (
+                          <span>Created: {fmtDateTimeHuman(f.createdAt)}</span>
+                        )}
+                        {f.updatedAt && f.updatedAt !== f.createdAt && (
+                          <span>Updated: {fmtDateTimeHuman(f.updatedAt)}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -986,6 +1063,8 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     return {
       id: String(id),
       seller_id: row?.seller_id ?? row?.sellerId,
+      buyerLeadStage: row?.seller_lead_stage ?? row?.sellerLeadStage ?? row?.stage ?? null,
+      buyerLeadStatus: row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status ?? null,
       followup_date:
         row?.schedule_date ??
         row?.followup_date ??
@@ -999,14 +1078,29 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       ),
       followup_type: row?.followup_type ?? row?.followupType,
       status: row?.seller_lead_status ?? row?.sellerLeadStatus ?? row?.status,
-      priority: row?.priority ?? "",
+      priority: row?.priority ?? "Medium",
+      remark: row?.remark ?? row?.outcome_name ?? row?.outcomeName ?? row?.outcome ?? undefined,
+      outcome: row?.remark ?? row?.outcome_name ?? row?.outcomeName ?? row?.outcome ?? undefined,
+      outcome_name: row?.outcome_name ?? row?.outcomeName ?? row?.remark ?? row?.outcome ?? undefined,
+      outcome_id: row?.outcome_id ?? row?.outcomeId ?? undefined,
+      outcomeId: row?.outcome_id ?? row?.outcomeId ?? undefined,
+      customRemark:
+        row?.custom_remark ??
+        row?.customRemark ??
+        row?.notes ??
+        undefined,
+      custom_remark:
+        row?.custom_remark ??
+        row?.customRemark ??
+        row?.notes ??
+        undefined,
       notes:
         row?.custom_remark ??
         row?.customRemark ??
-        row?.remark ??
         row?.notes ??
         undefined,
       next_action: row?.next_action ?? row?.nextAction ?? undefined,
+      nextAction: row?.next_action ?? row?.nextAction ?? undefined,
       assigned_to:
         row?.assigned_executive ?? row?.assignedExecutive ?? row?.assigned_to,
       reminder: Number(row?.reminder ?? 0) as 0 | 1,
@@ -1014,10 +1108,10 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       updated_at: row?.updated_at ?? row?.updatedAt,
       created_by: row?.created_by ?? row?.createdBy,
       updated_by: row?.updated_by ?? row?.updatedBy,
-      createdByName: row?.created_by_name ?? row?.createdByName,
+      createdByName: row?.created_by_name ?? row?.createdByName ?? (row?.created_by ? `User #${row.created_by}` : null),
       updatedByName: row?.updated_by_name ?? row?.updatedByName,
       assignedExecutiveName:
-        row?.assigned_executive_name ?? row?.assignedExecutiveName,
+        row?.assigned_executive_name ?? row?.assignedExecutiveName ?? (seller as any)?.assigned_to_name ?? (seller as any)?.assigned ?? null,
       transferred_from_lead:
         row?.transferred_from_lead === true ||
         row?.transferred_from_lead === 1 ||
@@ -1035,18 +1129,19 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     (rows: any[]) => {
       const mapped = (rows || []).map(normalizeFromApi);
       const updatedSeller: AnyObj = {
-        ...sellerRef.current,  // ← seller ki jagah sellerRef.current
+        ...(seller as AnyObj),
         followups: mapped,
       };
       onUpdateSeller(updatedSeller);
     },
-    [onUpdateSeller],  // ← seller dependency hata do
+    [seller, onUpdateSeller],
   );
   const fetchFollowups = useCallback(async () => {
     if (!sellerIdVal) return;
     try {
       setFuError(null);
       setFuLoading(true);
+      sellerFollowupAPI.clearCache();
       const res = await sellerFollowupAPI.getAll({
         sellerId: sellerIdVal as any,
         page: 1,
@@ -1285,7 +1380,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     const updatedSeller = {
       ...(seller as AnyObj),
       followups: (((seller as AnyObj).followups as Followup[]) || []).filter(
-        (x) => x.id !== f.id,
+        (x) => String(x.id) !== String(f.id),
       ),
     };
     onUpdateSeller(updatedSeller);
@@ -1699,11 +1794,12 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       setFuLoading(true);
       await sellerFollowupAPI.remove(f.id);
       handleDeleteFollowupLocal(f);
-      toast.success("Deleted");
+      await fetchFollowups();
+      toast.success("Follow-up deleted successfully");
     } catch (e: any) {
       console.error("Delete failed:", e);
       setFuError(e?.message || "Failed to delete");
-      alert(e?.message || "Failed to delete");
+      toast.error(e?.message || "Failed to delete follow-up");
     } finally {
       setFuLoading(false);
     }
@@ -2622,6 +2718,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
             </div>
           ) : (
             <SellerFollowupsTab
+              seller={seller}
               followups={((seller as any).followups as Followup[]) || []}
               onAddFollowup={() => {
                 if (!canCreateFollowups) {
@@ -2796,37 +2893,24 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
             id: (seller as any)?.id ?? (seller as any)?.sellerId ?? '',
             name: (seller as any)?.name || (seller as any)?.full_name || 'Seller',
             entity: 'seller',
-            stage: (seller as any)?.stage || (seller as any)?.seller_stage || 'Requirement Discussion',
-            status: (seller as any)?.status || (seller as any)?.seller_status || 'Qualified',
+            isEdit: Boolean(editingFollowup),
+            stage: editingFollowup
+              ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any)?.seller_lead_stage || (editingFollowup as any).buyerLeadStage || (editingFollowup as any)?.stage || (seller as any)?.stage || 'Requirement Discussion')
+              : ((seller as any)?.stage || 'Requirement Discussion'),
+            status: editingFollowup
+              ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any)?.seller_lead_status || (editingFollowup as any).buyerLeadStatus || (editingFollowup as any)?.status || (seller as any)?.status || 'Qualified')
+              : ((seller as any)?.status || 'Qualified'),
+            followup: editingFollowup
           }}
           onClose={() => {
             setShowFollowupModal(false);
             setEditingFollowup(null);
           }}
-          onSaved={async (payload) => {
-            try {
-              const apiPayload = {
-                sellerId: (seller as any)?.id ?? (seller as any)?.sellerId ?? '',
-                followupType: payload.followUpType,
-                outcome: payload.outcome,
-                reason: payload.reason,
-                remarks: payload.note,
-                nextFollowupDate: payload.nextFollowUp?.date,
-                nextFollowupTime: payload.nextFollowUp?.time,
-                nextAction: payload.nextAction,
-                priority: payload.priority,
-                nextStage: payload.nextStage,
-                nextStatus: payload.nextStatus,
-              };
-              await sellerFollowupAPI.create(apiPayload);
-              toast.success("Follow-up added successfully");
-              setShowFollowupModal(false);
-              setEditingFollowup(null);
-              fetchFollowups();
-            } catch (error) {
-              console.error("Error adding follow-up:", error);
-              toast.error("Failed to add follow-up");
-            }
+          onSaved={async () => {
+            setShowFollowupModal(false);
+            setEditingFollowup(null);
+            sellerFollowupAPI.clearCache();
+            await fetchFollowups();
           }}
         />
       )}

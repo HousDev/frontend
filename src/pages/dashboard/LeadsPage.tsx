@@ -26,8 +26,8 @@ import { toast } from 'react-toastify';
 import { can } from "@/utils/permission";
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import Swal from 'sweetalert2';
-import FollowupModal from '../../pages/dashboard/components/FollowupModal'; // or wherever your modal is located
 import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
+import { automationEngineAPI } from '@/lib/automationEngineAPI';
 
 import * as XLSX from 'xlsx';
 import { FaWhatsapp } from 'react-icons/fa6';
@@ -193,11 +193,27 @@ const LeadsPage: React.FC = () => {
     return u ? formatUserName(u) : '';
   };
 
+  // Master Automation Statuses
+  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
+
+  useEffect(() => {
+    automationEngineAPI.getMastersGraph('lead').then((graph) => {
+      if (graph?.statuses && Array.isArray(graph.statuses)) {
+        setMasterStatuses(graph.statuses);
+      }
+    }).catch(() => {});
+  }, []);
+
   // ---------- options ----------
-  const statusOptions = useMemo(() => ([
-    { label: "All", value: "all" },
-    ...Array.from(new Set(allLeads.map(l => (l.status ? l.status.toLowerCase() : "new")).filter(Boolean))).map(toOption),
-  ]), [allLeads]);
+  const statusOptions = useMemo(() => {
+    const fromLeads = allLeads.map((l) => (l.status ? l.status : 'new')).filter(Boolean);
+    const fromMaster = masterStatuses.map((s) => s.name).filter(Boolean);
+    const combined = Array.from(new Set([...fromMaster, ...fromLeads]));
+    return [
+      { label: 'All', value: 'all' },
+      ...combined.map((name) => ({ label: name, value: name.toLowerCase() })),
+    ];
+  }, [allLeads, masterStatuses]);
 
   const assignedOptions = useMemo(() => ([
     { label: "All", value: "all" },
@@ -1399,13 +1415,25 @@ const LeadsPage: React.FC = () => {
                     className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] bg-white h-6"
                   >
                     <option value="">Status</option>
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="unqualified">Unqualified</option>
-                    <option value="hot">Hot</option>
-                    <option value="warm">Warm</option>
-                    <option value="cold">Cold</option>
+                    {masterStatuses.length > 0 ? (
+                      masterStatuses.map((st: any) => (
+                        <option key={st.id || st.name} value={st.name}>
+                          {st.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="New">New</option>
+                        <option value="Contacted">Contacted</option>
+                        <option value="Follow-up Required">Follow-up Required</option>
+                        <option value="Need More Time">Need More Time</option>
+                        <option value="Qualified">Qualified</option>
+                        <option value="Unqualified">Unqualified</option>
+                        <option value="Hot">Hot</option>
+                        <option value="Warm">Warm</option>
+                        <option value="Cold">Cold</option>
+                      </>
+                    )}
                   </select>
                 )}
 

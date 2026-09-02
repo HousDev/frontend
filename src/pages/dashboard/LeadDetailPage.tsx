@@ -921,59 +921,117 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
                 </div>
               )}
               {!followupsLoading && !followupsError && followups.length > 0 && (
-                <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
                   {followups.map((f) => {
                     const Ico = typeIcon(f.type);
                     const color = followupCardClasses(f.type);
+                    const hasValidSchedule = f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970;
+                    const sched = hasValidSchedule ? formatDateTime(f.scheduledDate) : null;
+                    const createdByName = `${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System";
+
                     return (
-                      <div key={f.id} className={`border rounded-lg p-2.5 transition-all ${color.container} border-l-3 ${color.leftBar}`}>
-                        <div className="flex gap-2">
-                          <Ico size={14} className={color.icon} />
-                          <div className="flex-1 space-y-1.5">
-                            <div className="flex items-center justify-between flex-wrap gap-1">
-                              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${color.badge}`}>{f.type}</span>
-                              <div className="flex gap-1">
-                                {canUpdateFollowups && <button onClick={() => handleEditFollowup(f)} className="p-0.5 rounded hover:bg-gray-200"><Pencil size={10} className="text-gray-500" /></button>}
-                                {canDeleteFollowups && <button onClick={() => handleDeleteFollowup(f.id)} className="p-0.5 rounded hover:bg-red-100"><Trash2 size={10} className="text-red-500" /></button>}
-                              </div>
+                      <div key={f.id} className={`border rounded-lg p-2.5 transition-all bg-white shadow-xs hover:shadow-sm border-l-4 ${color.leftBar}`}>
+                        {/* Header Row */}
+                        <div className="flex items-center justify-between gap-1.5 pb-1.5 mb-1.5 border-b border-gray-100">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 ${color.badge}`}>
+                              <Ico size={10} className={color.icon} />
+                              <span>{f.type || 'Follow-up'}</span>
+                            </span>
+
+                            {f.stage && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Stage: {f.stage}
+                              </span>
+                            )}
+
+                            {f.status && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                Status: {f.status}
+                              </span>
+                            )}
+
+                            {f.priority && (
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${getPriorityColor(f.priority)}`}>
+                                {f.priority}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action Edit / Delete */}
+                          <div className="flex items-center gap-1">
+                            {canUpdateFollowups && (
+                              <button onClick={() => handleEditFollowup(f)} className="p-0.5 rounded hover:bg-orange-50 text-gray-500 hover:text-orange-600 transition-colors" title="Edit Follow-up">
+                                <Pencil size={11} />
+                              </button>
+                            )}
+                            {canDeleteFollowups && (
+                              <button onClick={() => handleDeleteFollowup(f.id)} className="p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="Delete Follow-up">
+                                <Trash2 size={11} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Body Details */}
+                        <div className="space-y-1.5 text-[11px]">
+                          {/* Outcome / Remarks */}
+                          {(f.customRemark || f.remark) && (
+                            <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2 text-gray-800">
+                              <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
+                                Outcome / Remarks:
+                              </span>
+                              <p className="text-[11px] leading-relaxed text-gray-700 font-medium whitespace-pre-wrap">
+                                {f.customRemark || f.remark}
+                              </p>
                             </div>
-                            <div className="flex flex-wrap gap-2 text-[10px]">
-                              {f.priority && <><span className="text-gray-400">Priority:</span><span className={`px-1 py-0 rounded-full text-[9px] font-medium ${getPriorityColor(f.priority)}`}>{f.priority}</span></>}
-                              {f.stage && <><span className="text-gray-400">Stage:</span><span className="px-1 py-0 rounded-full text-[9px] font-medium bg-white/70 border border-gray-200">{f.stage}</span></>}
-                              {f.status && <><span className="text-gray-400">Status:</span><span className="px-1 py-0 rounded-full text-[9px] font-medium bg-white/70 border border-gray-200">{f.status}</span></>}
+                          )}
+
+                          {/* Next Action */}
+                          {f.nextAction && (
+                            <div className="flex items-center gap-2 bg-orange-50/80 border border-orange-200/80 rounded-lg px-2.5 py-1.5 text-xs">
+                              <span className="font-bold text-orange-900 whitespace-nowrap flex items-center gap-1">
+                                ⚡ Next Action:
+                              </span>
+                              <span className="font-semibold text-orange-700 truncate">
+                                {f.nextAction}
+                              </span>
                             </div>
-                            {(f.customRemark || f.remark) && <p className="text-[10px] text-gray-600"><span className="font-medium">Remark:</span> {f.customRemark || f.remark}</p>}
-                            {f.nextAction && <p className="text-[10px] text-gray-600"><span className="font-medium">Next Action:</span> {f.nextAction}</p>}
-                            {f.status?.toLowerCase() === 'qualified' && f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970 && (() => {
-                              const sched = formatDateTime(f.scheduledDate);
-                              return (
-                                <div className="text-[10px] text-gray-600 bg-slate-50 border border-slate-100 rounded-md p-1.5 flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                                  <div>
-                                    <span className="font-semibold" style={{ color: PRIMARY_NAVY }}>Schedule Date:</span> {sched.date}
-                                  </div>
-                                  <div>
-                                    <span className="font-semibold" style={{ color: PRIMARY_NAVY }}>Schedule Time:</span> {sched.time}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                            <div className="flex flex-col gap-1 pt-1 text-[9px] text-gray-400">
-                              {f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970 && (
-                                <div className="flex items-center gap-1 text-orange-600 font-medium">
-                                  <Calendar size={8} className="text-orange-500" />
-                                  <span>Next Follow-up: {formatDateShort(f.scheduledDate)}</span>
-                                </div>
+                          )}
+
+                          {/* Scheduled Date & Time */}
+                          {sched && (
+                            <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 text-xs text-emerald-900">
+                              <Calendar size={12} className="text-emerald-600 flex-shrink-0" />
+                              <span className="font-medium text-[11px]">Scheduled:</span>
+                              <span className="font-bold text-[11px] text-emerald-700">
+                                {sched.date} {sched.time ? `at ${sched.time}` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Footer Audit Metadata */}
+                          <div className="pt-1.5 mt-1.5 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="flex items-center gap-1">
+                                <User size={10} className="text-gray-400" />
+                                <span>Created by:</span>
+                                <strong className="text-gray-700 font-semibold">{createdByName}</strong>
+                              </span>
+                              {lead?.assigned_executive_name && (
+                                <span className="flex items-center gap-1">
+                                  <span>Assigned to:</span>
+                                  <strong className="text-gray-700 font-semibold">{lead.assigned_executive_name}</strong>
+                                </span>
                               )}
-                              <div className="flex flex-wrap justify-between gap-1 pt-0.5 border-t border-gray-100/50">
-                                <div className="flex items-center gap-1">
-                                  <Clock size={8} />
-                                  <span>Done: {formatDateShort(f.createdAt || "")}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <User size={8} />
-                                  <span>{`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System"}</span>
-                                </div>
-                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-gray-400">
+                              {f.createdAt && (
+                                <span>Created: {formatDateShort(f.createdAt)}</span>
+                              )}
+                              {(f as any).updatedAt && (f as any).updatedAt !== f.createdAt && (
+                                <span>Updated: {formatDateShort((f as any).updatedAt)}</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -990,31 +1048,26 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
       {/* Modals */}
       <SmartFollowupModal
         open={isFollowupModalOpen}
-        record={{
-          id: leadId,
-          name: lead?.name || 'Lead',
+        record={lead ? {
+          id: lead.id,
+          name: lead.name,
           entity: 'lead',
-          stage: lead?.stage || 'Connected',
-          status: lead?.status || 'Qualified',
-        }}
+          stage: editingFollowup ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any).stage || lead.stage) : lead.stage,
+          status: editingFollowup ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any).status || lead.status) : lead.status,
+          followup: editingFollowup
+        } : null}
         onClose={() => {
           setIsFollowupModalOpen(false);
           setEditingFollowup(null);
         }}
-        onSaved={async (payload) => {
-          const followupPayload: FollowupForm & { lead_id?: string } = {
-            followupType: payload.followUpType,
-            leadStage: payload.nextStage,
-            leadStatus: payload.nextStatus,
-            remark: payload.outcome + (payload.reason ? ` - ${payload.reason}` : ''),
-            customRemark: payload.note,
-            nextAction: payload.nextAction,
-            scheduleDate: payload.nextFollowUp?.date || '',
-            scheduleTime: payload.nextFollowUp?.time || '',
-            priority: payload.priority,
-            lead_id: leadId
-          };
-          await handleFollowupSave(followupPayload);
+        onSaved={async () => {
+          setIsFollowupModalOpen(false);
+          setEditingFollowup(null);
+          try {
+            await fetchFollowups();
+          } catch (err) {
+            console.error("Error refreshing followups:", err);
+          }
         }}
       />
       {showBuyerComponent && lead && <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />}
