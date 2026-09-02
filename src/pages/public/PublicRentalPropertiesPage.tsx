@@ -14,9 +14,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import viewsAPI from '@/lib/viewAPI';
 import { FaWhatsapp } from 'react-icons/fa';
 
-// ✅ Import property tags API and styles
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import { getTagStyle } from "@/lib/tagStyles";
+import { useAuth } from '@/contexts/AuthContext';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
+import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 
 /* ==============================
    Types
@@ -388,6 +391,9 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
 const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({ onPropertyView }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { systemSettings } = useSystemSettings();
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
 
   // core UI states
   const [searchQuery, setSearchQuery] = useState('');
@@ -1079,6 +1085,13 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
   };
 
   const handleNavigateToProperty = async (property: Property) => {
+    // Check if guest view limit is exceeded
+    const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
+    if (isLocked) {
+      setShowGuestLimitModal(true);
+      return;
+    }
+
     const id = property.id;
     const slug = property.slug;
     if (!slug) {
@@ -2205,6 +2218,14 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
           </div>
         )}
       </div>
+
+      {/* Guest Property View Limit Modal */}
+      <PropertyAccessModal
+        isOpen={showGuestLimitModal}
+        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
+        companyName={systemSettings?.company_name}
+        onSuccess={() => setShowGuestLimitModal(false)}
+      />
     </div>
   );
 };

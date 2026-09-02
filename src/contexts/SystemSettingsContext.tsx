@@ -26,6 +26,10 @@ export interface SystemSettings {
   auto_assign_leads: boolean;
   lead_scoring_enabled: boolean;
   property_auto_approval: boolean;
+  inactivity_timeout_minutes?: number;
+  enable_inactivity_logout?: boolean;
+  enable_guest_property_limit?: boolean;
+  guest_property_view_limit?: number;
 }
 
 export interface SystemSettingsContextType {

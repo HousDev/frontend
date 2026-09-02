@@ -1,11 +1,9 @@
-// src/pages/LeadDetailPage.tsx - Compact Desktop View (No Mobile Drawer)
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Phone, Mail, MapPin, User as UserIcon, ChevronDown, Calendar, Clock,
   Users, UserPlus, ArrowLeftToLine, ArrowRightToLine, MessageSquare,
   User, Pencil, Trash2, NotebookPen,
-  Tag
+  Tag, Activity
 } from "lucide-react";
 import { FiArrowLeft, FiEdit, FiTrash2 } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
@@ -25,6 +23,7 @@ import BuyerFormModal from "./components/BuyerFormModal";
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
 import SellerFormModal from "./components/SellerFormModel";
+import LeadActivityTimelineModal from "@/components/leads/LeadActivityTimelineModal";
 
 import { can } from "@/utils/permission";
 
@@ -218,7 +217,8 @@ const LeadDetailPage: React.FC = () => {
   const [showBuyerComponent, setShowBuyerComponent] = useState(false);
   const [showSellerComponent, setShowSellerComponent] = useState(false);
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
-const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
+  const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false);
   const [showDeleteLeadModal, setShowDeleteLeadModal] = useState<boolean>(false);
   useEffect(() => {
     if (!canReadLeads) setLoading(false);
@@ -751,6 +751,14 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
               </button>
 
               <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setIsTimelineOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-semibold border bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-xs"
+                  title="View full pre-lead and post-lead browsing history"
+                >
+                  <Activity size={13} className="text-indigo-600" />
+                  360 Journey
+                </button>
                 <button onClick={handleEdit} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-medium text-white ${canUpdateLeads ? "hover:opacity-90" : "opacity-50 cursor-not-allowed"}`} style={{ background: PRIMARY_ORANGE }} disabled={!canUpdateLeads}>
                   <FiEdit size={13} /> Edit
                 </button>
@@ -1084,6 +1092,19 @@ const [followupToDelete, setFollowupToDelete] = useState<string | number | null>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Lead 360 Activity Timeline Modal */}
+      {lead && (
+        <LeadActivityTimelineModal
+          isOpen={isTimelineOpen}
+          onClose={() => setIsTimelineOpen(false)}
+          leadId={lead.id}
+          leadNumber={lead.lead_number}
+          leadName={`${lead.salutation || ''} ${lead.name || ''}`.trim()}
+          phone={lead.phone}
+          email={lead.email}
+        />
       )}
     </div>
   );

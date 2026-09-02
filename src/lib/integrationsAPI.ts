@@ -1,7 +1,7 @@
 // src/lib/integrationsAPI.ts
 import { api } from "./api";
 
-export type IntegrationTab = "email" | "sms" | "whatsapp" | "razorpay" | "stripe" | "chatgpt";
+export type IntegrationTab = "email" | "sms" | "whatsapp" | "razorpay" | "stripe" | "chatgpt" | "google";
 
 export interface TabData {
   tab: IntegrationTab;
@@ -47,6 +47,16 @@ export const integrationsAPI = {
   // DELETE /integrations/:tab — clear config
   clearByTab: async (tab: IntegrationTab): Promise<void> => {
     await api.delete(`/integrations/${tab}`);
+  },
+
+  // Public GET — fetch Google client_id for login/signup
+  getPublicGoogleConfig: async (): Promise<{ client_id: string; is_active: boolean }> => {
+    try {
+      const res = await api.get("/integrations/public/google-config");
+      return unwrap(res);
+    } catch {
+      return { client_id: "", is_active: false };
+    }
   },
 };
 

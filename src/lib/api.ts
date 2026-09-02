@@ -54,19 +54,87 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: async (credentials: any) => {
-    const response = await api.post("/auth/signin", credentials);
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/auth/signin", { ...credentials, guest_id: credentials.guest_id || guestId });
+    return response.data;
+  },
+  sendLoginOTP: async (payload: { emailOrUsername?: string; email?: string; username?: string }) => {
+    const response = await api.post("/auth/send-login-otp", payload);
+    return response.data;
+  },
+  verifyOTPAndLogin: async (payload: {
+    email: string;
+    otp: string;
+    guest_id?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    address?: string | null;
+    device_id?: string;
+    source?: string;
+  }) => {
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/auth/verify-otp-login", {
+      ...payload,
+      guest_id: payload.guest_id || guestId,
+    });
     return response.data;
   },
   register: async (userData: {
-    username: string;
+    username?: string;
     email: string;
-    password: string;
+    password?: string;
     first_name: string;
     last_name: string;
     phone?: string;
+    salutation?: string;
     role?: string;
+    guest_id?: string;
   }) => {
-    const response = await api.post("/auth/signup", userData);
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/auth/signup", { ...userData, guest_id: userData.guest_id || guestId });
+    return response.data;
+  },
+  sendRegistrationOTP: async (payload: {
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    salutation?: string;
+  }) => {
+    const response = await api.post("/auth/send-registration-otp", payload);
+    return response.data;
+  },
+  verifyOTPAndRegister: async (payload: {
+    email: string;
+    otp: string;
+    password?: string;
+    salutation?: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    role?: string;
+    username?: string;
+    guest_id?: string;
+  }) => {
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/auth/verify-otp-register", {
+      ...payload,
+      guest_id: payload.guest_id || guestId,
+    });
+    return response.data;
+  },
+  googleAuth: async (payload: {
+    credential: string;
+    role?: string;
+    phone?: string;
+    salutation?: string;
+    guest_id?: string;
+  }) => {
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/auth/google-auth", {
+      ...payload,
+      guest_id: payload.guest_id || guestId,
+    });
     return response.data;
   },
   refreshToken: async () => {
@@ -230,7 +298,8 @@ export const leadsAPI = {
     return response.data;
   },
   createLead: async (data: any) => {
-    const response = await api.post("/leads", data);
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post("/leads", { ...data, guest_id: data.guest_id || guestId });
     return response.data;
   },
   updateLead: async (id: string, data: any) => {

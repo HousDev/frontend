@@ -24,7 +24,8 @@ export const leadsAPI = {
   },
 
   createLead: async (data: any) => {
-    const response = await api.post('/leads', data);
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const response = await api.post('/leads', { ...data, guest_id: data.guest_id || guestId });
     return response.data;
   },
 

@@ -33,6 +33,9 @@ import { getImageUrl } from '@/lib/helpers';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
+import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import viewsAPI from '@/lib/viewAPI';
@@ -187,6 +190,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
+  const { user } = useAuth();
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
@@ -679,6 +684,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   const handleNavigateToProperty = async (property: any) => {
+    // Check if guest view limit is exceeded
+    const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
+    if (isLocked) {
+      setShowGuestLimitModal(true);
+      return;
+    }
+
     const slug = property.slug;
     const id = property.id;
     const isRental = Boolean(
@@ -1674,6 +1686,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         }}
       />
 
+      {/* Guest Property View Limit Modal */}
+      <PropertyAccessModal
+        isOpen={showGuestLimitModal}
+        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
+        companyName={systemSettings?.company_name}
+        onSuccess={() => setShowGuestLimitModal(false)}
+      />
     </div>
   );
 };

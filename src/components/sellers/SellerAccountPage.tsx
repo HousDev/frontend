@@ -1,5 +1,6 @@
 // src/pages/dashboard/SellerAccountPage.tsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { trackEvent } from '@/utils/tracker';
 import {
   ArrowLeft, Users, Eye, Target, Bot, Brain, FileText, Plus, Settings, Menu, X,
   Home,
@@ -57,6 +58,20 @@ const SellerAccountPage = ({ seller, onBack, onUpdateSeller }: any) => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [isMobileSidebarOpen]);
+
+  // Track seller portal tab switching
+  useEffect(() => {
+    trackEvent({
+      eventType: 'portal',
+      eventName: `seller_${activeTab}_viewed`,
+      source: 'seller_portal',
+      payload: {
+        seller_id: seller?.id,
+        seller_name: seller?.name,
+        tab: activeTab,
+      },
+    });
+  }, [activeTab, seller?.id]);
 
   // Wrap tab change so mobile drawer closes after navigating
   const handleTabChange = useCallback((tabId: any) => {

@@ -222,31 +222,41 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
     return <>{children}</>;
   }
 
-  // Buyer: restricted to matching buyer-dashboard/:id
-  if (hasRole("buyer")) {
+  // Buyer & Tenant: restricted to matching buyer-dashboard/:id
+  if (hasRole("buyer") || hasRole("tenant")) {
     const buyerMatch = matchPath("/buyer-dashboard/:id", path);
-    if (!buyerMatch?.params?.id) return <Navigate to="/" replace />;
+    const targetId = String(user?.buyer_id || user?.id || "");
+
+    if (!buyerMatch?.params?.id) {
+      return <Navigate to={targetId ? `/buyer-dashboard/${targetId}` : "/properties"} replace />;
+    }
 
     const paramId = String(buyerMatch.params.id);
-    const buyerId = user?.buyer_id ? String(user.buyer_id) : "";
+    const validIds = [String(user?.buyer_id || ''), String(user?.id || '')].filter(Boolean);
 
-    if (!buyerId || buyerId !== paramId) {
-      return <Navigate to="/" replace />;
+    if (validIds.length > 0 && !validIds.includes(paramId)) {
+      const correctId = user?.buyer_id || user?.id;
+      return <Navigate to={`/buyer-dashboard/${correctId}`} replace />;
     }
 
     return <>{children}</>;
   }
 
-  // Seller: restricted to matching seller-dashboard/:id
-  if (hasRole("seller")) {
+  // Seller & Owner: restricted to matching seller-dashboard/:id
+  if (hasRole("seller") || hasRole("owner")) {
     const sellerMatch = matchPath("/seller-dashboard/:id", path);
-    if (!sellerMatch?.params?.id) return <Navigate to="/" replace />;
+    const targetId = String(user?.seller_id || user?.id || "");
+
+    if (!sellerMatch?.params?.id) {
+      return <Navigate to={targetId ? `/seller-dashboard/${targetId}` : "/"} replace />;
+    }
 
     const paramId = String(sellerMatch.params.id);
-    const sellerId = user?.seller_id ? String(user.seller_id) : "";
+    const validIds = [String(user?.seller_id || ''), String(user?.id || '')].filter(Boolean);
 
-    if (!sellerId || sellerId !== paramId) {
-      return <Navigate to="/" replace />;
+    if (validIds.length > 0 && !validIds.includes(paramId)) {
+      const correctId = user?.seller_id || user?.id;
+      return <Navigate to={`/seller-dashboard/${correctId}`} replace />;
     }
 
     return <>{children}</>;

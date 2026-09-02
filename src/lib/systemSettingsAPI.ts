@@ -15,20 +15,16 @@ export const systemSettingsAPI = {
     }
   },
 
-  // Private POST (unchanged)
-  // saveSettings: async (data: any) => {
-  //   const response = await api.post("/system-settings", data);
-  //   return response.data;
-  // },
-
+  // Private POST
   saveSettings: async (data: any) => {
-  const isFormData = data instanceof FormData;
-  const response = await api.post("/system-settings", data, {
-    headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
-  });
-  return response.data;
-}
-
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await api.post("/system-settings", data, { headers });
+    return response.data;
+  },
 };
 
 export default systemSettingsAPI;

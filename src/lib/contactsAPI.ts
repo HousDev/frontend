@@ -15,7 +15,8 @@ import { api } from "./api";
 
 export const contactsAPI = {
   submitContact: async (data: Record<string, any>) => {
-    const resp = await api.post("/contact/submit", data);
+    const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
+    const resp = await api.post("/contact/submit", { ...data, guest_id: data.guest_id || guestId });
     return resp.data;
   },
 
