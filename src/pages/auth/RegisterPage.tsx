@@ -42,6 +42,7 @@ const RegisterPage: React.FC = () => {
     email: '',
     phone: '',
     role: 'buyer' as Persona,
+    company_name: '',
     password: '',
     confirmPassword: '',
   });
@@ -59,6 +60,24 @@ const RegisterPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [googleClientId, setGoogleClientId] = useState<string>('');
   const [googleActive, setGoogleActive] = useState<boolean>(false);
+
+  // If navigated from login with googleCredential
+  useEffect(() => {
+    if (location.state?.googleCredential) {
+      setGoogleCredential(location.state.googleCredential);
+      if (location.state.googleProfile) {
+        setFormData((prev) => ({
+          ...prev,
+          email: location.state.googleProfile.email || prev.email,
+          first_name: location.state.googleProfile.first_name || prev.first_name,
+          last_name: location.state.googleProfile.last_name || prev.last_name,
+          salutation: location.state.googleProfile.salutation || prev.salutation,
+          role: location.state.googleProfile.role || prev.role,
+        }));
+      }
+      setStep('google_phone');
+    }
+  }, [location.state]);
 
   // Fetch dynamic Google OAuth Client ID
   useEffect(() => {
@@ -156,8 +175,19 @@ const RegisterPage: React.FC = () => {
   // Submit Phone & Persona for Google User
   const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.first_name?.trim()) newErrors.first_name = 'First name is required';
+    if (!formData.last_name?.trim()) newErrors.last_name = 'Last name is required';
     if (!formData.phone || formData.phone.length < 8) {
-      setErrors({ phone: 'Valid phone number with country code is required' });
+      newErrors.phone = 'Valid phone number with country code is required';
+    }
+    if (formData.role === 'broker' && !formData.company_name?.trim()) {
+      newErrors.company_name = 'Company Name / Firm Name is required for brokers';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -168,6 +198,9 @@ const RegisterPage: React.FC = () => {
         phone: formData.phone,
         role: formData.role,
         salutation: formData.salutation,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        company_name: formData.company_name,
       });
 
       if (res.success && res.data?.accessToken) {
@@ -229,6 +262,10 @@ const RegisterPage: React.FC = () => {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (formData.role === 'broker' && !formData.company_name?.trim()) {
+      newErrors.company_name = 'Company Name / Firm Name is required for brokers';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -634,6 +671,29 @@ const RegisterPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Broker Mandatory Company Name - Placed after Password & Confirm Password */}
+                {formData.role === 'broker' && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Company Name / Firm Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Building className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        name="company_name"
+                        value={formData.company_name}
+                        onChange={handleChange}
+                        placeholder="e.g. Apex Realty & Consultants"
+                        className={`w-full pl-9 pr-3 py-2 text-xs border rounded-xl outline-none transition-all ${
+                          errors.company_name ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:ring-2 focus:ring-[#e87722]'
+                        }`}
+                      />
+                    </div>
+                    {errors.company_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.company_name}</p>}
+                  </div>
+                )}
+
                 {/* Submit Action */}
                 <button
                   type="submit"
@@ -695,9 +755,9 @@ const RegisterPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Title & Phone */}
+                {/* Salutation, First Name & Last Name */}
                 <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     <label className="block text-xs font-bold text-gray-700 mb-1">Title</label>
                     <select
                       name="salutation"
@@ -712,32 +772,100 @@ const RegisterPage: React.FC = () => {
                     </select>
                   </div>
 
-                  <div className="col-span-8">
+                  <div className="col-span-4">
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Phone Number<span className="text-red-500">*</span>
+                      First Name <span className="text-red-500">*</span>
                     </label>
-                    <PhoneInput
-                      country={'in'}
-                      value={formData.phone}
-                      onChange={(phone) => {
-                        setFormData((prev) => ({ ...prev, phone }));
-                        if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
-                      }}
-                      inputProps={{ required: true, autoFocus: true }}
-                      inputStyle={{ width: '100%', height: '34px', fontSize: '12px', borderRadius: '0.75rem' }}
-                      buttonStyle={{ borderRadius: '0.75rem 0 0 0.75rem' }}
+                    <input
+                      type="text"
+                      name="first_name"
+                      value={formData.first_name}
+                      onChange={handleChange}
+                      placeholder="e.g. John"
+                      className={`w-full px-3 py-2 text-xs border rounded-xl outline-none transition-all ${
+                        errors.first_name ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:ring-2 focus:ring-[#e87722]'
+                      }`}
                     />
-                    {errors.phone && <p className="text-[10px] text-red-500 mt-0.5">{errors.phone}</p>}
+                    {errors.first_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.first_name}</p>}
+                  </div>
+
+                  <div className="col-span-5">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="last_name"
+                      value={formData.last_name}
+                      onChange={handleChange}
+                      placeholder="e.g. Doe"
+                      className={`w-full px-3 py-2 text-xs border rounded-xl outline-none transition-all ${
+                        errors.last_name ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:ring-2 focus:ring-[#e87722]'
+                      }`}
+                    />
+                    {errors.last_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.last_name}</p>}
                   </div>
                 </div>
+
+                {/* Phone Number */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <PhoneInput
+                    country={'in'}
+                    value={formData.phone}
+                    onChange={(phone) => {
+                      setFormData((prev) => ({ ...prev, phone }));
+                      if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+                    }}
+                    inputProps={{ required: true, autoFocus: true }}
+                    inputStyle={{ width: '100%', height: '36px', fontSize: '13px', borderRadius: '0.75rem' }}
+                    buttonStyle={{ borderRadius: '0.75rem 0 0 0.75rem' }}
+                  />
+                  {errors.phone && <p className="text-[10px] text-red-500 mt-0.5">{errors.phone}</p>}
+                </div>
+
+                {/* Conditional Broker Company Name */}
+                {formData.role === 'broker' && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Company / Agency Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company_name"
+                      value={formData.company_name}
+                      onChange={handleChange}
+                      placeholder="e.g. Apex Realty & Consultants"
+                      className={`w-full px-3 py-2 text-xs border rounded-xl outline-none transition-all ${
+                        errors.company_name ? 'border-red-400 bg-red-50' : 'border-gray-300 focus:ring-2 focus:ring-[#e87722]'
+                      }`}
+                    />
+                    {errors.company_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.company_name}</p>}
+                  </div>
+                )}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 px-4 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-bold rounded-2xl transition-all duration-200 shadow-md disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 px-4 bg-[#1a3a5c] hover:bg-[#e87722] text-white text-sm font-bold rounded-2xl transition-all duration-200 shadow-md disabled:opacity-50 cursor-pointer mt-2"
                 >
-                  {loading ? 'Completing Registration...' : 'Complete Registration & Go to Dashboard →'}
+                  {loading ? 'Completing Registration...' : 'Complete Registration & Continue →'}
                 </button>
+
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGoogleCredential('');
+                      setStep('form');
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-800 font-medium cursor-pointer inline-flex items-center gap-1"
+                  >
+                    ← Cancel & register with another method
+                  </button>
+                </div>
               </form>
             )}
 
@@ -814,7 +942,7 @@ const RegisterPage: React.FC = () => {
             {/* Direct Sign-In Link */}
             <div className="mt-5 text-center text-xs text-gray-600">
               <span>Already have an account?</span>
-              <Link to="/login" className="font-bold text-[#e87722] hover:underline ml-1.5">
+              <Link to={location.search ? `/login${location.search}` : '/login'} className="font-bold text-[#e87722] hover:underline ml-1.5">
                 Sign In
               </Link>
             </div>

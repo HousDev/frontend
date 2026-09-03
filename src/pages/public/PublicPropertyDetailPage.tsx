@@ -66,7 +66,7 @@ import {
   Navigation
 } from 'lucide-react';
 import AIPaywallOverlay from '@/components/paywall/AIPaywallOverlay';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import propertiesAPI from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -83,7 +83,6 @@ import { fetchLiveNearbyPlaces, classifyPlaceCategory, NearbyPlaceItem } from '@
 // NEW
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
@@ -178,20 +177,19 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     if (galleryFilter === 'all') return all;
     return all.filter((m: any) => galleryFilter === 'image' ? m.type !== 'video' : m.type === 'video');
   };
-  // NEW: auth & settings
+  const location = useLocation();
   const { currentUser, user } = useAuth() as any;
   const { systemSettings } = useSystemSettings();
-  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
 
   // Track Guest Property Views
   useEffect(() => {
     if (property?.id) {
       const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user || currentUser, systemSettings);
-      setShowGuestLimitModal(isLocked);
-    } else {
-      setShowGuestLimitModal(false);
+      if (isLocked) {
+        navigate(`/register?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+      }
     }
-  }, [property?.id, user, currentUser, systemSettings]);
+  }, [property?.id, user, currentUser, systemSettings, navigate, location.pathname, location.search]);
 
   const isRental = isRentalProp || Boolean(
     property?.monthly_rent ||
@@ -3323,14 +3321,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
           );
         })()
       )}
-
-      {/* Guest Property View Limit Modal */}
-      <PropertyAccessModal
-        isOpen={showGuestLimitModal}
-        limit={systemSettings?.guest_property_view_limit ?? 5}
-        companyName={systemSettings?.company_name}
-        onSuccess={() => setShowGuestLimitModal(false)}
-      />
     </div>
   );
 };

@@ -20,7 +20,6 @@ import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import { getTagStyle } from "@/lib/tagStyles";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 
 /* ==============================
@@ -1115,7 +1114,18 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     // Check if guest view limit is exceeded
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
-      setShowGuestLimitModal(true);
+      const isRental = Boolean(
+        property.monthly_rent ||
+        property.expected_rent ||
+        (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
+        (property.transaction_type && String(property.transaction_type).toLowerCase() === 'rent') ||
+        (property.purpose && String(property.purpose).toLowerCase() === 'rent') ||
+        property.propertyId?.toUpperCase().startsWith('RENT') ||
+        String(property.id).toUpperCase().startsWith('RENT')
+      );
+      const pathPrefix = isRental ? 'rentals' : 'properties';
+      const redirectUrl = property.slug ? `/${pathPrefix}/${encodeURIComponent(String(property.slug))}` : '/properties';
+      navigate(`/register?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
@@ -2273,14 +2283,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           </div>
         )}
       </div>
-
-      {/* Guest Property View Limit Modal */}
-      <PropertyAccessModal
-        isOpen={showGuestLimitModal}
-        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
-        companyName={systemSettings?.company_name}
-        onSuccess={() => setShowGuestLimitModal(false)}
-      />
     </div>
   );
 };

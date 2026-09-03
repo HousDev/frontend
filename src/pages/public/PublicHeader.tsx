@@ -94,17 +94,22 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const getDashboardPath = (): string => {
     if (!isAuthenticated || !user) return '/login';
     const role = (user as AnyUser).role?.toLowerCase() || '';
-    const buyerId = (user as AnyUser).buyer_id || (user as any)?.id;
-    const sellerId = (user as AnyUser).seller_id || (user as any)?.id;
+    const userId = (user as any)?.id || 1;
+    const buyerId = (user as AnyUser).buyer_id || userId;
+    const sellerId = (user as AnyUser).seller_id || userId;
+    const tenantId = (user as any)?.tenant_id || userId;
 
     if (role === 'buyer') {
-      return buyerId ? `/buyer-dashboard/${buyerId}` : '/buyer-dashboard';
+      return `/buyer-dashboard/${buyerId}`;
     }
-    if (role === 'seller' || role === 'owner') {
-      return sellerId ? `/seller-dashboard/${sellerId}` : '/seller-dashboard';
+    if (role === 'seller') {
+      return `/seller-dashboard/${sellerId}`;
     }
     if (role === 'tenant') {
-      return buyerId ? `/buyer-dashboard/${buyerId}` : '/properties';
+      return `/tenant-dashboard/${tenantId}`;
+    }
+    if (role === 'owner' || role === 'broker') {
+      return '/properties';
     }
     return '/dashboard';
   };

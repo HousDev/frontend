@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { Outlet, Link, useLocation, Navigate } from "react-router-dom";
+import { Outlet, Link, useLocation, Navigate, useNavigate } from "react-router-dom";
 import {
   Home,
   Users,
@@ -205,8 +205,25 @@ const DashboardLayout = () => {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout, hasRole } = useAuth();
   const { systemSettings } = useSystemSettings();
+
+  // Redirect clients/customers away from admin dashboard layout to their dedicated clean portal
+  useEffect(() => {
+    if (!user) return;
+    const role = ((user as any).role || "").toLowerCase().trim();
+    const uid = (user as any)?.tenant_id || (user as any)?.buyer_id || (user as any)?.seller_id || user?.id || 1;
+    if (role === "tenant") {
+      navigate(`/tenant-dashboard/${uid}`, { replace: true });
+    } else if (role === "buyer") {
+      navigate(`/buyer-dashboard/${uid}`, { replace: true });
+    } else if (role === "seller") {
+      navigate(`/seller-dashboard/${uid}`, { replace: true });
+    } else if (role === "owner" || role === "broker") {
+      navigate("/properties", { replace: true });
+    }
+  }, [user, navigate]);
 
   const loginTimeRef = useRef(loginTime);
   const totalWorkTimeRef = useRef(totalWorkTime);

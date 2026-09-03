@@ -222,48 +222,43 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
     return <>{children}</>;
   }
 
-  // Buyer & Tenant: restricted to matching buyer-dashboard/:id
-  if (hasRole("buyer") || hasRole("tenant")) {
-    const buyerMatch = matchPath("/buyer-dashboard/:id", path);
-    const targetId = String(user?.buyer_id || user?.id || "");
-
-    if (!buyerMatch?.params?.id) {
-      return <Navigate to={targetId ? `/buyer-dashboard/${targetId}` : "/properties"} replace />;
+  // Buyer: allow /dashboard/buyers-account/:id and /buyer-dashboard/:id
+  if (hasRole("buyer")) {
+    const targetId = String(user?.buyer_id || user?.id || "1");
+    if (path.startsWith("/dashboard/buyers-account") || path.startsWith("/buyer-dashboard")) {
+      return <>{children}</>;
     }
-
-    const paramId = String(buyerMatch.params.id);
-    const validIds = [String(user?.buyer_id || ''), String(user?.id || '')].filter(Boolean);
-
-    if (validIds.length > 0 && !validIds.includes(paramId)) {
-      const correctId = user?.buyer_id || user?.id;
-      return <Navigate to={`/buyer-dashboard/${correctId}`} replace />;
-    }
-
-    return <>{children}</>;
+    return <Navigate to={`/buyer-dashboard/${targetId}`} replace />;
   }
 
-  // Seller & Owner: restricted to matching seller-dashboard/:id
-  if (hasRole("seller") || hasRole("owner")) {
-    const sellerMatch = matchPath("/seller-dashboard/:id", path);
-    const targetId = String(user?.seller_id || user?.id || "");
-
-    if (!sellerMatch?.params?.id) {
-      return <Navigate to={targetId ? `/seller-dashboard/${targetId}` : "/"} replace />;
+  // Tenant: allow /tenant-dashboard/:id and /dashboard/tenants-account/:id
+  if (hasRole("tenant")) {
+    const targetId = String((user as any)?.tenant_id || user?.id || "1");
+    if (path.startsWith("/dashboard/tenants-account") || path.startsWith("/tenant-dashboard")) {
+      return <>{children}</>;
     }
-
-    const paramId = String(sellerMatch.params.id);
-    const validIds = [String(user?.seller_id || ''), String(user?.id || '')].filter(Boolean);
-
-    if (validIds.length > 0 && !validIds.includes(paramId)) {
-      const correctId = user?.seller_id || user?.id;
-      return <Navigate to={`/seller-dashboard/${correctId}`} replace />;
-    }
-
-    return <>{children}</>;
+    return <Navigate to={`/tenant-dashboard/${targetId}`} replace />;
   }
 
-  // Anything else → redirect home
-  return <Navigate to="/" replace />;
+  // Seller: allow /dashboard/sellers-account/:id and /seller-dashboard/:id
+  if (hasRole("seller")) {
+    const targetId = String(user?.seller_id || user?.id || "1");
+    if (path.startsWith("/dashboard/sellers-account") || path.startsWith("/seller-dashboard")) {
+      return <>{children}</>;
+    }
+    return <Navigate to={`/seller-dashboard/${targetId}`} replace />;
+  }
+
+  // Owner & Broker: redirect to /properties until dedicated dashboard is built
+  if (hasRole("owner") || hasRole("broker")) {
+    if (path === "/properties" || path.startsWith("/properties/")) {
+      return <>{children}</>;
+    }
+    return <Navigate to="/properties" replace />;
+  }
+
+  // Anything else → allow or redirect
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;
