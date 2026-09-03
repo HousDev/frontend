@@ -34,7 +34,6 @@ import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
@@ -687,7 +686,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     // Check if guest view limit is exceeded
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
-      setShowGuestLimitModal(true);
+      const isRental = Boolean(
+        property.monthly_rent || 
+        property.expected_rent || 
+        property.listing_type === 'rent' || 
+        property.transaction_type === 'rent' ||
+        property.propertyId?.startsWith('RENT') ||
+        String(property.id).startsWith('RENT')
+      );
+      const pathPrefix = isRental ? 'rentals' : 'properties';
+      const redirectUrl = property.slug ? `/${pathPrefix}/${encodeURIComponent(String(property.slug))}` : '/properties';
+      navigate(`/register?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
@@ -1684,14 +1693,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           setOpen(false);
           setIsValuationOpen(true);
         }}
-      />
-
-      {/* Guest Property View Limit Modal */}
-      <PropertyAccessModal
-        isOpen={showGuestLimitModal}
-        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
-        companyName={systemSettings?.company_name}
-        onSuccess={() => setShowGuestLimitModal(false)}
       />
     </div>
   );

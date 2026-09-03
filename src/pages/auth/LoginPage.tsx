@@ -77,18 +77,8 @@ const LoginPage: React.FC = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
 
-  // Google OAuth states
-  const [step, setStep] = useState<'form' | 'google_phone'>('form');
-  const [googleCredential, setGoogleCredential] = useState<string>('');
+  // Google OAuth state
   const [googleActive, setGoogleActive] = useState<boolean>(false);
-  const [googleProfileData, setGoogleProfileData] = useState({
-    salutation: 'Mr.',
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    role: 'buyer' as Persona,
-  });
 
   const { login, setAuthSession } = useAuth();
   const navigate = useNavigate();
@@ -164,26 +154,27 @@ const LoginPage: React.FC = () => {
   // Handle successful Google OAuth verification & login/registration
   const handleGoogleSuccess = async (response: any) => {
     if (!response || !response.credential) return;
-    setGoogleCredential(response.credential);
     setLoading(true);
     try {
       const res = await authAPI.googleAuth({
         credential: response.credential,
-        role: googleProfileData.role,
-        salutation: googleProfileData.salutation,
-        phone: googleProfileData.phone || undefined,
       });
 
-      // If new user and phone number is required
+      // If new user and profile completion is required, route directly to the standard Register Page
       if (res.requires_profile_completion) {
-        setGoogleProfileData((prev) => ({
-          ...prev,
-          email: res.data?.email || prev.email,
-          first_name: res.data?.first_name || prev.first_name,
-          last_name: res.data?.last_name || prev.last_name,
-        }));
-        setStep('google_phone');
-        toast.info('Please provide your phone number and role to complete registration.');
+        toast.info('Please complete your registration details.');
+        navigate(`/register${location.search || ''}`, {
+          state: {
+            googleCredential: response.credential,
+            googleProfile: {
+              email: res.data?.email,
+              first_name: res.data?.first_name,
+              last_name: res.data?.last_name,
+              salutation: 'Mr.',
+              role: 'buyer',
+            },
+          },
+        });
         return;
       }
 
@@ -214,15 +205,20 @@ const LoginPage: React.FC = () => {
         }
 
         // Existing user -> route to role-specific dashboard
+        const uid = res.data.user.id || 1;
         if (role === 'buyer') {
-          navigate(res.data.user.buyer_id ? `/buyer-dashboard/${res.data.user.buyer_id}` : '/buyer-dashboard', { replace: true });
+          navigate(`/buyer-dashboard/${res.data.user.buyer_id || uid}`, { replace: true });
           return;
         }
-        if (role === 'seller' || role === 'owner') {
-          navigate(res.data.user.seller_id ? `/seller-dashboard/${res.data.user.seller_id}` : '/seller-dashboard', { replace: true });
+        if (role === 'seller') {
+          navigate(`/seller-dashboard/${res.data.user.seller_id || uid}`, { replace: true });
           return;
         }
         if (role === 'tenant') {
+          navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
+          return;
+        }
+        if (role === 'owner' || role === 'broker') {
           navigate('/properties', { replace: true });
           return;
         }
@@ -237,51 +233,6 @@ const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Google sign-in failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit Phone & Persona Profile for New Google User (First Time Registration)
-  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!googleProfileData.phone || googleProfileData.phone.length < 8) {
-      setErrors({ phone: 'Valid phone number with country code is required' });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await authAPI.googleAuth({
-        credential: googleCredential,
-        phone: googleProfileData.phone,
-        role: googleProfileData.role,
-        salutation: googleProfileData.salutation,
-      });
-
-      if (res.success && res.data?.accessToken) {
-        if (setAuthSession) {
-          setAuthSession(res.data.user, res.data.accessToken, res.data.session_id);
-        } else {
-          localStorage.setItem('token', res.data.accessToken);
-          localStorage.setItem('user', JSON.stringify(res.data.user));
-        }
-
-        toast.success(`Welcome ${res.data.user.first_name || ''}! Registration complete.`);
-
-        const params = new URLSearchParams(location.search);
-        const redirect = params.get('redirect');
-
-        if (redirect) {
-          navigate(redirect, { replace: true });
-          return;
-        }
-
-        // Newly registered Google user -> redirect to /properties for 1st time
-        navigate('/properties', { replace: true });
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -373,15 +324,20 @@ const LoginPage: React.FC = () => {
           return;
         }
 
+        const uid = res.data.user.id || 1;
         if (role === 'buyer') {
-          navigate(res.data.user.buyer_id ? `/buyer-dashboard/${res.data.user.buyer_id}` : '/buyer-dashboard', { replace: true });
+          navigate(`/buyer-dashboard/${res.data.user.buyer_id || uid}`, { replace: true });
           return;
         }
-        if (role === 'seller' || role === 'owner') {
-          navigate(res.data.user.seller_id ? `/seller-dashboard/${res.data.user.seller_id}` : '/seller-dashboard', { replace: true });
+        if (role === 'seller') {
+          navigate(`/seller-dashboard/${res.data.user.seller_id || uid}`, { replace: true });
           return;
         }
         if (role === 'tenant') {
+          navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
+          return;
+        }
+        if (role === 'owner' || role === 'broker') {
           navigate('/properties', { replace: true });
           return;
         }
@@ -461,15 +417,20 @@ const LoginPage: React.FC = () => {
         return;
       }
 
+      const uid = (user as any)?.id || 1;
       if (role === 'buyer') {
-        navigate(user.buyer_id ? `/buyer-dashboard/${user.buyer_id}` : '/buyer-dashboard', { replace: true });
+        navigate(`/buyer-dashboard/${user.buyer_id || uid}`, { replace: true });
         return;
       }
-      if (role === 'seller' || role === 'owner') {
-        navigate(user.seller_id ? `/seller-dashboard/${user.seller_id}` : '/seller-dashboard', { replace: true });
+      if (role === 'seller') {
+        navigate(`/seller-dashboard/${user.seller_id || uid}`, { replace: true });
         return;
       }
       if (role === 'tenant') {
+        navigate(`/tenant-dashboard/${(user as any)?.tenant_id || uid}`, { replace: true });
+        return;
+      }
+      if (role === 'owner' || role === 'broker') {
         navigate('/properties', { replace: true });
         return;
       }
@@ -573,15 +534,13 @@ const LoginPage: React.FC = () => {
           {/* Corner accent */}
           <div className="absolute -bottom-px -right-px w-20 h-20 rounded-br-[28px] bg-gradient-to-tr from-transparent via-transparent to-[rgba(193,163,120,0.08)] pointer-events-none" />
 
-          {/* STEP 1: LOGIN FORM */}
-          {step === 'form' && (
-            <>
-              <h1 className="text-[26px] sm:text-[23px] font-extrabold text-[#111] tracking-[-0.025em] mb-1 sm:mb-1">
-                Welcome back!
-              </h1>
-              <p className="text-[14px] sm:text-[13.5px] text-[#9a9a9a] font-normal mb-[16px]">
-                Sign in to continue to your account
-              </p>
+          {/* LOGIN FORM */}
+          <h1 className="text-[26px] sm:text-[23px] font-extrabold text-[#111] tracking-[-0.025em] mb-1 sm:mb-1">
+            Welcome back!
+          </h1>
+          <p className="text-[14px] sm:text-[13.5px] text-[#9a9a9a] font-normal mb-[16px]">
+            Sign in to continue to your account
+          </p>
 
               {/* Login Method Switcher Pill */}
               <div className="flex p-1 bg-blue-50/80 rounded-2xl mb-5 border border-blue-100 max-w-[280px] mx-auto shadow-inner">
@@ -802,115 +761,10 @@ const LoginPage: React.FC = () => {
               {/* Registration Link on Login Page */}
               <div className="mt-5 text-center text-[13px] text-gray-600">
                 <span>Don't have an account?</span>
-                <Link to="/register" className="font-bold text-[#E8720C] hover:underline ml-1.5">
+                <Link to={location.search ? `/register${location.search}` : '/register'} className="font-bold text-[#E8720C] hover:underline ml-1.5">
                   Create Free Account
                 </Link>
               </div>
-            </>
-          )}
-
-          {/* STEP 2: GOOGLE NEW USER PROFILE COMPLETION */}
-          {step === 'google_phone' && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-orange-100 text-[#e87722] rounded-xl">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1a3a5c]">Complete Your Profile</h3>
-                  <p className="text-xs text-gray-500">Google sign-in verified: <strong>{googleProfileData.email}</strong></p>
-                </div>
-              </div>
-
-              <form onSubmit={handleGooglePhoneSubmit} className="space-y-3.5">
-                {/* Persona / Role */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1.5">I am registering as a...</label>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {PERSONAS.map((p) => {
-                      const Icon = p.icon;
-                      const selected = googleProfileData.role === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setGoogleProfileData((prev) => ({ ...prev, role: p.id }))}
-                          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[10.5px] font-bold cursor-pointer transition-all ${
-                            selected
-                              ? 'bg-orange-50 border-[#e87722] text-[#e87722] shadow-xs'
-                              : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Icon className={`h-3.5 w-3.5 mb-0.5 ${selected ? 'text-[#e87722]' : 'text-gray-400'}`} />
-                          <span>{p.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Salutation and Name */}
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-4">
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Title</label>
-                    <select
-                      value={googleProfileData.salutation}
-                      onChange={(e) => setGoogleProfileData((prev) => ({ ...prev, salutation: e.target.value }))}
-                      className="w-full px-2.5 py-2 text-xs border border-gray-300 rounded-xl bg-white outline-none focus:border-[#e87722]"
-                    >
-                      <option value="Mr.">Mr.</option>
-                      <option value="Ms.">Ms.</option>
-                      <option value="Mrs.">Mrs.</option>
-                      <option value="Dr.">Dr.</option>
-                    </select>
-                  </div>
-                  <div className="col-span-8">
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Name</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={`${googleProfileData.first_name} ${googleProfileData.last_name}`.trim() || 'Google User'}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 text-gray-600 outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    Phone Number <span className="text-[#e87722]">*</span>
-                  </label>
-                  <PhoneInput
-                    country={'in'}
-                    value={googleProfileData.phone}
-                    onChange={(phone) => setGoogleProfileData((prev) => ({ ...prev, phone }))}
-                    inputProps={{ required: true }}
-                    inputStyle={{ width: '100%', height: '38px', fontSize: '13px', borderRadius: '0.75rem' }}
-                    buttonStyle={{ borderRadius: '0.75rem 0 0 0.75rem' }}
-                  />
-                  {errors.phone && <p className="text-[11px] text-red-500 mt-1">{errors.phone}</p>}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-[#e87722] hover:bg-[#d0681a] text-white text-xs font-bold rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer mt-2"
-                >
-                  {loading ? 'Completing Registration...' : 'Complete Registration & Continue'}
-                </button>
-
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep('form')}
-                    className="text-xs text-gray-500 hover:text-gray-800 font-medium cursor-pointer inline-flex items-center gap-1"
-                  >
-                    <ArrowLeft className="h-3 w-3" /> Back to Login
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
 
           <div className="flex items-center gap-2.5 my-[20px] mb-3">
             <div className="flex-1 h-px bg-[#ece8e0]" />

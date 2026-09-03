@@ -125,8 +125,7 @@ function App() {
               <ScrollToTop smooth={false} />
               <div className="min-h-screen bg-gray-50">
                 <Routes>
-                  {/* 🎯 SEPARATE BUYER PORTAL ROUTES */}
-                  
+                  {/* 🎯 SEPARATE BUYER, SELLER & TENANT PORTAL ROUTES (NO ADMIN SIDEBAR) */}
                   <Route
                     path="/buyer-dashboard"
                     element={
@@ -137,6 +136,14 @@ function App() {
                   />
                   <Route
                     path="/buyer-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneBuyerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/buyers-account/:id"
                     element={
                       <ProtectedRoute>
                         <StandaloneBuyerAccountPage />
@@ -157,6 +164,39 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <StandaloneSellerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/sellers-account/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneSellerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/tenant-dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneTenantAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/tenant-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneTenantAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/tenants-account/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneTenantAccountPage />
                       </ProtectedRoute>
                     }
                   />

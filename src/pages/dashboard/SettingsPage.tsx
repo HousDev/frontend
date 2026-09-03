@@ -1171,7 +1171,7 @@ const SettingsPage: React.FC = () => {
                         </div>
                         <div className="p-2.5 bg-white/80 border border-orange-100 rounded-lg text-xs text-gray-600 flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
-                          <span>Visitors will see the OTP Lead Registration modal on property #{Number(systemSettings.guest_property_view_limit ?? 5) + 1}.</span>
+                          <span>Visitors will be redirected to the Registration page on property #{Number(systemSettings.guest_property_view_limit ?? 5) + 1}.</span>
                         </div>
                       </div>
                     )}

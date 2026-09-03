@@ -18,7 +18,6 @@ import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import { getTagStyle } from "@/lib/tagStyles";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import { PropertyAccessModal } from '@/components/public/PropertyAccessModal';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 
 /* ==============================
@@ -1088,7 +1087,8 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
     // Check if guest view limit is exceeded
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
-      setShowGuestLimitModal(true);
+      const redirectUrl = property.slug ? `/rentals/${encodeURIComponent(String(property.slug))}` : '/rentals';
+      navigate(`/register?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
@@ -2218,14 +2218,6 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
           </div>
         )}
       </div>
-
-      {/* Guest Property View Limit Modal */}
-      <PropertyAccessModal
-        isOpen={showGuestLimitModal}
-        limit={Number(systemSettings?.guest_property_view_limit ?? 5)}
-        companyName={systemSettings?.company_name}
-        onSuccess={() => setShowGuestLimitModal(false)}
-      />
     </div>
   );
 };

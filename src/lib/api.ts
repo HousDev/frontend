@@ -128,6 +128,9 @@ export const authAPI = {
     role?: string;
     phone?: string;
     salutation?: string;
+    first_name?: string;
+    last_name?: string;
+    company_name?: string;
     guest_id?: string;
   }) => {
     const guestId = typeof window !== 'undefined' ? localStorage.getItem('app_guest_uuid') : null;
