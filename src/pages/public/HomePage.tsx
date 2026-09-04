@@ -175,6 +175,16 @@ const isPublicProp = (p: any): boolean => {
   return !!flag;
 };
 
+const isFeaturedProp = (p: any, tags: string[] = []): boolean => {
+  const tagList = Array.isArray(tags) && tags.length > 0 ? tags : (Array.isArray(p?.tags) ? p.tags : []);
+  const hasTag = tagList.some((t: string) => {
+    const s = String(t).toLowerCase().trim();
+    return s === 'featured' || s === 'feature';
+  });
+
+  return hasTag;
+};
+
 const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
@@ -320,18 +330,15 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
         const activeAPI = transactionType === 'rent' ? rentalPropertiesAPI : propertiesAPI;
 
-        // ✅ server से public-only
+        // ✅ Fetch public properties
         const response = await activeAPI.PublicgetProperties({
           status: 'Available',
-          limit: 12,
+          limit: 100,
           isPublic: true,
           is_public: 1,
           visibility: 'public',
           publicOnly: 1,
         });
-
-        console.log('API Response:', response);
-        console.log('Raw data:', response?.data);
 
         const listRaw = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
         let rawList = listRaw.filter(isPublicProp);
@@ -339,7 +346,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         if (!rawList.length) {
           const fbRes = await activeAPI.PublicgetProperties({
             status: 'Available',
-            limit: 12,
+            limit: 100,
             isPublic: true,
             is_public: 1,
             visibility: 'public',
@@ -349,16 +356,26 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           rawList = fb.filter(isPublicProp);
         }
 
-        // optional: latest first
-        rawList.sort((a: any, b: any) => {
+        // ⬇️ Bulk fetch tags for all raw properties BEFORE filtering
+        const allTagsBulk = await propertyTagsAPI.getBulk(rawList.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
+
+        // Attach tags to properties
+        rawList.forEach((p: any) => {
+          p.tags = allTagsBulk[p.id] || p.tags || [];
+        });
+
+        // ✅ Filter for ONLY featured properties (either is_featured flag OR 'featured' tag)
+        const featuredList = rawList.filter((p: any) => isFeaturedProp(p, p.tags));
+
+        // Latest first
+        featuredList.sort((a: any, b: any) => {
           const ad = a?.publication_date ? new Date(a.publication_date).getTime() : 0;
           const bd = b?.publication_date ? new Date(b.publication_date).getTime() : 0;
           return bd - ad;
         });
 
-        // ⬇️ Bulk fetch all tags in one request, then map + views
-        const slicedList = rawList.slice(0, 12);
-        const allTagsBulk = await propertyTagsAPI.getBulk(slicedList.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
+        // ⬇️ Slice to top featured cards for Home Page
+        const slicedList = featuredList.slice(0, 4);
 
         const mapped: Property[] = await Promise.all(
           slicedList.map(async (p: any) => {
@@ -453,9 +470,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           })
         );
 
-        // ✅ सिर्फ featured pick करें
-        const featuredOnly = mapped.filter(isFeatured);
-        setFeaturedProperties(featuredOnly.length ? featuredOnly : mapped);
+        // ✅ Only set featured properties in state (do not fallback to non-featured)
+        setFeaturedProperties(mapped);
 
       } catch (err) {
         console.error('Error fetching featured properties (public-only):', err);
@@ -687,9 +703,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
       const isRental = Boolean(
-        property.monthly_rent || 
-        property.expected_rent || 
-        property.listing_type === 'rent' || 
+        property.monthly_rent ||
+        property.expected_rent ||
+        property.listing_type === 'rent' ||
         property.transaction_type === 'rent' ||
         property.propertyId?.startsWith('RENT') ||
         String(property.id).startsWith('RENT')
@@ -703,9 +719,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     const slug = property.slug;
     const id = property.id;
     const isRental = Boolean(
-      property.monthly_rent || 
-      property.expected_rent || 
-      property.listing_type === 'rent' || 
+      property.monthly_rent ||
+      property.expected_rent ||
+      property.listing_type === 'rent' ||
       property.transaction_type === 'rent' ||
       property.propertyId?.startsWith('RENT') ||
       String(property.id).startsWith('RENT')
@@ -1118,9 +1134,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           </div>
 
           {loading ? (
-            <div className="flex justify-center"><LoadingSpinner size="lg" /></div>
+            <div className="flex justify-center items-center min-h-[420px]"><LoadingSpinner size="lg" /></div>
+          ) : featuredProperties.length === 0 ? (
+            <div className="flex justify-center items-center min-h-[300px] text-gray-500 font-medium  rounded-2xl  my-4 text-base">
+              No featured properties found
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
               {featuredProperties.map((property) => {
                 const amenities = Array.isArray(property.amenities) ? property.amenities : [];
                 const shownAmenities = amenities.slice(0, 2);
@@ -1144,6 +1164,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
                       {/* top-left tags + AI */}
                       <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
+
                         <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
                           <PropertyTags tags={property.tags || []} />
                         </div>
@@ -1300,21 +1321,21 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                               ? `₹${priceValue.toLocaleString("en-IN")}`
                               : "Price on request";
 
-                             const isRental = Boolean(
-                               property.monthly_rent || 
-                               property.expected_rent || 
-                               property.listing_type === 'rent' || 
-                               property.transaction_type === 'rent' ||
-                               property.propertyId?.startsWith('RENT') ||
-                               String(property.id).startsWith('RENT')
-                             );
-                             const pathPrefix = isRental ? 'rentals' : 'properties';
-                             // Build link to property page
-                             const link = property?.slug
-                               ? `${window.location.origin}/${pathPrefix}/${encodeURIComponent(
-                                 String(property.slug)
-                               )}`
-                               : `${window.location.origin}/${pathPrefix}`;
+                            const isRental = Boolean(
+                              property.monthly_rent ||
+                              property.expected_rent ||
+                              property.listing_type === 'rent' ||
+                              property.transaction_type === 'rent' ||
+                              property.propertyId?.startsWith('RENT') ||
+                              String(property.id).startsWith('RENT')
+                            );
+                            const pathPrefix = isRental ? 'rentals' : 'properties';
+                            // Build link to property page
+                            const link = property?.slug
+                              ? `${window.location.origin}/${pathPrefix}/${encodeURIComponent(
+                                String(property.slug)
+                              )}`
+                              : `${window.location.origin}/${pathPrefix}`;
 
                             // Message for WhatsApp
                             const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
@@ -1326,7 +1347,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                               "noopener,noreferrer"
                             );
                           }}
-                          className="p-3 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                          className="bg-[#25D366] text-white hover:bg-[#1ebe57] p-3 rounded-lg transition-colors duration-300"
                           title="Chat on WhatsApp"
                           type="button"
                         >
@@ -1339,7 +1360,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 );
               })}
             </div>
-
           )}
           <div className="text-center mt-4">
             <Link to={transactionType === 'rent' ? '/properties?transaction=rent' : '/properties'}>

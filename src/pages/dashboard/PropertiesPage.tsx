@@ -1031,7 +1031,7 @@ const PropertiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editingProperty, setEditingProperty] = useState<UIProperty | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(28);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProperty, setSelectedProperty] = useState<UIProperty | null>(null);
 
@@ -1288,6 +1288,49 @@ const PropertiesPage = () => {
 
     let matchCount = 0;
     allBuyers.forEach((buyer: any) => {
+      let reqs = buyer.requirements;
+      if (typeof reqs === 'string') {
+        try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
+      }
+      if (!reqs) reqs = {};
+
+      const getBuyerPrefLoc = (b: any, r: any) => {
+        if (r && r.preferredLocations) {
+          if (Array.isArray(r.preferredLocations) && r.preferredLocations.length > 0) return r.preferredLocations.join(', ');
+          if (typeof r.preferredLocations === 'string' && r.preferredLocations.trim()) return r.preferredLocations.trim();
+        }
+        if (r && r.preferred_locations) {
+          if (Array.isArray(r.preferred_locations) && r.preferred_locations.length > 0) return r.preferred_locations.join(', ');
+          if (typeof r.preferred_locations === 'string' && r.preferred_locations.trim()) return r.preferred_locations.trim();
+        }
+        if (b.preferred_location && typeof b.preferred_location === 'string' && b.preferred_location.trim()) {
+          return b.preferred_location.trim();
+        }
+        return '';
+      };
+
+      const buyerLocRaw = getBuyerPrefLoc(buyer, reqs);
+      const isLocValid = (loc: string) => {
+        if (!loc) return false;
+        const cleaned = loc.trim().toLowerCase();
+        return !(
+          !cleaned ||
+          cleaned === 'any location' ||
+          cleaned === 'any' ||
+          cleaned === '-' ||
+          cleaned === '--' ||
+          cleaned === 'n/a' ||
+          cleaned === 'not specified' ||
+          cleaned === 'undefined' ||
+          cleaned === 'null'
+        );
+      };
+
+      // Skip buyer completely if no preferred location specified
+      if (!isLocValid(buyerLocRaw)) {
+        return;
+      }
+
       let locationScore = 0;
       let budgetScore = 0;
       let bhkScore = 0;
@@ -1306,19 +1349,8 @@ const PropertiesPage = () => {
         const propLoc = (property.location || property.location_name || property.society || property.society_name || property.address || '').toLowerCase().trim();
         const propCity = (property.city || property.city_name || '').toLowerCase().trim();
 
-        let reqs = buyer.requirements;
-        if (typeof reqs === 'string') {
-          try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
-        }
-        if (!reqs) reqs = {};
-
-        let buyerLocRaw = buyer.location || '';
-        if (reqs.preferredLocations && Array.isArray(reqs.preferredLocations)) {
-          buyerLocRaw = reqs.preferredLocations.join(', ');
-        }
-
         if (!buyerLocRaw) {
-          locationScore = 15;
+          locationScore = 0;
         } else {
           const buyerLocs = buyerLocRaw.toLowerCase().split(/[;,]+/).map((s: any) => s.trim()).filter(Boolean);
           const hasExactMatch = buyerLocs.some((loc: any) =>
@@ -1363,7 +1395,7 @@ const PropertiesPage = () => {
             } else {
               const words = buyerLocs.flatMap((l: any) => l.split(/\s+/));
               const partial = words.some((word: any) => word.length > 2 && propLoc.includes(word));
-              locationScore = partial ? 20 : (buyer.city && propCity && buyer.city.toLowerCase() === propCity ? 15 : 10);
+              locationScore = partial ? 20 : 0;
             }
           }
         }
@@ -1378,7 +1410,7 @@ const PropertiesPage = () => {
         if (minDistance <= 2) locationScore = 35;
         else if (minDistance <= 5) locationScore = 25;
         else if (minDistance <= 10) locationScore = 15;
-        else locationScore = 5;
+        else locationScore = 0;
       }
 
       // 2. Budget match (30% weight with 20% tolerance threshold)
@@ -1410,12 +1442,6 @@ const PropertiesPage = () => {
       }
 
       // 3. BHK & Unit Type match (20% weight)
-      let reqs = buyer.requirements;
-      if (typeof reqs === 'string') {
-        try { reqs = JSON.parse(reqs); } catch { reqs = {}; }
-      }
-      if (!reqs) reqs = {};
-
       const preferredBhkStr = String(reqs.preferred_bhk || reqs.unitTypes || buyer.preferred_bhk || '').toLowerCase();
 
       if (!preferredBhkStr) {
@@ -1453,7 +1479,7 @@ const PropertiesPage = () => {
       }
 
       const totalScore = locationScore + budgetScore + bhkScore + areaScore;
-      if (totalScore >= 35) {
+      if (locationScore > 0 && totalScore >= 35) {
         matchCount++;
       }
     });
@@ -3898,7 +3924,7 @@ const PropertiesPage = () => {
                   }}
                   className="px-1.5 py-1 border border-gray-300 rounded-md text-[11px] sm:text-xs bg-white"
                 >
-                  <option value={25}>25</option>
+                  <option value={28}>28</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                   <option value={200}>200</option>

@@ -39,6 +39,23 @@ const getBuyerLocationStr = (buyer: any): string => {
   return '';
 };
 
+// Helper to check if location string is specified (not empty, '-', or 'Any Location')
+const isLocationValid = (loc: any): boolean => {
+  if (!loc || typeof loc !== 'string') return false;
+  const cleaned = loc.trim().toLowerCase();
+  if (!cleaned) return false;
+  return !(
+    cleaned === 'any location' ||
+    cleaned === 'any' ||
+    cleaned === '-' ||
+    cleaned === '--' ||
+    cleaned === 'n/a' ||
+    cleaned === 'not specified' ||
+    cleaned === 'undefined' ||
+    cleaned === 'null'
+  );
+};
+
 // Helper to extract buyer BHK / Unit Type requirement from any schema variation
 const getBuyerBHKStr = (buyer: any): string => {
   if (buyer.preferred_bhk && typeof buyer.preferred_bhk === 'string' && buyer.preferred_bhk.trim()) return buyer.preferred_bhk.trim();
@@ -125,29 +142,29 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
     return Number.isFinite(v) && v > 0 ? v : 0;
   }, [property]);
 
-  // Matching Score is calculated on the backend
+  // Matching Score is calculated on the backend — filter out buyers without specified location
   const computedMatchedBuyers = useMemo(() => {
-    return buyersList;
+    return buyersList.filter((b: any) => isLocationValid(b.displayLocation || b.location || b.preferred_location));
   }, [buyersList]);
 
   const filteredMatchedBuyers = useMemo(() => {
     if (!debouncedSearch) return computedMatchedBuyers;
     const term = debouncedSearch.toLowerCase().trim();
-    
+
     return computedMatchedBuyers.filter((b: any) => {
       // 1. Name, Phone, Email
       const name = String(b.name || '').toLowerCase();
       const phone = String(b.phone || b.whatsapp || '');
       const email = String(b.email || '').toLowerCase();
-      
+
       // 2. Location
       const displayLoc = String(b.displayLocation || '').toLowerCase();
       const rawLoc = String(b.location || b.preferred_location || '').toLowerCase();
-      
+
       // 3. BHK & Unit Type
       const displayBHK = String(b.displayBHK || '').toLowerCase();
       const prefBhk = String(b.preferred_bhk || b.unit_type || '').toLowerCase();
-      
+
       // 4. Requirements JSON
       let reqs = b.requirements;
       if (typeof reqs === 'string') {
@@ -156,7 +173,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
       if (!reqs) reqs = {};
       const propType = String(reqs.propertyType || reqs.property_type || '').toLowerCase();
       const prefLocs = Array.isArray(reqs.preferredLocations) ? reqs.preferredLocations.join(' ').toLowerCase() : '';
-      
+
       // 5. Carpet Area
       const minArea = String(reqs.minCarpetArea || reqs.minArea || '');
       const maxArea = String(reqs.maxCarpetArea || reqs.maxArea || '');
@@ -164,8 +181,8 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
       // 6. Budget
       const bMin = Number(b.budget_min || 0);
       const bMax = Number(b.budget_max || 0);
-      const bMinStr = bMin > 0 ? (bMin >= 10000000 ? `${(bMin/10000000).toFixed(1)}cr` : `${(bMin/100000).toFixed(1)}l`) : '';
-      const bMaxStr = bMax > 0 ? (bMax >= 10000000 ? `${(bMax/10000000).toFixed(1)}cr` : `${(bMax/100000).toFixed(1)}l`) : '';
+      const bMinStr = bMin > 0 ? (bMin >= 10000000 ? `${(bMin / 10000000).toFixed(1)}cr` : `${(bMin / 100000).toFixed(1)}l`) : '';
+      const bMaxStr = bMax > 0 ? (bMax >= 10000000 ? `${(bMax / 10000000).toFixed(1)}cr` : `${(bMax / 100000).toFixed(1)}l`) : '';
       const budgetFullStr = `${bMin} ${bMax} ${bMinStr} ${bMaxStr}`.toLowerCase();
 
       // 7. Notes
@@ -374,8 +391,24 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
                               </span>
                             </div>
                             <div className="text-[9px] mt-0.5 text-gray-500 truncate flex items-center gap-1.5 flex-wrap">
-                              <span>📍 {buyer.displayLocation} {buyer.distance !== null && buyer.distance !== undefined ? `(${buyer.distance} km)` : ''}</span>
-                              <span>•</span>
+                              {(() => {
+                                const hasLoc = isLocationValid(buyer.displayLocation);
+                                const hasDist = buyer.distance !== null && buyer.distance !== undefined && Number(buyer.distance) < 9000;
+
+                                if (!hasLoc && !hasDist) return null;
+
+                                let text = '';
+                                if (hasLoc && hasDist) text = `📍 ${buyer.displayLocation} (${buyer.distance} km)`;
+                                else if (hasLoc) text = `📍 ${buyer.displayLocation}`;
+                                else text = `📍 ${buyer.distance} km away`;
+
+                                return (
+                                  <>
+                                    <span>{text}</span>
+                                    <span>•</span>
+                                  </>
+                                );
+                              })()}
                               <span>🏢 {buyer.displayBHK}</span>
                               {(() => {
                                 let req = buyer.requirements;

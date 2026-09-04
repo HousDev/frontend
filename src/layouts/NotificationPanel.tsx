@@ -51,39 +51,28 @@ const normalizeRead = (v: RawNotification["is_read"]): boolean => {
 
 const parseDbTimestampToDate = (ts?: string | null): Date => {
   if (!ts) return new Date(NaN);
-  
+  let str = ts;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(str)) {
+    str = str.replace(' ', 'T') + 'Z';
+  }
+  return new Date(str);
+};
 
-  // IMPORTANT: Backend is sending IST time but with Z suffix
-  // Z means UTC, so we need to add IST offset (+5:30) to get correct IST time
-  
-  if (ts.endsWith('Z')) {
-    // Parse as UTC first
-    const utcDate = new Date(ts);
-    
-    // Add IST offset: +5 hours 30 minutes
-    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(utcDate.getTime() + IST_OFFSET);
-
-    return istDate;
-  }
-  
-  // Check for ISO format (has T, +)
-  if (/[tT]|\+/.test(ts)) {
-    const parsed = new Date(ts);
-    return parsed;
-  }
-  
-  // Parse simple format as UTC: "2025-10-30 06:50:00"
-  const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
-  if (m) {
-    const [, y, mo, d, h, mi, s] = m;
-    const parsed = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
-    return parsed;
-  }
-  
-  // Fallback: direct parse
-  const parsed = new Date(ts);
-  return parsed;
+const TITLE_MAP: Record<string, string> = {
+  buyer_followup_reminder: "Buyer Follow-up Reminder",
+  seller_followup_reminder: "Seller Follow-up Reminder",
+  followup_reminder: "Follow-up SLA Reminder",
+  admin_escalation: "Admin SLA Escalation Alert",
+  lead_assign: "Lead Assigned",
+  buyer_assign: "Buyer Assigned",
+  seller_assign: "Seller Assigned",
+  buyer_transfer: "Buyer Transferred",
+  seller_transfer: "Seller Transferred",
+  property_assign: "Property Assigned",
+  property_inquiry: "Property Inquiry",
+  visit_scheduled: "Visit Scheduled",
+  price_suggestion: "Price Suggestion",
+  document_ready: "Document Ready",
 };
 
 const formatAbsoluteLocal = (date: Date) => {
@@ -183,24 +172,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           const id = toNumberId(n.id);
           const type = String(n.type ?? "general");
 
-          const title =
-            type === "lead_assign"
-              ? "Lead Assigned"
-              : type === "buyer_assign"
-              ? "Buyer Assigned"
-              : type === "seller_assign"
-              ? "Seller Assigned"
-              : type === "property_assign"
-              ? "Property Assigned"
-              : type === "property_inquiry"
-              ? "Property Inquiry"
-              : type === "visit_scheduled"
-              ? "Visit Scheduled"
-              : type === "price_suggestion"
-              ? "Price Suggestion"
-              : type === "document_ready"
-              ? "Document Ready"
-              : type;
+          const title = TITLE_MAP[type] || type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
           const message = n.message ?? "";
           const timestamp = n.created_at ?? n.updated_at ?? "1970-01-01 00:00:00";

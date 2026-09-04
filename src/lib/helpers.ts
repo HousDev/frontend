@@ -46,17 +46,15 @@ export function getImageUrl(raw?: string | null): string | null {
     return proto + clean;
   }
 
-  // starts with /uploads or /public => serve from backend origin on dev, or current origin on prod
+  // starts with /uploads or /public => serve from current origin (avoids CORS + mixed content)
   if (clean.startsWith("/uploads") || clean.startsWith("/public")) {
-    const isLocalDev = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && window.location.port === "5173";
-    const origin = isLocalDev ? "http://localhost:3000" : (typeof window !== "undefined" ? window.location.origin : FILE_BASE);
+    const origin = typeof window !== "undefined" ? window.location.origin : FILE_BASE;
     return origin + clean;
   }
 
   // other relative like "uploads/..." -> make it "/uploads/..."
   const path = clean.startsWith("/") ? clean : `/${clean}`;
-  const isLocalDev = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && window.location.port === "5173";
-  const origin = isLocalDev ? "http://localhost:3000" : (typeof window !== "undefined" ? window.location.origin : FILE_BASE);
+  const origin = typeof window !== "undefined" ? window.location.origin : FILE_BASE;
   return origin + path;
 }
 

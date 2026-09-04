@@ -6,9 +6,14 @@ export const isFeatured = (p: any) => {
 
   return (
     p?.featured === true ||
+    p?.featured === 1 ||
+    p?.featured === "1" ||
     p?.is_featured === true ||
+    p?.is_featured === 1 ||
+    p?.is_featured === "1" ||
     p?.isFeatured === true ||
+    p?.isFeatured === 1 ||
     p?.badge === "Premium" ||
-    tags.includes("featured")
+    tags.some((t) => t.includes("feature"))
   );
 };
