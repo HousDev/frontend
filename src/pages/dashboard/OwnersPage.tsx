@@ -269,7 +269,12 @@ export const OwnersPage: React.FC = () => {
 
       // 2. Tab Filter
       const isActiveBool = o.status === "active";
-      if (activeTab === "uncontacts" && o.source.toLowerCase() !== "whatsapp") return false;
+      if (
+        activeTab === "uncontacts" &&
+        (o.status || "").toLowerCase() !== "uncontacted" &&
+        o.source.toLowerCase() !== "whatsapp"
+      )
+        return false;
       if (activeTab === "leads" && o.stage !== "initial_contact") return false;
       if (activeTab === "active" && !isActiveBool) return false;
       if (activeTab === "mandate" && o.stage !== "mandate_signed") return false;
@@ -299,7 +304,15 @@ export const OwnersPage: React.FC = () => {
     const count = (pred: (o: UIOwner) => boolean) => allOwners.filter(pred).length;
     return [
       { id: "all", label: "All", count: allOwners.length },
-      { id: "uncontacts", label: "Uncontacts", count: count((o) => o.source.toLowerCase() === "whatsapp") },
+      {
+        id: "uncontacts",
+        label: "Uncontacts",
+        count: count(
+          (o) =>
+            (o.status || "").toLowerCase() === "uncontacted" ||
+            o.source.toLowerCase() === "whatsapp",
+        ),
+      },
       { id: "leads", label: "Fresh Leads", count: count((o) => o.stage === "initial_contact") },
       { id: "active", label: "Active", count: count((o) => o.status === "active") },
       { id: "mandate", label: "Mandate Signed", count: count((o) => o.stage === "mandate_signed") },

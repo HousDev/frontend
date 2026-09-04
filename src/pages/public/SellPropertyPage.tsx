@@ -16,6 +16,8 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { FaWhatsapp } from 'react-icons/fa';
 
+import { leadsAPI } from '@/lib/leadAPI';
+
 /* ─── Font Stack ─── */
 const fontStack = {
   fontFamily: `ui-sans-serif, system-ui, sans-serif, "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`,
@@ -92,36 +94,43 @@ const MiniStep1Form: React.FC<{
     sameAsPhone: form.sameAsPhone,
   });
 
-  // 🔥 MODIFIED: Create seller first, then open modal
+  // Create lead in CRM (status: 'new'), then open property details modal
   const handlePostProperty = async () => {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const sellerData = {
-        salutation: form.salutation,
-        name: form.name,
-        email: form.email,
-        phone: buildApiPhone(form.phone),
-        whatsapp: buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp),
-        leadSource: 'Website',
+      const apiPhone = buildApiPhone(form.phone);
+      const apiWhatsapp = buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp);
+      
+      const leadData = {
+        salutation: form.salutation || 'Mr.',
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: apiPhone,
+        whatsapp_number: apiWhatsapp,
+        whatsapp: apiWhatsapp,
+        lead_type: 'seller',
+        lead_source: 'Website',
+        status: 'new',
+        priority: 'hot',
       };
       
-      const result = await sellerAPI.create(sellerData);
-      
-      // Extract seller ID from response
-      const sellerId = result?.data?._id || result?.data?.id || result?._id || result?.id;
+      await leadsAPI.createLead(leadData);
+      console.log('✅ Lead created/updated in CRM with status new');
       
       toast.success(`Details saved! Now add your property.`);
-      console.log('Seller created:', result);
       
-      // Pass sellerId to modal
+      // Open property details modal
       onPostPropertyClick({
         ...getPayload(),
-        sellerId: sellerId,
+        phone: apiPhone,
+        whatsapp: apiWhatsapp,
       });
     } catch (error: any) {
-      console.error('Error creating seller:', error);
-      toast.error(error?.message || 'Failed to save seller details');
+      console.error('Error saving lead details:', error);
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to save details');
+      // Still open modal so user can proceed
+      onPostPropertyClick(getPayload());
     } finally {
       setSubmitting(false);
     }
@@ -131,21 +140,27 @@ const MiniStep1Form: React.FC<{
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const sellerData = {
-        salutation: form.salutation,
-        name: form.name,
-        email: form.email,
-        phone: buildApiPhone(form.phone),
-        whatsapp: buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp),
-        leadSource: 'Website',
+      const apiPhone = buildApiPhone(form.phone);
+      const apiWhatsapp = buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp);
+
+      const leadData = {
+        salutation: form.salutation || 'Mr.',
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: apiPhone,
+        whatsapp_number: apiWhatsapp,
+        whatsapp: apiWhatsapp,
+        lead_type: 'seller',
+        lead_source: 'Website',
+        status: 'new',
+        priority: 'hot',
       };
-      const result = await sellerAPI.create(sellerData);
-      toast.success(`Seller ${form.name} created successfully!`);
-      console.log('Seller created:', result);
+      await leadsAPI.createLead(leadData);
+      toast.success(`Thank you! Our team will contact you shortly.`);
       onNext(getPayload());
     } catch (error: any) {
-      console.error('Error creating seller:', error);
-      toast.error(error?.message || 'Failed to create seller');
+      console.error('Error creating lead:', error);
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to submit details');
     } finally {
       setSubmitting(false);
     }
