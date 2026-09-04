@@ -13,6 +13,22 @@ const BG = "#f8fafc";
 const BD = "#e2e8f0";
 const MU = "#5a7184";
 
+const isLocationValid = (loc: any): boolean => {
+  if (!loc || typeof loc !== 'string') return false;
+  const cleaned = loc.trim().toLowerCase();
+  if (!cleaned) return false;
+  return !(
+    cleaned === 'any location' ||
+    cleaned === 'any' ||
+    cleaned === '-' ||
+    cleaned === '--' ||
+    cleaned === 'n/a' ||
+    cleaned === 'not specified' ||
+    cleaned === 'undefined' ||
+    cleaned === 'null'
+  );
+};
+
 interface TenantsTabProps {
   property: any;
   onMatchTenants: () => void;
@@ -212,10 +228,10 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
             budgetScore,
             bhkScore,
             distance,
-            displayLocation: tenant.preferred_location || 'Any Location',
+            displayLocation: tenant.preferred_location || '',
             displayBHK: tenant.preferred_bhk || 'Any BHK',
           };
-        }).filter(t => t.matchScore >= 30).sort((a, b) => b.matchScore - a.matchScore);
+        }).filter(t => isLocationValid(t.preferred_location) && t.matchScore >= 30).sort((a, b) => b.matchScore - a.matchScore);
 
         setTenantsList(processed);
       } catch (err) {
@@ -413,8 +429,24 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
                           </span>
                         </div>
                         <div className="text-[9.5px] mt-0.5 text-gray-500 truncate flex items-center gap-2 flex-wrap">
-                          <span>📍 {tenant.displayLocation} {tenant.distance !== null && tenant.distance !== undefined ? `(${tenant.distance === 0 ? '0.0' : tenant.distance} km away)` : ''}</span>
-                          <span>•</span>
+                          {(() => {
+                            const hasLoc = isLocationValid(tenant.displayLocation);
+                            const hasDist = tenant.distance !== null && tenant.distance !== undefined && Number(tenant.distance) < 9000;
+
+                            if (!hasLoc && !hasDist) return null;
+
+                            let text = '';
+                            if (hasLoc && hasDist) text = `📍 ${tenant.displayLocation} (${tenant.distance === 0 ? '0.0' : tenant.distance} km away)`;
+                            else if (hasLoc) text = `📍 ${tenant.displayLocation}`;
+                            else text = `📍 ${tenant.distance === 0 ? '0.0' : tenant.distance} km away`;
+
+                            return (
+                              <>
+                                <span>{text}</span>
+                                <span>•</span>
+                              </>
+                            );
+                          })()}
                           <span>🏢 BHK: {tenant.displayBHK}</span>
                           <span>•</span>
                           <span>💰 Rent Budget: {formatCurrency(Number(tenant.budget_min || 0))} – {formatCurrency(Number(tenant.budget_max || 0))}</span>

@@ -390,7 +390,7 @@ export function RentalPropertiesPage() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(28);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [viewsMap, setViewsMap] = useState<Record<string, { total_views: number; unique_views: number }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<number | string | null>(null);
@@ -2359,7 +2359,7 @@ export function RentalPropertiesPage() {
                     }}
                     className="ml-2 px-2 py-1 border border-gray-200 rounded-md text-xs font-bold"
                   >
-                    <option value={25}>25</option>
+                    <option value={28}>28</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                     <option value={200}>200</option>

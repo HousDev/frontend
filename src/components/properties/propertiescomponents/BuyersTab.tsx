@@ -12,6 +12,22 @@ const BG = "#f8fafc";
 const BD = "#e2e8f0";
 const MU = "#5a7184";
 
+const isLocationValid = (loc: any): boolean => {
+  if (!loc || typeof loc !== 'string') return false;
+  const cleaned = loc.trim().toLowerCase();
+  if (!cleaned) return false;
+  return !(
+    cleaned === 'any location' ||
+    cleaned === 'any' ||
+    cleaned === '-' ||
+    cleaned === '--' ||
+    cleaned === 'n/a' ||
+    cleaned === 'not specified' ||
+    cleaned === 'undefined' ||
+    cleaned === 'null'
+  );
+};
+
 interface BuyersTabProps {
   property: any;
   onMatchBuyers: () => void;
@@ -90,12 +106,12 @@ const BuyersTab: React.FC<BuyersTabProps> = ({
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  // Enhanced search filtering across name, phone, location, BHK, budget, carpet area, etc.
   const filteredMatchedBuyers = useMemo(() => {
-    if (!debouncedSearch) return buyersList;
+    const validLocBuyers = buyersList.filter((b: any) => isLocationValid(b.displayLocation || b.location || b.preferred_location));
+    if (!debouncedSearch) return validLocBuyers;
     const term = debouncedSearch.toLowerCase().trim();
 
-    return buyersList.filter((b: any) => {
+    return validLocBuyers.filter((b: any) => {
       const name = String(b.name || '').toLowerCase();
       const phone = String(b.phone || b.whatsapp || '');
       const email = String(b.email || '').toLowerCase();
@@ -353,8 +369,24 @@ const BuyersTab: React.FC<BuyersTabProps> = ({
                             </span>
                           </div>
                           <div className="text-[9px] mt-0.5 text-gray-500 truncate flex items-center gap-1.5 flex-wrap">
-                            <span>📍 {buyer.displayLocation} {buyer.distance !== null && buyer.distance !== undefined ? `(${buyer.distance} km)` : ''}</span>
-                            <span>•</span>
+                            {(() => {
+                              const hasLoc = isLocationValid(buyer.displayLocation);
+                              const hasDist = buyer.distance !== null && buyer.distance !== undefined && Number(buyer.distance) < 9000;
+
+                              if (!hasLoc && !hasDist) return null;
+
+                              let text = '';
+                              if (hasLoc && hasDist) text = `📍 ${buyer.displayLocation} (${buyer.distance} km)`;
+                              else if (hasLoc) text = `📍 ${buyer.displayLocation}`;
+                              else text = `📍 ${buyer.distance} km away`;
+
+                              return (
+                                <>
+                                  <span>{text}</span>
+                                  <span>•</span>
+                                </>
+                              );
+                            })()}
                             <span>🏢 {buyer.displayBHK}</span>
                             {(() => {
                               let req = buyer.requirements;

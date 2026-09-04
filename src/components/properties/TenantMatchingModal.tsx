@@ -13,6 +13,22 @@ const BG = "#f8fafc";
 const BD = "#e2e8f0";
 const MU = "#5a7184";
 
+const isLocationValid = (loc: any): boolean => {
+  if (!loc || typeof loc !== 'string') return false;
+  const cleaned = loc.trim().toLowerCase();
+  if (!cleaned) return false;
+  return !(
+    cleaned === 'any location' ||
+    cleaned === 'any' ||
+    cleaned === '-' ||
+    cleaned === '--' ||
+    cleaned === 'n/a' ||
+    cleaned === 'not specified' ||
+    cleaned === 'undefined' ||
+    cleaned === 'null'
+  );
+};
+
 interface Tenant {
   id: number;
   tenant_id: string;
@@ -329,8 +345,9 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
       return { ...tenant, ...match };
     })
     .filter(t => {
+      const hasLoc = isLocationValid(t.preferred_location);
       const matchText = `${t.name} ${t.phone} ${t.email || ''} ${t.preferred_location} ${t.preferred_bhk || ''} ${t.tenant_type || ''} ${t.notes || ''}`.toLowerCase();
-      return t.totalScore >= 30 && matchText.includes(searchTerm.toLowerCase().trim());
+      return hasLoc && t.totalScore >= 30 && matchText.includes(searchTerm.toLowerCase().trim());
     })
     .sort((a, b) => b.totalScore - a.totalScore);
 
@@ -570,15 +587,24 @@ const TenantMatchingModal: React.FC<TenantMatchingModalProps> = ({ isOpen, onClo
                       {/* Main info row */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] text-gray-500 mb-1">
                         <span className="flex items-center gap-0.5"><IndianRupeeIcon size={9} />Budget: {formatCurrency(Number(tenant.budget_min))} - {formatCurrency(Number(tenant.budget_max))}</span>
-                        <span className="flex items-center gap-0.5">
-                          <MapPin size={9} />
-                          Prefers: {tenant.preferred_location || 'Any'}
-                          {(tenant as any).distance !== null && (tenant as any).distance !== undefined && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-orange-700 bg-orange-50 border border-orange-200 inline-flex items-center gap-0.5">
-                              📍 {(tenant as any).distance === 0 ? '0.0' : (tenant as any).distance} km away
+                        {(() => {
+                          const hasLoc = isLocationValid(tenant.preferred_location);
+                          const hasDist = (tenant as any).distance !== null && (tenant as any).distance !== undefined && Number((tenant as any).distance) < 9000;
+
+                          if (!hasLoc && !hasDist) return null;
+
+                          return (
+                            <span className="flex items-center gap-0.5">
+                              <MapPin size={9} />
+                              {hasLoc && <span>Prefers: {tenant.preferred_location}</span>}
+                              {hasDist && (
+                                <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-orange-700 bg-orange-50 border border-orange-200 inline-flex items-center gap-0.5">
+                                  📍 {(tenant as any).distance === 0 ? '0.0' : (tenant as any).distance} km away
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
+                          );
+                        })()}
                         <span className="font-semibold text-gray-600">BHK: {tenant.preferred_bhk || 'Any'}</span>
                       </div>
 

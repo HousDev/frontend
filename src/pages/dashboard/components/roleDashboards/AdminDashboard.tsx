@@ -9,6 +9,7 @@ import PresalesExecutiveDashboard from './PresalesExecutiveDashboard';
 import SalesExecutiveDashboard from './SalesExecutiveDashboard';
 import ManagerDashboard from './ManagerDashboard';
 import DashboardAnalyticsGrid from './DashboardAnalyticsGrid';
+import AdminEscalationDashboard from '@/components/dashboard/AdminEscalationDashboard';
 import { User } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 
@@ -299,6 +300,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ── Admin Escalation & High Priority Monitor Hub ────────────── */}
+      <AdminEscalationDashboard />
 
       {/* ── Main Tabbed Content ────────────────────────────────────────── */}
       <SharedDashboardTabs

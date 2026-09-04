@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import SharedDashboardTabs, { RecentItem } from './SharedDashboardTabs';
 import DashboardAnalyticsGrid from './DashboardAnalyticsGrid';
+import ExecutiveRecommendedActions from '@/components/dashboard/ExecutiveRecommendedActions';
 import { User } from '@/contexts/AuthContext';
 
 interface SalesExecutiveDashboardProps {
@@ -90,6 +91,9 @@ export const SalesExecutiveDashboard: React.FC<SalesExecutiveDashboardProps> = (
           </div>
         </div>
       </div>
+
+      {/* ── Today's Recommended Actions Queue ──────────────────────────── */}
+      <ExecutiveRecommendedActions />
 
       {/* ── Interactive Analytics & Charts Grid ───────────────────────── */}
       <DashboardAnalyticsGrid
