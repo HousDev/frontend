@@ -79,6 +79,8 @@ const LoginPage: React.FC = () => {
 
   // Google OAuth state
   const [googleActive, setGoogleActive] = useState<boolean>(false);
+  const [googleClientId, setGoogleClientId] = useState<string>('');
+  const googleBtnRef = React.useRef<HTMLDivElement>(null);
 
   const { login, setAuthSession } = useAuth();
   const navigate = useNavigate();
@@ -110,46 +112,68 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     integrationsAPI.getPublicGoogleConfig().then((cfg) => {
       if (cfg && cfg.client_id && cfg.is_active) {
+        setGoogleClientId(cfg.client_id);
         setGoogleActive(true);
-        loadGoogleScript(cfg.client_id);
       }
     });
   }, []);
 
-  const loadGoogleScript = (clientId: string) => {
-    if (typeof window === 'undefined') return;
-    const existingScript = document.getElementById('google-gsi-login');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.id = 'google-gsi-login';
+  // Render Google Button reliably across route transitions
+  useEffect(() => {
+    if (!googleActive || !googleClientId) return;
+
+    let timerId: any = null;
+    let attempts = 0;
+
+    const tryRender = () => {
+      attempts++;
+      const btnContainer = googleBtnRef.current || document.getElementById('google-login-btn');
+
+      if ((window as any).google?.accounts?.id && btnContainer) {
+        try {
+          (window as any).google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleSuccess,
+          });
+          btnContainer.innerHTML = '';
+          (window as any).google.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with',
+            shape: 'rectangular',
+          });
+          return;
+        } catch (err) {
+          console.warn('Google button render note:', err);
+        }
+      }
+
+      if (attempts < 20) {
+        timerId = setTimeout(tryRender, 100);
+      }
+    };
+
+    const SCRIPT_ID = 'google-gsi-client';
+    let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.id = SCRIPT_ID;
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
-      script.onload = () => renderGoogleButton(clientId);
+      script.onload = () => {
+        setTimeout(tryRender, 50);
+      };
       document.body.appendChild(script);
     } else {
-      renderGoogleButton(clientId);
+      setTimeout(tryRender, 50);
     }
-  };
 
-  const renderGoogleButton = (clientId: string) => {
-    if ((window as any).google?.accounts?.id) {
-      (window as any).google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleSuccess,
-      });
-      const target = document.getElementById('google-login-btn');
-      if (target) {
-        (window as any).google.accounts.id.renderButton(target, {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: 'continue_with',
-          shape: 'rectangular',
-        });
-      }
-    }
-  };
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [googleActive, googleClientId, authMode]);
 
   // Handle successful Google OAuth verification & login/registration
   const handleGoogleSuccess = async (response: any) => {
@@ -754,7 +778,7 @@ const LoginPage: React.FC = () => {
                     <span className="flex-shrink mx-3 text-[#aaa] text-[11px] font-semibold uppercase tracking-wider">or continue with</span>
                     <div className="flex-grow border-t border-[#ece8e0]"></div>
                   </div>
-                  <div id="google-login-btn" className="w-full flex justify-center min-h-[44px] mt-1" />
+                  <div ref={googleBtnRef} id="google-login-btn" className="w-full flex justify-center min-h-[44px] mt-1" />
                 </div>
               )}
 
