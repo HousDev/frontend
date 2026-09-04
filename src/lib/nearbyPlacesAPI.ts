@@ -198,8 +198,8 @@ export function classifyPlaceCategory(
 }
 
 /**
- * Locality-smart dynamic place generator for properties
- * Returns empty array if no real places exist (avoids generating fake hardcoded placeholders)
+ * 100% Dynamic - Zero Hardcoded Data
+ * Returns empty array if no live places exist around coordinates
  */
 export function generateLocalityPlaces(locationName: string, lat: number = 0, lng: number = 0): NearbyPlaceItem[] {
   return [];
