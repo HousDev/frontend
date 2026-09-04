@@ -676,7 +676,17 @@ const BuyersPage = () => {
   }, [executives, allBuyers, resolveExecutiveName]);
   const tabs = [
     { id: 'all', label: 'All', count: (roleFilteredBuyers || []).filter(Boolean).length },
-    { id: 'uncontacts', label: 'Uncontacts', count: (roleFilteredBuyers || []).filter(b => b && (b.source || '').toLowerCase() === 'whatsapp').length },
+    {
+      id: 'uncontacts',
+      label: 'Uncontacts',
+      count: (roleFilteredBuyers || []).filter(
+        b =>
+          b &&
+          ((b.status || '').toLowerCase() === 'uncontacted' ||
+            (b.buyer_lead_status || '').toLowerCase() === 'uncontacted' ||
+            (b.source || '').toLowerCase() === 'whatsapp'),
+      ).length,
+    },
 
     { id: 'hot_leads', label: 'Hot Leads', count: (roleFilteredBuyers || []).filter(b => b && priorityKey(b.priority) === 'high').length },
     { id: 'active', label: 'Active', count: (roleFilteredBuyers || []).filter(b => b && b.is_active === true).length },
@@ -709,7 +719,10 @@ const BuyersPage = () => {
     const pri = priorityKey(buyer.priority);
 
     const matchesTab = activeTab === 'all' ||
-      (activeTab === 'uncontacts' && (buyer.source ?? '').toLowerCase() === 'whatsapp') ||
+      (activeTab === 'uncontacts' &&
+        ((buyer.status || '').toLowerCase() === 'uncontacted' ||
+          (buyer.buyer_lead_status || '').toLowerCase() === 'uncontacted' ||
+          (buyer.source ?? '').toLowerCase() === 'whatsapp')) ||
 
       (activeTab === 'hot_leads' && pri === 'high') ||
       (activeTab === 'active' && buyer.is_active === true) ||

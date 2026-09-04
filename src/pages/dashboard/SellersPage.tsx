@@ -600,7 +600,11 @@ const SellersPage: React.FC = () => {
       {
         id: "uncontacts",
         label: "Uncontacts",
-        count: count((s) => (s.source || "").toLowerCase() === "whatsapp"),
+        count: count(
+          (s) =>
+            (s.status || "").toLowerCase() === "uncontacted" ||
+            (s.source || "").toLowerCase() === "whatsapp",
+        ),
       },
 
       {
@@ -734,7 +738,9 @@ const SellersPage: React.FC = () => {
           : !!seller.isActive;
       const matchesTab =
         activeTab === "all" ||
-        (activeTab === "uncontacts" && (seller.source || "").toLowerCase() === "whatsapp") ||
+        (activeTab === "uncontacts" &&
+          ((seller.status || "").toLowerCase() === "uncontacted" ||
+            (seller.source || "").toLowerCase() === "whatsapp")) ||
 
         (activeTab === "leads" && seller.stage === "initial_contact") ||
         (activeTab === "active" &&

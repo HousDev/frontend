@@ -805,7 +805,7 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   };
 
   /* ─── seller / payload helpers ─── */
-  const createSellerSafe = async (payload: { salutation?: string; name: string; email?: string; phone?: string; whatsapp?: string }) => {
+  const createSellerSafe = async (payload: { salutation?: string; name: string; email?: string; phone?: string; whatsapp?: string; status?: string; source?: string }) => {
     try {
       if ((sellerAPI as any)?.createSeller) return await (sellerAPI as any).createSeller(payload);
       if ((sellerAPI as any)?.create) return await (sellerAPI as any).create(payload);
@@ -878,7 +878,9 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
             name: formData.ownerName, 
             email: formData.ownerEmail, 
             phone: formData.ownerPhone, 
-            whatsapp: formData.ownerWhatsapp 
+            whatsapp: formData.ownerWhatsapp,
+            status: 'uncontacted',
+            source: 'Website',
           });
           sellerId = extractIdFromResponse(sellerRes);
           sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
