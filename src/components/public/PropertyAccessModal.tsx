@@ -101,9 +101,11 @@ export const PropertyAccessModal: React.FC<PropertyAccessModalProps> = ({
         (window as any).google.accounts.id.renderButton(el, {
           theme: 'outline',
           size: 'large',
-          width: '100%',
+          type: 'standard',
           text: 'continue_with',
           shape: 'rectangular',
+          logo_alignment: 'left',
+          width: 250,
         });
       }
     }

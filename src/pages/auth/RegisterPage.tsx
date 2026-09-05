@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Building, Eye, EyeOff, ShieldCheck, Zap, Sparkles, Mail,
+  Building, Eye, EyeOff, ShieldCheck, Zap, Mail,
   ArrowRight, KeyRound, CheckCircle2, RotateCcw, User, Phone as PhoneIcon,
   Home, ShoppingBag, Key, UserCheck, Briefcase
 } from 'lucide-react';
@@ -112,9 +112,11 @@ const RegisterPage: React.FC = () => {
           (window as any).google.accounts.id.renderButton(btnContainer, {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            type: 'standard',
             text: 'continue_with',
             shape: 'rectangular',
+            logo_alignment: 'left',
+            width: 250,
           });
           return;
         } catch (err) {
@@ -122,28 +124,16 @@ const RegisterPage: React.FC = () => {
         }
       }
 
-      if (attempts < 20) {
+      if (attempts < 30) {
         timerId = setTimeout(tryRender, 100);
       }
     };
 
-    const SCRIPT_ID = 'google-gsi-client';
-    let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-    if (!script) {
-      script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        setTimeout(tryRender, 50);
-      };
-      document.body.appendChild(script);
-    } else {
-      setTimeout(tryRender, 50);
-    }
+    // Ensure DOM is ready in current paint frame
+    const initTimer = setTimeout(tryRender, 50);
 
     return () => {
+      clearTimeout(initTimer);
       if (timerId) clearTimeout(timerId);
     };
   }, [googleActive, googleClientId, step]);
@@ -420,7 +410,6 @@ const RegisterPage: React.FC = () => {
         {/* Left Column: Branding & Value Props */}
         <div className="lg:col-span-5 text-white space-y-6 px-2">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-xs font-semibold text-orange-300">
-            <Sparkles className="h-3.5 w-3.5" />
             Verified Real Estate Platform
           </div>
 

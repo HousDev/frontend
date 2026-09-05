@@ -83,6 +83,7 @@ import { fetchLiveNearbyPlaces, classifyPlaceCategory, NearbyPlaceItem } from '@
 // NEW
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { openPropertyChat } from '@/services/propertyChatService';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
@@ -180,16 +181,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
   const location = useLocation();
   const { currentUser, user } = useAuth() as any;
   const { systemSettings } = useSystemSettings();
-
-  // Track Guest Property Views
-  useEffect(() => {
-    if (property?.id) {
-      const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user || currentUser, systemSettings);
-      if (isLocked) {
-        navigate(`/register?redirect=${encodeURIComponent(location.pathname + location.search)}`);
-      }
-    }
-  }, [property?.id, user, currentUser, systemSettings, navigate, location.pathname, location.search]);
 
   const isRental = isRentalProp || Boolean(
     property?.monthly_rent ||
@@ -699,6 +690,43 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     const link = `${window.location.origin}/properties/${encodeURIComponent(String(slugValue))}`;
     const message = `Hi! I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you provide more details?\n${link}`;
     window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenPropertyChat = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const propertyId = property?.id || property?.raw?.id;
+    if (!propertyId) return;
+
+    const propTitle = property?.title || [property?.unitType, property?.type].filter(Boolean).join(' ') || 'Residential Property';
+    const propSlug = property?.slug || property?.raw?.slug || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
+    const propPrice = property?.price || property?.raw?.price || property?.final_price;
+    const propLoc = property?.locationNormalized || property?.location || property?.city || '';
+    const propPhotos = property?.photos || property?.images || property?.mediaItems || [];
+    const execName = property?.executiveTo?.name && property.executiveTo.name !== 'Executive Not Assigned' && property.executiveTo.name !== 'Rohit Sharma'
+      ? property.executiveTo.name
+      : property?.assignedTo?.name || property?.executive_name || 'Property Executive';
+    const execPhone = property?.executiveTo?.phone || property?.assignedTo?.phone || property?.executive_phone || '';
+
+    const isAuthed = Boolean(user || currentUser || localStorage.getItem('token'));
+    if (!isAuthed) {
+      const returnUrl = `/properties/${propSlug}?openChat=true&propertyId=${propertyId}`;
+      navigate(`/register?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    openPropertyChat({
+      propertyId,
+      propertyTitle: propTitle,
+      propertySlug: propSlug,
+      propertyPrice: propPrice,
+      propertyLocation: propLoc,
+      propertyPhotos: Array.isArray(propPhotos) ? propPhotos : [],
+      executiveName: execName,
+      executivePhone: execPhone,
+    });
   };
 
   // Normalize amenities into array
@@ -2420,16 +2448,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                       <span className="mt-0.5">WhatsApp</span>
                     </button>
 
-                    {/* Message - Light Purple Background */}
+                    {/* Live Chat - Light Purple Background */}
                     <button
-                      onClick={() => setShowContactForm(true)}
+                      onClick={handleOpenPropertyChat}
                       className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-purple-50 border border-purple-100
             hover:bg-purple-100 hover:border-purple-200
             transition-all text-[9px] text-gray-500"
                     >
                       <MessageCircle size={11} className="text-purple-600" />
-                      <span className="mt-0.5">Message</span>
+                      <span className="mt-0.5">Live Chat</span>
                     </button>
 
                     {/* Schedule - Light Cyan Background */}
@@ -2464,7 +2492,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-gray-900 text-[12px] truncate leading-tight">
-                        {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
+                        {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : (property?.executiveTo?.name && property.executiveTo.name !== 'Rohit Sharma' && property.executiveTo.name !== 'Executive Not Assigned' ? property.executiveTo.name : (property?.assignedTo?.name || 'Property Executive'))}
                       </h3>
                       <p className="text-[10px] text-gray-400">Property Executive</p>
                     </div>
@@ -2548,17 +2576,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                       <span>WhatsApp</span>
                     </button>
 
-                    {/* Message */}
+                    {/* Live Chat */}
                     <button
-                      onClick={() => setShowContactForm(true)}
-                      aria-label="Message executiveTo"
+                      onClick={handleOpenPropertyChat}
+                      aria-label="Live Chat with executive"
                       className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-purple-50 hover:border-purple-100
             active:scale-95 transition-all text-[10px] text-gray-400"
                     >
                       <MessageCircle size={13} className="text-purple-600" aria-hidden="true" />
-                      <span>Message</span>
+                      <span>Live Chat</span>
                     </button>
 
                     {/* Schedule */}
