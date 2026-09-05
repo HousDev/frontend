@@ -57,15 +57,12 @@ import ActivityModal from "../buyers/ActivityModal";
 import VisitModal from "../buyers/VisitModal";
 import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
 import LinkPropertyModal from "./LinkPropertyModal";
+import { FollowUpModal } from "@/pages/settings/master/FollowUpModal";
 import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
 import { getImageUrl } from "@/lib/helpers";
-import SellerFollowupModal, {
-  SellerFollowupPayload,
-} from "./SellerFollowupModal";
-import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
@@ -90,6 +87,7 @@ import { can } from "@/utils/permission";
 /* Types                                                              */
 /* ------------------------------------------------------------------ */
 export type AnyObj = Record<string, any>;
+export type SellerFollowupPayload = Record<string, any>;
 
 export type Followup = {
   id: string | number;
@@ -2886,34 +2884,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
           onShare={() => setShowSharingModal(false)}
         />
       )}
-      {showFollowupModal && (
-        <SmartFollowupModal
-          open={showFollowupModal}
-          record={{
-            id: (seller as any)?.id ?? (seller as any)?.sellerId ?? '',
-            name: (seller as any)?.name || (seller as any)?.full_name || 'Seller',
-            entity: 'seller',
-            isEdit: Boolean(editingFollowup),
-            stage: editingFollowup
-              ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any)?.seller_lead_stage || (editingFollowup as any).buyerLeadStage || (editingFollowup as any)?.stage || (seller as any)?.stage || 'Requirement Discussion')
-              : ((seller as any)?.stage || 'Requirement Discussion'),
-            status: editingFollowup
-              ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any)?.seller_lead_status || (editingFollowup as any).buyerLeadStatus || (editingFollowup as any)?.status || (seller as any)?.status || 'Qualified')
-              : ((seller as any)?.status || 'Qualified'),
-            followup: editingFollowup
-          }}
-          onClose={() => {
-            setShowFollowupModal(false);
-            setEditingFollowup(null);
-          }}
-          onSaved={async () => {
-            setShowFollowupModal(false);
-            setEditingFollowup(null);
-            sellerFollowupAPI.clearCache();
-            await fetchFollowups();
-          }}
-        />
-      )}
+      {/* Seller Follow-up Modal Placeholder (Ready for new integration) */}
       {showActivityModal && (
         <ActivityModal
           isOpen={showActivityModal}
@@ -2985,6 +2956,29 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
           onSubmit={handleAddProperty}
         />
       )}
+
+      {/* Seller Follow-up Modal */}
+      <FollowUpModal
+        open={showFollowupModal}
+        mode={editingFollowup ? "edit" : "add"}
+        initialEntityCode="SELLER"
+        initialEntityId={(seller as any)?.id}
+        initialEntityName={(seller as any)?.name}
+        initialEntityPhone={(seller as any)?.phone}
+        initialStageCode={(seller as any)?.stage}
+        initialStatusCode={(seller as any)?.status}
+        initialAssignedTo={(seller as any)?.assigned_to_name || (seller as any)?.assigned_to || (seller as any)?.assigned_executive_name || (seller as any)?.assigned_executive}
+        onClose={() => {
+          setShowFollowupModal(false);
+          setEditingFollowup(null);
+        }}
+        onSaved={() => {
+          toast.success("Follow-up saved successfully");
+          setShowFollowupModal(false);
+          setEditingFollowup(null);
+          if (fetchFollowups) fetchFollowups();
+        }}
+      />
     </div>
   );
 };

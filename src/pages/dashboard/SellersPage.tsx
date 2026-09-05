@@ -43,6 +43,7 @@ import SellerViewPage from "../../components/sellers/SellerViewPage";
 import SellerAccountPage from "../../components/sellers/SellerAccountPage";
 import SellerViewModal from "../../components/sellers/SellerViewModal";
 import ImportSellersLeadsModal from "../../components/sellers/ImportSellersLeadsModal";
+import { FollowUpModal } from "../settings/master/FollowUpModal";
 import LinkPropertyModal from "../../components/sellers/LinkPropertyModal";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
@@ -56,9 +57,6 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
-import SellerFollowupModal from "@/components/sellers/SellerFollowupModal";
-import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
-import { automationEngineAPI } from "@/lib/automationEngineAPI";
 import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
@@ -1550,19 +1548,8 @@ const SellersPage: React.FC = () => {
     );
   }, [user]);
 
-  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
-  const [masterStages, setMasterStages] = useState<any[]>([]);
-
-  useEffect(() => {
-    automationEngineAPI.getMastersGraph('seller').then((graph) => {
-      if (graph?.statuses && Array.isArray(graph.statuses)) {
-        setMasterStatuses(graph.statuses);
-      }
-      if (graph?.stages && Array.isArray(graph.stages)) {
-        setMasterStages(graph.stages);
-      }
-    }).catch(() => {});
-  }, []);
+  const [masterStatuses] = useState<any[]>([]);
+  const [masterStages] = useState<any[]>([]);
 
   const stageOptions = useMemo(() => {
     const stages = [...new Set(roleFilteredSellers.map((s) => s.stage))];
@@ -2504,6 +2491,16 @@ table tbody td {
                           <td className="px-2 py-1 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <button
+                                onClick={() => {
+                                  setSelectedSellerForFollowup(seller);
+                                  setShowSellerFollowupModal(true);
+                                }}
+                                className="p-1 rounded hover:bg-purple-100 text-purple-600 transition-colors"
+                                title="Follow-up"
+                              >
+                                <Calendar size={13} />
+                              </button>
+                              <button
                                 onClick={() => handleQuickViewSeller(seller)}
                                 className="p-1 rounded hover:bg-gray-100 text-gray-500 transition-colors"
                                 title="Quick View"
@@ -2682,32 +2679,27 @@ table tbody td {
 
 
         {/* Seller Follow-up Modal */}
-        {showSellerFollowupModal && selectedSellerForFollowup && (
-          <SmartFollowupModal
-            open={showSellerFollowupModal}
-            record={{
-              id: selectedSellerForFollowup.id,
-              name: selectedSellerForFollowup.full_name || selectedSellerForFollowup.name || 'Seller',
-              entity: 'seller',
-              stage: selectedSellerForFollowup.stage || selectedSellerForFollowup.seller_stage || 'Requirement Discussion',
-              status: selectedSellerForFollowup.status || selectedSellerForFollowup.seller_status || 'Qualified',
-            }}
-            onClose={() => {
-              setShowSellerFollowupModal(false);
-              setSelectedSellerForFollowup(null);
-            }}
-            onSaved={async () => {
-              setShowSellerFollowupModal(false);
-              setSelectedSellerForFollowup(null);
-              sellerFollowupAPI.clearCache();
-              const apiSellers = await sellerAPI.getAll();
-              const normalized = Array.isArray(apiSellers)
-                ? apiSellers.map(mapApiSellerToUI)
-                : [];
-              setAllSellers(normalized);
-            }}
-          />
-        )}
+        <FollowUpModal
+          open={showSellerFollowupModal}
+          mode="add"
+          initialEntityCode="SELLER"
+          initialEntityId={selectedSellerForFollowup?.id}
+          initialEntityName={selectedSellerForFollowup?.name}
+          initialEntityPhone={selectedSellerForFollowup?.phone}
+          initialStageCode={selectedSellerForFollowup?.stage}
+          initialStatusCode={selectedSellerForFollowup?.status}
+          initialAssignedTo={selectedSellerForFollowup?.assigned_to_name || selectedSellerForFollowup?.assigned_to || (selectedSellerForFollowup as any)?.assigned_executive_name || (selectedSellerForFollowup as any)?.assigned_executive}
+          onClose={() => {
+            setShowSellerFollowupModal(false);
+            setSelectedSellerForFollowup(null);
+          }}
+          onSaved={() => {
+            toast.success('Follow-up scheduled successfully');
+            setShowSellerFollowupModal(false);
+            setSelectedSellerForFollowup(null);
+            loadSellers();
+          }}
+        />
 
         {/* Seller Quick View Modal */}
         {showQuickViewModal && quickViewSeller && (

@@ -16,14 +16,12 @@ import { masterDataAPI } from "@/lib/mastersAPI";
 import { followupAPI } from "@/lib/followupAPI";
 import { notificationAPI } from "@/lib/notificationAPI";
 import { getAssignableExecutives } from "@/utils/roleBasedOptions";
-
-import FollowupModal, { FOLLOWUP_TYPES, FollowupForm } from "@/pages/dashboard/components/FollowupModal";
-import SmartFollowupModal from "@/components/followup/SmartFollowupModal";
 import BuyerFormModal from "./components/BuyerFormModal";
 import AddLeadModal from "./components/AddLeadModal";
 import { useAuth } from "@/contexts/AuthContext";
 import SellerFormModal from "./components/SellerFormModel";
 import LeadActivityTimelineModal from "@/components/leads/LeadActivityTimelineModal";
+import { FollowUpModal } from "../settings/master/FollowUpModal";
 
 import { can } from "@/utils/permission";
 
@@ -36,6 +34,27 @@ const BORDER = "#e4e7eb";
 const TEXT_PRIMARY = "#1a2c3e";
 const TEXT_SECONDARY = "#5a7184";
 const TEXT_MUTED = "#8ba0b5";
+
+export interface FollowupForm {
+  followupType?: string;
+  scheduleDate?: string;
+  scheduleTime?: string;
+  leadStage?: string;
+  leadStatus?: string;
+  priority?: string;
+  notes?: string;
+  reminder?: number;
+  assignedExecutive?: string | number;
+  [key: string]: any;
+}
+
+export const FOLLOWUP_TYPES = [
+  { value: "Call", label: "Call", Icon: Phone, color: "blue" },
+  { value: "WhatsApp", label: "WhatsApp", Icon: FaWhatsapp, color: "green" },
+  { value: "Email", label: "Email", Icon: Mail, color: "purple" },
+  { value: "Meeting", label: "Meeting", Icon: Calendar, color: "orange" },
+  { value: "Site Visit", label: "Site Visit", Icon: MapPin, color: "emerald" },
+];
 
 /* ===================== Types ===================== */
 type UserRole = "admin" | "manager" | "agent" | "executive";
@@ -146,6 +165,7 @@ const FOLLOWUP_COLOR_MAP: Record<
   indigo: { container: "bg-indigo-50 border-indigo-200", icon: "text-indigo-600", leftBar: "border-indigo-400", badge: "bg-indigo-100 text-indigo-800 border-indigo-200" },
   orange: { container: "bg-orange-50 border-orange-200", icon: "text-orange-600", leftBar: "border-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-200" },
   purple: { container: "bg-purple-50 border-purple-200", icon: "text-purple-600", leftBar: "border-purple-400", badge: "bg-purple-100 text-purple-800 border-purple-200" },
+  emerald: { container: "bg-emerald-50 border-emerald-200", icon: "text-emerald-600", leftBar: "border-emerald-400", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" },
   gray: { container: "bg-gray-50 border-gray-200", icon: "text-gray-600", leftBar: "border-gray-400", badge: "bg-gray-100 text-gray-800 border-gray-200" },
 };
 
@@ -204,6 +224,7 @@ const LeadDetailPage: React.FC = () => {
   const [currentLeadIndex, setCurrentLeadIndex] = useState<number>(0);
   const [showTransferOptions, setShowTransferOptions] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [followups, setFollowups] = useState<Followup[]>([]);
   const [followupsLoading, setFollowupsLoading] = useState(false);
@@ -796,7 +817,20 @@ const LeadDetailPage: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <button onClick={() => { if (!canCreateFollowups) { toast.error("Permission denied"); return; } setEditingFollowup(null); setIsFollowupModalOpen(true); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white transition-all text-xs md:text-sm font-medium ${!canCreateFollowups ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}`} style={{ background: PRIMARY_ORANGE }}>
+                  <button
+                    onClick={() => {
+                      if (!canCreateFollowups) {
+                        toast.error("Permission denied");
+                        return;
+                      }
+                      setEditingFollowup(null);
+                      setShowFollowUpModal(true);
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white transition-all text-xs md:text-sm font-medium ${
+                      !canCreateFollowups ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"
+                    }`}
+                    style={{ background: PRIMARY_ORANGE }}
+                  >
                     <NotebookPen size={13} /> Follow Up
                   </button>
 
@@ -912,11 +946,19 @@ const LeadDetailPage: React.FC = () => {
 
           {/* Sidebar - Follow-ups Timeline - Compact */}
           <div className="bg-white rounded-xl shadow-sm border" style={{ borderColor: BORDER }}>
-            <div className="p-3 md:p-4 border-b" style={{ borderColor: BORDER, background: BG_GRAY }}>
+            <div className="p-3 md:p-4 border-b flex items-center justify-between" style={{ borderColor: BORDER, background: BG_GRAY }}>
               <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: PRIMARY_NAVY }}>
                 <MessageSquare size={14} style={{ color: PRIMARY_ORANGE }} />
                 Follow-ups Timeline
               </h3>
+              <button
+                onClick={() => setShowFollowUpModal(true)}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-all hover:opacity-90"
+                style={{ background: PRIMARY_ORANGE }}
+                title="Add Follow-up"
+              >
+                <Calendar size={11} /> Add Follow-up
+              </button>
             </div>
             <div className="p-3 md:p-4">
               {followupsLoading && (<div className="flex justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: PRIMARY_ORANGE }}></div></div>)}
@@ -1054,28 +1096,28 @@ const LeadDetailPage: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <SmartFollowupModal
-        open={isFollowupModalOpen}
-        record={lead ? {
-          id: lead.id,
-          name: lead.name,
-          entity: 'lead',
-          stage: editingFollowup ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any).stage || lead.stage) : lead.stage,
-          status: editingFollowup ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any).status || lead.status) : lead.status,
-          followup: editingFollowup
-        } : null}
+      <FollowUpModal
+        open={showFollowUpModal || isFollowupModalOpen}
+        mode={editingFollowup ? "edit" : "add"}
+        currentFollowUp={editingFollowup as any}
+        initialEntityCode="LEAD"
+        initialEntityId={lead?.lead_number || lead?.id}
+        initialEntityName={lead?.name}
+        initialEntityPhone={lead?.phone}
+        initialStageCode={lead?.stage}
+        initialStatusCode={lead?.status}
+        initialAssignedTo={getAssignedExecName() !== 'Unassigned' ? getAssignedExecName() : (lead?.assigned_executive_name || lead?.assigned_executive)}
         onClose={() => {
+          setShowFollowUpModal(false);
           setIsFollowupModalOpen(false);
           setEditingFollowup(null);
         }}
-        onSaved={async () => {
+        onSaved={() => {
+          toast.success(editingFollowup ? "Follow-up updated successfully" : "Follow-up scheduled successfully");
+          setShowFollowUpModal(false);
           setIsFollowupModalOpen(false);
           setEditingFollowup(null);
-          try {
-            await fetchFollowups();
-          } catch (err) {
-            console.error("Error refreshing followups:", err);
-          }
+          fetchFollowups();
         }}
       />
       {showBuyerComponent && lead && <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />}
