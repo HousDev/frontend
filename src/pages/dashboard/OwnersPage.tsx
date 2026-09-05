@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Users, Plus, Download, Upload, SlidersHorizontal, Phone, Mail, MapPin, Calendar, Eye, Link2, UserCheck, Edit, Trash2, ChevronLeft, ChevronRight, RefreshCw, KeyRound } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { ownerAPI } from "@/lib/ownerAPI";
@@ -12,6 +13,7 @@ import { OwnerViewModal } from "@/components/owners/OwnerViewModal";
 import TableLoader from "@/components/ui/TableLoader";
 import Dropdown from "@/components/ui/Dropdown";
 import LinkRentalPropertyModal from "@/components/owners/LinkRentalPropertyModal";
+import OwnerCredentialsModal from "@/components/owners/OwnerCredentialsModal";
 import rentalPropertiesAPI from "@/lib/rentalPropertiesAPI";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMasterDropdownOptions } from "@/lib/useMasterData";
@@ -136,6 +138,7 @@ const toDate = (v?: string | null) => {
 };
 
 export const OwnersPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [allOwners, setAllOwners] = useState<UIOwner[]>([]);
   const [masters, setMasters] = useState<Record<string, any[]>>({});
@@ -156,6 +159,8 @@ export const OwnersPage: React.FC = () => {
   const [linkingOwnerForProp, setLinkingOwnerForProp] = useState<any | null>(null);
   const [showQuickViewModal, setShowQuickViewModal] = useState(false);
   const [quickViewOwner, setQuickViewOwner] = useState<UIOwner | null>(null);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [credentialsOwner, setCredentialsOwner] = useState<UIOwner | null>(null);
 
   // Column search states
   const [colSearch, setColSearch] = useState({
@@ -1457,11 +1462,18 @@ export const OwnersPage: React.FC = () => {
                             <Link2 size={13} />
                           </button>
                           <button
-                            onClick={() => setViewingOwner(o)}
-                            className="p-1 rounded hover:bg-gray-100 text-green-600 transition-colors"
-                            title="Owner Account"
+                            onClick={() => navigate(`/dashboard/owners-account/${o.id}`)}
+                            className="p-1 rounded hover:bg-emerald-50 text-emerald-600 transition-colors"
+                            title="Owner Account Portal"
                           >
                             <UserCheck size={13} />
+                          </button>
+                          <button
+                            onClick={() => { setCredentialsOwner(o); setShowCredentialsModal(true); }}
+                            className="p-1 rounded hover:bg-amber-50 text-amber-600 transition-colors"
+                            title="Login Credentials"
+                          >
+                            <KeyRound size={13} />
                           </button>
                           {canUpdate && (
                             <button
@@ -1629,6 +1641,20 @@ export const OwnersPage: React.FC = () => {
           onViewFull={(o) => setViewingOwner(o)}
           onEdit={(o) => { setSelectedOwner(o); setShowAddEditModal(true); }}
           canEdit={canUpdate}
+        />
+      )}
+
+      {showCredentialsModal && credentialsOwner && (
+        <OwnerCredentialsModal
+          isOpen={showCredentialsModal}
+          onClose={() => {
+            setShowCredentialsModal(false);
+            setCredentialsOwner(null);
+          }}
+          ownerId={credentialsOwner.id}
+          ownerName={credentialsOwner.name}
+          ownerPhone={credentialsOwner.phone}
+          ownerEmail={credentialsOwner.email}
         />
       )}
     </div>

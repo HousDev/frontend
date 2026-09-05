@@ -3,6 +3,7 @@ import { MapPin, Bed, Bath, Square, Home } from "lucide-react";
 import propertiesAPI from "@/lib/propertiesAPI";
 import propertyTagsAPI from "@/lib/propertyTagsAPI";
 import getTagStyle from "@/lib/tagStyles";
+import { getImageUrl as resolveImageUrl } from "@/lib/helpers";
 
 interface Property {
   id: number;
@@ -15,6 +16,8 @@ interface Property {
   locationNormalized?: string;
   city?: string;
   price?: number;
+  monthly_rent?: number | string;
+  expected_rent?: number | string;
   bedrooms?: number | string;
   beds?: number | string;
   bathrooms?: number | string;
@@ -25,6 +28,7 @@ interface Property {
   amenities?: string[];
   images?: string[];
   photos?: string[];
+  cover_image?: string;
   possession_month?: number | string;
   possession_year?: number | string;
   raw?: any;
@@ -90,25 +94,53 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
     v === null || v === undefined || v === "" ? "-" : String(v);
 
   const getImageUrl = (p: Property): string => {
-    const candidates = [
-      p.photos?.[0],
-      p.images?.[0],
-      p.raw?.photos?.[0],
-      p.raw?.images?.[0],
-      p.raw?.photoUrls?.[0],
-      p.raw?.media?.[0]?.url,
-    ];
-    for (const c of candidates) {
-      if (c && typeof c === "string") {
-        if (c.startsWith("/")) return `${window.location.origin}${c}`;
-        return c;
+    const pickFirst = (val: any) => {
+      if (!val) return null;
+      if (Array.isArray(val) && val.length > 0) return val[0];
+      if (typeof val === 'string' && val.trim().startsWith('[')) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+        } catch {}
       }
-    }
-    return "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=250&fit=crop";
+      return val;
+    };
+
+    const rawPhoto =
+      p.cover_image ||
+      (p as any).property_image ||
+      (p as any).image ||
+      (p as any).main_image ||
+      pickFirst(p.photos) ||
+      pickFirst(p.images) ||
+      p.raw?.cover_image ||
+      p.raw?.property_image ||
+      p.raw?.image ||
+      p.raw?.main_image ||
+      pickFirst(p.raw?.photos) ||
+      pickFirst(p.raw?.images) ||
+      pickFirst(p.raw?.photoUrls) ||
+      pickFirst(p.raw?.media);
+
+    return resolveImageUrl(rawPhoto, '/property.png');
   };
 
   const priceLabelFor = (p: Property): string => {
+    const isRental = Boolean(
+      (p as any).monthly_rent ||
+      (p as any).expected_rent ||
+      p.raw?.monthly_rent ||
+      p.raw?.expected_rent ||
+      (p.raw?.listing_type && String(p.raw.listing_type).toLowerCase() === 'rent') ||
+      (p.raw?.transaction_type && String(p.raw.transaction_type).toLowerCase() === 'rent') ||
+      String(p.id).toUpperCase().startsWith('RENT')
+    );
+
     const candidates = [
+      (p as any).monthly_rent,
+      (p as any).expected_rent,
+      p.raw?.monthly_rent,
+      p.raw?.expected_rent,
       p.price,
       p.raw?.price,
       p.raw?.budget,
@@ -118,7 +150,9 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
     ];
     for (const c of candidates) {
       const num = n(c);
-      if (num !== undefined) return formatCurrency(num);
+      if (num !== undefined) {
+        return isRental ? `${formatCurrency(num)} / mo` : formatCurrency(num);
+      }
     }
     return "Price on request";
   };
@@ -217,6 +251,7 @@ const PublicSimilarProperties: React.FC<PublicSimilarPropertiesProps> = ({
           <img
             src={getImageUrl(p)}
             alt={titleFor(p)}
+            onError={(e) => { e.currentTarget.src = '/property.png'; }}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           {!!tags.length && (

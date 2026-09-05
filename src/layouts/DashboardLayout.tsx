@@ -220,7 +220,10 @@ const DashboardLayout = () => {
       navigate(`/buyer-dashboard/${uid}`, { replace: true });
     } else if (role === "seller") {
       navigate(`/seller-dashboard/${uid}`, { replace: true });
-    } else if (role === "owner" || role === "broker") {
+    } else if (role === "owner") {
+      const ownerUid = (user as any)?.owner_id || (user as any)?.id || 1;
+      navigate(`/owner-dashboard/${ownerUid}`, { replace: true });
+    } else if (role === "broker") {
       navigate("/properties", { replace: true });
     }
   }, [user, navigate]);

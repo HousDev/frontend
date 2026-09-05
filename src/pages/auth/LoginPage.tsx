@@ -242,7 +242,11 @@ const LoginPage: React.FC = () => {
           navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
           return;
         }
-        if (role === 'owner' || role === 'broker') {
+        if (role === 'owner') {
+          navigate(`/owner-dashboard/${res.data.user.owner_id || uid}`, { replace: true });
+          return;
+        }
+        if (role === 'broker') {
           navigate('/properties', { replace: true });
           return;
         }
@@ -361,7 +365,11 @@ const LoginPage: React.FC = () => {
           navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
           return;
         }
-        if (role === 'owner' || role === 'broker') {
+        if (role === 'owner') {
+          navigate(`/owner-dashboard/${res.data.user.owner_id || uid}`, { replace: true });
+          return;
+        }
+        if (role === 'broker') {
           navigate('/properties', { replace: true });
           return;
         }
@@ -454,7 +462,11 @@ const LoginPage: React.FC = () => {
         navigate(`/tenant-dashboard/${(user as any)?.tenant_id || uid}`, { replace: true });
         return;
       }
-      if (role === 'owner' || role === 'broker') {
+      if (role === 'owner') {
+        navigate(`/owner-dashboard/${(user as any)?.owner_id || uid}`, { replace: true });
+        return;
+      }
+      if (role === 'broker') {
         navigate('/properties', { replace: true });
         return;
       }

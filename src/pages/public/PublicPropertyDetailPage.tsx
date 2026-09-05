@@ -884,6 +884,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
       return { url: resolvedUrl, type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
     }).filter((m: any) => m.url);
 
+    if (mediaItems.length === 0) {
+      mediaItems.push(
+        { url: '/property.png', type: 'image', label: 'Property' },
+        { url: '/bedroom.png', type: 'image', label: 'Bedroom' },
+        { url: '/kitchen.png', type: 'image', label: 'Kitchen' },
+        { url: '/gallery.png', type: 'image', label: 'Gallery' }
+      );
+    }
 
     const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
 
@@ -1549,8 +1557,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
 
                 return (
                   <img
-                    src={currentUrl}
+                    src={currentUrl || '/property.png'}
                     alt={property?.title || "Property Image"}
+                    onError={(e) => { e.currentTarget.src = '/property.png'; }}
                     onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
                     className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
                   />

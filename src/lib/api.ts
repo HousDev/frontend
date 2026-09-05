@@ -41,11 +41,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isLoginRequest = error.config?.url?.includes('/auth/signin');
+      const isLoginRequest = error.config?.url?.includes('/auth/signin') || error.config?.url?.includes('/auth/verify-otp-login');
       if (!isLoginRequest) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth_logout'));
+          const pathname = window.location.pathname;
+          const isDashboardRoute = pathname.startsWith('/dashboard') ||
+            pathname.startsWith('/tenant-dashboard') ||
+            pathname.startsWith('/buyer-dashboard') ||
+            pathname.startsWith('/seller-dashboard') ||
+            pathname.startsWith('/owner-dashboard');
+          
+          if (isDashboardRoute) {
+            window.location.href = "/login";
+          }
+        }
       }
     }
     return Promise.reject(error);

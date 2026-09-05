@@ -227,6 +227,12 @@ export const rentalPropertiesAPI = {
     return res.data;
   },
 
+  getAiAnalysis: async (data: any) => {
+    const payload = data?.property ? data : { property: data };
+    const res = await api.post("/rental-properties/ai-analysis", payload);
+    return res.data;
+  },
+
   createProperty: async (data: any) => {
     const res = await api.post("/rental-properties/create", data);
     return res.data;

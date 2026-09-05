@@ -21,6 +21,7 @@ import { getTagStyle } from "@/lib/tagStyles";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
+import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
 
 /* ==============================
    Types
@@ -76,12 +77,12 @@ interface Property {
    Default Images Constants
 ============================== */
 const DEFAULT_IMAGES = {
-  APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
-  HOUSE: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800',
-  VILLA: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
-  PLOT: 'https://images.pexels.com/photos/259588/pexels-photo-259588.jpeg?auto=compress&cs=tinysrgb&w=800',
-  COMMERCIAL: 'https://images.pexels.com/photos/3620416/pexels-photo-3620416.jpeg?auto=compress&cs=tinysrgb&w=800',
-  DEFAULT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
+  APARTMENT: '/property.png',
+  HOUSE: '/property.png',
+  VILLA: '/property.png',
+  PLOT: '/property.png',
+  COMMERCIAL: '/property.png',
+  DEFAULT: '/property.png'
 };
 
 /* ==============================
@@ -573,8 +574,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
-    const transactionFromUrl = qp.get('transaction') || 'buy';
-    setTransactionType(transactionFromUrl === 'rent' ? 'rent' : 'buy');
+    const rawTx = qp.get('transaction') || qp.get('tab') || qp.get('intent') || qp.get('type') || 'buy';
+    const transactionFromUrl = rawTx.toLowerCase().includes('rent') ? 'rent' : 'buy';
+    setTransactionType(transactionFromUrl);
 
     let locs: string[] = [];
     const repeated = qp.getAll('location');
@@ -712,7 +714,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       let response: any = null;
       let list: any[] = [];
-      const activeAPI = transactionType === 'rent' ? rentalPropertiesAPI : propertiesAPI;
+      const rawTx = qp.get('transaction') || qp.get('tab') || qp.get('intent') || qp.get('type') || '';
+      const isRent = rawTx.toLowerCase().includes('rent') || transactionType === 'rent';
+      const activeAPI = isRent ? rentalPropertiesAPI : propertiesAPI;
 
       if (hasAdvanced) {
         // 1) strict advanced
@@ -808,27 +812,27 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           const propertyType = p.property_type_name || p.property_type || '';
 
           // ✅ Create images array with proper fallback
-          let images: string[] = [];
+          let rawPhotos = p.photos ?? p.photoUrls ?? p.images;
+          if (typeof rawPhotos === 'string' && rawPhotos.trim().startsWith('[')) {
+            try {
+              rawPhotos = JSON.parse(rawPhotos);
+            } catch (e) {}
+          }
 
-          // First check p.photos
-          // ✅ FIX:
-          if (Array.isArray(p.photos) && p.photos.length > 0) {
-            images = p.photos
+          let images: string[] = [];
+          if (Array.isArray(rawPhotos) && rawPhotos.length > 0) {
+            images = rawPhotos
               .map((ph: any) => {
                 const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
                 return (url || '').replace(/\\/g, '/');
               })
-              .filter((u: string) => u && !isVideoUrl(u));   // 🔑 video hatao
-          }
-          // Then check p.photoUrls
-          else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-            images = p.photoUrls.filter((u: string) => u && !isVideoUrl(u));
+              .filter((u: string) => u && !isVideoUrl(u));
+          } else if (typeof rawPhotos === 'string' && rawPhotos.trim() && !isVideoUrl(rawPhotos)) {
+            images = [rawPhotos.replace(/\\/g, '/')];
           }
 
-          // If still empty (all were videos, or none existed) → fallback
           if (!images.length) {
-            const defaultImage = getDefaultImageByType(propertyType);
-            images = [defaultImage];
+            images = DEFAULT_PROPERTY_IMAGES;
           }
 
           const isRentProp = Boolean(
@@ -985,7 +989,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       setFloorMin('');
       setFloorMax('');
       setBathroomsFilter('');
-      navigate('/properties', { replace: true });
+      const baseDest = transactionType === 'rent' ? '/properties?transaction=rent&tab=rent' : '/properties?transaction=buy';
+      navigate(baseDest, { replace: true });
       return;
     }
     setSelectedPropertyType(prev => (prev === value ? '' : value));
@@ -1259,9 +1264,27 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       String(currentPropertyView.id).toUpperCase().startsWith('RENT')
     );
     if (isRental) {
-      return <PublicRentalPropertyDetailPage property={currentPropertyView} />;
+      return (
+        <PublicRentalPropertyDetailPage
+          property={currentPropertyView}
+          onBack={() => {
+            setCurrentPropertyView('');
+            setTransactionType('rent');
+            navigate('/properties?transaction=rent&tab=rent', { replace: true });
+          }}
+        />
+      );
     }
-    return <PublicPropertyDetailPage property={currentPropertyView} />;
+    return (
+      <PublicPropertyDetailPage
+        property={currentPropertyView}
+        onBack={() => {
+          setCurrentPropertyView('');
+          setTransactionType('buy');
+          navigate('/properties?transaction=buy', { replace: true });
+        }}
+      />
+    );
   }
 
   return (
@@ -1281,10 +1304,16 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                 <button
                   type="button"
-                  onClick={() => setTransactionType("buy")}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                  onClick={() => {
+                    setTransactionType("buy");
+                    const q = new URLSearchParams(location.search);
+                    q.set("transaction", "buy");
+                    q.delete("tab");
+                    navigate(`/properties?${q.toString()}`, { replace: true });
+                  }}
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
                     ${transactionType === "buy"
-                      ? "bg-[#E6761D] text-white"
+                      ? "bg-[#E6761D] text-white font-bold shadow-sm"
                       : "bg-white/20 text-white hover:bg-white/30"
                     }`}
                   aria-pressed={transactionType === "buy"}
@@ -1294,10 +1323,16 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                 <button
                   type="button"
-                  onClick={() => setTransactionType("rent")}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                  onClick={() => {
+                    setTransactionType("rent");
+                    const q = new URLSearchParams(location.search);
+                    q.set("transaction", "rent");
+                    q.set("tab", "rent");
+                    navigate(`/properties?${q.toString()}`, { replace: true });
+                  }}
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
                     ${transactionType === "rent"
-                      ? "bg-[#E6761D] text-white"
+                      ? "bg-[#E6761D] text-white font-bold shadow-sm"
                       : "bg-white/20 text-white hover:bg-white/30"
                     }`}
                   aria-pressed={transactionType === "rent"}
@@ -1429,7 +1464,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       setSelectedBedrooms('');
                       setSelectedPropertySubtype('');
                       setSelectedUnitType('');
-                      navigate('/properties', { replace: true });
+                      const baseDest = transactionType === 'rent' ? '/properties?transaction=rent&tab=rent' : '/properties?transaction=buy';
+                      navigate(baseDest, { replace: true });
                     }}
                     className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg w-full md:w-28 text-base font-medium transition-colors duration-300"
                   >
@@ -1847,8 +1883,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       {/* Image */}
                       <div className="relative">
                         <img
-                          src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                          src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
                           alt={String(property.title)}
+                          onError={(e) => { e.currentTarget.src = '/property.png'; }}
                           className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
                         />
 
@@ -2061,8 +2098,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         {/* LEFT: Image — narrower on mobile, fixed 380px on desktop */}
                         <div className="w-[140px] min-w-[140px] sm:w-[380px] sm:min-w-[380px] relative overflow-hidden">
                           <img
-                            src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                            src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
                             alt={String(property.title)}
+                            onError={(e) => { e.currentTarget.src = '/property.png'; }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           {(property.tags || []).length > 0 && (
