@@ -1135,7 +1135,7 @@ const SettingsPage: React.FC = () => {
                       <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
-                          checked={systemSettings.enable_guest_property_limit !== false}
+                          checked={Boolean(systemSettings.enable_guest_property_limit)}
                           onChange={(e) =>
                             updateSystemSettings({
                               enable_guest_property_limit: e.target.checked,
@@ -1147,7 +1147,7 @@ const SettingsPage: React.FC = () => {
                       </label>
                     </div>
 
-                    {systemSettings.enable_guest_property_limit !== false && (
+                    {Boolean(systemSettings.enable_guest_property_limit) && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-orange-100">
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1">

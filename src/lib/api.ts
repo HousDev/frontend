@@ -1,7 +1,8 @@
 // src/lib/api.ts
 import axios, { AxiosRequestHeaders } from "axios";
 
-const API_BASE_LOCAL = (import.meta.env.VITE_API_BASE_URL as string) ?? "http://localhost:3000/api/";
+const rawLocal = (import.meta.env.VITE_API_BASE_URL as string) || (import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/` : "http://localhost:3000/api/");
+const API_BASE_LOCAL = rawLocal.endsWith("/api/") || rawLocal.endsWith("/api") ? rawLocal : `${rawLocal.replace(/\/?$/, "")}/api/`;
 const API_BASE_PROD = (import.meta.env.VITE_API_BASE_PROD_URL as string) ?? "https://resaleexpert.in/api/";
 const API_FORCE = (import.meta.env.VITE_FORCE_API_BASE as string) ?? "";
 const isBrowser = typeof window !== "undefined";

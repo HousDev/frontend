@@ -18,7 +18,7 @@ export const recordAndCheckGuestPropertyLimit = (
     return { isLocked: false, viewedCount: 0, limit: 999 };
   }
 
-  const isEnabled = systemSettings?.enable_guest_property_limit !== false;
+  const isEnabled = Boolean(systemSettings?.enable_guest_property_limit);
   const limit = Number(systemSettings?.guest_property_view_limit ?? 5);
 
   if (!isEnabled) {

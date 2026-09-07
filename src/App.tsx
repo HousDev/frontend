@@ -326,6 +326,9 @@ function App() {
 
                     {/* Communication */}
                     <Route path="communication" element={<CommunicationHubPage />} />
+                    <Route path="communication/chat" element={<CommunicationHubPage />} />
+                    <Route path="communication/ai-sessions" element={<CommunicationHubPage />} />
+                    <Route path="communication/overview" element={<CommunicationHubPage />} />
                     <Route path="whatsapp-crm" element={<WhatsAppCRM />} />
 
 

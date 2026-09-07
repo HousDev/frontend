@@ -139,9 +139,11 @@ const LoginPage: React.FC = () => {
           (window as any).google.accounts.id.renderButton(btnContainer, {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            type: 'standard',
             text: 'continue_with',
             shape: 'rectangular',
+            logo_alignment: 'left',
+            width: 250,
           });
           return;
         } catch (err) {
@@ -149,28 +151,16 @@ const LoginPage: React.FC = () => {
         }
       }
 
-      if (attempts < 20) {
+      if (attempts < 30) {
         timerId = setTimeout(tryRender, 100);
       }
     };
 
-    const SCRIPT_ID = 'google-gsi-client';
-    let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-    if (!script) {
-      script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        setTimeout(tryRender, 50);
-      };
-      document.body.appendChild(script);
-    } else {
-      setTimeout(tryRender, 50);
-    }
+    // Ensure DOM is ready in current paint frame
+    const initTimer = setTimeout(tryRender, 50);
 
     return () => {
+      clearTimeout(initTimer);
       if (timerId) clearTimeout(timerId);
     };
   }, [googleActive, googleClientId, authMode]);
