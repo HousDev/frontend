@@ -19,6 +19,9 @@ import { getTagStyle } from "@/lib/tagStyles";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
+import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
+import { toggleTenantShortlist, getTenantShortlist } from '@/lib/tenantShortlist';
+import { toast } from 'react-toastify';
 
 /* ==============================
    Types
@@ -73,12 +76,12 @@ interface Property {
    Default Images Constants
 ============================== */
 const DEFAULT_IMAGES = {
-  APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
-  HOUSE: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800',
-  VILLA: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
-  PLOT: 'https://images.pexels.com/photos/259588/pexels-photo-259588.jpeg?auto=compress&cs=tinysrgb&w=800',
-  COMMERCIAL: 'https://images.pexels.com/photos/3620416/pexels-photo-3620416.jpeg?auto=compress&cs=tinysrgb&w=800',
-  DEFAULT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
+  APARTMENT: '/property.png',
+  HOUSE: '/property.png',
+  VILLA: '/property.png',
+  PLOT: '/property.png',
+  COMMERCIAL: '/property.png',
+  DEFAULT: '/property.png'
 };
 
 /* ==============================
@@ -405,7 +408,26 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
   const [sortBy, setSortBy] = useState('relevance');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
-  const [likedProperties, setLikedProperties] = useState<string[]>([]);
+  const [likedProperties, setLikedProperties] = useState<string[]>(() => {
+    try {
+      const list = getTenantShortlist();
+      return list.map((p) => String(p.id));
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleShortlist = (e: React.MouseEvent, prop: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const nowShortlisted = toggleTenantShortlist(prop);
+    setLikedProperties((prev) =>
+      nowShortlisted
+        ? [...prev, String(prop.id)]
+        : prev.filter((id) => id !== String(prop.id))
+    );
+    toast.success(nowShortlisted ? "Property shortlisted & saved to your Tenant Account!" : "Removed from shortlist");
+  };
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
   const [showAIRecommendations, setShowAIRecommendations] = useState(true);
@@ -783,27 +805,27 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
           const propertyType = p.property_type_name || p.property_type || '';
 
           // ✅ Create images array with proper fallback
-          let images: string[] = [];
+          let rawPhotos = p.photos ?? p.photoUrls ?? p.images;
+          if (typeof rawPhotos === 'string' && rawPhotos.trim().startsWith('[')) {
+            try {
+              rawPhotos = JSON.parse(rawPhotos);
+            } catch (e) {}
+          }
 
-          // First check p.photos
-          // ✅ FIX:
-          if (Array.isArray(p.photos) && p.photos.length > 0) {
-            images = p.photos
+          let images: string[] = [];
+          if (Array.isArray(rawPhotos) && rawPhotos.length > 0) {
+            images = rawPhotos
               .map((ph: any) => {
                 const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
                 return (url || '').replace(/\\/g, '/');
               })
-              .filter((u: string) => u && !isVideoUrl(u));   // 🔑 video hatao
-          }
-          // Then check p.photoUrls
-          else if (Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-            images = p.photoUrls.filter((u: string) => u && !isVideoUrl(u));
+              .filter((u: string) => u && !isVideoUrl(u));
+          } else if (typeof rawPhotos === 'string' && rawPhotos.trim() && !isVideoUrl(rawPhotos)) {
+            images = [rawPhotos.replace(/\\/g, '/')];
           }
 
-          // If still empty (all were videos, or none existed) → fallback
           if (!images.length) {
-            const defaultImage = getDefaultImageByType(propertyType);
-            images = [defaultImage];
+            images = DEFAULT_PROPERTY_IMAGES;
           }
 
           const isRentProp = Boolean(
@@ -1753,8 +1775,9 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                       {/* Image */}
                       <div className="relative">
                         <img
-                          src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                          src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
                           alt={String(property.title)}
+                          onError={(e) => { e.currentTarget.src = '/property.png'; }}
                           className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
                         />
 
@@ -1771,6 +1794,19 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                         {/* Watermark & views */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
+                        </div>
+                        <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleShortlist(e, property)}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-md transition-all hover:scale-110"
+                            title={likedProperties.includes(property.id.toString()) ? "Remove from shortlist" : "Shortlist Property"}
+                          >
+                            <Heart
+                              size={14}
+                              className={likedProperties.includes(property.id.toString()) ? 'text-rose-500 fill-rose-500' : 'text-gray-600 hover:text-rose-500'}
+                            />
+                          </button>
                         </div>
                         <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
                           <Eye size={10} />
@@ -1997,8 +2033,9 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                         {/* LEFT: Image — narrower on mobile, fixed 380px on desktop */}
                         <div className="w-[140px] min-w-[140px] sm:w-[380px] sm:min-w-[380px] relative overflow-hidden">
                           <img
-                            src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                            src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
                             alt={String(property.title)}
+                            onError={(e) => { e.currentTarget.src = '/property.png'; }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           {(property.tags || []).length > 0 && (
@@ -2134,19 +2171,14 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                               </button>
 
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLikedProperties((prev) =>
-                                    prev.includes(property.id.toString())
-                                      ? prev.filter((id) => id !== property.id.toString())
-                                      : [...prev, property.id.toString()]
-                                  );
-                                }}
-                                className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                                type="button"
+                                onClick={(e) => handleToggleShortlist(e, property)}
+                                className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-gray-200 hover:bg-rose-50 transition"
+                                title={likedProperties.includes(property.id.toString()) ? "Remove from shortlist" : "Shortlist Property"}
                               >
                                 <Heart
-                                  size={11}
-                                  className={likedProperties.includes(property.id.toString()) ? 'text-red-500 fill-current' : 'text-gray-500'}
+                                  size={12}
+                                  className={likedProperties.includes(property.id.toString()) ? 'text-rose-500 fill-rose-500' : 'text-gray-500 hover:text-rose-500'}
                                 />
                               </button>
 

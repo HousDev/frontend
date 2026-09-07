@@ -191,12 +191,12 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
                 >
                   <Menu size={18} />
                 </button>
-               <button
-  onClick={() => window.history.back()}
-  className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors hidden sm:inline-flex"
->
-  <ArrowLeft size={18} />
-</button>
+                <button
+                  onClick={() => window.history.back()}
+                  className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors hidden sm:inline-flex"
+                >
+                  <ArrowLeft size={18} />
+                </button>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: O }}>
                     Welcome, {buyer.salutation} {buyer.name}!
@@ -241,11 +241,10 @@ const BuyerAccountPage = ({ buyer, onBack, onUpdateBuyer }: any) => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-all border-b-2 whitespace-nowrap ${
-                    isActive
+                  className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-all border-b-2 whitespace-nowrap ${isActive
                       ? `border-orange-500 text-orange-600`
                       : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                 >
                   <Icon size={13} />
                   <span>{tab.label}</span>
@@ -396,9 +395,9 @@ const SidebarContent = ({
       : buyer?.requirements || {};
   let unitTypes = toArray(
     reqRaw?.unitTypes ??
-      reqRaw?.unit_types ??
-      reqRaw?.preferred_units ??
-      reqRaw?.bhk,
+    reqRaw?.unit_types ??
+    reqRaw?.preferred_units ??
+    reqRaw?.bhk,
   );
   if (unitTypes.length && unitTypes.every((x) => /^\d+(\s*bhk)?$/i.test(x))) {
     unitTypes = unitTypes.map((x) =>
@@ -472,9 +471,8 @@ const SidebarContent = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all text-left ${
-                isActive ? "shadow-sm" : "hover:bg-gray-50"
-              }`}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all text-left ${isActive ? "shadow-sm" : "hover:bg-gray-50"
+                }`}
               style={
                 isActive ? { background: `${O}10`, color: O } : { color: MU }
               }
@@ -995,7 +993,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
       try {
         const j = JSON.parse(v);
         if (Array.isArray(j)) return j.filter(Boolean).map(String);
-      } catch {}
+      } catch { }
       return v
         .split(/[,\s]+/)
         .map((s) => s.trim())
@@ -1052,7 +1050,7 @@ export const PropertySearchTab: React.FC<PropertySearchTabProps> = ({
         if (first?.url) return absolutize(first.url);
         if (first?.src) return absolutize(first.src);
       }
-    } catch {}
+    } catch { }
     return null;
   };
 

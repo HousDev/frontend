@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { User as UserIcon, Menu, X } from 'lucide-react';
+import { User as UserIcon, Menu, X, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -108,7 +108,11 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     if (role === 'tenant') {
       return `/tenant-dashboard/${tenantId}`;
     }
-    if (role === 'owner' || role === 'broker') {
+    if (role === 'owner') {
+      const ownerId = (user as any)?.owner_id || userId;
+      return `/owner-dashboard/${ownerId}`;
+    }
+    if (role === 'broker') {
       return '/properties';
     }
     return '/dashboard';
@@ -472,7 +476,16 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                           </div>
                         </div>
 
-                        <button className="w-full text-left px-4 py-3 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#E6761D] hover:bg-orange-50">
+                        <Link
+                          to="/my-chats"
+                          onClick={() => setIsUserDropdownOpen(false)}
+                          className="w-full text-left px-4 py-2.5 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#E6761D] hover:bg-orange-50 transition-colors"
+                        >
+                          <MessageSquare size={16} />
+                          <span>My Chats</span>
+                        </Link>
+
+                        <button className="w-full text-left px-4 py-2.5 text-sm flex items-center space-x-3 text-gray-700 hover:text-[#E6761D] hover:bg-orange-50">
                           <span>Upgrade Plan</span>
                         </button>
 

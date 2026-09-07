@@ -2290,19 +2290,19 @@ import {
 import Modal from "@/components/ui/Modal";
 import { masterDataAPI } from "@/lib/mastersAPI";
 import { ImportModal } from "./master/ImportModal";
-import { ConnectedRemarkForm } from "./master/ConnectedRemarkForm";
-import { connectedRemarkAPI } from "@/lib/connectedRemarkAPI";
 import { societyAPI } from "@/lib/societyAPI";
 import { toast, ToastContentProps } from "react-toastify";
 import Swal from "sweetalert2";
 import SocietyForm from "./master/SocietyForm";
 import * as XLSX from 'xlsx';
 import { SocietyImportModal } from "./master/SocietyImportModal";
-import AutomationMasterTab from "./master/AutomationMasterTab";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
 import Pagination from "@/components/ui/Pagination";
+import { MastersAdmin } from "./master/MastersAdmin";
+import { MasterData } from "@/lib/types";
+import { loadMasterData, defaultMasterData } from "@/lib/engine";
 
 const getYouTubeEmbedUrl = (url: string): string | null => {
   const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
@@ -2337,8 +2337,9 @@ interface ItemsByTab {
   seller: MasterItem[];
   lead: MasterItem[];
   common: MasterItem[];
-  connectedRemark: MasterItem[];
   society: MasterItem[];
+  followupRules?: MasterItem[];
+  connectedRemark?: MasterItem[];
   automationMaster?: MasterItem[];
 }
 
@@ -2440,9 +2441,8 @@ export default function MasterDataPage(): JSX.Element {
     { id: "seller", title: "Seller Master" },
     { id: "lead", title: "Lead Master" },
     { id: "common", title: "Common Master" },
-    { id: "connectedRemark", title: "Connected Remark" },
     { id: "society", title: "Society with locality" },
-    { id: "automationMaster", title: "Automation Master" },
+    { id: "followupRules", title: "Follow-up Rules" },
   ]);
 
   const [activeId, setActiveId] = useState<TabId>(() => {
@@ -2459,9 +2459,8 @@ export default function MasterDataPage(): JSX.Element {
     seller: [],
     lead: [],
     common: [],
-    connectedRemark: [],
     society: [],
-    automationMaster: [],
+    followupRules: [],
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -2486,10 +2485,17 @@ export default function MasterDataPage(): JSX.Element {
   const [valueStatus, setValueStatus] = useState<string>("Active");
   const [editingValue, setEditingValue] = useState<Value | null>(null);
 
+  const isFollowupRulesTab = activeId === "followupRules";
   const isConnectedRemarkTab = activeId === "connectedRemark";
   const isSocietyTab = activeId === "society";
   const isAutomationMasterTab = activeId === "automationMaster";
   const [selectedValueIds, setSelectedValueIds] = useState<string[]>([]);
+
+  const [fuMasterData, setFuMasterData] = useState<MasterData>(defaultMasterData);
+
+  const refreshFuMasterData = () => {
+    loadMasterData().then(setFuMasterData).catch(console.error);
+  };
 
   const [connectedRemarks, setConnectedRemarks] = useState<ConnectedRemark[]>([]);
   const [currentConnectedRemark, setCurrentConnectedRemark] = useState<ConnectedRemark | null>(null);
@@ -2618,7 +2624,9 @@ export default function MasterDataPage(): JSX.Element {
   }, [activeId]);
 
   useEffect(() => {
-    if (isConnectedRemarkTab) {
+    if (isFollowupRulesTab) {
+      refreshFuMasterData();
+    } else if (isConnectedRemarkTab) {
       loadConnectedRemarks();
     } else if (isSocietyTab) {
       loadSocieties();
@@ -2836,197 +2844,14 @@ export default function MasterDataPage(): JSX.Element {
     setCurrentSociety(null);
   };
 
-  // Connected Remark Functions
-  const loadConnectedRemarks = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      const data = await connectedRemarkAPI.getAllRemarks();
-      setConnectedRemarks(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Error loading connected remarks:", error);
-      toast.error("Error loading connected remarks ❌");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleConnectedRemarkSubmit = async (formData: ConnectedRemark | any) => {
-    try {
-      if (isEditMode && currentConnectedRemark) {
-        await connectedRemarkAPI.updateRemark(currentConnectedRemark.id, formData);
-        toast.success("Connected remark updated successfully ✏️");
-      } else {
-        await connectedRemarkAPI.createRemark(formData);
-        toast.success("Connected remark added successfully ✅");
-      }
-      await loadConnectedRemarks();
-      resetForm();
-    } catch (error: any) {
-      console.error("Error saving connected remark:", error);
-      const errorMessage = error.response?.data?.error || "Error saving connected remark ❌ Please try again.";
-      toast.error(errorMessage);
-    }
-  };
-
-  const handleEditConnectedRemark = (remark: ConnectedRemark): void => {
-    setCurrentConnectedRemark(remark);
-    setIsEditMode(true);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteConnectedRemark = async (remarkId: string): Promise<void> => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You are about to delete this connected remark. This action cannot be undone!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel",
-      background: "#fff",
-      backdrop: `rgba(0,0,0,0.4)`,
-      width: "400px",
-      padding: "1.5rem",
-      customClass: {
-        popup: "rounded-xl shadow-2xl",
-        title: "text-lg font-bold text-gray-800",
-        htmlContainer: "text-sm text-gray-600 my-2",
-        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
-        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
-        actions: "flex justify-center gap-2 mt-4",
-      },
-      buttonsStyling: false,
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      await connectedRemarkAPI.deleteRemark(remarkId);
-      await loadConnectedRemarks();
-      Swal.fire({
-        title: "Deleted!",
-        text: "Connected remark has been deleted successfully.",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-        width: "350px",
-        padding: "1rem",
-        customClass: {
-          popup: "rounded-xl shadow-2xl",
-          title: "text-base font-bold text-green-600",
-          htmlContainer: "text-xs text-gray-600",
-        },
-      });
-    } catch (error: any) {
-      console.error("Error deleting connected remark:", error);
-      const errorMessage = error.response?.data?.error || "Error deleting connected remark ❌ Please try again.";
-      Swal.fire({
-        title: "Error!",
-        text: errorMessage,
-        icon: "error",
-        confirmButtonColor: "#3085d6",
-        confirmButtonText: "OK",
-        width: "350px",
-        padding: "1rem",
-        customClass: {
-          popup: "rounded-xl shadow-2xl",
-          title: "text-base font-bold text-red-600",
-          htmlContainer: "text-xs text-gray-600",
-          confirmButton: "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
-        },
-        buttonsStyling: false,
-      });
-    }
-  };
-
-  // Toggle select all connected remarks (current page only)
-  const toggleSelectAllRemarks = () => {
-    const pageIds = paginatedConnectedRemarks.map(r => r.id);
-    if (isAllRemarksSelected) {
-      setSelectedRemarkIds(prev => prev.filter(id => !pageIds.includes(id)));
-    } else {
-      setSelectedRemarkIds(prev => Array.from(new Set([...prev, ...pageIds])));
-    }
-  };
-
-  // Toggle single connected remark selection
-  const toggleSelectRemark = (id: string) => {
-    setSelectedRemarkIds(prev => {
-      const next = prev.includes(id) ? prev.filter(rid => rid !== id) : [...prev, id];
-      return next;
-    });
-  };
-
-  // Bulk delete connected remarks
-  const handleBulkDeleteRemarks = async () => {
-    if (selectedRemarkIds.length === 0) return;
-
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: `You are about to delete ${selectedRemarkIds.length} selected connected remarks. This action cannot be undone!`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: `Yes, delete ${selectedRemarkIds.length} remark(s)!`,
-      cancelButtonText: "Cancel",
-      background: "#fff",
-      backdrop: `rgba(0,0,0,0.4)`,
-      width: "400px",
-      padding: "1.5rem",
-      customClass: {
-        popup: "rounded-xl shadow-2xl",
-        title: "text-lg font-bold text-gray-800",
-        htmlContainer: "text-sm text-gray-600 my-2",
-        confirmButton: "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
-        cancelButton: "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
-        actions: "flex justify-center gap-2 mt-4",
-      },
-      buttonsStyling: false,
-    });
-
-    if (!result.isConfirmed) return;
-
-    try {
-      await Promise.all(selectedRemarkIds.map(id => connectedRemarkAPI.deleteRemark(id)));
-      await loadConnectedRemarks();
-      const count = selectedRemarkIds.length;
-      setSelectedRemarkIds([]);
-      Swal.fire({
-        title: "Deleted!",
-        text: `${count} connected remarks have been deleted successfully.`,
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-        width: "350px",
-        padding: "1rem",
-        customClass: {
-          popup: "rounded-xl shadow-2xl",
-          title: "text-base font-bold text-green-600",
-          htmlContainer: "text-xs text-gray-600",
-        },
-      });
-    } catch (error: any) {
-      console.error("Error deleting connected remarks:", error);
-      Swal.fire({
-        title: "Error!",
-        text: error.response?.data?.error || "Error deleting connected remarks ❌",
-        icon: "error",
-        confirmButtonColor: "#3085d6",
-        confirmButtonText: "OK",
-        width: "350px",
-        padding: "1rem",
-        customClass: {
-          popup: "rounded-xl shadow-2xl",
-          title: "text-base font-bold text-red-600",
-          htmlContainer: "text-xs text-gray-600",
-          confirmButton: "px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors",
-        },
-        buttonsStyling: false,
-      });
-    }
-  };
+  // Connected Remark Functions (Removed)
+  const loadConnectedRemarks = async (): Promise<void> => {};
+  const handleConnectedRemarkSubmit = async (_formData: any) => {};
+  const handleEditConnectedRemark = (_remark: any): void => {};
+  const handleDeleteConnectedRemark = async (_remarkId: string): Promise<void> => {};
+  const toggleSelectAllRemarks = () => {};
+  const toggleSelectRemark = (_id: string) => {};
+  const handleBulkDeleteRemarks = async () => {};
 
   // Master Type Functions
   const loadMasterTypes = async (): Promise<void> => {
@@ -3996,7 +3821,7 @@ export default function MasterDataPage(): JSX.Element {
       <main className="p-1 sm:p-2">
         {currentView === "list" ? (
           <>
-            {!isAutomationMasterTab && (
+            {!isAutomationMasterTab && !isFollowupRulesTab && (
               <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
 
                 {/* 🔹 MOBILE: Heading + Create button in same row */}
@@ -4142,6 +3967,8 @@ export default function MasterDataPage(): JSX.Element {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
                 <p className="mt-2 text-gray-500 text-sm">Loading...</p>
               </div>
+            ) : isFollowupRulesTab ? (
+              <MastersAdmin master={fuMasterData} onChanged={refreshFuMasterData} />
             ) : isConnectedRemarkTab ? (
               <div className="bg-white rounded-lg shadow-sm">
                 {/* Bulk Actions Bar */}
@@ -4396,10 +4223,6 @@ export default function MasterDataPage(): JSX.Element {
                     );
                   })()
                 )}
-              </div>
-            ) : isAutomationMasterTab ? (
-              <div className="bg-[#f8fafc] rounded-lg p-2">
-                <AutomationMasterTab />
               </div>
             ) : isSocietyTab ? (
               <div className="bg-white rounded-lg shadow-sm">
@@ -5047,9 +4870,7 @@ export default function MasterDataPage(): JSX.Element {
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 rounded-full bg-[#e67e22]" />
             <h2 className="text-sm font-bold text-white">
-              {isConnectedRemarkTab
-                ? (isEditMode ? "Edit Connected Remark" : "Add Connected Remark")
-                : (isEditMode ? "Edit Master Type" : "Create Master Type")}
+              {isEditMode ? "Edit Master Type" : "Create Master Type"}
             </h2>
           </div>
           <button onClick={resetForm} className="p-1 rounded hover:bg-white/10 transition-colors">
@@ -5057,16 +4878,7 @@ export default function MasterDataPage(): JSX.Element {
           </button>
         </div>
 
-        {isConnectedRemarkTab ? (
-          <div className="px-5 py-4">
-            <ConnectedRemarkForm
-              onClose={resetForm}
-              onSubmit={handleConnectedRemarkSubmit}
-              initialData={isEditMode && currentConnectedRemark ? (currentConnectedRemark as any) : null}
-            />
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
             <div className="space-y-4 px-5 py-4">
               <div>
                 <label className="block mb-1 font-medium text-xs">Name</label>
@@ -5108,7 +4920,6 @@ export default function MasterDataPage(): JSX.Element {
               </div>
             </div>
           </form>
-        )}
       </Modal>
 
       {/* Separate Modal for Society */}

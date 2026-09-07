@@ -200,6 +200,31 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  <Route
+                    path="/owner-dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/owner-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/owners-account/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   
 
                   <Route
@@ -326,6 +351,9 @@ function App() {
 
                     {/* Communication */}
                     <Route path="communication" element={<CommunicationHubPage />} />
+                    <Route path="communication/chat" element={<CommunicationHubPage />} />
+                    <Route path="communication/ai-sessions" element={<CommunicationHubPage />} />
+                    <Route path="communication/overview" element={<CommunicationHubPage />} />
                     <Route path="whatsapp-crm" element={<WhatsAppCRM />} />
 
 

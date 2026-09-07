@@ -22,6 +22,7 @@ import ImportRentalPropertiesModal from '../../components/properties/ImportRenta
 import RentalPropertyViewPage from '../../components/properties/RentalPropertyViewPage';
 import { OwnerViewPage } from '../../components/owners/OwnerViewPage';
 import TenantMatchingModal from '../../components/properties/TenantMatchingModal';
+import BulkTagModal from '@/components/properties/BulkTagModal';
 import propertyTagsAPI from '@/lib/propertyTagsAPI';
 import getTagStyle, { DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import { LucideIcon } from 'lucide-react';
@@ -255,13 +256,12 @@ const ImageWithDebug: React.FC<{
 
   if (!resolved || failed) {
     return (
-      <div
-        className={`bg-gradient-to-br from-[#0f2b3d]/5 to-[#0f2b3d]/10 text-slate-500 font-normal flex flex-col items-center justify-center text-center gap-1 ${className}`}
+      <img
+        src="/property.png"
+        alt={alt || "Property"}
+        className={className}
         style={{ objectFit: fitCover ? 'cover' : undefined }}
-      >
-        <Building className="text-[#e67e22]/70 w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-        <span className="text-[8px] tracking-wider font-semibold uppercase opacity-60">No Image</span>
-      </div>
+      />
     );
   }
 
@@ -1875,76 +1875,13 @@ export function RentalPropertiesPage() {
                           <span className="hidden sm:inline">Mark Private</span>
                         </button>
 
-                        <div className="relative inline-block">
-                          <button
-                            onClick={() => {
-                              setBulkTagsMenuOpen(prev => !prev);
-                              setActiveTagPicker(null);
-                            }}
-                            className="px-2 sm:px-2.5 py-1 bg-gray-800 text-white rounded text-[10px] sm:text-xs hover:bg-gray-900 transition-colors whitespace-nowrap"
-                          >
-                            Tags
-                          </button>
-
-                          {bulkTagsMenuOpen && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-40"
-                                onClick={() => {
-                                  setBulkTagsMenuOpen(false);
-                                  setActiveTagPicker(null);
-                                }}
-                              />
-                              <div className="absolute z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[220px] sm:min-w-[230px] left-0 sm:right-0 sm:left-auto">
-                                <div className="p-2 sm:p-3">
-                                  <div className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">Bulk Tag Operations</div>
-                                  <div className="tag-picker-container">
-                                    <TagPickerRow
-                                      label="Add"
-                                      knownTags={knownTagsAll}
-                                      selectedPropertyIds={selectedProperties}
-                                      propTags={propTags}
-                                      onApply={(tags) => {
-                                        handleBulkAddTags(tags);
-                                        setBulkTagsMenuOpen(false);
-                                        setActiveTagPicker(null);
-                                      }}
-                                      isOpen={activeTagPicker === 'add'}
-                                      onToggle={() => {
-                                        if (activeTagPicker && activeTagPicker !== 'add') {
-                                          setActiveTagPicker('add');
-                                        } else {
-                                          setActiveTagPicker(activeTagPicker === 'add' ? null : 'add');
-                                        }
-                                      }}
-                                      onClose={() => setActiveTagPicker(null)}
-                                    />
-                                    <TagPickerRow
-                                      label="Remove"
-                                      knownTags={knownTagsAll}
-                                      selectedPropertyIds={selectedProperties}
-                                      propTags={propTags}
-                                      onApply={(tags) => {
-                                        handleBulkRemoveTags(tags);
-                                        setBulkTagsMenuOpen(false);
-                                        setActiveTagPicker(null);
-                                      }}
-                                      isOpen={activeTagPicker === 'remove'}
-                                      onToggle={() => {
-                                        if (activeTagPicker && activeTagPicker !== 'remove') {
-                                          setActiveTagPicker('remove');
-                                        } else {
-                                          setActiveTagPicker(activeTagPicker === 'remove' ? null : 'remove');
-                                        }
-                                      }}
-                                      onClose={() => setActiveTagPicker(null)}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setBulkTagsMenuOpen(true)}
+                          className="px-2 sm:px-2.5 py-1 bg-gray-800 text-white rounded text-[10px] sm:text-xs hover:bg-gray-900 transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                        >
+                          <Layers size={12} />
+                          <span>Tags</span>
+                        </button>
                       </>
                     )}
 
@@ -1980,6 +1917,18 @@ export function RentalPropertiesPage() {
               </div>
             </div>
           )}
+
+          {/* Simple & Clean Bulk Tag Modal for Rental */}
+          <BulkTagModal
+            isOpen={bulkTagsMenuOpen}
+            onClose={() => setBulkTagsMenuOpen(false)}
+            selectedPropertyIds={selectedProperties}
+            knownTags={knownTagsAll}
+            propTags={propTags}
+            onAddTags={handleBulkAddTags}
+            onRemoveTags={handleBulkRemoveTags}
+            isLoading={bulkLoading}
+          />
         </div>
 
         {/* Listing cards/grid content container */}

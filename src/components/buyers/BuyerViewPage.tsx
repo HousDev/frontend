@@ -36,8 +36,7 @@ import VisitModal from './VisitModal';
 import PropertyMatchModal from './PropertyMatchModal';
 import PropertySuggestionModal from './PropertySuggestionModal';
 import LoanApplicationModal from './LoanApplicationModal';
-import BuyerFollowupModal from './BuyerFollowupModal';
-import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
+import { FollowUpModal } from '@/pages/settings/master/FollowUpModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 import { toast } from 'react-toastify';
 import DocumentsTab from './buyerviewcomponents/DocumentsTab';
@@ -765,55 +764,34 @@ ResaleExpert Team`;
           onSave={handleSaveActivity}
         />
       )}
-
-      {showFollowupModal && (
-        <SmartFollowupModal
-          open={showFollowupModal}
-          record={{
-            id: buyer?.id ?? buyer?.buyerId ?? '',
-            name: buyer?.name || buyer?.full_name || 'Buyer',
-            entity: 'buyer',
-            isEdit: Boolean(editingFollowup),
-            stage: editingFollowup
-              ? ((editingFollowup as any).currentStageName || (editingFollowup as any)?.current_stage || (editingFollowup as any).buyerLeadStage || (editingFollowup as any)?.buyer_lead_stage || (editingFollowup as any).stage || buyer?.stage || buyer?.buyer_stage || 'Requirement Captured')
-              : (buyer?.stage || buyer?.buyer_stage || 'Requirement Captured'),
-            status: editingFollowup
-              ? ((editingFollowup as any).currentStatusName || (editingFollowup as any)?.current_status || (editingFollowup as any).buyerLeadStatus || (editingFollowup as any)?.buyer_lead_status || (editingFollowup as any).status || buyer?.status || buyer?.buyer_status || 'Qualified')
-              : (buyer?.status || buyer?.buyer_status || 'Qualified'),
-            followup: editingFollowup
-          }}
-          onClose={() => {
-            setShowFollowupModal(false);
-            setEditingFollowup(null);
-          }}
-          onSaved={async (savedData?: any) => {
-            setShowFollowupModal(false);
-            setEditingFollowup(null);
-
-            const newOrUpdated = savedData?.data ?? savedData;
-            let currentFollowups = Array.isArray(buyer?.followups) ? [...buyer.followups] : [];
-            if (editingFollowup) {
-              currentFollowups = currentFollowups.map((f: any) =>
-                (f.id === editingFollowup.id || (newOrUpdated?.id && f.id === newOrUpdated.id)) ? { ...f, ...newOrUpdated } : f
-              );
-            } else if (newOrUpdated && typeof newOrUpdated === 'object') {
-              currentFollowups = [newOrUpdated, ...currentFollowups];
-            }
-
-            const updatedBuyer = {
+      {/* Buyer Follow-up Modal */}
+      <FollowUpModal
+        open={showFollowupModal}
+        mode="add"
+        initialEntityCode="BUYER"
+        initialEntityId={buyer?.id}
+        initialEntityName={buyer?.name}
+        initialEntityPhone={buyer?.phone}
+        initialStageCode={buyer?.stage}
+        initialStatusCode={buyer?.status}
+        initialAssignedTo={buyer?.assigned_executive_name || buyer?.assigned_executive || (buyer as any)?.assigned_to_name || (buyer as any)?.assigned_to}
+        onClose={() => {
+          setShowFollowupModal(false);
+          setEditingFollowup(null);
+        }}
+        onSaved={(newFu) => {
+          toast.success('Follow-up scheduled successfully');
+          setShowFollowupModal(false);
+          setEditingFollowup(null);
+          if (onUpdateBuyer && buyer) {
+            onUpdateBuyer({
               ...buyer,
-              followups: currentFollowups,
-              stage: newOrUpdated?.buyer_lead_stage || newOrUpdated?.buyerLeadStage || newOrUpdated?.current_stage || newOrUpdated?.stage || buyer?.stage,
-              status: newOrUpdated?.buyer_lead_status || newOrUpdated?.buyerLeadStatus || newOrUpdated?.current_status || newOrUpdated?.status || buyer?.status,
-            };
-
-            if (onUpdateBuyer) {
-              await onUpdateBuyer(updatedBuyer);
-            }
-          }}
-        />
-      )}
-
+              lastActivity: new Date().toISOString(),
+              followups: [newFu, ...(buyer.followups || [])]
+            });
+          }
+        }}
+      />
       {showVisitModal && (
         <VisitModal
           isOpen={showVisitModal}

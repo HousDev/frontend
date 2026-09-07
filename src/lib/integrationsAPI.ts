@@ -49,16 +49,20 @@ export const integrationsAPI = {
     await api.delete(`/integrations/${tab}`);
   },
 
-  // Public GET — fetch Google client_id for login/signup
+  // Public GET — fetch Google client_id for login/signup (cached)
   getPublicGoogleConfig: async (): Promise<{ client_id: string; is_active: boolean }> => {
+    if (cachedGoogleConfig) return cachedGoogleConfig;
     try {
       const res = await api.get("/integrations/public/google-config");
-      return unwrap(res);
+      cachedGoogleConfig = unwrap(res);
+      return cachedGoogleConfig || { client_id: "", is_active: false };
     } catch {
       return { client_id: "", is_active: false };
     }
   },
 };
+
+let cachedGoogleConfig: { client_id: string; is_active: boolean } | null = null;
 
 // ─── Backward-compatible named exports (drop-in for old separate API files) ──
 export const smsIntegrationAPI = {

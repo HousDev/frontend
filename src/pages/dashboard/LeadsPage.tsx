@@ -19,6 +19,7 @@ import Pagination from '@/components/ui/Pagination';
 import AddLeadModal from './components/AddLeadModal';
 import ImportLeadsModal from './components/ImportLeadsModal';
 import FilterModal from './components/FilterModal';
+import { FollowUpModal } from '../settings/master/FollowUpModal';
 import { leadsAPI, usersAPI } from '@/lib/api';
 import { notificationAPI } from '@/lib/notificationAPI';
 import { filterLeadsByRole } from '@/utils/roleBasedLeadFilter';
@@ -26,8 +27,6 @@ import { toast } from 'react-toastify';
 import { can } from "@/utils/permission";
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import Swal from 'sweetalert2';
-import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
-import { automationEngineAPI } from '@/lib/automationEngineAPI';
 
 import * as XLSX from 'xlsx';
 import { FaWhatsapp } from 'react-icons/fa6';
@@ -55,6 +54,7 @@ interface Lead {
   city: string;
   location: string;
   status: string;
+  stage?: string;
   created_at: string;
   notes: string;
   assigned_executive?: string;
@@ -131,6 +131,7 @@ const LeadsPage: React.FC = () => {
   });
   const [showLeadFollowupModal, setShowLeadFollowupModal] = useState(false);
   const [selectedLeadForFollowup, setSelectedLeadForFollowup] = useState<Lead | null>(null);
+  const [masterStatuses] = useState<any[]>([]);
 
   // Column-level search filters (inline under table headers)
   const [colSearch, setColSearch] = useState({
@@ -193,27 +194,15 @@ const LeadsPage: React.FC = () => {
     return u ? formatUserName(u) : '';
   };
 
-  // Master Automation Statuses
-  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
-
-  useEffect(() => {
-    automationEngineAPI.getMastersGraph('lead').then((graph) => {
-      if (graph?.statuses && Array.isArray(graph.statuses)) {
-        setMasterStatuses(graph.statuses);
-      }
-    }).catch(() => {});
-  }, []);
-
   // ---------- options ----------
   const statusOptions = useMemo(() => {
     const fromLeads = allLeads.map((l) => (l.status ? l.status : 'new')).filter(Boolean);
-    const fromMaster = masterStatuses.map((s) => s.name).filter(Boolean);
-    const combined = Array.from(new Set([...fromMaster, ...fromLeads]));
+    const combined = Array.from(new Set(fromLeads));
     return [
       { label: 'All', value: 'all' },
       ...combined.map((name) => ({ label: name, value: name.toLowerCase() })),
     ];
-  }, [allLeads, masterStatuses]);
+  }, [allLeads]);
 
   const assignedOptions = useMemo(() => ([
     { label: "All", value: "all" },
@@ -1957,6 +1946,16 @@ const LeadsPage: React.FC = () => {
                           {/* ACTIONS */}
                           <td className="px-2 py-1 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setSelectedLeadForFollowup(lead);
+                                  setShowLeadFollowupModal(true);
+                                }}
+                                className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+                                title="Follow-up"
+                              >
+                                <Calendar size={13} />
+                              </button>
                               {canRead && (
                                 <Link to={`/dashboard/leads/${lead.id}`}>
                                   <button className="p-1 rounded hover:bg-gray-100 transition-colors text-blue-500" title="View">
@@ -2116,33 +2115,27 @@ const LeadsPage: React.FC = () => {
 
 
         {/* Lead Follow-up Modal */}
-        {showLeadFollowupModal && selectedLeadForFollowup && (
-          <SmartFollowupModal
-            open={showLeadFollowupModal}
-            record={{
-              id: selectedLeadForFollowup.id,
-              name: (selectedLeadForFollowup as any).name || (selectedLeadForFollowup as any).lead_name || 'Lead',
-              entity: 'lead',
-              stage: (selectedLeadForFollowup as any).stage || (selectedLeadForFollowup as any).lead_stage || 'Connected',
-              status: (selectedLeadForFollowup as any).status || (selectedLeadForFollowup as any).lead_status || 'Qualified',
-            }}
-            onClose={() => {
-              setShowLeadFollowupModal(false);
-              setSelectedLeadForFollowup(null);
-            }}
-            onSaved={async (payload) => {
-              try {
-                console.log('Smart Follow-up payload:', payload);
-                toast.success('Follow-up saved successfully');
-                await fetchLeads();
-                setShowLeadFollowupModal(false);
-                setSelectedLeadForFollowup(null);
-              } catch (error) {
-                toast.error('Failed to save follow-up');
-              }
-            }}
-          />
-        )}
+        <FollowUpModal
+          open={showLeadFollowupModal}
+          mode="add"
+          initialEntityCode="LEAD"
+          initialEntityId={selectedLeadForFollowup?.lead_number || selectedLeadForFollowup?.id}
+          initialEntityName={selectedLeadForFollowup?.name}
+          initialEntityPhone={selectedLeadForFollowup?.phone}
+          initialStatusCode={selectedLeadForFollowup?.status}
+          initialStageCode={selectedLeadForFollowup?.stage}
+          initialAssignedTo={selectedLeadForFollowup?.assigned_executive_name || selectedLeadForFollowup?.assigned_executive}
+          onClose={() => {
+            setShowLeadFollowupModal(false);
+            setSelectedLeadForFollowup(null);
+          }}
+          onSaved={() => {
+            toast.success('Follow-up scheduled successfully');
+            setShowLeadFollowupModal(false);
+            setSelectedLeadForFollowup(null);
+            fetchLeads();
+          }}
+        />
       </div>
     </>
   );

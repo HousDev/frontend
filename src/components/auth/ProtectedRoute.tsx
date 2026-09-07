@@ -249,8 +249,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
     return <Navigate to={`/seller-dashboard/${targetId}`} replace />;
   }
 
-  // Owner & Broker: redirect to /properties until dedicated dashboard is built
-  if (hasRole("owner") || hasRole("broker")) {
+  // Owner: allow /owner-dashboard, /owner-dashboard/:id and /dashboard/owners-account/:id
+  if (hasRole("owner")) {
+    const targetId = String((user as any)?.owner_id || user?.id || "1");
+    if (path.startsWith("/dashboard/owners-account") || path.startsWith("/owner-dashboard")) {
+      return <>{children}</>;
+    }
+    return <Navigate to={`/owner-dashboard/${targetId}`} replace />;
+  }
+
+  // Broker: redirect to /properties
+  if (hasRole("broker")) {
     if (path === "/properties" || path.startsWith("/properties/")) {
       return <>{children}</>;
     }

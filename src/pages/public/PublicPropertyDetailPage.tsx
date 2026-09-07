@@ -79,10 +79,12 @@ import { getTagStyle, DEFAULT_TAG_STYLE } from "@/lib/tagStyles";
 import propertyTagsAPI, { PropertyTagsRow } from '@/lib/propertyTagsAPI';
 import PropertyDescriptionSmart from './PropertyDescriptionSmart';
 import PublicSimilarProperties from './PublicSimilarProperties';
+import PropertyNeighbourhoodMap from '@/components/properties/PropertyNeighbourhoodMap';
 import { fetchLiveNearbyPlaces, classifyPlaceCategory, NearbyPlaceItem } from '@/lib/nearbyPlacesAPI';
 // NEW
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { openPropertyChat } from '@/services/propertyChatService';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { buyerSavedAPI } from '@/lib/buyerSavedPropertiesAPI';
 import { toast } from 'react-toastify'; // if not already imported
@@ -180,16 +182,6 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
   const location = useLocation();
   const { currentUser, user } = useAuth() as any;
   const { systemSettings } = useSystemSettings();
-
-  // Track Guest Property Views
-  useEffect(() => {
-    if (property?.id) {
-      const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user || currentUser, systemSettings);
-      if (isLocked) {
-        navigate(`/register?redirect=${encodeURIComponent(location.pathname + location.search)}`);
-      }
-    }
-  }, [property?.id, user, currentUser, systemSettings, navigate, location.pathname, location.search]);
 
   const isRental = isRentalProp || Boolean(
     property?.monthly_rent ||
@@ -701,6 +693,43 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
     window.open(`https://wa.me/${cc}${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
+  const handleOpenPropertyChat = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const propertyId = property?.id || property?.raw?.id;
+    if (!propertyId) return;
+
+    const propTitle = property?.title || [property?.unitType, property?.type].filter(Boolean).join(' ') || 'Residential Property';
+    const propSlug = property?.slug || property?.raw?.slug || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '') || '';
+    const propPrice = property?.price || property?.raw?.price || property?.final_price;
+    const propLoc = property?.locationNormalized || property?.location || property?.city || '';
+    const propPhotos = property?.photos || property?.images || property?.mediaItems || [];
+    const execName = property?.executiveTo?.name && property.executiveTo.name !== 'Executive Not Assigned' && property.executiveTo.name !== 'Rohit Sharma'
+      ? property.executiveTo.name
+      : property?.assignedTo?.name || property?.executive_name || 'Property Executive';
+    const execPhone = property?.executiveTo?.phone || property?.assignedTo?.phone || property?.executive_phone || '';
+
+    const isAuthed = Boolean(user || currentUser || localStorage.getItem('token'));
+    if (!isAuthed) {
+      const returnUrl = `/properties/${propSlug}?openChat=true&propertyId=${propertyId}`;
+      navigate(`/register?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    openPropertyChat({
+      propertyId,
+      propertyTitle: propTitle,
+      propertySlug: propSlug,
+      propertyPrice: propPrice,
+      propertyLocation: propLoc,
+      propertyPhotos: Array.isArray(propPhotos) ? propPhotos : [],
+      executiveName: execName,
+      executivePhone: execPhone,
+    });
+  };
+
   // Normalize amenities into array
   const normalizeAmenities = (p: RawProperty): string[] => {
     if (Array.isArray(p?.amenities) && p.amenities.length) return p.amenities.map(String);
@@ -883,6 +912,14 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
       return { url: resolvedUrl, type: m?.type === 'video' ? 'video' : 'image', label: m?.label };
     }).filter((m: any) => m.url);
 
+    if (mediaItems.length === 0) {
+      mediaItems.push(
+        { url: '/property.png', type: 'image', label: 'Property' },
+        { url: '/bedroom.png', type: 'image', label: 'Bedroom' },
+        { url: '/kitchen.png', type: 'image', label: 'Kitchen' },
+        { url: '/gallery.png', type: 'image', label: 'Gallery' }
+      );
+    }
 
     const images: string[] = mediaItems.map((m: any) => m.url); // backward compatible string array
 
@@ -1548,8 +1585,9 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
 
                 return (
                   <img
-                    src={currentUrl}
+                    src={currentUrl || '/property.png'}
                     alt={property?.title || "Property Image"}
+                    onError={(e) => { e.currentTarget.src = '/property.png'; }}
                     onClick={() => { setPhotoGalleryStartIndex(currentImageIndex); setShowPhotoGallery(true); }}
                     className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-[1.02] cursor-pointer"
                   />
@@ -2009,273 +2047,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
 
 
 
-            {/* Dynamic Location & Connectivity (Ultra Modern UI + View More / Show Less Toggle) */}
-            {(() => {
-              const dbPlaces: NearbyPlaceItem[] = Array.isArray(property?.nearby_places)
-                ? (property.nearby_places
-                  .map((p: any) => {
-                    const name = p.name || p.title || p.label || 'Landmark';
-                    const type = p.type || p.category || 'Landmark';
-                    const distNum = parseFloat(String(p.distance || '1.0'));
-                    if (!Number.isFinite(distNum) || distNum > 15.0) return null;
-                    const catResult = classifyPlaceCategory(type, '', '', '', '', name);
-                    return {
-                      name,
-                      category: (p.category && ['education', 'healthcare', 'transit', 'shopping', 'dining'].includes(p.category) ? p.category : catResult.category) as any,
-                      type: catResult.typeName || type,
-                      distance: distNum.toFixed(1),
-                      unit: p.unit || 'km'
-                    };
-                  })
-                  .filter(Boolean) as NearbyPlaceItem[])
-                : [];
-
-              const combinedPlacesMap = new Map<string, NearbyPlaceItem>();
-              dbPlaces.forEach(p => combinedPlacesMap.set(p.name.toLowerCase().trim(), p));
-              livePlaces.forEach(p => {
-                const key = p.name.toLowerCase().trim();
-                if (!combinedPlacesMap.has(key)) {
-                  combinedPlacesMap.set(key, p);
-                }
-              });
-
-              const allMergedPlaces = Array.from(combinedPlacesMap.values());
-
-              const categories = [
-                { id: 'all', label: 'All Places', icon: Compass },
-                { id: 'education', label: 'Education', icon: GraduationCap },
-                { id: 'healthcare', label: 'Healthcare', icon: Stethoscope },
-                { id: 'transit', label: 'Transport', icon: Train },
-                { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
-                { id: 'dining', label: 'Dining & Parks', icon: Utensils },
-              ];
-
-              const filteredPlaces = nearbyCategory === 'all'
-                ? allMergedPlaces
-                : allMergedPlaces.filter(p => p.category === nearbyCategory);
-
-              const visiblePlaces = showAllPlaces ? filteredPlaces : filteredPlaces.slice(0, 6);
-
-              const getCategoryStyle = (category: string) => {
-                switch (category) {
-                  case 'education':
-                    return {
-                      icon: <GraduationCap size={16} className="text-purple-600" />,
-                      bg: 'bg-purple-50/80 border-purple-100',
-                      badge: 'bg-purple-100 text-purple-700',
-                    };
-                  case 'healthcare':
-                    return {
-                      icon: <Stethoscope size={16} className="text-rose-600" />,
-                      bg: 'bg-rose-50/80 border-rose-100',
-                      badge: 'bg-rose-100 text-rose-700',
-                    };
-                  case 'transit':
-                    return {
-                      icon: <Train size={16} className="text-blue-600" />,
-                      bg: 'bg-blue-50/80 border-blue-100',
-                      badge: 'bg-blue-100 text-blue-700',
-                    };
-                  case 'shopping':
-                    return {
-                      icon: <ShoppingBag size={16} className="text-amber-600" />,
-                      bg: 'bg-amber-50/80 border-amber-100',
-                      badge: 'bg-amber-100 text-amber-700',
-                    };
-                  case 'dining':
-                    return {
-                      icon: <Utensils size={16} className="text-emerald-600" />,
-                      bg: 'bg-emerald-50/80 border-emerald-100',
-                      badge: 'bg-emerald-100 text-emerald-700',
-                    };
-                  default:
-                    return {
-                      icon: <MapPin size={16} className="text-slate-600" />,
-                      bg: 'bg-slate-50 border-slate-200',
-                      badge: 'bg-slate-200 text-slate-700',
-                    };
-                }
-              };
-
-              const getDistanceBadge = (distStr: string) => {
-                const d = parseFloat(distStr);
-                if (!Number.isFinite(d)) return <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium">{distStr}</span>;
-                if (d <= 1.0) {
-                  return (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
-                      ⚡ {d} km
-                    </span>
-                  );
-                } else if (d <= 3.0) {
-                  return (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-blue-500/10 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
-                      📍 {d} km
-                    </span>
-                  );
-                } else {
-                  return (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
-                      🚘 {d} km
-                    </span>
-                  );
-                }
-              };
-
-              return (
-                <div className="bg-gradient-to-b from-white to-slate-50/50 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200/80 my-5 backdrop-blur-sm">
-                  {/* Modern Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-[#E6761D]/10 text-[#E6761D]">
-                          <MapPin size={20} />
-                        </div>
-                        <div>
-                          <h2 className="font-extrabold text-[#0b3856] text-base sm:text-xl tracking-tight">
-                            Location &amp; Connectivity
-                          </h2>
-                          <p className="text-xs text-slate-500 font-medium">
-                            {[property.location, property.city].filter(Boolean).join(', ') || 'Explore surrounding hubs, transit & essential landmarks'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {Number.isFinite(property?.lat_display) && Number.isFinite(property?.lng_display) && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${property.lat_display},${property.lng_display}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E6761D] to-[#d66712] text-white hover:shadow-md transition-all duration-300 rounded-xl text-xs font-bold self-start sm:self-auto active:scale-95"
-                      >
-                        <Navigation size={14} />
-                        Get Directions
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Masked Interactive Map */}
-                  <div className="relative rounded-2xl overflow-hidden mb-5 border border-slate-200 shadow-inner group">
-                    <div className="absolute inset-0 z-10 cursor-pointer pointer-events-none" />
-                    {Number.isFinite(property?.lat_display) && Number.isFinite(property?.lng_display) ? (
-                      <iframe
-                        src={getMaskedMapUrl(property.lat_display, property.lng_display)}
-                        width="100%"
-                        height="260"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
-                    ) : (
-                      <div className="h-[180px] bg-slate-100/70 flex flex-col items-center justify-center text-slate-400 gap-2">
-                        <MapPin size={32} className="text-slate-300 animate-bounce" />
-                        <span className="text-xs font-semibold text-slate-500">Location coordinates not specified</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Category Filter Pills Bar */}
-                  <div className="mb-5 overflow-x-auto pb-1.5 scrollbar-none">
-                    <div className="flex items-center gap-2">
-                      {categories.map(cat => {
-                        const Icon = cat.icon;
-                        const isActive = nearbyCategory === cat.id;
-                        const count = cat.id === 'all'
-                          ? allMergedPlaces.length
-                          : allMergedPlaces.filter(p => p.category === cat.id).length;
-
-                        return (
-                          <button
-                            key={cat.id}
-                            onClick={() => {
-                              setNearbyCategory(cat.id);
-                              setShowAllPlaces(false);
-                            }}
-                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 border ${isActive
-                                ? 'bg-[#0b3856] text-white border-[#0b3856] shadow-md shadow-[#0b3856]/20'
-                                : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300'
-                              }`}
-                          >
-                            <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
-                            <span>{cat.label}</span>
-                            {count > 0 && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                                }`}>
-                                {count}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Places Grid */}
-                  {livePlacesLoading && allMergedPlaces.length === 0 ? (
-                    <div className="py-10 text-center bg-white rounded-2xl border border-dashed border-slate-200 shadow-2xs">
-                      <div className="animate-pulse flex flex-col items-center gap-2 text-slate-400">
-                        <Compass size={28} className="animate-spin text-[#E6761D]" />
-                        <span className="text-xs font-semibold text-slate-600">Discovering nearby landmarks &amp; connectivity...</span>
-                      </div>
-                    </div>
-                  ) : filteredPlaces.length > 0 ? (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {visiblePlaces.map((place, idx) => {
-                          const style = getCategoryStyle(place.category);
-                          return (
-                            <div
-                              key={idx}
-                              className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 bg-white hover:border-[#E6761D]/50 hover:shadow-md transition-all duration-300"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className={`p-2.5 rounded-xl border ${style.bg} flex-shrink-0 group-hover:scale-105 transition-transform`}>
-                                  {style.icon}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-xs font-bold text-slate-800 truncate group-hover:text-[#0b3856] transition-colors" title={place.name}>
-                                    {place.name}
-                                  </div>
-                                  <div className="text-[10px] font-medium text-slate-400 truncate capitalize">
-                                    {place.type}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex-shrink-0 ml-2">
-                                {getDistanceBadge(place.distance)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* View More / Show Less Toggle Button */}
-                      {filteredPlaces.length > 6 && (
-                        <div className="mt-5 text-center pt-2">
-                          <button
-                            onClick={() => setShowAllPlaces(prev => !prev)}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-[#0b3856] shadow-2xs hover:shadow-xs transition-all duration-300 active:scale-95"
-                          >
-                            <span>{showAllPlaces ? 'Show Less' : `View More (${filteredPlaces.length - 6} more landmarks)`}</span>
-                            {showAllPlaces ? (
-                              <ChevronUp size={15} className="text-[#E6761D] transition-transform" />
-                            ) : (
-                              <ChevronDown size={15} className="text-[#E6761D] transition-transform" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="py-8 text-center bg-white rounded-2xl border border-dashed border-slate-200">
-                      <MapPin size={26} className="text-slate-300 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-slate-700">No landmarks listed in this category</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Click "Get Directions" above to explore live surroundings on Google Maps</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {/* Modern Neighbourhood Map & Directions Component with 500m privacy offset */}
+            <PropertyNeighbourhoodMap property={property} />
 
             {/* Reviews - Responsive */}
             {/* Reviews - Desktop only (mobile version is below grid) */}
@@ -2420,16 +2193,16 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                       <span className="mt-0.5">WhatsApp</span>
                     </button>
 
-                    {/* Message - Light Purple Background */}
+                    {/* Live Chat - Light Purple Background */}
                     <button
-                      onClick={() => setShowContactForm(true)}
+                      onClick={handleOpenPropertyChat}
                       className="flex flex-col items-center justify-center gap-0 py-1 rounded-md
             bg-purple-50 border border-purple-100
             hover:bg-purple-100 hover:border-purple-200
             transition-all text-[9px] text-gray-500"
                     >
                       <MessageCircle size={11} className="text-purple-600" />
-                      <span className="mt-0.5">Message</span>
+                      <span className="mt-0.5">Live Chat</span>
                     </button>
 
                     {/* Schedule - Light Cyan Background */}
@@ -2464,7 +2237,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-gray-900 text-[12px] truncate leading-tight">
-                        {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : property?.executiveTo?.name || 'Rohit Sharma'}
+                        {displayOrDash(property?.executiveTo?.name) === ' - ' ? ' - ' : (property?.executiveTo?.name && property.executiveTo.name !== 'Rohit Sharma' && property.executiveTo.name !== 'Executive Not Assigned' ? property.executiveTo.name : (property?.assignedTo?.name || 'Property Executive'))}
                       </h3>
                       <p className="text-[10px] text-gray-400">Property Executive</p>
                     </div>
@@ -2548,17 +2321,17 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                       <span>WhatsApp</span>
                     </button>
 
-                    {/* Message */}
+                    {/* Live Chat */}
                     <button
-                      onClick={() => setShowContactForm(true)}
-                      aria-label="Message executiveTo"
+                      onClick={handleOpenPropertyChat}
+                      aria-label="Live Chat with executive"
                       className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg
             bg-gray-50 border border-gray-100
             hover:bg-purple-50 hover:border-purple-100
             active:scale-95 transition-all text-[10px] text-gray-400"
                     >
                       <MessageCircle size={13} className="text-purple-600" aria-hidden="true" />
-                      <span>Message</span>
+                      <span>Live Chat</span>
                     </button>
 
                     {/* Schedule */}

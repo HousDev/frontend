@@ -36,12 +36,14 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Globe,
   Wrench,
   Edit3,
   Target,
   TrendingUp,
   KeyRound,
+  Bot,
 } from "lucide-react";
 import { FaEarthAsia, FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "@/contexts/AuthContext";
@@ -220,7 +222,10 @@ const DashboardLayout = () => {
       navigate(`/buyer-dashboard/${uid}`, { replace: true });
     } else if (role === "seller") {
       navigate(`/seller-dashboard/${uid}`, { replace: true });
-    } else if (role === "owner" || role === "broker") {
+    } else if (role === "owner") {
+      const ownerUid = (user as any)?.owner_id || (user as any)?.id || 1;
+      navigate(`/owner-dashboard/${ownerUid}`, { replace: true });
+    } else if (role === "broker") {
       navigate("/properties", { replace: true });
     }
   }, [user, navigate]);
@@ -634,12 +639,34 @@ const DashboardLayout = () => {
       },
       {
         name: "Communication",
-        href: "/dashboard/communication",
         icon: MessageSquare,
-        exact: true,
         colorClass: navTextClass,
-        type: "single",
+        type: "dropdown",
+        key: "communication",
         required: ["lead.read", "buyer.read", "seller.read"],
+        submenu: [
+          {
+            name: "Overview & Tools",
+            href: "/dashboard/communication/overview",
+            icon: BarChart3,
+            colorClass: navTextClass,
+            required: ["lead.read", "buyer.read", "seller.read"],
+          },
+          {
+            name: "Property Chat",
+            href: "/dashboard/communication/chat",
+            icon: MessageSquare,
+            colorClass: navTextClass,
+            required: ["lead.read", "buyer.read", "seller.read"],
+          },
+          {
+            name: "REX AI Sessions",
+            href: "/dashboard/communication/ai-sessions",
+            icon: Bot,
+            colorClass: navTextClass,
+            required: ["lead.read", "buyer.read", "seller.read"],
+          },
+        ],
       },
       {
         name: "WhatsAppCRM",
@@ -824,6 +851,8 @@ const DashboardLayout = () => {
     "Accounts": { title: "Accounts Management", subtitle: "Track payments and invoices" },
     "Administrator": { title: "Administrator Panel", subtitle: "System administration tools" },
     "Communication": { title: "Communication Center", subtitle: "Manage messages and communications" },
+    "Property Chat": { title: "Property Chat Desk", subtitle: "Real-time client inquiries and property communications" },
+    "Overview & Tools": { title: "Communication Overview & Tools", subtitle: "Manage campaigns, templates, and analytics" },
     "Vendors": { title: "Vendor Management", subtitle: "Manage vendor partnerships" },
     "AI Training": { title: "AI Training Center", subtitle: "Configure and train AI models" },
     "Tools": { title: "Tools & Utilities", subtitle: "Additional tools and features" },
@@ -1194,12 +1223,35 @@ const DashboardLayout = () => {
   const companyLogo = systemSettings?.company_logo;
   const companyName = systemSettings?.company_name;
 
-  // Sidebar Component
-  const SidebarComponent = useMemo(() => {
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("desktop_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDesktopSidebar = useCallback(() => {
+    setDesktopSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("desktop_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Sidebar Component Renderer
+  const renderSidebar = useCallback((isCollapsed = false) => {
     return (
       <div className="flex flex-col h-full bg-[#0e3658]">
-        <div className="flex items-center justify-center h-14 px-4 border-b border-white/10 bg-white">
-          {companyLogo ? (
+        {/* Sidebar Logo Header */}
+        <div className="flex items-center justify-center h-14 px-3 border-b border-white/10 bg-white">
+          {isCollapsed ? (
+            <div className="w-8 h-8 rounded-lg bg-[#0e3658] text-white flex items-center justify-center font-black text-sm shadow-xs">
+              RE
+            </div>
+          ) : companyLogo ? (
             <img
               src={companyLogo}
               alt={`${companyName}`}
@@ -1214,47 +1266,53 @@ const DashboardLayout = () => {
           )}
         </div>
 
-        <div className="px-3 py-3 border-b border-white/10">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-              <Search
+        {/* Search Navigation Bar (visible when expanded) */}
+        {!isCollapsed && (
+          <div className="px-3 py-3 border-b border-white/10">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                <Search
+                  className={cn(
+                    "h-3.5 w-3.5 transition-colors duration-200",
+                    searchFocused ? "text-orange-400" : "text-white/40"
+                  )}
+                />
+              </div>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
                 className={cn(
-                  "h-3.5 w-3.5 transition-colors duration-200",
-                  searchFocused ? "text-orange-400" : "text-white/40"
+                  "block w-full pl-8 pr-8 py-1.5 rounded-lg text-xs",
+                  "bg-white/10 text-white placeholder-white/40",
+                  "border border-white/20 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent",
+                  "transition-all duration-200 hover:bg-white/15"
                 )}
+                aria-label="Search navigation"
               />
-            </div>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onFocus={handleSearchFocus}
-              onBlur={handleSearchBlur}
-              className={cn(
-                "block w-full pl-8 pr-8 py-1.5 rounded-lg text-xs",
-                "bg-white/10 text-white placeholder-white/40",
-                "border border-white/20 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent",
-                "transition-all duration-200 hover:bg-white/15"
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 pr-2.5 flex items-center hover:text-white text-white/60 transition-colors"
+                  type="button"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               )}
-              aria-label="Search navigation"
-            />
-            {searchQuery && (
-              <button
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-2.5 flex items-center hover:text-white text-white/60 transition-colors"
-                type="button"
-                aria-label="Clear search"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         <nav
-          className="flex-1 px-2 py-3 space-y-2.5 overflow-y-auto custom-scrollbar"
+          className={cn(
+            "flex-1 py-3 space-y-2 overflow-y-auto custom-scrollbar",
+            isCollapsed ? "px-2" : "px-2"
+          )}
           role="navigation"
           aria-label="Main sidebar navigation"
         >
@@ -1264,8 +1322,10 @@ const DashboardLayout = () => {
                 <Link
                   to={item.href}
                   onClick={handleSidebarLinkClick}
+                  title={isCollapsed ? item.name : undefined}
                   className={cn(
-                    "group flex items-center px-3 py-3 text-base font-medium rounded-sm transition-all duration-200",
+                    "group flex items-center text-sm font-medium rounded-lg transition-all duration-200",
+                    isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
                     isActive(item.href, item.exact)
                       ? "bg-orange-500 text-white shadow-sm"
                       : "text-white/80 hover:text-white hover:bg-white/10"
@@ -1273,29 +1333,34 @@ const DashboardLayout = () => {
                 >
                   <item.icon
                     className={cn(
-                      "mr-2.5 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                      "h-4 w-4 flex-shrink-0 transition-all duration-200",
+                      isCollapsed ? "" : "mr-2.5",
                       isActive(item.href, item.exact)
                         ? "text-white"
                         : "text-white/60 group-hover:text-orange-400"
                     )}
                   />
-                  <span className="flex-1 text-xs">
-                    {item.name}
-                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 text-xs">
+                        {item.name}
+                      </span>
 
-                  {item.name === 'WhatsAppCRM' && whatsappCount > 0 ? (
-                    <span className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight",
-                      isActive(item.href, item.exact)
-                        ? "bg-white text-orange-500"
-                        : "bg-orange-500 text-white"
-                    )}>
-                      {whatsappCount > 99 ? '99+' : whatsappCount}
-                    </span>
-                  ) : (
-                    isActive(item.href, item.exact) && (
-                      <div className="w-1 h-1 bg-white rounded-full" />
-                    )
+                      {item.name === 'WhatsAppCRM' && whatsappCount > 0 ? (
+                        <span className={cn(
+                          "text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight",
+                          isActive(item.href, item.exact)
+                            ? "bg-white text-orange-500"
+                            : "bg-orange-500 text-white"
+                        )}>
+                          {whatsappCount > 99 ? '99+' : whatsappCount}
+                        </span>
+                      ) : (
+                        isActive(item.href, item.exact) && (
+                          <div className="w-1 h-1 bg-white rounded-full" />
+                        )
+                      )}
+                    </>
                   )}
                 </Link>
               ) : (
@@ -1309,8 +1374,10 @@ const DashboardLayout = () => {
                     aria-expanded={expandedMenus.has(item.key)}
                     aria-controls={`menu-${item.key}`}
                     tabIndex={0}
+                    title={isCollapsed ? item.name : undefined}
                     className={cn(
-                      "group flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                      "group flex items-center w-full text-sm font-medium rounded-lg transition-all duration-200",
+                      isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
                       isParentActive(item.submenu)
                         ? "bg-orange-500 text-white shadow-sm"
                         : "text-white/80 hover:text-white hover:bg-white/10"
@@ -1319,23 +1386,28 @@ const DashboardLayout = () => {
                   >
                     <item.icon
                       className={cn(
-                        "mr-2.5 h-4 w-4 flex-shrink-0 transition-all duration-200",
+                        "h-4 w-4 flex-shrink-0 transition-all duration-200",
+                        isCollapsed ? "" : "mr-2.5",
                         isParentActive(item.submenu)
                           ? "text-white"
                           : "text-white/60 group-hover:text-orange-400"
                       )}
                     />
-                    <span className="flex-1 text-left text-xs">
-                      {item.name}
-                    </span>
-                    {expandedMenus.has(item.key) ? (
-                      <ChevronDown className="h-3 w-3 text-white/60" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 text-white/60" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="flex-1 text-left text-xs">
+                          {item.name}
+                        </span>
+                        {expandedMenus.has(item.key) ? (
+                          <ChevronDown className="h-3 w-3 text-white/60" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-white/60" />
+                        )}
+                      </>
                     )}
                   </button>
 
-                  {expandedMenus.has(item.key) && (
+                  {!isCollapsed && expandedMenus.has(item.key) && (
                     <div
                       id={`menu-${item.key}`}
                       className="ml-5 mt-0.5 space-y-0.5 border-l border-orange-500/30 pl-2"
@@ -1375,7 +1447,7 @@ const DashboardLayout = () => {
             </div>
           ))}
 
-          {searchQuery && filteredNavigation.length === 0 && (
+          {!isCollapsed && searchQuery && filteredNavigation.length === 0 && (
             <div className="text-center py-6">
               <Search className="h-6 w-6 text-white/20 mx-auto mb-2" />
               <p className="text-white/40 text-xs">
@@ -1385,16 +1457,22 @@ const DashboardLayout = () => {
           )}
         </nav>
 
-        <div className="p-3 border-t border-white/10 bg-white">
+        <div className="p-2.5 border-t border-white/10 bg-white">
           <button
             onClick={handleLogout}
-            className="group flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+            title={isCollapsed ? "Sign out" : undefined}
+            className={cn(
+              "group flex items-center w-full text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200",
+              isCollapsed ? "justify-center p-2" : "px-3 py-2"
+            )}
             type="button"
           >
-            <LogOut className="mr-2.5 h-4 w-4 text-red-500 group-hover:text-red-600 transition-colors duration-150" />
-            <span className="flex-1 text-left text-xs font-semibold">
-              Sign out
-            </span>
+            <LogOut className={cn("h-4 w-4 text-red-500 group-hover:text-red-600 transition-colors duration-150", isCollapsed ? "" : "mr-2.5")} />
+            {!isCollapsed && (
+              <span className="flex-1 text-left text-xs font-semibold">
+                Sign out
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -1447,16 +1525,36 @@ const DashboardLayout = () => {
             className="h-full overflow-y-auto rounded-r-xl"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
-            {SidebarComponent}
+            {renderSidebar(false)}
           </div>
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-shrink-0">
-        <div className="flex flex-col w-56 rounded-r-xl shadow-2xl overflow-hidden">
-          {SidebarComponent}
+      {/* Desktop sidebar with toggle button (Screenshot 1 expand / unexpand) */}
+      <aside className="hidden lg:flex lg:flex-shrink-0 relative group/sidebar">
+        <div
+          className={cn(
+            "flex flex-col h-full rounded-r-xl shadow-2xl overflow-hidden transition-all duration-300 relative",
+            desktopSidebarCollapsed ? "w-[72px]" : "w-56"
+          )}
+        >
+          {renderSidebar(desktopSidebarCollapsed)}
         </div>
+
+        {/* Floating Circular Toggle Button on the border edge */}
+        <button
+          type="button"
+          onClick={toggleDesktopSidebar}
+          className="absolute top-5 -right-3.5 z-40 w-7 h-7 bg-[#0e3658] hover:bg-orange-500 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer transition-all duration-200 hover:scale-110 focus:outline-none"
+          title={desktopSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          aria-label={desktopSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {desktopSidebarCollapsed ? (
+            <ChevronRight className="h-4 w-4 text-white" />
+          ) : (
+            <ChevronLeft className="h-4 w-4 text-white" />
+          )}
+        </button>
       </aside>
 
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -1650,8 +1748,8 @@ const DashboardLayout = () => {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto focus:outline-none custom-main-scrollbar">
-          <div className="px-0 py-0 sm:px-0 lg:px-0">
+        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto focus:outline-none custom-main-scrollbar">
+          <div className="flex-1 flex flex-col min-h-0 h-full w-full">
             <Outlet />
           </div>
         </main>

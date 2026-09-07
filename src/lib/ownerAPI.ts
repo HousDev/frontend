@@ -78,6 +78,18 @@ export const ownerAPI = {
     });
     return response.data;
   },
+
+  getCredentials: async (id: string | number) => {
+    if (!id) throw new Error("Owner ID is required");
+    const response = await api.get(`/owners/${id}/credentials`);
+    return response.data;
+  },
+
+  updatePassword: async (id: string | number, newPassword: string) => {
+    if (!id) throw new Error("Owner ID is required");
+    const response = await api.put(`/owners/${id}/password`, { newPassword });
+    return response.data;
+  },
 };
 
 export default ownerAPI;

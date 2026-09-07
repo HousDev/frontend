@@ -20,6 +20,7 @@ import BuyerFormModal from '../../components/buyers/BuyerFormModal';
 import BuyerViewPage from '../../components/buyers/BuyerViewPage';
 import BuyerAccountPage from '../../components/buyers/BuyerAccountPage';
 import ImportBuyersLeadsModal from '../../components/buyers/ImportBuyersLeadsModal';
+import { FollowUpModal } from '../settings/master/FollowUpModal';
 import { buyerAPI } from '@/lib/buyerAPI';
 import BuyerSidebarFilter from './components/BuyerSidebarFilter';
 import { toast } from 'react-toastify';
@@ -29,15 +30,12 @@ import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAssignableExecutives } from '@/utils/roleBasedOptions';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
-import { automationEngineAPI } from '@/lib/automationEngineAPI';
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { can } from '@/utils/permission';
 import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Pagination from '@/components/ui/Pagination';
 import * as XLSX from 'xlsx';
-import BuyerFollowupModal from '@/components/buyers/BuyerFollowupModal';
-import SmartFollowupModal from '@/components/followup/SmartFollowupModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 
 
@@ -161,21 +159,14 @@ const BuyersPage = () => {
     return false;
   };
 
-  const [masterStatuses, setMasterStatuses] = useState<any[]>([]);
-
-  useEffect(() => {
-    automationEngineAPI.getMastersGraph('buyer').then((graph) => {
-      if (graph?.statuses && Array.isArray(graph.statuses)) {
-        setMasterStatuses(graph.statuses);
-      }
-    }).catch(() => {});
-  }, []);
   const canDeleteBuyer = (buyer: UIBuyer) => {
     if (!canDelete) return false;
     if (isAdmin) return true;
     if (isExecutive) return String(buyer.assigned_executive) === String(user?.id);
     return false;
   };
+
+  const [masterStatuses] = useState<any[]>([]);
 
   if (!canRead) {
     return (
@@ -2310,6 +2301,16 @@ const BuyersPage = () => {
                             <td className="px-2 py-1">
                               <div className="flex items-center gap-1">
                                 <button
+                                  onClick={() => {
+                                    setSelectedBuyerForFollowup(buyer);
+                                    setShowBuyerFollowupModal(true);
+                                  }}
+                                  className="p-1 rounded hover:bg-purple-100 transition-colors text-purple-600"
+                                  title="Follow-up"
+                                >
+                                  <Calendar size={13} />
+                                </button>
+                                <button
                                   onClick={() => handleViewBuyer(buyer)}
                                   className="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500"
                                   title="View"
@@ -2482,28 +2483,29 @@ const BuyersPage = () => {
       <BuyerSidebarFilter isOpen={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} resetFilters={resetFilters} sources={sources} stages={stagesFromMasters} priorities={prioritiesFromMasters} budgetRanges={budgetRanges} propertyTypes={propertyTypes} executives={(executives || []).filter(e => e && e.id !== undefined).map(e => ({ id: e.id, name: e.name }))} />
       <BuyerFormModal isOpen={showBuyerForm} onClose={() => { setShowBuyerForm(false); setEditingBuyer(null); }} buyer={editingBuyer} onSave={handleSaveBuyer} />
       <ImportBuyersLeadsModal isOpen={showImportBuyers} onClose={() => setShowImportBuyers(false)} onImportComplete={fetchBuyers} />
+      
       {/* Buyer Follow-up Modal */}
-      {showBuyerFollowupModal && selectedBuyerForFollowup && (
-        <SmartFollowupModal
-          open={showBuyerFollowupModal}
-          record={{
-            id: selectedBuyerForFollowup.id,
-            name: (selectedBuyerForFollowup as any).full_name || (selectedBuyerForFollowup as any).name || 'Buyer',
-            entity: 'buyer',
-            stage: (selectedBuyerForFollowup as any).stage || (selectedBuyerForFollowup as any).buyer_stage || 'Requirement Captured',
-            status: (selectedBuyerForFollowup as any).status || (selectedBuyerForFollowup as any).buyer_status || 'Qualified',
-          }}
-          onClose={() => {
-            setShowBuyerFollowupModal(false);
-            setSelectedBuyerForFollowup(null);
-          }}
-          onSaved={async () => {
-            setShowBuyerFollowupModal(false);
-            setSelectedBuyerForFollowup(null);
-            await fetchBuyers();
-          }}
-        />
-      )}
+      <FollowUpModal
+        open={showBuyerFollowupModal}
+        mode="add"
+        initialEntityCode="BUYER"
+        initialEntityId={selectedBuyerForFollowup?.id}
+        initialEntityName={selectedBuyerForFollowup?.name}
+        initialEntityPhone={selectedBuyerForFollowup?.phone}
+        initialStageCode={selectedBuyerForFollowup?.stage}
+        initialStatusCode={selectedBuyerForFollowup?.status}
+        initialAssignedTo={selectedBuyerForFollowup?.assigned_executive_name || selectedBuyerForFollowup?.assigned_executive || (selectedBuyerForFollowup as any)?.assigned_to_name || (selectedBuyerForFollowup as any)?.assigned_to}
+        onClose={() => {
+          setShowBuyerFollowupModal(false);
+          setSelectedBuyerForFollowup(null);
+        }}
+        onSaved={() => {
+          toast.success('Follow-up scheduled successfully');
+          setShowBuyerFollowupModal(false);
+          setSelectedBuyerForFollowup(null);
+          fetchBuyers();
+        }}
+      />
     </div>
   );
 };

@@ -47,5 +47,72 @@ export const tenantAPI = {
   bulkUpdateStatus: async (ids: (string | number)[], status: string) => {
     return Promise.all(ids.map(id => api.put(`/tenants/updateTenant/${id}`, { status })));
   },
+
+  // Public Tenant Flow
+  sendOtp: async (data: { email: string; name?: string; rental_property_id?: number | string }) => {
+    const response = await api.post("/tenants/public/send-otp", data);
+    return response.data;
+  },
+
+  verifyOtp: async (data: {
+    email: string;
+    otp: string;
+  }) => {
+    const response = await api.post("/tenants/public/verify-otp", data);
+    return response.data;
+  },
+
+  verifyAndRegister: async (data: {
+    email: string;
+    otp?: string;
+    name?: string;
+    phone?: string;
+    whatsapp?: string;
+    tenant_type?: string;
+    move_in_date?: string;
+    preferred_bhk?: string;
+    rental_property_id?: number | string;
+    already_verified?: boolean;
+    schedule_visit?: {
+      visit_date?: string;
+      visit_time?: string;
+      meeting_point?: string;
+      remarks?: string;
+      property_title?: string;
+    };
+  }) => {
+    const response = await api.post("/tenants/public/verify-and-register", data);
+    return response.data;
+  },
+
+  reportIssue: async (data: {
+    property_id: number | string;
+    property_type?: string;
+    reason: string;
+    description?: string;
+    reporter_email?: string;
+    reporter_phone?: string;
+  }) => {
+    const response = await api.post("/tenants/public/report-issue", data);
+    return response.data;
+  },
+
+  updatePassword: async (data: {
+    email?: string;
+    tenant_id?: number | string;
+    new_password: string;
+  }) => {
+    const response = await api.post("/tenants/public/update-password", data);
+    return response.data;
+  },
+
+  // Get owner details for already-authenticated tenant (no OTP needed)
+  getOwnerDetails: async (property_id: number | string, email?: string) => {
+    const response = await api.get(`/tenants/public/owner-details/${property_id}`, {
+      params: email ? { email } : {},
+    });
+    return response.data;
+  },
 };
+
 

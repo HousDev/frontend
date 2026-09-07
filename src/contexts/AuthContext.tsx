@@ -350,6 +350,8 @@ export interface User {
   is_active: boolean;
   buyer_id?: string | number | null;
   seller_id?: string | number | null;
+  owner_id?: string | number | null;
+  tenant_id?: string | number | null;
   created_at?: string;
   last_login?: string;
   dob?: string;
@@ -470,6 +472,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         is_active: Boolean(userData.is_active),
         buyer_id: userData.buyer_id ?? null,
         seller_id: userData.seller_id ?? null,
+        owner_id: userData.owner_id ?? null,
+        tenant_id: userData.tenant_id ?? null,
         created_at: userData.created_at || "",
         last_login: userData.last_login || "",
         dob: userData.dob || "",
@@ -482,7 +486,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  /* ----------------- Initialize auth state from localStorage + optional backend refresh ----------------- */
+  /* ----------------- Initialize auth state from localStorage + backend refresh ----------------- */
+
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+      clearLocalStorage();
+      clearSettings();
+    };
+
+    window.addEventListener("auth_logout", handleAuthLogout);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "token" && !e.newValue) {
+        handleAuthLogout();
+      }
+    });
+
+    return () => {
+      window.removeEventListener("auth_logout", handleAuthLogout);
+    };
+  }, [clearSettings]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -506,7 +529,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             return;
           }
 
-          // 2) Optional: backend se fresh user (agar API available hai)
+          // 2) Backend se fresh user validation
           try {
             const response =
               (authAPI.getCurrentUser && (await authAPI.getCurrentUser())) ||
@@ -521,9 +544,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   JSON.stringify(validatedRemote)
                 );
               }
+            } else {
+              // Remote rejected
+              clearLocalStorage();
+              clearSettings();
+              setUser(null);
             }
-          } catch (e) {
-            console.warn("Optional user refresh failed:", e);
+          } catch (e: any) {
+            console.warn("User validation failed:", e);
+            if (e?.response?.status === 401 || e?.response?.status === 403 || e?.response?.status === 404) {
+              clearLocalStorage();
+              clearSettings();
+              setUser(null);
+            }
           }
         } else {
           // no token or user

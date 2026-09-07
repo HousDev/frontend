@@ -4,9 +4,11 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { tenantAPI } from '@/lib/tenantAPI';
 import TenantAccountPage from './TenantAccountPage';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/contexts/AuthContext';
 
 const StandaloneTenantAccountPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
   const [tenant, setTenant] = useState<any>(null);
@@ -15,18 +17,38 @@ const StandaloneTenantAccountPage: React.FC = () => {
 
   useEffect(() => {
     const fetchTenant = async () => {
-      if (!id) {
-        setLoading(false);
-        setError('No tenant ID provided');
-        return;
-      }
-
+      const targetId = id || (currentUser as any)?.tenant_id || (currentUser as any)?.id || '';
+      
       try {
         setLoading(true);
-        const data = await tenantAPI.getById(id);
-        const normalized = data?.tenant || data?.data || data || null;
-        setTenant(normalized);
-        setError(null);
+        let normalized: any = null;
+
+        if (targetId) {
+          try {
+            const data = await tenantAPI.getById(targetId);
+            normalized = data?.tenant || data?.data || data || null;
+          } catch (e) {
+            console.warn('Direct tenant fetch by id note:', e);
+          }
+        }
+
+        if (!normalized && currentUser?.email) {
+          try {
+            const allRes = await tenantAPI.getAll();
+            const list = Array.isArray(allRes) ? allRes : (allRes?.data || []);
+            normalized = list.find((t: any) => t.email?.toLowerCase() === currentUser.email?.toLowerCase()) || null;
+          } catch (e) {
+            console.warn('Fallback email search note:', e);
+          }
+        }
+
+        if (normalized) {
+          setTenant(normalized);
+          setError(null);
+        } else {
+          setError('No tenant profile found for this account.');
+          setTenant(null);
+        }
       } catch (err) {
         console.error('Error fetching tenant:', err);
         setError('Failed to load tenant account data');
@@ -37,15 +59,17 @@ const StandaloneTenantAccountPage: React.FC = () => {
     };
 
     fetchTenant();
-  }, [id]);
+  }, [id, currentUser]);
 
-  const handleBack = () => navigate('/dashboard/tenants');
+  const handleBack = () => navigate('/properties?transaction=rent&tab=rent');
 
   const handleUpdateTenant = async (updatedTenant: any) => {
     try {
-      if (id) {
-        await tenantAPI.update(id, updatedTenant);
-        setTenant(updatedTenant);
+      const targetId = updatedTenant?.id || id || (currentUser as any)?.tenant_id;
+      if (targetId) {
+        await tenantAPI.update(targetId, updatedTenant);
+        setTenant((prev: any) => ({ ...prev, ...updatedTenant }));
+        toast.success('Tenant preferences updated successfully!');
       }
     } catch (err) {
       toast.error('Failed to update tenant');
@@ -65,23 +89,39 @@ const StandaloneTenantAccountPage: React.FC = () => {
 
   if (error || !tenant) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-50">
-        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-xs border border-gray-200">
-          <div className="text-red-500 mb-3">
-            <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.962-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <div className="text-center max-w-md w-full p-6 sm:p-8 bg-white rounded-2xl shadow-xl border border-gray-100 space-y-4">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200">
+            <ArrowLeft size={28} />
           </div>
-          <h3 className="text-base font-bold text-gray-900 mb-1">Tenant Not Found</h3>
-          <p className="text-xs text-gray-500 mb-4">{error || 'The requested tenant account could not be found.'}</p>
-          <button
-            onClick={handleBack}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white font-bold text-xs rounded-lg hover:bg-orange-600 transition-colors"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Tenants</span>
-          </button>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900">No Tenant Account Found</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              No active tenant profile is linked in the database. Please explore available rental properties or log in with your credentials.
+            </p>
+          </div>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                localStorage.removeItem('verified_tenant');
+                localStorage.removeItem('prompt_tenant_preferences');
+                navigate('/properties?transaction=rent&tab=rent');
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 bg-[#0b3856] hover:bg-[#07263b] text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer"
+            >
+              Browse Rental Homes
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('verified_tenant');
+                localStorage.removeItem('prompt_tenant_preferences');
+                navigate('/login');
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 border border-gray-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-gray-50 transition-all cursor-pointer"
+            >
+              Log In
+            </button>
+          </div>
         </div>
       </div>
     );

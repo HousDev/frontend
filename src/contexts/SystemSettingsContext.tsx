@@ -161,6 +161,8 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({
           company_logo: toAbsolute(response.data.company_logo),
           footer_logo: toAbsolute(response.data.footer_logo),
           company_favicon: toAbsolute(response.data.company_favicon),
+          enable_guest_property_limit: Boolean(response.data.enable_guest_property_limit),
+          enable_inactivity_logout: Boolean(response.data.enable_inactivity_logout),
         };
         setSystemSettings(settings as SystemSettings);
       } else {
