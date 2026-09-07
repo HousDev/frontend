@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   MapPin, Building, User, Check, Loader2, Search, X, ChevronDown,
-  Building2, SlidersHorizontal, CheckSquare, Square, IndianRupee
+  Building2, SlidersHorizontal, CheckSquare, Square, IndianRupee, Navigation, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { tenantAPI } from '@/lib/tenantAPI';
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
+import { fetchReverseGeocode, fetchIpLocation } from '@/utils/deviceInfo';
 
 interface TenantPreferenceSetupModalProps {
   isOpen: boolean;
@@ -106,6 +107,15 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
   const [budgetMin, setBudgetMin] = useState<string>(tenant?.budget_min ? String(tenant.budget_min) : '');
   const [budgetMax, setBudgetMax] = useState<string>(tenant?.budget_max ? String(tenant.budget_max) : '');
 
+  // Geolocation & Detected Locality States
+  const [detectedLocality, setDetectedLocality] = useState<string>(() => {
+    return localStorage.getItem('user_detected_locality') || '';
+  });
+  const [detectedAddress, setDetectedAddress] = useState<string>(() => {
+    return localStorage.getItem('user_detected_location') || '';
+  });
+  const [detectingLoc, setDetectingLoc] = useState<boolean>(false);
+
   const [saving, setSaving] = useState<boolean>(false);
 
   // Fetch Master Data
@@ -145,6 +155,86 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
       fetchMasterData();
     }
   }, [isOpen]);
+
+  // Detect current location if not stored & pre-fill location if tenant has no preferences yet
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const detectLoc = async () => {
+      if (!detectedLocality && !detectedAddress) {
+        setDetectingLoc(true);
+        try {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                try {
+                  const addr = await fetchReverseGeocode(lat, lng);
+                  if (addr) {
+                    setDetectedAddress(addr);
+                    localStorage.setItem('user_detected_location', addr);
+                    const parts = addr.split(',').map((p) => p.trim()).filter(Boolean);
+                    const main = parts[0] || parts[1] || '';
+                    if (main) {
+                      setDetectedLocality(main);
+                      localStorage.setItem('user_detected_locality', main);
+                    }
+                  }
+                } catch (_) {
+                  fallbackIp();
+                } finally {
+                  setDetectingLoc(false);
+                }
+              },
+              () => {
+                fallbackIp();
+              },
+              { enableHighAccuracy: true, timeout: 6000 }
+            );
+          } else {
+            fallbackIp();
+          }
+        } catch (_) {
+          fallbackIp();
+        }
+      }
+    };
+
+    const fallbackIp = async () => {
+      try {
+        const ipRes = await fetchIpLocation();
+        if (ipRes?.address) {
+          setDetectedAddress(ipRes.address);
+          localStorage.setItem('user_detected_location', ipRes.address);
+          const parts = ipRes.address.split(',').map((p) => p.trim()).filter(Boolean);
+          const main = parts[0] || parts[1] || '';
+          if (main) {
+            setDetectedLocality(main);
+            localStorage.setItem('user_detected_locality', main);
+          }
+        }
+      } catch (_) {} finally {
+        setDetectingLoc(false);
+      }
+    };
+
+    detectLoc();
+  }, [isOpen, detectedLocality, detectedAddress]);
+
+  // Pre-fill selected location with detected locality if tenant has none set
+  useEffect(() => {
+    if (selectedLocations.length === 0 && (detectedLocality || detectedAddress)) {
+      const locToUse = detectedLocality || (detectedAddress ? detectedAddress.split(',')[0].trim() : '');
+      if (locToUse) {
+        // Find matching master location or use raw locality
+        const matched = masterLocations.find((loc) =>
+          locToUse.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(locToUse.toLowerCase())
+        );
+        setSelectedLocations([matched || locToUse]);
+      }
+    }
+  }, [detectedLocality, detectedAddress, masterLocations]);
 
   // Click outside listener for all dropdowns
   useEffect(() => {
@@ -368,6 +458,26 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                       </button>
                     )}
                   </div>
+
+                  {detectedLocality && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedLocations.includes(detectedLocality)) {
+                          setSelectedLocations([...selectedLocations, detectedLocality]);
+                        }
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-950 font-bold text-[11px] flex items-center justify-between transition cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Navigation size={12} className="text-orange-600" />
+                        <span>Detected Location: <b>{detectedLocality}</b></span>
+                      </span>
+                      <span className="text-[10px] text-orange-700 font-black">
+                        {selectedLocations.includes(detectedLocality) ? '✓ Selected' : '+ Use This'}
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="max-h-48 overflow-y-auto divide-y divide-gray-50 p-1">

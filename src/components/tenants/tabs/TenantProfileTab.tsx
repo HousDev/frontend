@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Phone,
   Mail,
@@ -16,7 +16,17 @@ import {
   Navigation,
   X,
   Save,
+  Eye,
+  EyeOff,
+  Lock,
+  Copy,
+  CopyCheck,
+  Check,
+  Loader2,
+  Shield,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { tenantAPI } from "@/lib/tenantAPI";
 import { Tenant, MatchedProperty } from "./types";
 
 interface TenantProfileTabProps {
@@ -382,6 +392,66 @@ export default function TenantProfileTab({
     window.location.href = `mailto:${tenant.email}?subject=${subject}&body=${body}`;
   };
 
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [updatingPass, setUpdatingPass] = useState(false);
+  const [copiedUsername, setCopiedUsername] = useState(false);
+
+  const derivedUsername = useMemo(() => {
+    if (tenant.username) return tenant.username;
+    if (!tenant.name) return "tenant";
+    const nameParts = tenant.name.trim().split(/\s+/);
+    const firstName = nameParts[0] || "tenant";
+    const lastName = nameParts.slice(1).join("") || "";
+    if (lastName) {
+      return `${firstName.charAt(0).toLowerCase()}${lastName.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    }
+    return firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  }, [tenant.username, tenant.name]);
+
+  const handleCopyUsername = () => {
+    navigator.clipboard.writeText(derivedUsername);
+    setCopiedUsername(true);
+    toast.success(`Username @${derivedUsername} copied!`);
+    setTimeout(() => setCopiedUsername(false), 2000);
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setUpdatingPass(true);
+    try {
+      const res = await tenantAPI.updatePassword({
+        email: tenant.email,
+        tenant_id: tenant.id,
+        new_password: newPassword,
+      });
+      if (res?.success) {
+        toast.success(res.message || "Password updated successfully!");
+        if (res.username && res.username !== tenant.username) {
+          onUpdate?.({ ...tenant, username: res.username });
+        }
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(res?.message || "Failed to update password");
+      }
+    } catch (err: any) {
+      console.error("Password update error:", err);
+      toast.error(err?.response?.data?.message || "Failed to update password");
+    } finally {
+      setUpdatingPass(false);
+    }
+  };
+
   const handleFieldUpdate = (field: string, value: any) => {
     if (onUpdate) {
       onUpdate({ ...tenant, [field]: value });
@@ -588,6 +658,119 @@ export default function TenantProfileTab({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Account Credentials & Password Update Card */}
+        <div className="border-t border-gray-100 px-3 py-3 space-y-3 bg-slate-50/60">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Key size={14} className="text-orange-500" />
+                <span>Account Credentials & Password</span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Use your login username or email with your password to access your tenant portal anytime.
+              </p>
+            </div>
+          </div>
+
+          {/* Username Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-white border border-orange-200/80 shadow-2xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-md bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs shrink-0">
+                @
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold text-gray-500 block uppercase tracking-wider">
+                  Your Portal Username
+                </span>
+                <span className="font-mono font-bold text-xs text-orange-600 truncate block">
+                  @{derivedUsername}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyUsername}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-[10px] border border-orange-200 transition-colors cursor-pointer"
+            >
+              {copiedUsername ? (
+                <CopyCheck size={12} className="text-emerald-600" />
+              ) : (
+                <Copy size={12} />
+              )}
+              <span>{copiedUsername ? "Copied!" : "Copy Username"}</span>
+            </button>
+          </div>
+
+          {/* Password Update Form */}
+          <form onSubmit={handleUpdatePassword} className="space-y-2.5 bg-white p-3 rounded-lg border border-gray-200">
+            <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+              <Lock size={12} className="text-gray-500" />
+              <span>Update Portal Password</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[9.5px] font-semibold text-gray-600 block mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPass ? "text" : "password"}
+                    required
+                    minLength={6}
+                    placeholder="Min 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-2.5 py-1.5 pr-8 bg-slate-50 border border-gray-200 rounded-lg text-xs font-medium outline-none focus:border-orange-500 focus:bg-white transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    {showPass ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[9.5px] font-semibold text-gray-600 block mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  type={showPass ? "text" : "password"}
+                  required
+                  minLength={6}
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs font-medium outline-none focus:border-orange-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={updatingPass || !newPassword}
+                className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {updatingPass ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={12} />
+                    <span>Set / Update Password</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Action Buttons */}

@@ -17,6 +17,7 @@ export interface Tenant {
   current_address?: string;
   notes?: string;
   status: string;
+  username?: string;
   rental_property_id?: number | string | null;
   property_title?: string;
   owner_name?: string;
