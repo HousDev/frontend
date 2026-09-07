@@ -21,6 +21,7 @@ import getTagStyle, { TagTone } from "@/lib/tagStyles";
 import propertiesAPI from "@/lib/propertiesAPI";
 import viewsAPI from "@/lib/viewAPI";
 import ShareModal from "@/pages/public/ShareModal";
+import { getImageUrl } from "@/lib/helpers";
 
 /* ---------------- Helpers ---------------- */
 
@@ -322,10 +323,11 @@ const MetricChip: React.FC<{
 const PropertyCard: React.FC<{ property: any }> = ({ property }) => {
   // Image
   const imgSrc =
-    property?.photos?.[0] ??
-    property?.images?.[0] ??
-    property?.photoUrls?.[0] ??
-    "https://dummyimage.com/800x450/e5e7eb/9ca3af.png&text=No+Image";
+    getImageUrl(
+      property?.photos?.[0] ??
+      property?.images?.[0] ??
+      property?.photoUrls?.[0]
+    ) || "/property.png";
 
   // Areas
   const carpet_area = Number(
@@ -503,6 +505,7 @@ const PropertyCard: React.FC<{ property: any }> = ({ property }) => {
           <img
             src={imgSrc}
             alt={String(safe(property?.title ?? property?.name ?? "Property"))}
+            onError={(e) => { e.currentTarget.src = '/property.png'; }}
             className="w-full h-full object-cover"
             loading="lazy"
           />

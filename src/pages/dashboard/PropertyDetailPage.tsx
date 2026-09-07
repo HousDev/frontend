@@ -31,6 +31,7 @@ import Button from '@/components/ui/Button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { toast } from '@/hooks/useToast';
 import { leadsAPI } from '@/lib/api';
+import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
 
 interface PropertyDetail {
   id: string;
@@ -257,7 +258,20 @@ const PropertyDetailPage: React.FC = () => {
     );
   }
 
-  const images = property.images ?? [];
+  const rawImg = (property as any)?.photos || (property as any)?.images || (property as any)?.photoUrls;
+  let parsedImages: string[] = [];
+  if (Array.isArray(rawImg) && rawImg.length > 0) {
+    parsedImages = rawImg.map((x: any) => typeof x === 'string' ? x : x?.url).filter(Boolean);
+  } else if (typeof rawImg === 'string' && rawImg.trim()) {
+    try {
+      const parsed = JSON.parse(rawImg);
+      if (Array.isArray(parsed)) parsedImages = parsed;
+      else parsedImages = [rawImg];
+    } catch {
+      parsedImages = [rawImg];
+    }
+  }
+  const images = parsedImages.length > 0 ? parsedImages.map(img => getImageUrl(img)) : DEFAULT_PROPERTY_IMAGES.map(img => getImageUrl(img));
 
   return (
     <div className="p-6 space-y-6">
@@ -308,46 +322,38 @@ const PropertyDetailPage: React.FC = () => {
       {/* Property Images */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="relative h-96">
-          {images.length > 0 ? (
+          <img
+            src={getImageUrl(images[currentImageIndex]) || DEFAULT_PROPERTY_IMAGE}
+            alt={property.title}
+            onError={(e) => { e.currentTarget.src = '/property.png'; }}
+            className="w-full h-full object-cover cursor-pointer"
+          />
+          {images.length > 1 && (
             <>
-              <img
-                src={images[currentImageIndex]}
-                alt={property.title}
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={() => setShowImageGallery(true)}
-              />
-              {images.length > 1 && (
-                <>
+              <button
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {images.map((_, index) => (
                   <button
-                    onClick={prevImage}
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                    {images.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImageIndex(index)}
-                        className={`w-2 h-2 rounded-full ${
-                          index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`w-2 h-2 rounded-full ${
+                      index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
+                    }`}
+                  />
+                ))}
+              </div>
             </>
-          ) : (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-              <Camera className="h-16 w-16 text-gray-400" />
-            </div>
           )}
           <div className="absolute top-4 left-4">
             <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(property.status)}`}>

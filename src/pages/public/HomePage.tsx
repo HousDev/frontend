@@ -28,7 +28,7 @@ import {
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
-import { getImageUrl } from '@/lib/helpers';
+import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
 
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
@@ -94,12 +94,12 @@ const isVideoUrl = (u: string) =>
   /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
 // ✅ Default images by property type
 const DEFAULT_IMAGES = {
-  APARTMENT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
-  HOUSE: 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800',
-  VILLA: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
-  PLOT: 'https://images.pexels.com/photos/259588/pexels-photo-259588.jpeg?auto=compress&cs=tinysrgb&w=800',
-  COMMERCIAL: 'https://images.pexels.com/photos/3620416/pexels-photo-3620416.jpeg?auto=compress&cs=tinysrgb&w=800',
-  DEFAULT: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'
+  APARTMENT: '/property.png',
+  HOUSE: '/property.png',
+  VILLA: '/property.png',
+  PLOT: '/property.png',
+  COMMERCIAL: '/property.png',
+  DEFAULT: '/property.png'
 };
 
 // ✅ Function to get default image based on property type
@@ -121,17 +121,17 @@ const getDefaultImageByType = (propertyType: string): string => {
 const PropertyTags = ({ tags }: { tags: string[] }) => {
   if (!tags || tags.length === 0) return null;
 
-  // ✅ Only show first 2 tags
+  // ✅ Only show first 2 tags in a single line
   const displayTags = tags.slice(0, 2);
 
   return (
-    <div className="flex flex-wrap gap-1.5 mb-3">
+    <div className="flex items-center flex-nowrap gap-1">
       {displayTags.map((tag, index) => {
         const style = getTagStyle(tag);
         const EmojiComponent =
           typeof style.emoji === "string"
             ? () => (
-              <span className="text-xs mr-1 uppercase" aria-hidden="true">
+              <span className="text-[9px] mr-0.5 uppercase" aria-hidden="true">
                 {style.emoji as string}
               </span>
             )
@@ -141,7 +141,7 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
           <span
             key={index}
             className={`
-              inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase 
+              inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase whitespace-nowrap leading-none
               ${style.bg} ${style.text} ring-1 ${style.ring}
               transition-all duration-200
             `}
@@ -150,14 +150,14 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
               (typeof style.emoji === "string" ? (
                 <EmojiComponent />
               ) : (
-                <EmojiComponent size={10} className="mr-1" />
+                <EmojiComponent size={9} className="mr-0.5" />
               ))}
             {tag}
           </span>
         );
       })}
       {tags.length > 2 && (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-black/60 text-white whitespace-nowrap leading-none">
           +{tags.length - 2}
         </span>
       )}
@@ -213,11 +213,25 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const [isValuationOpen, setIsValuationOpen] = useState(false);
 
-  // ✅ NEW: hero state
-  const [heroBlocks, setHeroBlocks] = useState<HeroBlock[]>([]);
+  // ✅ NEW: hero state with instant cache to prevent refresh flashing
+  const [heroBlocks, setHeroBlocks] = useState<HeroBlock[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('cached_hero_blocks');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [heroSlides, setHeroSlides] = useState<
     { url: string; title?: string; description?: string }[]
-  >([]);
+  >(() => {
+    try {
+      const raw = sessionStorage.getItem('cached_hero_slides');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTimerRef = useRef<number | null>(null);
 
@@ -382,22 +396,27 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             const viewData = await fetchPropertyViews(p.id);
             const propertyType = p.property_type_name || p.property_type || '';
 
+            let rawPhotos = p.photos ?? p.photoUrls ?? p.images;
+            if (typeof rawPhotos === 'string' && rawPhotos.trim().startsWith('[')) {
+              try {
+                rawPhotos = JSON.parse(rawPhotos);
+              } catch (e) {}
+            }
+
             let images: string[] = [];
-            if (Array.isArray(p.photos) && p.photos.length > 0) {
-              images = p.photos
+            if (Array.isArray(rawPhotos) && rawPhotos.length > 0) {
+              images = rawPhotos
                 .map((ph: any) => {
                   const url = typeof ph === 'string' ? ph : (ph?.url ?? '');
                   return (url || '').replace(/\\/g, '/');
                 })
                 .filter((u: string) => u && !isVideoUrl(u));
+            } else if (typeof rawPhotos === 'string' && rawPhotos.trim() && !isVideoUrl(rawPhotos)) {
+              images = [rawPhotos.replace(/\\/g, '/')];
             }
-            if (!images.length && Array.isArray(p.photoUrls) && p.photoUrls.length > 0) {
-              images = p.photoUrls
-                .map((u: string) => (u || '').replace(/\\/g, '/'))
-                .filter((u: string) => u && !isVideoUrl(u));
-            }
+
             if (!images.length) {
-              images = [getDefaultImageByType(propertyType)];
+              images = DEFAULT_PROPERTY_IMAGES;
             }
 
             const city = p.city_name || p.city || p.town || p.cityName || '';
@@ -503,11 +522,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           });
         }
         setHeroSlides(slides);
+        try {
+          sessionStorage.setItem('cached_hero_blocks', JSON.stringify(activeBlocks));
+          sessionStorage.setItem('cached_hero_slides', JSON.stringify(slides));
+        } catch {}
         setHeroIndex(0);
       } catch (e) {
         console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
-        setHeroBlocks([]);
-        setHeroSlides([]);
+        if (!sessionStorage.getItem('cached_hero_slides')) {
+          setHeroBlocks([]);
+          setHeroSlides([]);
+        }
       }
     };
     fetchHero();
@@ -1140,140 +1165,150 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               No featured properties found
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
               {featuredProperties.map((property) => {
+                const isRental = Boolean(
+                  property.listing_type === 'rent' ||
+                  property.transaction_type === 'rent' ||
+                  property.monthly_rent ||
+                  property.expected_rent ||
+                  (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
+                  transactionType === 'rent'
+                );
+
+                const propIdDisplay = isRental
+                  ? (property.propertyId ? property.propertyId.replace(/^REX/i, 'RENT-') : `RENT-${property.id ?? ''}`)
+                  : (property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`);
+
+                const displayTitle = [property.type, property.unitType, property.subtype].filter(Boolean).join(' ') || property.title || 'Property';
+
                 const amenities = Array.isArray(property.amenities) ? property.amenities : [];
                 const shownAmenities = amenities.slice(0, 2);
                 const moreCount = Math.max(amenities.length - shownAmenities.length, 0);
 
+                const pricePerSqFt = property.price && (property.square_feet || property.area)
+                  ? Math.round(property.price / (property.square_feet || property.area || 1))
+                  : null;
+
                 return (
-                  <div key={property.id} className="bg-white rounded-2xl shadow-lg overflow-hidden group h-full flex flex-col">
-                    {/* Image */}
-                    <div className="relative">
-                      <div onClick={() => handleNavigateToProperty(property)} className="cursor-pointer relative">
-                        {/* ✅ This will always show an image - either from backend or default */}
+                  <div
+                    key={property.id}
+                    className="bg-white rounded-2xl border border-gray-200/80 hover:border-[#E6761D]/50 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full flex flex-col"
+                  >
+                    {/* Image Section */}
+                    <div className="relative h-44 sm:h-48 bg-slate-100 overflow-hidden">
+                      <div onClick={() => handleNavigateToProperty(property)} className="cursor-pointer h-full w-full relative">
                         <img
-                          src={property.images?.[0] || DEFAULT_IMAGES.DEFAULT}
+                          src={getImageUrl(property.images?.[0]) || DEFAULT_PROPERTY_IMAGE}
                           alt={property.title || 'Property image'}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => { e.currentTarget.src = '/property.png'; }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25 pointer-events-none" />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
+                          <span className="text-white text-xl font-bold opacity-35 select-none tracking-wider">ResaleExpert.in</span>
                         </div>
                       </div>
 
-                      {/* top-left tags + AI */}
-                      <div className="absolute top-3 left-3 flex items-start flex-wrap gap-2 z-20">
-
-                        <div className="max-w-[72vw] sm:max-w-none overflow-hidden">
+                      {/* Top Badges */}
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5 z-20 pointer-events-none">
+                        <div className="flex items-center gap-1 max-w-full overflow-hidden flex-nowrap pointer-events-auto">
                           <PropertyTags tags={property.tags || []} />
+                          {(property.aiScore ?? 0) >= 90 && (
+                            <span className="shrink-0 whitespace-nowrap bg-purple-600/95 text-white px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold flex items-center shadow-sm leading-none">
+                              <Bot size={11} className="mr-1" />
+                              AI {Math.round(property.aiScore ?? 0)}
+                            </span>
+                          )}
                         </div>
-                        {(property.aiScore ?? 0) >= 90 && (
-                          <span className="flex-none whitespace-nowrap bg-purple-600 text-white px-2 py-1 rounded-full text-[8px] sm:text-xs font-bold leading-none flex items-center shadow-sm">
-                            <Bot size={12} className="mr-1" />
-                            AI {Math.round(property.aiScore ?? 0)}
-                          </span>
-                        )}
                       </div>
 
-                      {/* rating/views */}
-                      <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                        <div className="bg-white/90 rounded-full px-2 py-1 flex items-center gap-1">
-                          <Star className="text-yellow-500" size={12} />
-                          <span className="text-xs font-semibold text-gray-900">{(property.rating || 4.5).toFixed(1)}</span>
+                      {/* Bottom Image Stats (Rating & Views) */}
+                      <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between z-20 pointer-events-none">
+                        <div className="bg-black/55 backdrop-blur-sm text-white px-2.5 py-0.5 rounded-full flex items-center gap-1 text-[11px] font-medium">
+                          <Star className="text-yellow-400 fill-yellow-400" size={11} />
+                          <span>{(property.rating || 4.5).toFixed(1)}</span>
                         </div>
-                        <div className="bg-white/90 rounded-full px-2 py-1">
-                          <span className="text-xs font-semibold text-gray-900">
-                            {property.total_views || property.views || 0} views
-                          </span>
+                        <div className="bg-black/55 backdrop-blur-sm text-white/95 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
+                          {property.total_views || property.views || 0} views
                         </div>
                       </div>
                     </div>
 
-                    {/* Body */}
-                    <div className="p-6 flex-1 flex flex-col">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="pr-4">
-                          <div className="text-lg font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
-                            {[property.type, property.unitType, property.subtype].filter(Boolean).join('  ') || ' - '}
-                          </div>
+                    {/* Body Content */}
+                    <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                      <div>
+                        {/* Title & Property ID on right */}
+                        <div className="flex items-start justify-between gap-2">
+                          <h3
+                            onClick={() => handleNavigateToProperty(property)}
+                            className="text-base font-bold text-[#0b3856] group-hover:text-[#E6761D] transition-colors line-clamp-1 cursor-pointer flex-1"
+                            title={displayTitle}
+                          >
+                            {displayTitle}
+                          </h3>
+                          <span className="shrink-0 text-xs font-mono font-semibold text-gray-500 pt-0.5">
+                            {propIdDisplay}
+                          </span>
                         </div>
-                        <div className="text-lg text-gray-500">
-                          {(() => {
-                            const isRental = Boolean(
-                              property.listing_type === 'rent' ||
-                              property.transaction_type === 'rent' ||
-                              property.monthly_rent ||
-                              property.expected_rent ||
-                              (property.listing_type && String(property.listing_type).toLowerCase() === 'rent') ||
-                              transactionType === 'rent'
-                            );
-                            if (isRental) {
-                              if (property.propertyId) {
-                                return property.propertyId.replace(/^REX/i, 'RENT-');
-                              }
-                              return `RENT-${property.id ?? ''}`;
-                            }
-                            return property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`;
-                          })()}
+
+                        {/* Location */}
+                        <div className="flex items-center text-xs text-gray-500 font-medium mt-1 line-clamp-1">
+                          <MapPin size={13} className="text-[#E6761D] shrink-0 mr-1.5" />
+                          <span className="truncate">{property.location || property.city || 'Pune'}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mb-4">
+                      {/* Pricing & Key Specs (Exact requested layout) */}
+                      <div className="flex items-center justify-between py-1.5 border-y border-gray-100">
                         <div>
-                          <div className="text-xl font-bold text-green-600">
+                          <div className="text-lg font-bold text-green-600 leading-tight">
                             {formatCurrency(property.price)}
-                            {Boolean(
-                              property.listing_type === 'rent' ||
-                              property.transaction_type === 'rent' ||
-                              property.monthly_rent ||
-                              transactionType === 'rent'
-                            ) ? '/mo' : ''}
+                            {isRental ? <span className="text-xs font-normal text-gray-500">/mo</span> : ''}
                           </div>
-
-                          <div className="text-sm text-gray-500">
-                            {property.unitType || property.type} • {property.square_feet ?? property.area ?? ' - '} sq ft
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {property.unitType || property.type || 'Residential'} • {property.square_feet ?? property.area ?? ' - '} sq ft
                           </div>
                         </div>
+
                         <div className="text-right">
-                          <div className="text-sm text-gray-500">Price per sq ft</div>
-                          <div className="font-semibold text-gray-900">
-                            ₹{Math.round((property.price || 0) / (property.square_feet || property.area || 1)).toLocaleString()}
+                          <div className="text-xs text-gray-500">Price per sq ft</div>
+                          <div className="font-semibold text-gray-900 text-sm">
+                            {pricePerSqFt ? `₹${pricePerSqFt.toLocaleString()}` : '—'}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center text-gray-600 mb-3">
-                        <MapPin size={16} className="mr-2" />
-                        <span>{property.location || property.city || ' - '}</span>
-                      </div>
+                      {/* Amenities Pills */}
+                      {shownAmenities.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {shownAmenities.map((a, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium truncate max-w-[130px]">
+                              {a}
+                            </span>
+                          ))}
+                          {moreCount > 0 && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                              +{moreCount} more
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-                      {/* Amenities: show 2 + "+N more" */}
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {shownAmenities.map((a, i) => (
-                          <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{a}</span>
-                        ))}
-                        {moreCount > 0 && (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">+{moreCount} more</span>
-                        )}
-                      </div>
-
-                      {/* Actions pinned to bottom */}
-                      <div className="mt-auto flex items-center gap-3">
+                      {/* Action Row */}
+                      <div className="flex items-center gap-2 pt-1 mt-auto">
                         {property.slug ? (
-                          <div className="flex-1">
-                            <button
-                              onClick={() => handleNavigateToProperty(property)}
-                              className="w-full bg-[#E6761D] text-white py-2 rounded-lg hover:bg-[#CC6A1A] transition-colors"
-                            >
-                              View Details
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleNavigateToProperty(property)}
+                            className="flex-1 h-9 bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center"
+                          >
+                            View Details
+                          </button>
                         ) : (
                           <button
                             disabled
-                            className="w-full bg-gray-300 text-gray-600 py-2 rounded-lg cursor-not-allowed"
-                            title="Details not available"
+                            className="flex-1 h-9 bg-gray-200 text-gray-400 text-xs sm:text-sm font-semibold rounded-lg cursor-not-allowed flex items-center justify-center"
                           >
                             View Details
                           </button>
@@ -1282,15 +1317,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                         {/* Call */}
                         <button
                           onClick={(e) => {
-                            e.stopPropagation(); e.preventDefault();
+                            e.stopPropagation();
+                            e.preventDefault();
                             const phone = property.executive?.phone || "919999999999";
                             window.location.href = `tel:${phone}`;
                           }}
-                          className="p-3 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                          className="h-9 w-9 rounded-lg bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-colors flex items-center justify-center shrink-0"
                           title="Call"
                           type="button"
                         >
-                          <Phone size={18} />
+                          <Phone size={15} />
                         </button>
 
                         {/* WhatsApp */}
@@ -1298,62 +1334,24 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-
-                            // Ensure phone number is valid
-                            const phone =
-                              property?.executive?.phone?.replace(/\D/g, "") || "9637009639";
-
-                            // Prepare property title
-                            const title =
-                              property?.title ||
-                              [property?.unitType, property?.type].filter(Boolean).join(" ") ||
-                              "a property";
-
-                            // Prepare location
-                            const loc =
-                              property?.location ||
-                              property?.city ||
-                              "your listed property location";
-
-                            // Format price safely
+                            const phone = property?.executive?.phone?.replace(/\D/g, "") || "9637009639";
+                            const title = displayTitle;
+                            const loc = property?.location || property?.city || "Pune";
                             const priceValue = Number(property?.price || 0);
-                            const priceText = !isNaN(priceValue)
-                              ? `₹${priceValue.toLocaleString("en-IN")}`
-                              : "Price on request";
-
-                            const isRental = Boolean(
-                              property.monthly_rent ||
-                              property.expected_rent ||
-                              property.listing_type === 'rent' ||
-                              property.transaction_type === 'rent' ||
-                              property.propertyId?.startsWith('RENT') ||
-                              String(property.id).startsWith('RENT')
-                            );
+                            const priceText = !isNaN(priceValue) ? `₹${priceValue.toLocaleString("en-IN")}` : "Price on request";
                             const pathPrefix = isRental ? 'rentals' : 'properties';
-                            // Build link to property page
                             const link = property?.slug
-                              ? `${window.location.origin}/${pathPrefix}/${encodeURIComponent(
-                                String(property.slug)
-                              )}`
+                              ? `${window.location.origin}/${pathPrefix}/${encodeURIComponent(String(property.slug))}`
                               : `${window.location.origin}/${pathPrefix}`;
-
-                            // Message for WhatsApp
                             const message = `Hi, I'm interested in ${title} at ${loc}. Price: ${priceText}. Can you share more details?\n${link}`;
-
-                            // Open WhatsApp chat
-                            window.open(
-                              `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
                           }}
-                          className="bg-[#25D366] text-white hover:bg-[#1ebe57] p-3 rounded-lg transition-colors duration-300"
-                          title="Chat on WhatsApp"
+                          className="h-9 w-9 rounded-lg bg-[#25D366] hover:bg-[#1ebe57] text-white transition-colors flex items-center justify-center shrink-0"
+                          title="WhatsApp"
                           type="button"
                         >
-                          <FaWhatsapp size={18} />
+                          <FaWhatsapp size={16} />
                         </button>
-
                       </div>
                     </div>
                   </div>

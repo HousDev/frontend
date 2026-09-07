@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft, Phone, Mail, MapPin, Edit, Eye, User as UserIcon,
   Calendar as CalendarIcon, Star, Building, FileText, Plus, Trash2,
-  Home, Link2, Tag, Flag, Clock
+  Home, Link2, Tag, Flag, Clock, UserCheck, KeyRound
 } from "lucide-react";
 import ownerAPI from "@/lib/ownerAPI";
 import ownerFollowupAPI from "@/lib/ownerFollowupAPI";
 import LinkRentalPropertyModal from "./LinkRentalPropertyModal";
+import OwnerCredentialsModal from "./OwnerCredentialsModal";
 import rentalPropertiesAPI from "@/lib/rentalPropertiesAPI";
 import OwnerFollowupModal from "./OwnerFollowupModal";
 import { toast } from "react-toastify";
@@ -34,6 +35,7 @@ export const OwnerViewPage: React.FC<OwnerViewPageProps> = ({ ownerId, onBack })
   // Modal states
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [selectedFollowup, setSelectedFollowup] = useState<any>(null);
 
   const fetchOwnerDetails = useCallback(async () => {
@@ -156,7 +158,23 @@ export const OwnerViewPage: React.FC<OwnerViewPageProps> = ({ ownerId, onBack })
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowCredentialsModal(true)}
+            className="px-3 py-1.5 text-xs font-bold text-slate-800 bg-amber-400 hover:bg-amber-500 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Owner Login Credentials"
+          >
+            <KeyRound size={14} />
+            <span>Login Credentials</span>
+          </button>
+          <Link
+            to={`/dashboard/owners-account/${owner.id}`}
+            className="px-3 py-1.5 text-xs font-bold text-white bg-[#0b3856] hover:bg-[#07263b] rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+            title="Open Owner Account Portal"
+          >
+            <UserCheck size={14} className="text-amber-400" />
+            <span>Owner Account Portal</span>
+          </Link>
           <span className="px-3 py-1 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg border border-slate-200">
             Stage: {(owner.stage || "").replace("_", " ").toUpperCase()}
           </span>
@@ -463,6 +481,17 @@ export const OwnerViewPage: React.FC<OwnerViewPageProps> = ({ ownerId, onBack })
           ownerId={ownerId}
           onSave={fetchOwnerDetails}
           initialFollowup={selectedFollowup}
+        />
+      )}
+
+      {showCredentialsModal && (
+        <OwnerCredentialsModal
+          isOpen={showCredentialsModal}
+          onClose={() => setShowCredentialsModal(false)}
+          ownerId={ownerId}
+          ownerName={owner?.name}
+          ownerPhone={owner?.phone}
+          ownerEmail={owner?.email}
         />
       )}
     </div>

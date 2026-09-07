@@ -200,6 +200,31 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  <Route
+                    path="/owner-dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/owner-dashboard/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/owners-account/:id"
+                    element={
+                      <ProtectedRoute>
+                        <StandaloneOwnerAccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   
 
                   <Route

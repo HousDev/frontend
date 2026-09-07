@@ -401,21 +401,21 @@ export const PropertyNeighbourhoodMap: React.FC<PropertyNeighbourhoodMapProps> =
       </div>
 
       {/* ── Top Bar: Location Label + Search Form ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5 pt-1">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-5 pt-1">
         {/* Your Location Tag */}
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-800 font-medium bg-orange-50/60 border border-orange-100/90 px-3 py-1.5 rounded-xl">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-800 font-medium bg-orange-50/60 border border-orange-100/90 px-3 py-1.5 rounded-xl max-w-full overflow-hidden">
           <div className="w-6 h-6 rounded-lg bg-orange-500 flex items-center justify-center text-white shrink-0 shadow-xs">
             <MapPin size={13} />
           </div>
-          <span className="text-slate-500 font-normal">Location:</span>
-          <span className="font-bold text-[#0b3856] truncate max-w-xs sm:max-w-md" title={locationLabel}>
+          <span className="text-slate-500 font-normal shrink-0">Location:</span>
+          <span className="font-bold text-[#0b3856] truncate" title={locationLabel}>
             {locationLabel || 'Property Neighbourhood'}
           </span>
         </div>
 
         {/* Search Directions Input */}
-        <form onSubmit={handleGetDirections} className="flex items-center gap-2 w-full lg:w-auto">
-          <div className="relative flex-1 lg:w-80">
+        <form onSubmit={handleGetDirections} className="flex items-center gap-2 w-full xl:w-auto">
+          <div className="relative flex-1 xl:w-80">
             <input
               type="text"
               placeholder="Search landmark or transit..."
@@ -435,7 +435,7 @@ export const PropertyNeighbourhoodMap: React.FC<PropertyNeighbourhoodMapProps> =
           </div>
           <button
             type="submit"
-            className="h-9 px-4 rounded-lg text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] hover:shadow-md transition-all whitespace-nowrap active:scale-95"
+            className="h-9 px-3.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#E6761D] to-[#CC6A1A] hover:shadow-md transition-all whitespace-nowrap active:scale-95 shrink-0"
           >
             Get Directions
           </button>

@@ -676,13 +676,12 @@ const ImageWithDebug: React.FC<{
 
   if (!resolved || failed) {
     return (
-      <div
-        className={`bg-gradient-to-br from-[#0f2b3d]/5 to-[#0f2b3d]/10 text-slate-500 font-normal flex flex-col items-center justify-center text-center gap-1 ${className}`}
+      <img
+        src="/property.png"
+        alt={alt || "Property"}
+        className={className}
         style={{ objectFit: fitCover ? 'cover' : undefined }}
-      >
-        <Building size={20} className="text-[#e67e22]/70 transition-transform duration-300 group-hover:scale-110" />
-        <span className="text-[8px] tracking-wider font-semibold uppercase opacity-60">No Image</span>
-      </div>
+      />
     );
   }
 

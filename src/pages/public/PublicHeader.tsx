@@ -108,7 +108,11 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
     if (role === 'tenant') {
       return `/tenant-dashboard/${tenantId}`;
     }
-    if (role === 'owner' || role === 'broker') {
+    if (role === 'owner') {
+      const ownerId = (user as any)?.owner_id || userId;
+      return `/owner-dashboard/${ownerId}`;
+    }
+    if (role === 'broker') {
       return '/properties';
     }
     return '/dashboard';
