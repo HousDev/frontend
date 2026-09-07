@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import PublicFooter from './PublicFooter';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
+import { fetchReverseGeocode, fetchIpLocation } from '@/utils/deviceInfo';
 
 /* ---------------- Colors ---------------- */
 const colors = {
@@ -74,6 +75,55 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-request location on website open & save for Tenant Preferences
+  useEffect(() => {
+    const detectLocation = async () => {
+      try {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              try {
+                const addr = await fetchReverseGeocode(lat, lng);
+                if (addr) {
+                  localStorage.setItem('user_detected_location', addr);
+                  const parts = addr.split(',').map((p) => p.trim()).filter(Boolean);
+                  const mainLoc = parts[0] || parts[1] || '';
+                  if (mainLoc) localStorage.setItem('user_detected_locality', mainLoc);
+                }
+              } catch (_) {
+                fallbackIp();
+              }
+            },
+            () => {
+              fallbackIp();
+            },
+            { enableHighAccuracy: true, timeout: 8000 }
+          );
+        } else {
+          fallbackIp();
+        }
+      } catch (_) {
+        fallbackIp();
+      }
+    };
+
+    const fallbackIp = async () => {
+      try {
+        const ipRes = await fetchIpLocation();
+        if (ipRes?.address) {
+          localStorage.setItem('user_detected_location', ipRes.address);
+          const parts = ipRes.address.split(',').map((p) => p.trim()).filter(Boolean);
+          const mainLoc = parts[0] || parts[1] || '';
+          if (mainLoc) localStorage.setItem('user_detected_locality', mainLoc);
+        }
+      } catch (_) {}
+    };
+
+    detectLocation();
+  }, []);
 
   /* ------------ Only HOME has scroll-driven transparency ------------ */
   const isHome = location.pathname === '/';
@@ -663,11 +713,6 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
       </main>
 
       <PublicFooter />
-      {/* <PublicSellPropertyForm
-        isOpen={isSellerModalOpen}
-        onClose={() => setIsSellerModalOpen(false)}
-        onSubmit={handleSellerSave}
-      /> */}
     </>
   );
 };

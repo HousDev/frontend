@@ -59,6 +59,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
   const [loading, setLoading] = useState<boolean>(false);
   const [resendTimer, setResendTimer] = useState<number>(0);
   const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
+  const [existingUserDetected, setExistingUserDetected] = useState<boolean>(false);
 
   // Form State
   const [email, setEmail] = useState<string>('');
@@ -149,6 +150,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
       setOwnerData(null);
       setCopiedPhone(false);
       setVisitBookedSuccess(false);
+      setExistingUserDetected(false);
     }
   }, [isOpen, property?.id, currentUser?.role, currentUser?.email, defaultAction]);
 
@@ -233,7 +235,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
     }
   };
 
-  // 1. STEP 1: Send OTP to Email (If email already exists, redirect to login)
+  // 1. STEP 1: Send OTP to Email (If email already exists, show sign in prompt or redirect)
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -242,6 +244,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
     }
 
     setLoading(true);
+    setExistingUserDetected(false);
     try {
       const res = await tenantAPI.sendOtp({
         email: email.trim(),
@@ -250,9 +253,8 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
       });
 
       if (res?.exists) {
-        toast.info(res.message || 'Account already exists for this email. Please login to continue.');
-        onClose();
-        navigate('/login');
+        setExistingUserDetected(true);
+        toast.info(res.message || 'Account already exists for this email. Please sign in to continue.');
         return;
       }
 
@@ -267,9 +269,8 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
     } catch (err: any) {
       console.error('Send OTP error:', err);
       if (err?.response?.data?.exists) {
-        toast.info(err.response.data.message || 'Account already exists for this email. Please login to continue.');
-        onClose();
-        navigate('/login');
+        setExistingUserDetected(true);
+        toast.info(err.response.data.message || 'Account already exists for this email. Please sign in to continue.');
         return;
       }
       toast.error(err?.response?.data?.message || 'Error sending code. Please try again.');
@@ -531,25 +532,84 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#FFCC00] hover:bg-[#F5B800] active:scale-[0.99] text-slate-950 font-black text-xs sm:text-sm shadow-md shadow-amber-400/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Sending Security Code...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Send Verification Code</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+              {/* Existing User Banner if detected */}
+              {existingUserDetected && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-start gap-2.5">
+                    <UserCheck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <h6 className="text-xs font-black text-amber-950">
+                        Account Already Exists!
+                      </h6>
+                      <p className="text-[11px] text-amber-900 mt-0.5 leading-snug">
+                        An account with <span className="font-bold">{email}</span> already exists. Please sign in to view owner contact details instantly.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}&email=${encodeURIComponent(email)}`);
+                        }}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b3856] hover:bg-[#07263b] text-white text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Sign In to Your Account</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons: Send OTP + Sign In Option */}
+              <div className="pt-2 space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3.5 px-4 rounded-xl bg-[#FFCC00] hover:bg-[#F5B800] active:scale-[0.99] text-slate-950 font-black text-xs sm:text-sm shadow-md shadow-amber-400/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending Security Code...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send Verification Code</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}&email=${encodeURIComponent(email)}`);
+                    }}
+                    className="py-3.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                    title="Already have an account? Sign In"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Sign In</span>
+                  </button>
+                </div>
+
+                <div className="text-center">
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Already registered with us?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}&email=${encodeURIComponent(email)}`);
+                      }}
+                      className="text-[#0b3856] hover:text-amber-600 font-black underline cursor-pointer"
+                    >
+                      Sign In here
+                    </button>
+                  </span>
+                </div>
               </div>
 
               <p className="text-[10px] text-slate-400 text-center leading-relaxed">

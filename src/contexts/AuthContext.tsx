@@ -1,3 +1,4 @@
+
 // import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 // import { authAPI } from "@/lib/api";
 // import { useSystemSettings } from "@/contexts/SystemSettingsContext";
@@ -87,7 +88,7 @@
 //   // Enhanced user validation
 //   const validateAndNormalizeUser = (userData: any): User | null => {
 //     if (!userData || typeof userData !== 'object') return null;
-    
+
 //     try {
 //       return {
 //         id: userData.id,
@@ -121,11 +122,11 @@
 //     try {
 //       const token = localStorage.getItem("token");
 //       const storedUser = localStorage.getItem("user");
-      
+
 //       if (token && storedUser) {
 //         const userData = JSON.parse(storedUser);
 //         const validatedUser = validateAndNormalizeUser(userData);
-        
+
 //         if (validatedUser) {
 //           setUser(validatedUser);
 //         } else {
@@ -141,7 +142,7 @@
 //       setLoading(false);
 //     }
 //   };
-  
+
 //   initializeAuth();
 // }, []);
 
@@ -169,15 +170,15 @@
 //   // Enhanced login function
 //   const login = async (credentials: { username: string; password: string }): Promise<User> => {
 //     try {
-      
+
 //       const response = await authAPI.login(credentials);
-      
+
 //       if (!response.success || !response.data) {
 //         throw new Error(response.message || "Login failed");
 //       }
 
 //       const { user: userData, accessToken } = response.data;
-      
+
 
 //       const validatedUser = validateAndNormalizeUser(userData);
 //       if (!validatedUser) {
@@ -188,7 +189,7 @@
 //       localStorage.setItem("user", JSON.stringify(validatedUser));
 //       setUser(validatedUser);
 
-     
+
 
 //       return validatedUser;
 //     } catch (error: any) {
@@ -208,16 +209,16 @@
 //     role?: string;
 //   }): Promise<User> => {
 //     try {
-     
+
 //       const response = await authAPI.register(userData);
-      
+
 //       if (!response.success || !response.data) {
 //         throw new Error(response.message || "Registration failed");
 //       }
 
 //       const { user: newUserData, accessToken } = response.data;
 //       const validatedUser = validateAndNormalizeUser(newUserData);
-      
+
 //       if (!validatedUser) {
 //         throw new Error("Invalid user data received from server");
 //       }
@@ -242,35 +243,35 @@
 //       clearLocalStorage();   // ✅ sab keys ek jagah se clear
 //       clearSettings();       // ✅ SystemSettings context bhi reset
 //       setUser(null);
-     
+
 //     }
 //   };
 
 //   // Enhanced role checker with hierarchy support
 //   const hasRole = (roles: string | string[]): boolean => {
 //     if (!user || !user.role) return false;
-    
+
 //     const userRole = user.role.toLowerCase();
 //     const allowedRoles = Array.isArray(roles)
 //       ? roles.map(r => r.toLowerCase())
 //       : [roles.toLowerCase()];
-    
+
 //     // Check direct role match first
 //     if (allowedRoles.includes(userRole)) return true;
-    
+
 //     // Check role hierarchy (admin can access everything)
 //     if (userRole === 'admin') return true;
-    
+
 //     // Manager can access agent/executive roles
 //     if (userRole === 'manager' && allowedRoles.some(r => ['agent', 'executive'].includes(r))) {
 //       return true;
 //     }
-    
+
 //     // Executive can access agent roles
 //     if (userRole === 'executive' && allowedRoles.includes('agent')) {
 //       return true;
 //     }
-    
+
 //     return false;
 //   };
 
@@ -278,15 +279,15 @@
 //   const updateUser = (updatedUser: Partial<User>): void => {
 //     setUser(prev => {
 //       if (!prev) return prev;
-      
+
 //       const newUser = { ...prev, ...updatedUser };
 //       const validatedUser = validateAndNormalizeUser(newUser);
-      
+
 //       if (validatedUser) {
 //         localStorage.setItem("user", JSON.stringify(validatedUser));
 //         return validatedUser;
 //       }
-      
+
 //       return prev;
 //     });
 //   };
@@ -350,8 +351,6 @@ export interface User {
   is_active: boolean;
   buyer_id?: string | number | null;
   seller_id?: string | number | null;
-  owner_id?: string | number | null;
-  tenant_id?: string | number | null;
   created_at?: string;
   last_login?: string;
   dob?: string;
@@ -406,8 +405,8 @@ const defaultAuthContext: AuthContextType = {
   logout: async () => { localStorage.clear(); window.location.href = "/login"; },
   isAuthenticated: Boolean(localStorage.getItem("token")),
   hasRole: () => true,
-  updateUser: () => {},
-  refreshUser: async () => {},
+  updateUser: () => { },
+  refreshUser: async () => { },
   setAuthSession: () => null,
 };
 
@@ -472,8 +471,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         is_active: Boolean(userData.is_active),
         buyer_id: userData.buyer_id ?? null,
         seller_id: userData.seller_id ?? null,
-        owner_id: userData.owner_id ?? null,
-        tenant_id: userData.tenant_id ?? null,
         created_at: userData.created_at || "",
         last_login: userData.last_login || "",
         dob: userData.dob || "",
@@ -700,9 +697,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return validatedUser;
     } catch (error: any) {
       console.error("❌ [LOGIN] Error:", error);
-     throw new Error(
-  error?.response?.data?.message || error?.message || "Login failed"
-);
+      throw new Error(
+        error?.response?.data?.message || error?.message || "Login failed"
+      );
 
     }
   };
