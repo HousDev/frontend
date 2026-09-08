@@ -2973,7 +2973,6 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
           setEditingFollowup(null);
         }}
         onSaved={() => {
-          toast.success("Follow-up saved successfully");
           setShowFollowupModal(false);
           setEditingFollowup(null);
           if (fetchFollowups) fetchFollowups();

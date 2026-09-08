@@ -2500,7 +2500,6 @@ const BuyersPage = () => {
           setSelectedBuyerForFollowup(null);
         }}
         onSaved={() => {
-          toast.success('Follow-up scheduled successfully');
           setShowBuyerFollowupModal(false);
           setSelectedBuyerForFollowup(null);
           fetchBuyers();

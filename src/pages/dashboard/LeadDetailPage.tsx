@@ -1159,7 +1159,6 @@ const LeadDetailPage: React.FC = () => {
           setEditingFollowup(null);
         }}
         onSaved={() => {
-          toast.success(editingFollowup ? "Follow-up updated successfully" : "Follow-up scheduled successfully");
           setShowFollowUpModal(false);
           setIsFollowupModalOpen(false);
           setEditingFollowup(null);

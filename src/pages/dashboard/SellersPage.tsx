@@ -2694,7 +2694,6 @@ table tbody td {
             setSelectedSellerForFollowup(null);
           }}
           onSaved={() => {
-            toast.success('Follow-up scheduled successfully');
             setShowSellerFollowupModal(false);
             setSelectedSellerForFollowup(null);
             loadSellers();

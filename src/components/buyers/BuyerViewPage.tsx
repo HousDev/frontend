@@ -780,7 +780,6 @@ ResaleExpert Team`;
           setEditingFollowup(null);
         }}
         onSaved={(newFu) => {
-          toast.success('Follow-up scheduled successfully');
           setShowFollowupModal(false);
           setEditingFollowup(null);
           if (onUpdateBuyer && buyer) {
