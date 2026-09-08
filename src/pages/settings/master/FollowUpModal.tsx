@@ -491,8 +491,9 @@ export function FollowUpModal({
 
   const nextStep = useMemo(() => {
     if (!matchedRule) return null;
-    return previewNextStep(matchedRule, master.sequences, currentFollowUp?.attempt_no ?? 1);
-  }, [matchedRule, master.sequences, currentFollowUp]);
+    const lastTime = currentFollowUp?.scheduled_time || (currentFollowUp as any)?.scheduledTime || (currentFollowUp as any)?.time || form.time;
+    return previewNextStep(matchedRule, master.sequences, currentFollowUp?.attempt_no ?? 1, lastTime);
+  }, [matchedRule, master.sequences, currentFollowUp, form.time]);
 
   const isOverridden = Boolean(
     form.overrideStage || form.overrideStatus || form.overrideAction || form.overrideType || form.overridePriority
@@ -804,6 +805,20 @@ export function FollowUpModal({
     setPriorityAutoApplied(false);
   }, [form.entityCode, form.followUpTypeCode, form.nextActionOverride, mode]);
 
+  // Auto-apply stage & status suggestion when user selects an action intent in "What should happen"
+  useEffect(() => {
+    if (mode !== 'add') return;
+    if (!stageSuggestion) return;
+    if (!suggestionApplied && form.nextActionOverride) {
+      setForm((c) => ({
+        ...c,
+        stageCode: stageSuggestion.stageCode,
+        statusCode: stageSuggestion.statusCode,
+      }));
+      setSuggestionApplied(true);
+    }
+  }, [stageSuggestion, form.nextActionOverride, suggestionApplied, mode]);
+
   // Load historical remark suggestions
   useEffect(() => {
     if (mode !== 'add') return;
@@ -892,6 +907,23 @@ export function FollowUpModal({
     }));
   }
 
+  function handleActionIntentClick(actionCode: string) {
+    const newAction = form.nextActionOverride === actionCode ? '' : actionCode;
+    const suggestion = suggestStageStatus(
+      master.rules,
+      master.stages,
+      master.statuses,
+      form.entityCode,
+      form.followUpTypeCode,
+      newAction || undefined
+    );
+    setForm((prev) => ({
+      ...prev,
+      nextActionOverride: newAction,
+      ...(suggestion ? { stageCode: suggestion.stageCode, statusCode: suggestion.statusCode } : {}),
+    }));
+  }
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((c) => ({ ...c, [key]: value }));
   }
@@ -957,7 +989,8 @@ export function FollowUpModal({
   }
 
   function applyPreset(days: number) {
-    setForm((c) => ({ ...c, scheduleDateOverride: localDatePlus(days) }));
+    const targetDate = localDatePlus(days);
+    setForm((c) => ({ ...c, scheduleDateOverride: targetDate, date: targetDate }));
     setActivePreset(days);
   }
 
@@ -1299,12 +1332,19 @@ export function FollowUpModal({
       // mode === 'complete'
       if (!currentFollowUp) throw new Error('The follow-up to complete is unavailable.');
 
+      const isTerminalStep = Boolean(matchedRule?.terminal || nextStep?.isSequenceTerminal || (currentFollowUp.attempt_no >= 3 && matchedRule?.sequence_name === 'NOT_CONNECTED'));
+      const finalStage = form.overrideStage || (isTerminalStep && nextStep?.nextStageCode ? nextStep.nextStageCode : form.stageCode);
+      const finalStatus = form.overrideStatus || (isTerminalStep && nextStep?.nextStatusCode ? nextStep.nextStatusCode : form.statusCode);
+
       // Update follow-up as completed via MySQL engine
       const updatedComplete = await updateFollowUp(currentFollowUp.id, {
         is_complete: true,
         completed_at: new Date().toISOString(),
         outcome_code: form.outcomeCode || null,
         reason_code: form.reasonCode || null,
+        stage_code: finalStage,
+        status_code: finalStatus,
+        terminal: isTerminalStep,
         custom_remark: form.customRemark || null,
         project: form.project || null,
         site_location: form.siteLocation || null,
@@ -1359,6 +1399,7 @@ export function FollowUpModal({
       }
 
       if (matchedRule && form.createNext) {
+        const lastTime = currentFollowUp.scheduled_time || (currentFollowUp as any).scheduledTime || (currentFollowUp as any).time || form.time;
         const nextRecord = buildNextFollowUp(
           matchedRule,
           master.sequences,
@@ -1370,6 +1411,7 @@ export function FollowUpModal({
             siteLocation: form.siteLocation,
             participants: form.participants,
             messageTemplate: form.messageTemplate,
+            lastTime,
           }
         );
         if (nextRecord) {
@@ -1945,7 +1987,8 @@ export function FollowUpModal({
                                   localDatePlus(matchedRule?.default_days ?? 1)
                                 }
                                 onChange={(e) => {
-                                  update('scheduleDateOverride', e.target.value);
+                                  const val = e.target.value;
+                                  setForm((c) => ({ ...c, scheduleDateOverride: val, date: val }));
                                   setActivePreset(null);
                                 }}
                               />
@@ -2276,12 +2319,7 @@ export function FollowUpModal({
                               className={
                                 form.nextActionOverride === action.code ? 'outcome-option selected' : 'outcome-option'
                               }
-                              onClick={() =>
-                                update(
-                                  'nextActionOverride',
-                                  form.nextActionOverride === action.code ? '' : action.code
-                                )
-                              }
+                              onClick={() => handleActionIntentClick(action.code)}
                             >
                               {action.name}
                             </button>
@@ -2542,7 +2580,8 @@ export function FollowUpModal({
                             type="date"
                             value={form.scheduleDateOverride || form.date}
                             onChange={(e) => {
-                              update('scheduleDateOverride', e.target.value);
+                              const val = e.target.value;
+                              setForm((c) => ({ ...c, scheduleDateOverride: val, date: val }));
                               setActivePreset(null);
                             }}
                             required

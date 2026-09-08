@@ -977,6 +977,35 @@ function formatTime(timeOrIso?: string | null): string {
   return `${hours}:${pad(minutes)} ${ampm}`;
 }
 
+function formatDateTime(isoOrDate?: string | null): string {
+  if (!isoOrDate) return "";
+  let d = new Date(isoOrDate);
+  if (isNaN(d.getTime())) {
+    const m = String(isoOrDate).match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (m) {
+      const year = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      const day = Number(m[3]);
+      const hour = m[4] ? Number(m[4]) : 0;
+      const min = m[5] ? Number(m[5]) : 0;
+      d = new Date(year, month, day, hour, min);
+    } else {
+      return String(isoOrDate);
+    }
+  }
+  const dd = pad(d.getDate());
+  const mm = pad(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = pad(d.getMinutes());
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+
+  return `${dd}/${mm}/${yyyy} at ${hours}:${minutes} ${ampm}`;
+}
+
 const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEditFollowup }) => {
   const [followups, setFollowups] = useState<Followup[]>(buyer?.followups ?? []);
   const [loading, setLoading] = useState(false);
@@ -1400,8 +1429,25 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
           const priority = followup.priority || "Medium";
           const createdBy = followup.createdBy || followup.raw?.created_by_name || (followup.raw?.created_by ? `User #${followup.raw.created_by}` : "System");
           const assignedTo = followup.assignedTo || buyer?.assigned_executive_name || buyer?.assigned_to_name || "Unassigned";
-          const schedDateStr = followup.scheduleDate || followup.raw?.schedule_date || followup.date || null;
-          const schedTimeStr = followup.scheduleTime || followup.raw?.schedule_time || followup.time || null;
+          const fAny = followup as any;
+          const schedDateStr =
+            fAny.scheduled_date ||
+            fAny.scheduledDate ||
+            followup.scheduleDate ||
+            fAny.schedule_date ||
+            followup.raw?.scheduled_date ||
+            followup.raw?.schedule_date ||
+            followup.date ||
+            null;
+          const schedTimeStr =
+            fAny.scheduled_time ||
+            fAny.scheduledTime ||
+            followup.scheduleTime ||
+            fAny.schedule_time ||
+            followup.raw?.scheduled_time ||
+            followup.raw?.schedule_time ||
+            followup.time ||
+            null;
           const schedFormatted = schedDateStr ? `${formatDate(schedDateStr)}${schedTimeStr ? ` at ${formatTime(schedTimeStr)}` : ''}` : null;
 
           return (
@@ -1512,8 +1558,8 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                     <span>🎯 Assigned: <strong className="text-gray-700">{assignedTo}</strong></span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-gray-400">
-                    {followup.createdAt && <span>Created: {formatDate(followup.createdAt)}</span>}
-                    {followup.updatedAt && followup.updatedAt !== followup.createdAt && <span>Updated: {formatDate(followup.updatedAt)}</span>}
+                    {followup.createdAt && <span>Created: {formatDateTime(followup.createdAt)}</span>}
+                    {followup.updatedAt && followup.updatedAt !== followup.createdAt && <span>Updated: {formatDateTime(followup.updatedAt)}</span>}
                   </div>
                 </div>
               </div>

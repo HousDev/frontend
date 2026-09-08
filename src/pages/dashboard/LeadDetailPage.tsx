@@ -764,7 +764,7 @@ const LeadDetailPage: React.FC = () => {
 
   const typeIcon = (t: string) => { const found = FOLLOWUP_TYPES.find((ft) => ft.value === t); return found ? found.Icon : MessageSquare; };
   const followupCardClasses = (t: string) => { const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray"; return FOLLOWUP_COLOR_MAP[color] || FOLLOWUP_COLOR_MAP.gray; };
-  const formatDateShort = (iso?: string | null): string => { if (!iso) return "-"; const d = new Date(iso); const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); return `${date} • ${time}`; };
+  const formatDateShort = (iso?: string | null): string => { if (!iso) return "-"; const d = new Date(iso); if (isNaN(d.getTime())) return iso; const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }); return `${date} at ${time}`; };
 
   const tabId = "lead";
   const leadId = id || "";

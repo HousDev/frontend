@@ -393,6 +393,33 @@ export function getSequenceStep(
   const steps = sequences
     .filter((s) => s.sequence_name === sequenceName)
     .sort((a, b) => a.step - b.step);
+
+  if (currentAttempt >= 3) {
+    const termStep = steps.find((s) => s.terminal_step) || steps[steps.length - 1];
+    if (termStep) {
+      return {
+        ...termStep,
+        action_code: 'CLOSE',
+        next_status_code: 'LOST',
+        terminal_step: true,
+      };
+    }
+    return {
+      id: 'term_3_auto_lost',
+      sequence_name: sequenceName,
+      step: 3,
+      after_days: 0,
+      after_hours: 0,
+      action_code: 'CLOSE',
+      follow_up_type_code: 'CALL',
+      priority_code: 'LOW',
+      terminal_step: true,
+      next_status_code: 'LOST',
+      reason_code: null,
+      is_active: true,
+    };
+  }
+
   const nextStepNumber = currentAttempt;
   return steps.find((s) => s.step === nextStepNumber) ?? null;
 }
@@ -622,6 +649,39 @@ export async function loadFollowUps(): Promise<FollowUp[]> {
   }
 }
 
+/**
+ * Smart Time Slot Optimizer:
+ * Alternates follow-up calling windows so customers aren't called at the same unavailable time twice.
+ * - If last call was Morning/Noon (e.g., 10am - 1pm / 12pm), schedule next call in the Evening (05:00 PM / 17:00).
+ * - If last call was Evening (e.g., 2pm - 7pm / 5pm), schedule next call in the Morning/Noon (11:30 AM / 11:30).
+ */
+export function getSmartAlternatingTime(
+  currentAttempt: number,
+  lastTimeOrNow?: string | null,
+  defaultRuleTime?: string | null,
+): string {
+  let hour = 11;
+  if (lastTimeOrNow) {
+    const s = String(lastTimeOrNow).trim();
+    const timeMatch = s.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      hour = Number(timeMatch[1]);
+      if (/pm/i.test(s) && hour < 12) hour += 12;
+      if (/am/i.test(s) && hour === 12) hour = 0;
+    }
+  } else {
+    hour = new Date().getHours();
+  }
+
+  // If called in morning/afternoon (before 2 PM / 14:00, e.g. 11am or 12pm) -> Next attempt schedules for 5:00 PM (17:00)
+  if (hour < 14) {
+    return '17:00'; // 5:00 PM Evening Slot
+  }
+
+  // If called in evening (2 PM / 14:00 or later) -> Next attempt schedules for 11:30 AM
+  return '11:30'; // 11:30 AM Morning Slot
+}
+
 export type NextStepPreview = {
   nextStageCode: string;
   nextStatusCode: string;
@@ -640,13 +700,15 @@ export function previewNextStep(
   rule: Rule,
   sequences: SequenceStep[],
   currentAttempt: number,
+  lastTime?: string | null,
 ): NextStepPreview | null {
   if (rule.terminal && !rule.require_follow_up && !rule.sequence_name) {
     return null;
   }
 
+  const smartTime = getSmartAlternatingTime(currentAttempt, lastTime, rule.default_time);
   let scheduledDate: string;
-  let scheduledTime: string;
+  let scheduledTime: string = smartTime;
   let nextTypeCode = rule.next_follow_up_type_code ?? rule.follow_up_type_code;
   let nextActionCode = rule.next_action_code;
   let nextStatusCode = rule.next_status_code;
@@ -654,29 +716,38 @@ export function previewNextStep(
   let nextAttempt = 1;
   let isSequenceTerminal = false;
 
+  let nextStageCode = rule.next_stage_code;
+
   if (rule.sequence_name) {
     const step = getSequenceStep(sequences, rule.sequence_name, currentAttempt);
     if (step) {
-      const sched = computeNextSchedule(new Date(), step.after_days, step.after_hours, '11:00');
+      const sched = computeNextSchedule(new Date(), step.after_days, step.after_hours, smartTime);
       scheduledDate = sched.date;
-      scheduledTime = sched.time;
+      scheduledTime = smartTime;
       nextTypeCode = step.follow_up_type_code;
       nextActionCode = step.action_code;
       priorityCode = step.priority_code;
       nextAttempt = currentAttempt + 1;
       if (step.next_status_code) nextStatusCode = step.next_status_code;
       isSequenceTerminal = step.terminal_step;
+
+      if (currentAttempt >= 3 || step.terminal_step) {
+        nextStatusCode = 'LOST';
+        nextStageCode = 'LOST';
+        nextActionCode = 'CLOSE';
+        isSequenceTerminal = true;
+      }
     } else {
       return null;
     }
   } else {
-    const sched = computeNextSchedule(new Date(), rule.default_days, 0, rule.default_time);
+    const sched = computeNextSchedule(new Date(), rule.default_days, 0, smartTime);
     scheduledDate = sched.date;
-    scheduledTime = sched.time;
+    scheduledTime = smartTime;
   }
 
   return {
-    nextStageCode: rule.next_stage_code,
+    nextStageCode,
     nextStatusCode,
     nextActionCode: nextActionCode,
     nextFollowUpTypeCode: nextTypeCode,
@@ -685,7 +756,7 @@ export function previewNextStep(
     scheduledTime,
     nextAttempt,
     sequenceName: rule.sequence_name,
-    terminal: rule.terminal,
+    terminal: rule.terminal || isSequenceTerminal,
     isSequenceTerminal,
   };
 }
@@ -696,9 +767,9 @@ export function buildNextFollowUp(
   currentAttempt: number,
   entityRef: string | null,
   customRemark: string | null,
-  extra: { project?: string; siteLocation?: string; participants?: string; messageTemplate?: string } = {},
+  extra: { project?: string; siteLocation?: string; participants?: string; messageTemplate?: string; lastTime?: string | null } = {},
 ): NewFollowUp | null {
-  const preview = previewNextStep(rule, sequences, currentAttempt);
+  const preview = previewNextStep(rule, sequences, currentAttempt, extra.lastTime);
   if (!preview) return null;
 
   if (preview.isSequenceTerminal) {
@@ -766,6 +837,94 @@ export function suggestStageStatus(
   followUpTypeCode: string,
   actionCode?: string,
 ): StageStatusSuggestion | null {
+  const activeStages = new Set(
+    stages.filter((s) => s.entity_code === entityCode && s.is_active).map((s) => s.code)
+  );
+  const activeStatuses = new Set(
+    statuses.filter((s) => s.entity_code === entityCode && s.is_active).map((s) => s.code)
+  );
+
+  // 1. Explicit Action Intent Overrides
+  if (actionCode === 'CLOSE') {
+    const closedStage =
+      stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'CLOSED' || s.code === 'CLOSE')) ||
+      stages.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST');
+    const closedStatus =
+      statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'CLOSED' || s.code === 'CLOSE')) ||
+      statuses.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST');
+
+    if (closedStage && closedStatus) {
+      return {
+        stageCode: closedStage.code,
+        statusCode: closedStatus.code,
+        source: 'rule',
+        ruleId: 'CLOSE_INTENT',
+        confidence: 'high',
+        reason: `Close Lead action automatically sets Stage to Closed and Status to Closed on ${entityCode}`,
+      };
+    }
+  }
+
+  if (actionCode === 'NOT_INTERESTED' || actionCode === 'DROP') {
+    const lostStage = stages.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST') || stages.find((s) => s.is_terminal);
+    const lostStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'NOT_INTERESTED' || s.code === 'LOST')) || statuses.find((s) => s.code === 'LOST');
+    if (lostStage && lostStatus) {
+      return {
+        stageCode: lostStage.code,
+        statusCode: lostStatus.code,
+        source: 'rule',
+        ruleId: 'NOT_INTERESTED_INTENT',
+        confidence: 'high',
+        reason: `Not Interested action automatically sets Stage to Lost and Status to Not Interested on ${entityCode}`,
+      };
+    }
+  }
+
+  if (actionCode === 'SCHEDULE_SITE_VISIT' || actionCode === 'SCHEDULE_SECOND_VISIT' || actionCode === 'SITE_VISIT') {
+    const visitStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SITE_VISIT' || s.code === 'VISIT' || s.code === 'QUALIFIED'));
+    const visitStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SCHEDULED' || s.code === 'IN_PROGRESS' || s.code === 'HOT'));
+    if (visitStage && visitStatus) {
+      return {
+        stageCode: visitStage.code,
+        statusCode: visitStatus.code,
+        source: 'rule',
+        ruleId: 'SITE_VISIT_INTENT',
+        confidence: 'high',
+        reason: `Schedule Site Visit action automatically sets Stage to ${visitStage.name} and Status to ${visitStatus.name}`,
+      };
+    }
+  }
+
+  if (actionCode === 'OFFICE_MEETING' || actionCode === 'MEETING') {
+    const meetStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'MEETING' || s.code === 'QUALIFIED' || s.code === 'NEGOTIATION'));
+    const meetStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SCHEDULED' || s.code === 'IN_PROGRESS'));
+    if (meetStage && meetStatus) {
+      return {
+        stageCode: meetStage.code,
+        statusCode: meetStatus.code,
+        source: 'rule',
+        ruleId: 'MEETING_INTENT',
+        confidence: 'high',
+        reason: `Meeting action automatically sets Stage to ${meetStage.name} and Status to ${meetStatus.name}`,
+      };
+    }
+  }
+
+  if (actionCode === 'SEND_BROCHURE' || actionCode === 'SHARE_DETAILS' || actionCode === 'LOCATION_SHARED' || actionCode === 'BROCHURE_SENT') {
+    const detailStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'IN_PROGRESS' || s.code === 'NEW' || s.code === 'QUALIFIED'));
+    const detailStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'DETAILS_SENT' || s.code === 'IN_PROGRESS'));
+    if (detailStage && detailStatus) {
+      return {
+        stageCode: detailStage.code,
+        statusCode: detailStatus.code,
+        source: 'rule',
+        ruleId: 'SHARE_DETAILS_INTENT',
+        confidence: 'high',
+        reason: `Share Details/Brochure automatically sets Status to ${detailStatus.name}`,
+      };
+    }
+  }
+
   const matchingRules = rules.filter(
     (r) =>
       r.entity_code === entityCode &&
@@ -775,18 +934,29 @@ export function suggestStageStatus(
 
   if (matchingRules.length > 0) {
     const pairCounts = new Map<string, { stage: string; status: string; count: number; ruleId: string }>();
+
     for (const r of matchingRules) {
-      const key = `${r.current_stage_code}|${r.current_status_code}`;
-      const existing = pairCounts.get(key);
-      if (existing) {
-        existing.count++;
-      } else {
-        pairCounts.set(key, {
-          stage: r.current_stage_code,
-          status: r.current_status_code,
-          count: 1,
-          ruleId: r.rule_id,
-        });
+      // If actionCode is specified, prefer target next_stage_code / next_status_code
+      let stage = actionCode && r.next_stage_code ? r.next_stage_code : r.current_stage_code;
+      let status = actionCode && r.next_status_code ? r.next_status_code : r.current_status_code;
+
+      // Fallback if target stage/status not active in entity
+      if (!activeStages.has(stage)) stage = r.current_stage_code;
+      if (!activeStatuses.has(status)) status = r.current_status_code;
+
+      if (stage && status) {
+        const key = `${stage}|${status}`;
+        const existing = pairCounts.get(key);
+        if (existing) {
+          existing.count += 2; // boost exact match
+        } else {
+          pairCounts.set(key, {
+            stage,
+            status,
+            count: 2,
+            ruleId: r.rule_id || (r as any).id || '',
+          });
+        }
       }
     }
 
@@ -801,8 +971,8 @@ export function suggestStageStatus(
         statusCode: best.status,
         source: 'rule',
         ruleId: best.ruleId,
-        confidence: matchingRules.length > 3 ? 'high' : 'medium',
-        reason: `${best.count} rule${best.count > 1 ? 's' : ''} expect this stage/status for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode}`,
+        confidence: matchingRules.length > 2 ? 'high' : 'medium',
+        reason: `${matchingRules.length} rule${matchingRules.length > 1 ? 's' : ''} expect this stage/status for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode}`,
       };
     }
   }
@@ -920,7 +1090,23 @@ export function getEntityActions(
       .filter((r) => r.entity_code === entityCode && r.follow_up_type_code === followUpTypeCode)
       .map((r) => r.next_action_code),
   );
-  const active = nextActions.filter((a) => a.is_active);
-  if (actionCodes.size === 0) return active;
-  return active.filter((a) => actionCodes.has(a.code));
+  const active = (nextActions || []).filter((a) => a.is_active);
+  const rawList = actionCodes.size === 0 ? active : active.filter((a) => actionCodes.has(a.code));
+
+  // Deduplicate by both uppercase code and lowercase trimmed name
+  const seenCodes = new Set<string>();
+  const seenNames = new Set<string>();
+
+  return rawList.filter((a) => {
+    const codeKey = (a.code || '').trim().toUpperCase();
+    const nameKey = (a.name || '').trim().toLowerCase();
+
+    if (codeKey && seenCodes.has(codeKey)) return false;
+    if (nameKey && seenNames.has(nameKey)) return false;
+
+    if (codeKey) seenCodes.add(codeKey);
+    if (nameKey) seenNames.add(nameKey);
+    return true;
+  });
 }
+

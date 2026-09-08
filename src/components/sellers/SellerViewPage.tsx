@@ -183,7 +183,7 @@ function parseSqlish(val?: string | null): Date | null {
 }
 
 function to12h(hh: number, mm: number) {
-  const period = hh >= 12 ? "pm" : "am";
+  const period = hh >= 12 ? "PM" : "AM";
   const h12 = hh % 12 || 12;
   const mmStr = String(mm).padStart(2, "0");
   return `${h12}:${mmStr} ${period}`;
@@ -201,10 +201,11 @@ function fmtDateTimeHuman(val?: string | null): string | null {
   if (!d) return null;
   const hasTime =
     /T\d{2}:\d{2}/.test(val || "") ||
-    /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(val || "");
+    /\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(val || "") ||
+    (d.getHours() !== 0 || d.getMinutes() !== 0);
   const dateStr = fmtDateDDMMYYYY(d);
   if (!hasTime) return dateStr;
-  return `${dateStr}, ${to12h(d.getHours(), d.getMinutes())}`;
+  return `${dateStr} at ${to12h(d.getHours(), d.getMinutes())}`;
 }
 
 function fmtTime12h(t?: string | null): string {
@@ -736,10 +737,24 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredFollowups.map((f, i) => {
             const idKey = (f.id ?? `f-${i}`).toString();
-            const rawDate = f.scheduleDate || (f as any).schedule_date || (f as any).followup_date || f.date;
+            const fAny = f as any;
+            const rawDate =
+              fAny.scheduled_date ||
+              fAny.scheduledDate ||
+              f.scheduleDate ||
+              fAny.schedule_date ||
+              fAny.followup_date ||
+              f.date;
             const parsedDate = parseSqlish(rawDate);
             const dateOnlyStr = parsedDate ? fmtDateDDMMYYYY(parsedDate) : (rawDate ? String(rawDate).split('T')[0] : null);
-            const timeOnlyStr = f.scheduleTime || (f as any).schedule_time || (f as any).followup_time || f.time ? fmtTime12h(f.scheduleTime || (f as any).schedule_time || (f as any).followup_time || f.time) : null;
+            const rawTimeVal =
+              fAny.scheduled_time ||
+              fAny.scheduledTime ||
+              f.scheduleTime ||
+              fAny.schedule_time ||
+              fAny.followup_time ||
+              f.time;
+            const timeOnlyStr = rawTimeVal ? fmtTime12h(rawTimeVal) : null;
             const schedFormatted = dateOnlyStr ? `${dateOnlyStr}${timeOnlyStr ? ` at ${timeOnlyStr}` : ''}` : null;
 
             const rawStage = f.buyerLeadStage || (f as any).seller_lead_stage || (f as any).stage || null;
