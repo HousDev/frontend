@@ -109,6 +109,9 @@ interface Followup {
   customRemark?: string;
   nextAction?: string;
   scheduledDate?: string | null;
+  scheduledTime?: string | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
   completedDate?: string | null;
   createdBy?: string;
   createdAt?: string;
@@ -352,6 +355,9 @@ const LeadDetailPage: React.FC = () => {
         customRemark: f.customRemark || f.custom_remark || "",
         nextAction: f.nextAction || f.next_action || "",
         scheduledDate: f.scheduledDate || f.scheduled_date || f.schedule || f.createdAt || f.created_at || null,
+        scheduledTime: f.scheduledTime || f.scheduled_time || f.time || null,
+        scheduled_date: f.scheduled_date || f.scheduledDate || null,
+        scheduled_time: f.scheduled_time || f.scheduledTime || null,
         createdAt: f.createdAt || f.created_at || null,
         priority: f.priority || "Medium",
         createdByFirstName: f.createdByFirstName || f.created_by_first_name || f.created_first_name || "",
@@ -648,6 +654,44 @@ const LeadDetailPage: React.FC = () => {
       const date = new Date(dateString);
       return { date: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }), time: date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) };
     } catch { return { date: "-", time: "-" }; }
+  };
+
+  const formatScheduleDisplay = (dateStr?: string | null, timeStr?: string | null) => {
+    if (!dateStr) return null;
+    let dateFormatted = "";
+    try {
+      if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+        const [y, m, d] = dateStr.trim().split("-").map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        dateFormatted = dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      } else {
+        const dateObj = new Date(dateStr);
+        dateFormatted = dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      }
+    } catch {
+      dateFormatted = String(dateStr);
+    }
+
+    let timeFormatted = "";
+    if (timeStr) {
+      try {
+        const timeClean = String(timeStr).trim();
+        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeClean)) {
+          const parts = timeClean.split(":");
+          const hours = parseInt(parts[0], 10);
+          const minutes = parseInt(parts[1], 10);
+          const period = hours >= 12 ? "pm" : "am";
+          const h12 = hours % 12 || 12;
+          timeFormatted = `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
+        } else {
+          timeFormatted = timeClean;
+        }
+      } catch {
+        timeFormatted = String(timeStr);
+      }
+    }
+
+    return { date: dateFormatted, time: timeFormatted };
   };
 
   const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null): boolean => {
@@ -975,8 +1019,10 @@ const LeadDetailPage: React.FC = () => {
                   {followups.map((f) => {
                     const Ico = typeIcon(f.type);
                     const color = followupCardClasses(f.type);
-                    const hasValidSchedule = f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970;
-                    const sched = hasValidSchedule ? formatDateTime(f.scheduledDate) : null;
+                    const sched = formatScheduleDisplay(
+                      f.scheduledDate || f.scheduled_date,
+                      f.scheduledTime || f.scheduled_time
+                    );
                     const createdByName = `${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System";
 
                     return (

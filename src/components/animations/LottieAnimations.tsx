@@ -1,357 +1,141 @@
 import React from 'react';
-import { Lottie } from 'lottie-react';
 
-// 1. Email OTP / Security Code Animation JSON
-const emailOtpLottieData = {
-  v: "5.7.4",
-  fr: 60,
-  ip: 0,
-  op: 120,
-  w: 200,
-  h: 200,
-  nm: "Email OTP",
-  ddd: 0,
-  assets: [],
-  layers: [
-    {
-      ddd: 0,
-      ind: 1,
-      ty: 4,
-      nm: "Envelope",
-      sr: 1,
-      ks: {
-        o: { a: 0, k: 100 },
-        r: { a: 1, k: [{ t: 0, s: [0], e: [4] }, { t: 60, s: [4], e: [-4] }, { t: 120, s: [-4], e: [0] }] },
-        p: { a: 1, k: [{ t: 0, s: [100, 100, 0], e: [100, 92, 0] }, { t: 60, s: [100, 92, 0], e: [100, 100, 0] }, { t: 120, s: [100, 100, 0], e: [100, 92, 0] }] },
-        a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: [{ t: 0, s: [95, 95, 100], e: [105, 105, 100] }, { t: 60, s: [105, 105, 100], e: [95, 95, 100] }, { t: 120, s: [95, 95, 100], e: [105, 105, 100] }] }
-      },
-      shapes: [
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "rc",
-              d: 1,
-              s: { a: 0, k: [90, 60] },
-              p: { a: 0, k: [0, 0] },
-              r: { a: 0, k: 14 }
-            },
-            {
-              ty: "fl",
-              c: { a: 0, k: [0.902, 0.463, 0.114, 1] }, // #E6761D
-              o: { a: 0, k: 100 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        },
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "sh",
-              ks: {
-                a: 0,
-                k: {
-                  i: [[0, 0], [0, 0], [0, 0]],
-                  o: [[0, 0], [0, 0], [0, 0]],
-                  v: [[-40, -25], [0, 5], [40, -25]],
-                  c: false
-                }
-              }
-            },
-            {
-              ty: "st",
-              c: { a: 0, k: [1, 1, 1, 1] },
-              w: { a: 0, k: 4 },
-              lc: 2,
-              lj: 2
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      ddd: 0,
-      ind: 2,
-      ty: 4,
-      nm: "Glow Pulse Ring",
-      sr: 1,
-      ks: {
-        o: { a: 1, k: [{ t: 0, s: [30], e: [80] }, { t: 60, s: [80], e: [30] }, { t: 120, s: [30], e: [80] }] },
-        r: { a: 0, k: 0 },
-        p: { a: 0, k: [100, 100, 0] },
-        a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: [{ t: 0, s: [80, 80, 100], e: [120, 120, 100] }, { t: 60, s: [120, 120, 100], e: [80, 80, 100] }, { t: 120, s: [80, 80, 100], e: [120, 120, 100] }] }
-      },
-      shapes: [
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "el",
-              d: 1,
-              s: { a: 0, k: [110, 110] },
-              p: { a: 0, k: [0, 0] }
-            },
-            {
-              ty: "st",
-              c: { a: 0, k: [0.043, 0.22, 0.337, 1] }, // #0b3856
-              w: { a: 0, k: 3 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-};
+/**
+ * Super lightweight, zero-dependency animated SVGs matching the Hously theme.
+ */
 
-// 2. Success Celebration Lottie JSON
-const successLottieData = {
-  v: "5.7.4",
-  fr: 60,
-  ip: 0,
-  op: 90,
-  w: 200,
-  h: 200,
-  nm: "Success Verified",
-  ddd: 0,
-  assets: [],
-  layers: [
-    {
-      ddd: 0,
-      ind: 1,
-      ty: 4,
-      nm: "Check Circle",
-      sr: 1,
-      ks: {
-        o: { a: 0, k: 100 },
-        r: { a: 0, k: 0 },
-        p: { a: 0, k: [100, 100, 0] },
-        a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: [{ t: 0, s: [0, 0, 100], e: [110, 110, 100] }, { t: 30, s: [110, 110, 100], e: [100, 100, 100] }] }
-      },
-      shapes: [
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "el",
-              d: 1,
-              s: { a: 0, k: [90, 90] },
-              p: { a: 0, k: [0, 0] }
-            },
-            {
-              ty: "fl",
-              c: { a: 0, k: [0.063, 0.725, 0.506, 1] }, // Emerald #10b981
-              o: { a: 0, k: 100 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        },
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "sh",
-              ks: {
-                a: 0,
-                k: {
-                  i: [[0, 0], [0, 0], [0, 0]],
-                  o: [[0, 0], [0, 0], [0, 0]],
-                  v: [[-20, 0], [-6, 14], [22, -14]],
-                  c: false
-                }
-              }
-            },
-            {
-              ty: "st",
-              c: { a: 0, k: [1, 1, 1, 1] },
-              w: { a: 0, k: 6 },
-              lc: 2,
-              lj: 2
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-};
-
-// 3. Security Shield & Lock Animation JSON
-const securityShieldLottieData = {
-  v: "5.7.4",
-  fr: 60,
-  ip: 0,
-  op: 120,
-  w: 200,
-  h: 200,
-  nm: "Security Shield",
-  ddd: 0,
-  assets: [],
-  layers: [
-    {
-      ddd: 0,
-      ind: 1,
-      ty: 4,
-      nm: "Shield",
-      sr: 1,
-      ks: {
-        o: { a: 0, k: 100 },
-        r: { a: 1, k: [{ t: 0, s: [0], e: [3] }, { t: 60, s: [3], e: [-3] }, { t: 120, s: [-3], e: [0] }] },
-        p: { a: 0, k: [100, 100, 0] },
-        a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: [{ t: 0, s: [98, 98, 100], e: [104, 104, 100] }, { t: 60, s: [104, 104, 100], e: [98, 98, 100] }, { t: 120, s: [98, 98, 100], e: [104, 104, 100] }] }
-      },
-      shapes: [
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "rc",
-              d: 1,
-              s: { a: 0, k: [70, 75] },
-              p: { a: 0, k: [0, 0] },
-              r: { a: 0, k: 18 }
-            },
-            {
-              ty: "fl",
-              c: { a: 0, k: [0.043, 0.22, 0.337, 1] }, // #0b3856
-              o: { a: 0, k: 100 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        },
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "el",
-              d: 1,
-              s: { a: 0, k: [22, 22] },
-              p: { a: 0, k: [0, -8] }
-            },
-            {
-              ty: "st",
-              c: { a: 0, k: [0.902, 0.463, 0.114, 1] }, // #E6761D
-              w: { a: 0, k: 4 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        },
-        {
-          ty: "gr",
-          it: [
-            {
-              ty: "rc",
-              d: 1,
-              s: { a: 0, k: [26, 20] },
-              p: { a: 0, k: [0, 8] },
-              r: { a: 0, k: 4 }
-            },
-            {
-              ty: "fl",
-              c: { a: 0, k: [0.902, 0.463, 0.114, 1] }, // #E6761D
-              o: { a: 0, k: 100 }
-            },
-            {
-              ty: "tr",
-              p: { a: 0, k: [0, 0] },
-              a: { a: 0, k: [0, 0] },
-              s: { a: 0, k: [100, 100] },
-              r: { a: 0, k: 0 },
-              o: { a: 0, k: 100 },
-              sk: { a: 0, k: 0 },
-              sa: { a: 0, k: 0 }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-};
-
-export const EmailOtpLottie: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 80 }) => (
-  <div style={{ width: size, height: size }} className={`mx-auto flex items-center justify-center ${className}`}>
-    <Lottie src={emailOtpLottieData} loop autoplay style={{ width: '100%', height: '100%' }} />
+// 1. Email OTP / Security Code Animation
+export const EmailOtpLottie: React.FC<{ className?: string; size?: number }> = ({
+  className = '',
+  size = 80,
+}) => (
+  <div
+    style={{ width: size, height: size }}
+    className={`mx-auto flex items-center justify-center relative ${className}`}
+  >
+    <style>{`
+      @keyframes floatPulse {
+        0%, 100% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-4px) scale(1.03); }
+      }
+      @keyframes ringGlow {
+        0%, 100% { transform: scale(0.9); opacity: 0.25; }
+        50% { transform: scale(1.15); opacity: 0.65; }
+      }
+      .anim-float { animation: floatPulse 3s ease-in-out infinite; }
+      .anim-glow { transform-origin: center; animation: ringGlow 2.5s ease-in-out infinite; }
+    `}</style>
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      {/* Outer Pulse Glow */}
+      <circle cx="50" cy="50" r="42" fill="none" stroke="#E6761D" strokeWidth="1.5" className="anim-glow" />
+      <circle cx="50" cy="50" r="36" fill="#FFF7ED" />
+      
+      {/* Floating Envelope */}
+      <g className="anim-float">
+        <rect x="25" y="32" width="50" height="36" rx="6" fill="#E6761D" />
+        <path d="M26 34 L50 52 L74 34" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="50" cy="50" r="10" fill="#0B3856" />
+        {/* Keyhole/Lock Icon */}
+        <path d="M48 48 A2 2 0 1 1 52 48 L52.5 53 L47.5 53 Z" fill="#FFFFFF" />
+      </g>
+    </svg>
   </div>
 );
 
-export const SecurityShieldLottie: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 80 }) => (
-  <div style={{ width: size, height: size }} className={`mx-auto flex items-center justify-center ${className}`}>
-    <Lottie src={securityShieldLottieData} loop autoplay style={{ width: '100%', height: '100%' }} />
+// 2. Security Shield & Lock Animation
+export const SecurityShieldLottie: React.FC<{ className?: string; size?: number }> = ({
+  className = '',
+  size = 80,
+}) => (
+  <div
+    style={{ width: size, height: size }}
+    className={`mx-auto flex items-center justify-center relative ${className}`}
+  >
+    <style>{`
+      @keyframes shieldFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes pulseRing {
+        0%, 100% { transform: scale(0.95); opacity: 0.3; }
+        50% { transform: scale(1.1); opacity: 0.7; }
+      }
+      .anim-shield { animation: shieldFloat 3s ease-in-out infinite; }
+      .anim-shield-ring { transform-origin: center; animation: pulseRing 2.2s ease-in-out infinite; }
+    `}</style>
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      {/* Background Soft Glow */}
+      <circle cx="50" cy="50" r="42" fill="none" stroke="#0B3856" strokeWidth="2" className="anim-shield-ring" />
+      <circle cx="50" cy="50" r="36" fill="#F0F9FF" />
+
+      {/* Shield */}
+      <g className="anim-shield">
+        <path
+          d="M50 20 L72 30 C72 54 50 68 50 68 C50 68 28 54 28 30 Z"
+          fill="#0B3856"
+        />
+        {/* Shield highlight / Lock */}
+        <path
+          d="M50 25 L67 33 C67 52 50 63 50 63"
+          fill="none"
+          stroke="#1E4E79"
+          strokeWidth="2"
+        />
+        {/* Orange Accent Check / Lock */}
+        <path
+          d="M42 43 L48 49 L58 37"
+          fill="none"
+          stroke="#E6761D"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+    </svg>
   </div>
 );
 
-export const SuccessCelebrationLottie: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 80 }) => (
-  <div style={{ width: size, height: size }} className={`mx-auto flex items-center justify-center ${className}`}>
-    <Lottie src={successLottieData} loop={false} autoplay style={{ width: '100%', height: '100%' }} />
+// 3. Success Celebration Animation
+export const SuccessCelebrationLottie: React.FC<{ className?: string; size?: number }> = ({
+  className = '',
+  size = 80,
+}) => (
+  <div
+    style={{ width: size, height: size }}
+    className={`mx-auto flex items-center justify-center relative ${className}`}
+  >
+    <style>{`
+      @keyframes popIn {
+        0% { transform: scale(0.5); opacity: 0; }
+        70% { transform: scale(1.12); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes strokeCheck {
+        0% { stroke-dashoffset: 40; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .anim-pop { animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      .anim-check {
+        stroke-dasharray: 40;
+        stroke-dashoffset: 0;
+        animation: strokeCheck 0.5s ease-out 0.2s forwards;
+      }
+    `}</style>
+    <svg viewBox="0 0 100 100" className="w-full h-full anim-pop">
+      {/* Green Circle */}
+      <circle cx="50" cy="50" r="40" fill="#10B981" />
+      <circle cx="50" cy="50" r="35" fill="none" stroke="#34D399" strokeWidth="2" opacity="0.6" />
+      
+      {/* White Checkmark */}
+      <path
+        d="M32 50 L44 62 L68 38"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="anim-check"
+      />
+    </svg>
   </div>
 );
-

@@ -225,10 +225,15 @@ export async function createAutomationJobs(
   const jobs: AutomationJob[] = [];
   const scheduledAt = new Date().toISOString();
 
-  const body = rule.message_body ?? '';
-  const subject = rule.message_subject ?? null;
+  const isEmail = Boolean(rule.auto_email || (rule as any).auto_send_channel === 'EMAIL');
+  const isWhatsApp = Boolean(rule.auto_whatsapp || (rule as any).auto_send_channel === 'WHATSAPP');
+  const isMessage = Boolean(rule.auto_message || (rule as any).auto_send_channel === 'SMS' || (rule as any).auto_send_channel === 'MESSAGE');
 
-  if (rule.auto_email) {
+  const body = rule.message_body || (rule as any).auto_remark_template || (rule as any).remark || '';
+  const subject = rule.message_subject || null;
+  const ruleId = rule.rule_id || rule.id || (rule as any).name || null;
+
+  if (isEmail) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -242,11 +247,11 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
-  if (rule.auto_whatsapp) {
+  if (isWhatsApp) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -260,11 +265,11 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
-  if (rule.auto_message) {
+  if (isMessage) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -278,7 +283,7 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
@@ -289,6 +294,30 @@ export async function createAutomationJobs(
     const existing = raw ? (JSON.parse(raw) as AutomationJob[]) : [];
     const updated = [...jobs, ...existing];
     localStorage.setItem(AUTOMATION_JOBS_KEY, JSON.stringify(updated));
+
+    // Persist each job to MySQL fu_automation_jobs table
+    for (const job of jobs) {
+      const phoneMatch = entityRef?.match(/\(([^)]+)\)/);
+      const phone = phoneMatch ? phoneMatch[1] : '';
+      void followUpMasterAPI.upsertItem('fu_automation_jobs', {
+        id: job.id,
+        channel: job.channel,
+        recipient_phone: phone || null,
+        recipient_email: null,
+        template_id: null,
+        payload: {
+          subject: job.subject,
+          body: job.body,
+          entity_ref: entityRef,
+          ...context,
+        },
+        status: 'PENDING',
+        scheduled_for: scheduledAt,
+        entity_code: entityCode,
+        entity_id: followUpId,
+        rule_id: ruleId,
+      });
+    }
   } catch (err) {
     console.error('createAutomationJobs error', err);
   }
@@ -300,6 +329,34 @@ export async function createAutomationJobs(
  */
 export async function loadAutomationJobs(): Promise<AutomationJob[]> {
   try {
+    try {
+      const serverRows = await followUpMasterAPI.getTableData('fu_automation_jobs');
+      if (serverRows && Array.isArray(serverRows) && serverRows.length > 0) {
+        const mapped: AutomationJob[] = serverRows.map((r: any) => {
+          const payload = typeof r.payload === 'string' ? JSON.parse(r.payload || '{}') : (r.payload || {});
+          return {
+            id: r.id,
+            follow_up_id: r.entity_id || null,
+            entity_code: r.entity_code || 'LEAD',
+            entity_ref: payload.entity_ref || null,
+            channel: r.channel || 'WHATSAPP',
+            subject: payload.subject || null,
+            body: payload.body || '',
+            status: r.status || 'PENDING',
+            priority_code: r.priority_code || 'MEDIUM',
+            scheduled_at: r.scheduled_for || r.created_at || new Date().toISOString(),
+            sent_at: r.sent_at || null,
+            error_message: r.error_message || null,
+            rule_id: r.rule_id || null,
+            created_at: r.created_at || new Date().toISOString(),
+          };
+        });
+        localStorage.setItem(AUTOMATION_JOBS_KEY, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch (apiErr) {
+      console.warn('Could not fetch automation jobs from backend:', apiErr);
+    }
     const raw = localStorage.getItem(AUTOMATION_JOBS_KEY);
     return raw ? (JSON.parse(raw) as AutomationJob[]) : [];
   } catch (err) {

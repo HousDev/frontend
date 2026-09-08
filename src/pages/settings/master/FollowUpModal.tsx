@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react';
+import { toast } from 'react-toastify';
 import {
   AlertCircle,
   ArrowRight,
@@ -47,6 +48,7 @@ import { getPriorityDelta, loadAIInsights } from '@/lib/ai';
 import { getIcon } from '@/lib/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersAPI } from '@/lib/api';
+import { followUpMasterAPI } from '@/lib/followUpMasterAPI';
 import './mastersAdmin.css';
 
 type Mode = 'add' | 'complete' | 'edit';
@@ -978,6 +980,188 @@ export function FollowUpModal({
     return null;
   }
 
+  async function dispatchScheduledEventJobs(params: {
+    isMeeting: boolean;
+    schedDate: string;
+    schedTime: string;
+    custName: string;
+    targetEntityId: string;
+    entityCode: string;
+    entityRef: string | null;
+    entityPhone: string | null;
+    project: string | null;
+    siteLocation: string | null;
+    assignedTo: string | null;
+    customRemark?: string | null;
+  }) {
+    const {
+      isMeeting,
+      schedDate,
+      schedTime,
+      custName,
+      targetEntityId,
+      entityCode,
+      entityRef,
+      entityPhone,
+      project,
+      siteLocation,
+      assignedTo,
+      customRemark,
+    } = params;
+
+    const eventLabel = isMeeting ? 'Meeting' : 'Site Visit';
+    const reminderISO = (() => {
+      try {
+        if (!schedDate) return new Date().toISOString();
+        const timePart = schedTime || '11:00';
+        const [hours, minutes] = timePart.split(':').map((n) => parseInt(n, 10) || 0);
+
+        let year = new Date().getFullYear();
+        let month = new Date().getMonth();
+        let day = new Date().getDate();
+
+        const cleanDate = schedDate.includes('T') ? schedDate.split('T')[0] : schedDate;
+        if (cleanDate.includes('-')) {
+          const parts = cleanDate.split('-');
+          if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+          } else if (parts[2].length === 4) {
+            // DD-MM-YYYY
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+          }
+        } else if (cleanDate.includes('/')) {
+          const parts = cleanDate.split('/');
+          if (parts[0].length === 4) {
+            // YYYY/MM/DD
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+          } else if (parts[2].length === 4) {
+            // DD/MM/YYYY
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            year = parseInt(parts[2], 10);
+          }
+        }
+
+        const target = new Date(year, month, day, hours, minutes, 0, 0);
+        if (isNaN(target.getTime())) return new Date().toISOString();
+        const rem = new Date(target.getTime() - 2 * 3600 * 1000);
+        return rem.toISOString();
+      } catch {
+        return new Date().toISOString();
+      }
+    })();
+
+    // 1. Customer Immediate Confirmation
+    await followUpMasterAPI.upsertItem('fu_automation_jobs', {
+      id: 'job_' + Math.random().toString(36).slice(2, 10),
+      channel: 'EMAIL',
+      recipient_phone: entityPhone || null,
+      recipient_email: null,
+      template_id: isMeeting ? '8' : '7',
+      payload: {
+        type: isMeeting ? 'MEETING' : 'SITE_VISIT',
+        subject: project ? `${eventLabel} Scheduled - ${project}` : `${eventLabel} Scheduled Confirmation`,
+        body: customRemark || `Hello ${custName},\n\nYour ${eventLabel.toLowerCase()} has been scheduled on ${schedDate} at ${schedTime}${project ? ` for ${project}` : ''}.\n\nLocation: ${siteLocation || (isMeeting ? 'Office / Virtual' : 'Project Site')}\n\nThank you,\nResale Expert Team`,
+        entity_ref: entityRef,
+        project: project,
+        date: schedDate,
+        time: schedTime,
+        site_location: siteLocation,
+        assigned_to: assignedTo,
+      },
+      status: 'PENDING',
+      scheduled_for: new Date().toISOString(),
+      entity_code: entityCode,
+      entity_id: targetEntityId,
+      rule_id: isMeeting ? 'MEETING_CUSTOMER_CONFIRMATION' : 'SITE_VISIT_CUSTOMER_CONFIRMATION',
+    });
+
+    // 2. Executive Immediate Alert
+    await followUpMasterAPI.upsertItem('fu_automation_jobs', {
+      id: 'job_' + Math.random().toString(36).slice(2, 10),
+      channel: 'EMAIL',
+      recipient_phone: null,
+      recipient_email: null,
+      template_id: isMeeting ? 'EXECUTIVE_MEETING_ALERT' : 'EXECUTIVE_SITE_VISIT_ALERT',
+      payload: {
+        type: isMeeting ? 'MEETING' : 'SITE_VISIT',
+        is_executive: true,
+        assigned_to: assignedTo || null,
+        customer_name: custName,
+        entity_ref: entityRef,
+        phone: entityPhone,
+        project: project,
+        date: schedDate,
+        time: schedTime,
+        site_location: siteLocation,
+      },
+      status: 'PENDING',
+      scheduled_for: new Date().toISOString(),
+      entity_code: entityCode,
+      entity_id: targetEntityId,
+      rule_id: isMeeting ? 'MEETING_EXECUTIVE_ALERT' : 'SITE_VISIT_EXECUTIVE_ALERT',
+    });
+
+    // 3. Customer 2-Hour Reminder
+    await followUpMasterAPI.upsertItem('fu_automation_jobs', {
+      id: 'job_' + Math.random().toString(36).slice(2, 10),
+      channel: 'EMAIL',
+      recipient_phone: entityPhone || null,
+      recipient_email: null,
+      template_id: isMeeting ? 'CUSTOMER_MEETING_REMINDER' : 'CUSTOMER_SITE_VISIT_REMINDER',
+      payload: {
+        type: isMeeting ? 'MEETING' : 'SITE_VISIT',
+        is_reminder: true,
+        customer_name: custName,
+        entity_ref: entityRef,
+        project: project,
+        date: schedDate,
+        time: schedTime,
+        site_location: siteLocation,
+        assigned_to: assignedTo,
+      },
+      status: 'PENDING',
+      scheduled_for: reminderISO,
+      entity_code: entityCode,
+      entity_id: targetEntityId,
+      rule_id: isMeeting ? 'MEETING_CUSTOMER_REMINDER' : 'SITE_VISIT_CUSTOMER_REMINDER',
+    });
+
+    // 4. Executive 2-Hour Reminder
+    await followUpMasterAPI.upsertItem('fu_automation_jobs', {
+      id: 'job_' + Math.random().toString(36).slice(2, 10),
+      channel: 'EMAIL',
+      recipient_phone: null,
+      recipient_email: null,
+      template_id: isMeeting ? 'EXECUTIVE_MEETING_ALERT' : 'EXECUTIVE_SITE_VISIT_ALERT',
+      payload: {
+        type: isMeeting ? 'MEETING' : 'SITE_VISIT',
+        is_executive: true,
+        is_reminder: true,
+        assigned_to: assignedTo || null,
+        customer_name: custName,
+        entity_ref: entityRef,
+        phone: entityPhone,
+        project: project,
+        date: schedDate,
+        time: schedTime,
+        site_location: siteLocation,
+      },
+      status: 'PENDING',
+      scheduled_for: reminderISO,
+      entity_code: entityCode,
+      entity_id: targetEntityId,
+      rule_id: isMeeting ? 'MEETING_EXECUTIVE_REMINDER' : 'SITE_VISIT_EXECUTIVE_REMINDER',
+    });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const validationError = mode === 'complete' ? validateComplete() : validateAddEdit();
@@ -1012,6 +1196,33 @@ export function FollowUpModal({
           message_template: form.messageTemplate || null,
         });
         if (!updated) throw new Error('Update did not return the saved follow-up.');
+
+        const typeCode = (form.followUpTypeCode || '').toUpperCase();
+        const nextAction = (form.nextActionOverride || '').toUpperCase();
+        const isSiteVisit = typeCode === 'SITE_VISIT' || nextAction === 'SITE_VISIT';
+        const isMeeting = typeCode === 'MEETING' || nextAction === 'MEETING';
+
+        if (isSiteVisit || isMeeting) {
+          const schedDate = form.scheduleDateOverride || form.date;
+          const schedTime = form.scheduleTimeOverride || form.time;
+          const custName = form.entityName || (currentFollowUp.entity_ref ? currentFollowUp.entity_ref.replace(/\s*\([^)]*\)\s*$/, '') : 'Customer');
+          await dispatchScheduledEventJobs({
+            isMeeting,
+            schedDate,
+            schedTime,
+            custName,
+            targetEntityId: currentFollowUp.id,
+            entityCode: form.entityCode,
+            entityRef: form.entityRef || currentFollowUp.entity_ref,
+            entityPhone: form.entityPhone,
+            project: form.project,
+            siteLocation: form.siteLocation,
+            assignedTo: form.assignedTo || currentFollowUp.assigned_to,
+            customRemark: form.customRemark,
+          });
+        }
+
+        toast.success('Follow-up updated successfully! ✅');
         onSaved?.(null);
         return;
       }
@@ -1051,6 +1262,36 @@ export function FollowUpModal({
         };
         const created = await createFollowUp(newRecord);
         if (!created) throw new Error('Create did not return the saved follow-up.');
+
+        // Dispatch automation job if followUpType or nextAction is SITE_VISIT or MEETING
+        const typeCode = (form.followUpTypeCode || '').toUpperCase();
+        const nextAction = (form.nextActionOverride || '').toUpperCase();
+        const isSiteVisit = typeCode === 'SITE_VISIT' || nextAction === 'SITE_VISIT';
+        const isMeeting = typeCode === 'MEETING' || nextAction === 'MEETING';
+
+        if (isSiteVisit || isMeeting) {
+          const schedDate = form.scheduleDateOverride || form.date;
+          const schedTime = form.scheduleTimeOverride || form.time;
+          const custName = form.entityName || 'Customer';
+          const targetEntityId = initialEntityId ? String(initialEntityId) : created.id;
+
+          await dispatchScheduledEventJobs({
+            isMeeting,
+            schedDate,
+            schedTime,
+            custName,
+            targetEntityId,
+            entityCode: form.entityCode,
+            entityRef: form.entityRef,
+            entityPhone: form.entityPhone,
+            project: form.project,
+            siteLocation: form.siteLocation,
+            assignedTo: form.assignedTo,
+            customRemark: form.customRemark,
+          });
+        }
+
+        toast.success('Follow-up created successfully! ✅');
         onSaved?.(created);
         return;
       }
@@ -1149,7 +1390,13 @@ export function FollowUpModal({
       }
 
       // Create automation jobs
-      if (matchedRule && (matchedRule.auto_email || matchedRule.auto_whatsapp || matchedRule.auto_message)) {
+      const hasAutomation = matchedRule && (
+        matchedRule.auto_email ||
+        matchedRule.auto_whatsapp ||
+        matchedRule.auto_message ||
+        Boolean((matchedRule as any).auto_send_channel)
+      );
+      if (matchedRule && hasAutomation) {
         const stageName =
           master.stages.find((s) => s.code === form.stageCode && s.entity_code === form.entityCode)?.name ??
           form.stageCode;
@@ -1170,8 +1417,35 @@ export function FollowUpModal({
             status: statusName,
           }
         );
+      } else {
+        const nextAction = (form.overrideAction || form.nextActionOverride || '').toUpperCase();
+        const isSiteVisit = nextAction === 'SITE_VISIT';
+        const isMeeting = nextAction === 'MEETING';
+
+        if (isSiteVisit || isMeeting) {
+          const schedDate = form.scheduleDateOverride || form.date;
+          const schedTime = form.scheduleTimeOverride || form.time;
+          const custName = form.entityName || (currentFollowUp.entity_ref ? currentFollowUp.entity_ref.replace(/\s*\([^)]*\)\s*$/, '') : 'Customer');
+          const targetEntityId = newFollowUp?.id ?? currentFollowUp.id;
+
+          await dispatchScheduledEventJobs({
+            isMeeting,
+            schedDate,
+            schedTime,
+            custName,
+            targetEntityId,
+            entityCode: form.entityCode,
+            entityRef: currentFollowUp.entity_ref,
+            entityPhone: form.entityPhone,
+            project: form.project,
+            siteLocation: form.siteLocation,
+            assignedTo: form.assignedTo || currentFollowUp.assigned_to,
+            customRemark: form.customRemark,
+          });
+        }
       }
 
+      toast.success('Follow-up marked as completed! ✅');
       onSaved?.(newFollowUp);
     } catch (err) {
       console.error(err);
@@ -1181,6 +1455,7 @@ export function FollowUpModal({
           : typeof err === 'object' && err && 'message' in err
           ? String((err as { message: unknown }).message)
           : 'Could not save. Please try again.';
+      toast.error(msg);
       setError(msg);
     } finally {
       setIsSaving(false);
@@ -1191,8 +1466,10 @@ export function FollowUpModal({
     if (!currentFollowUp) return;
     const ok = await deleteFollowUp(currentFollowUp.id);
     if (ok) {
+      toast.success('Follow-up deleted successfully! 🗑️');
       onDeleted?.(currentFollowUp.id);
     } else {
+      toast.error('Could not delete follow-up. Please try again.');
       setError('Could not delete. Please try again.');
     }
   }
