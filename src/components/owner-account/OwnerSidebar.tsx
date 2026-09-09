@@ -18,7 +18,9 @@ interface OwnerSidebarProps {
   tabs: TabItem[];
   isOwnerUser: boolean;
   onSelectTab: (tabId: string) => void;
-  onBack: () => void;
+  onBack?: () => void;
+  onLogout?: () => void;
+  onBackToWebsite?: () => void;
 }
 
 export const OwnerSidebar: React.FC<OwnerSidebarProps> = ({
@@ -29,6 +31,8 @@ export const OwnerSidebar: React.FC<OwnerSidebarProps> = ({
   isOwnerUser,
   onSelectTab,
   onBack,
+  onLogout,
+  onBackToWebsite,
 }) => {
   return (
     <aside className="hidden md:flex w-56 shrink-0 flex-col h-full bg-white text-slate-800 border-r border-gray-200">
@@ -61,11 +65,10 @@ export const OwnerSidebar: React.FC<OwnerSidebarProps> = ({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all cursor-pointer ${
-                active
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all cursor-pointer ${active
                   ? 'bg-orange-50 text-orange-600 border border-orange-200 font-bold shadow-2xs'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-slate-900 font-medium'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 truncate">
                 <Icon size={14} className={active ? 'text-orange-600' : 'text-gray-400'} />
@@ -73,9 +76,8 @@ export const OwnerSidebar: React.FC<OwnerSidebarProps> = ({
               </div>
               {item.badge !== undefined && (
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[8px] font-black ${
-                    active ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-800'
-                  }`}
+                  className={`px-1.5 py-0.2 rounded-full text-[8px] font-black ${active ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-800'
+                    }`}
                 >
                   {item.badge}
                 </span>
@@ -88,12 +90,24 @@ export const OwnerSidebar: React.FC<OwnerSidebarProps> = ({
       {/* 🚪 Back Actions Footer */}
       <div className="p-3 border-t border-gray-200 bg-gray-50/70 space-y-1.5">
         <button
-          onClick={onBack}
+          onClick={onBackToWebsite || (() => { window.location.href = '/properties'; })}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-bold hover:bg-gray-100 transition-colors text-xs shadow-2xs cursor-pointer"
         >
-          <ArrowLeft size={13} />
-          <span>{isOwnerUser ? 'Back to Properties' : 'Back to Owners'}</span>
+          <Home size={13} className="text-gray-500" />
+          <span>Back to Website</span>
         </button>
+
+
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition-colors text-xs cursor-pointer"
+          >
+            <LogOut size={13} />
+            <span>Sign Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );

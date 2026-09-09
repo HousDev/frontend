@@ -37,6 +37,8 @@ const ImportExportModal: React.FC<ImportExportModalProps> = ({
       case 'sellers': return 'Sellers';
       case 'buyer-accounts': return 'Buyer Accounts';
       case 'seller-accounts': return 'Seller Accounts';
+      case 'tenant-accounts': return 'Tenant Accounts';
+      case 'owner-accounts': return 'Owner Accounts';
       default: return 'Users';
     }
   };

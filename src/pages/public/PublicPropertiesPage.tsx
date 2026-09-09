@@ -160,24 +160,60 @@ const getAmenityIcon = (amenity: string) => {
 
 // unit extraction
 const extractUnitType = (p: Property) => {
-  const candidates = [p.type, (p as any)._raw?.unit_type, (p as any)._raw?.unit_type_name, p.title as any, p.property_type]
-    .filter(Boolean).map(String);
-  for (const c of candidates) {
-    const m = c.match(/(\d+\s*BHK|\d+BHK|studio|1RK)/i);
-    if (m) return m[0].replace(/\s+/g, '');
+  const directUnit = (p.unit_type || (p as any).unitType || (p as any)._raw?.unit_type || (p as any)._raw?.unit_type_name || (p as any)._raw?.bhk || '')?.toString().trim();
+  if (directUnit) {
+    if (/^\d+(\.\d+)?$/.test(directUnit)) return `${directUnit} BHK`;
+    return directUnit;
   }
-  if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms}BHK`;
+
+  const candidates = [
+    p.unit_type,
+    (p as any).unitType,
+    (p as any)._raw?.unit_type,
+    (p as any)._raw?.unit_type_name,
+    p.type,
+    p.title as any,
+    p.property_type
+  ].filter(Boolean).map(String);
+
+  for (const c of candidates) {
+    const m = c.match(/(\d+(?:\.\d+)?\s*BHK|\d+(?:\.\d+)?\s*RK|studio|penthouse|duplex|bungalow|villa)/i);
+    if (m) {
+      const matchText = m[0].trim();
+      if (/^\d+(\.\d+)?\s*BHK$/i.test(matchText)) {
+        return matchText.replace(/\s+/g, '').replace(/bhk/i, ' BHK');
+      }
+      return matchText;
+    }
+  }
+  if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms} BHK`;
   return '';
 };
 
 const composeHeaderTitle = (p: Property) => {
   const parts: string[] = [];
-  const type = (p.property_type || p.type || (p as any)._raw?.property_type_name || '').toString().trim();
+  const type = ((p as any)._raw?.property_type_name || p.property_type || (p as any)._raw?.property_type || '').toString().trim();
   if (type) parts.push(type);
+
   const unit = extractUnitType(p);
-  if (unit) parts.push(unit);
-  const subtype = ((p as any)._raw?.property_subtype_name || (p as any)._raw?.property_subtype || (p as any)._raw?.subtype || p.society || '').toString().trim();
-  if (subtype) parts.push(subtype);
+  if (unit && !parts.some(pt => pt.toLowerCase() === unit.toLowerCase())) {
+    parts.push(unit);
+  }
+
+  const subtype = (
+    (p as any)._raw?.property_subtype_name ||
+    (p as any)._raw?.property_subtype ||
+    (p as any).property_subtype ||
+    (p as any)._raw?.subtype ||
+    (p as any).subtype ||
+    p.society ||
+    ''
+  ).toString().trim();
+
+  if (subtype && !parts.some(pt => pt.toLowerCase() === subtype.toLowerCase()) && subtype.toLowerCase() !== unit.toLowerCase()) {
+    parts.push(subtype);
+  }
+
   if (parts.length === 0 && p.title) return p.title as any;
   return parts.join(' ');
 };

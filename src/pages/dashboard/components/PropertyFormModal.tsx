@@ -1605,9 +1605,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
     const societyLabel = getLabelFromValue(societyOptions, formData.society);
     const finalSocietyName = societyLabel || formData.society || '';
     fd.append('society_name', finalSocietyName);
-    if (formData.sellerId) {
-      fd.append('seller_id', String(formData.sellerId));
-    }
+    fd.append('owner_name', formData.seller || '');
+    fd.append('seller_name', formData.seller || '');
+    fd.append('owner_id', formData.sellerId ? String(formData.sellerId) : '');
+    fd.append('seller_id', formData.sellerId ? String(formData.sellerId) : '');
+
     fd.append("amenities", JSON.stringify(formData.amenities || []));
     fd.append("furnishingItems", JSON.stringify(formData.furnishingItems || []));
     fd.append("nearby_places", JSON.stringify(formData.nearby_places || []));
@@ -1831,7 +1833,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                     placeholder="Select or enter seller..."
                     value={formData.seller}
                     onChange={(e) => {
-                      handleInputChange('seller', e.target.value);
+                      const val = e.target.value;
+                      const matched = sellersList.find((s: any) => {
+                        const name = `${s.salutation ? s.salutation + ' ' : ''}${s.name || ''}`.trim().toLowerCase();
+                        return name === val.trim().toLowerCase();
+                      });
+                      setFormData(prev => ({
+                        ...prev,
+                        seller: val,
+                        sellerId: matched ? (matched.id || matched.seller_id || '') : '',
+                      }));
                       setIsSellerDropdownOpen(true);
                     }}
                     onFocus={() => setIsSellerDropdownOpen(true)}
@@ -1841,7 +1852,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        handleInputChange('seller', '');
+                        setFormData(prev => ({
+                          ...prev,
+                          seller: '',
+                          sellerId: '',
+                        }));
                         setIsSellerDropdownOpen(true);
                       }}
                       className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"

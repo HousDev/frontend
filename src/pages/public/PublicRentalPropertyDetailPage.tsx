@@ -1,5 +1,5 @@
 // src/pages/public/PublicRentalPropertyDetailPage.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -19,8 +19,8 @@ import {
   CheckCircle,
   CheckCircle2,
   Flag,
-  Sparkles,
   AlertCircle,
+  Loader2,
   BedDouble,
   Bath,
   Ruler,
@@ -70,12 +70,13 @@ import AmenityPill from '@/components/properties/AmenityPill';
 import FurnishingPill from '@/components/properties/FurnishingPill';
 import PropertyNeighbourhoodMap from '@/components/properties/PropertyNeighbourhoodMap';
 import PublicSimilarProperties from './PublicSimilarProperties';
-import ContactOwnerTenantModal from '@/components/properties/ContactOwnerTenantModal';
+import ContactOwnerTenantModal, { isSlotPassed } from '@/components/properties/ContactOwnerTenantModal';
 import ReportPropertyModal from '@/components/properties/ReportPropertyModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
-import { isTenantShortlisted, toggleTenantShortlist } from '@/lib/tenantShortlist';
+import { isTenantShortlisted, toggleTenantShortlist, isTenantEnquired, saveTenantEnquiry } from '@/lib/tenantShortlist';
+import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
 import { toast } from 'react-toastify';
 
 const formatCurrency = (amount: number | null | undefined): string => {
@@ -133,19 +134,113 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
   const [aiAnalysisData, setAiAnalysisData] = useState<any>(null);
   const [aiAnalysisLoading, setAiAnalysisLoading] = useState<boolean>(false);
 
-  // Sync bookmark state when property or user updates
+  // Existing Visit Tracker
+  const [existingScheduledVisit, setExistingScheduledVisit] = useState<any | null>(null);
+  const [directBookingLoading, setDirectBookingLoading] = useState<boolean>(false);
+
+  // Sync bookmark & existing visit state when property or user updates
   useEffect(() => {
     if (property?.id) {
       setLiked(isTenantShortlisted(property.id));
     } else {
       setLiked(false);
     }
-  }, [property?.id, user, currentUser]);
+
+    const checkExistingVisit = async () => {
+      const activeTenantId = user?.id || currentUser?.id;
+      const propId = property?.id || propertyProp?.id;
+      if (!propId) return;
+
+      try {
+        if (activeTenantId) {
+          const list = await tenantVisitAPI.getByTenantId(activeTenantId).catch(() => []);
+          if (Array.isArray(list)) {
+            const found = list.find((v: any) => String(v.rental_property_id) === String(propId) && v.status !== 'Cancelled' && v.status !== 'Declined');
+            if (found) {
+              setExistingScheduledVisit(found);
+              return;
+            }
+          }
+        }
+      } catch { }
+
+      try {
+        const stored = JSON.parse(localStorage.getItem('tenant_scheduled_visits') || '[]');
+        const found = stored.find((v: any) => String(v.rental_property_id || v.property_id) === String(propId));
+        if (found) {
+          setExistingScheduledVisit(found);
+        }
+      } catch { }
+    };
+
+    checkExistingVisit();
+  }, [property?.id, propertyProp?.id, user, currentUser]);
 
   // Tags & Similar Rentals
   const [propertyTags, setPropertyTags] = useState<string[]>([]);
   const [similarProperties, setSimilarProperties] = useState<any[]>([]);
   const [similarPropertiesLoading, setSimilarPropertiesLoading] = useState<boolean>(false);
+
+  // Owner's Preferred Visit Timings (fetched dynamically based on property & owner)
+  const ownerVisitTimings: string[] = useMemo(() => {
+    try {
+      if (property?.preferred_visit_slots) {
+        if (Array.isArray(property.preferred_visit_slots)) return property.preferred_visit_slots;
+        return JSON.parse(property.preferred_visit_slots);
+      }
+      const propId = property?.id;
+      if (propId) {
+        const propSaved = localStorage.getItem(`property_preferred_slots_${propId}`);
+        if (propSaved) return JSON.parse(propSaved);
+      }
+      const ownerId = property?.owner_id || property?.owner?.id;
+      if (ownerId) {
+        const ownerSaved = localStorage.getItem(`owner_preferred_slots_${ownerId}`);
+        if (ownerSaved) return JSON.parse(ownerSaved);
+      }
+      const globalSaved = localStorage.getItem('owner_preferred_slots_global');
+      if (globalSaved) return JSON.parse(globalSaved);
+    } catch { }
+    return ['Morning (10:00 AM - 1:00 PM)', 'Evening (5:00 PM - 8:00 PM)', 'Weekends (11:00 AM - 6:00 PM)'];
+  }, [property?.id, property?.owner_id, property?.owner?.id, property?.preferred_visit_slots]);
+
+  // Next available showing date & time for Owner Availability banner & 1-click Join
+  const nextAvailableOwnerShowing = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const tmrw = new Date(Date.now() + 86400000);
+    const tmrwYear = tmrw.getFullYear();
+    const tmrwMonth = String(tmrw.getMonth() + 1).padStart(2, '0');
+    const tmrwDay = String(tmrw.getDate()).padStart(2, '0');
+    const tmrwStr = `${tmrwYear}-${tmrwMonth}-${tmrwDay}`;
+    const tmrwFormatted = tmrw.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+    // 1. Check if any owner slot is available for today
+    for (const s of ownerVisitTimings) {
+      const match = String(s).match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+      const cleanSlot = match ? match[1] : (s.includes('PM') || s.includes('AM') ? s : '11:00 AM');
+      if (!isSlotPassed(cleanSlot, todayStr)) {
+        return {
+          dateStr: todayStr,
+          time: cleanSlot,
+          fullText: `Today at ${cleanSlot}`,
+        };
+      }
+    }
+
+    // 2. If all today's slots have passed, pick tomorrow's slot
+    const firstMatch = String(ownerVisitTimings[0] || '').match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+    const tmrwTime = firstMatch ? firstMatch[1] : '11:00 AM';
+    return {
+      dateStr: tmrwStr,
+      time: tmrwTime,
+      fullText: `Tomorrow (${tmrwFormatted}) at ${tmrwTime}`,
+    };
+  }, [ownerVisitTimings]);
 
   // Track Guest Property Views
   useEffect(() => {
@@ -401,9 +496,11 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
 
   // Property ID Code & Titles
   const propertyIdCode = `RENT-${String(property.id || '').padStart(4, '0')}`;
+  const rawUnitText = property.unit_type || (property.bedrooms ? `${property.bedrooms} BHK` : '2 BHK');
+  const rawSubtypeText = property.property_subtype_name || property.property_subtype || property.subtype || 'Flat';
   const propertyTitle = property.society_name
-    ? `${property.unit_type || '2 BHK'} Flat for Rent in ${property.society_name}`
-    : `Spacious ${property.unit_type || '2 BHK'} Flat for Rent`;
+    ? `${rawUnitText} ${rawSubtypeText} for Rent in ${property.society_name}`
+    : `Spacious ${rawUnitText} ${rawSubtypeText} for Rent`;
 
   const monthlyRent = Number(property.monthly_rent || property.expected_rent || 0);
   const securityDeposit = Number(property.security_deposit || property.deposit || monthlyRent * 2 || 0);
@@ -437,7 +534,121 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
   const dynamicDemandIndex = monthlyRent <= 25000 ? 'Very High (18+ views/day)' : 'High (12+ views/day)';
 
   const handleOpenContact = (action: 'contact' | 'schedule') => {
+    if (property) {
+      saveTenantEnquiry(property, action === 'schedule' ? 'Requested Site Visit Inspection' : 'Contact Owner Inquiry');
+    }
     setContactModalAction(action);
+    setShowContactModal(true);
+  };
+
+  // 🌟 Direct 1-Click Auto Join Showing Visit specifically for the Bottom Sticky Bar (Owner showing property slot)
+  const handleDirectJoinShowingVisit = async () => {
+    if (property) {
+      saveTenantEnquiry(property, 'Direct Join Site Visit Showing');
+    }
+
+    let activeUser = user || currentUser;
+    if (!activeUser) {
+      try {
+        const uStr = localStorage.getItem('user');
+        if (uStr) activeUser = JSON.parse(uStr);
+      } catch { }
+    }
+    if (!activeUser) {
+      try {
+        const aStr = localStorage.getItem('admin');
+        if (aStr) activeUser = JSON.parse(aStr);
+      } catch { }
+    }
+    const verifiedTenant = (() => {
+      try {
+        const vtStr = localStorage.getItem('verified_tenant');
+        if (vtStr) return JSON.parse(vtStr);
+      } catch { }
+      return null;
+    })();
+
+    const token = localStorage.getItem('token');
+    const isAuthorized = Boolean(activeUser?.id || activeUser?.email || verifiedTenant?.email || token);
+
+    if (isAuthorized && property?.id) {
+      const targetDate = nextAvailableOwnerShowing.dateStr;
+      const targetTime = nextAvailableOwnerShowing.time;
+      const tenantId = activeUser?.id || activeUser?.tenant_id || null;
+      const tenantName = activeUser ? `${activeUser.first_name || ''} ${activeUser.last_name || activeUser.name || ''}`.trim() : (verifiedTenant?.name || 'Tenant');
+      const tenantPhone = activeUser?.phone || verifiedTenant?.phone || '';
+      const tenantEmail = activeUser?.email || verifiedTenant?.email || '';
+
+      setDirectBookingLoading(true);
+      try {
+        if (existingScheduledVisit?.id) {
+          // Direct 1-Click Reschedule without modal
+          const updatePayload = {
+            visit_date: targetDate,
+            visit_time: targetTime,
+            status: 'Pending Owner Approval',
+            remarks: `Rescheduled to ${nextAvailableOwnerShowing.fullText}`,
+          };
+          await tenantVisitAPI.update(existingScheduledVisit.id, updatePayload).catch(() => { });
+
+          const updatedVisit = {
+            ...existingScheduledVisit,
+            ...updatePayload,
+          };
+          setExistingScheduledVisit(updatedVisit);
+
+          try {
+            const stored = JSON.parse(localStorage.getItem('tenant_scheduled_visits') || '[]');
+            const filtered = stored.filter((v: any) => String(v.id) !== String(existingScheduledVisit.id));
+            filtered.push(updatedVisit);
+            localStorage.setItem('tenant_scheduled_visits', JSON.stringify(filtered));
+          } catch { }
+
+          toast.success(`🔄 Site visit rescheduled for ${nextAvailableOwnerShowing.fullText}! Owner will review and confirm.`);
+          return;
+        } else {
+          // Direct 1-Click Booking without modal
+          const payload = {
+            tenant_id: tenantId,
+            tenant_name: tenantName || 'Tenant',
+            tenant_phone: tenantPhone,
+            tenant_email: tenantEmail,
+            rental_property_id: property.id,
+            property_title: propertyTitle,
+            visit_date: targetDate,
+            visit_time: targetTime,
+            meeting_point: property.society_name || property.location || 'Property Location',
+            remarks: `1-Click Auto Join for ${nextAvailableOwnerShowing.fullText}`,
+            status: 'Pending Owner Approval',
+          };
+
+          const res = await tenantVisitAPI.create(payload);
+          const newVisit = {
+            id: res?.id || res?.data?.id || Date.now(),
+            ...payload,
+          };
+          setExistingScheduledVisit(newVisit);
+
+          try {
+            const stored = JSON.parse(localStorage.getItem('tenant_scheduled_visits') || '[]');
+            stored.push(newVisit);
+            localStorage.setItem('tenant_scheduled_visits', JSON.stringify(stored));
+          } catch { }
+
+          toast.success(`🎉 Site visit requested for ${nextAvailableOwnerShowing.fullText}! Details saved to your Tenant Account.`);
+          return;
+        }
+      } catch (err: any) {
+        console.error('Direct visit schedule error:', err);
+        toast.error('Failed to schedule visit. Please try again.');
+        return;
+      } finally {
+        setDirectBookingLoading(false);
+      }
+    }
+
+    // If guest / unauthorized, open modal
+    setContactModalAction('schedule');
     setShowContactModal(true);
   };
 
@@ -538,12 +749,20 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const activeUser = user || currentUser;
-                      if (!activeUser || String(activeUser?.role || '').toLowerCase() !== 'tenant') {
+                      const isLoggedIn = Boolean(
+                        user?.id ||
+                        user?.email ||
+                        localStorage.getItem('token') ||
+                        localStorage.getItem('verified_tenant')
+                      );
+
+                      if (!isLoggedIn) {
                         setContactModalAction('contact');
                         setShowContactModal(true);
+                        toast.info('Please verify your email via OTP to shortlist and save this property.');
                         return;
                       }
+
                       const nowShortlisted = toggleTenantShortlist(property);
                       setLiked(nowShortlisted);
                       toast.success(nowShortlisted ? "Property shortlisted & saved to your account!" : "Removed from shortlist");
@@ -744,61 +963,7 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
               </div>
             </div>
 
-            {/* PROPERTY ACTIVITY & POPULARITY METRICS */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 space-y-2.5">
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-                    <Activity size={14} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-xs sm:text-sm">Property Activity & Tenant Interest</h3>
-                    <p className="text-[10.5px] text-gray-500">Live analytics and verified tenant demand</p>
-                  </div>
-                </div>
-                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-                </span>
-              </div>
 
-              {(() => {
-                const realViews = viewsCount > 0 ? viewsCount : (Number(property?.total_views || property?.views_count || property?.views) || 0);
-                const shortlistedCount = Number(property?.shortlisted_count || property?.shortlistedBy || (liked ? 1 : 0));
-                const contactedCount = Number(property?.inquiries_count || property?.direct_inquiries || property?.inquiries || 0);
-
-                return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-gray-400 font-semibold block uppercase">Total Views</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
-                        <Eye size={13} className="text-blue-500" /> {realViews} Views
-                      </span>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-gray-400 font-semibold block uppercase">Shortlisted By</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
-                        <Heart size={13} className="text-rose-500 fill-rose-500" /> {shortlistedCount} Tenants
-                      </span>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-gray-400 font-semibold block uppercase">Direct Inquiries</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
-                        <PhoneCall size={13} className="text-emerald-600" /> {contactedCount} Contacted
-                      </span>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] text-gray-400 font-semibold block uppercase">Listing Status</span>
-                      <span className="text-xs font-black text-emerald-700 mt-0.5 flex items-center justify-center gap-1">
-                        <ShieldCheck size={13} className="text-emerald-600" /> 100% Verified
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
 
             {/* AMENITIES & FURNISHING ITEMS */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2">
@@ -806,7 +971,7 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
               {/* Amenities */}
               <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 p-2.5 sm:p-3 ring-1 ring-gray-100">
                 <h3 className="font-semibold text-gray-900 text-xs sm:text-sm mb-2 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-amber-500" /> Amenities
+                  <Building2 size={14} className="text-amber-500" /> Amenities
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {(() => {
@@ -872,7 +1037,7 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
                 </div>
                 {aiAnalysisLoading ? (
                   <div className="flex items-center gap-1 text-[10px] text-purple-600 font-bold animate-pulse">
-                    <Sparkles size={12} /> Generating...
+                    <Loader2 size={12} className="animate-spin" /> Generating...
                   </div>
                 ) : (
                   <span className="text-[10px] font-bold text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full border border-purple-200">
@@ -898,7 +1063,7 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
               {/* AI Insight Snippet */}
               {aiAnalysisData?.ai_insight && (
                 <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200/70 text-[11px] text-purple-950 flex items-start gap-2">
-                  <Sparkles size={13} className="text-purple-600 shrink-0 mt-0.5" />
+                  <Bot size={13} className="text-purple-600 shrink-0 mt-0.5" />
                   <p className="leading-snug">
                     <strong className="font-semibold text-purple-900">AI Valuation Summary:</strong> {aiAnalysisData.ai_insight}
                   </p>
@@ -990,9 +1155,20 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
 
                 <button
                   onClick={() => handleOpenContact('schedule')}
-                  className="w-full py-2.5 px-2 rounded-xl bg-[#0b3856] hover:bg-[#07263b] active:scale-[0.99] text-white font-bold text-[11px] sm:text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+                  disabled={directBookingLoading}
+                  className={`w-full py-2.5 px-2 rounded-xl active:scale-[0.99] font-extrabold text-[11px] sm:text-xs shadow-xs flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer text-center disabled:opacity-60 ${existingScheduledVisit
+                    ? 'bg-blue-900 hover:bg-blue-950 text-white ring-2 ring-blue-300'
+                    : 'bg-[#0b3856] hover:bg-[#07263b] text-white'
+                    }`}
                 >
-                  <CalendarClock className="w-3.5 h-3.5 text-amber-300 shrink-0" /> Schedule Visit
+                  <span className="leading-none flex items-center gap-1">
+                    {directBookingLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300 shrink-0" />
+                    ) : (
+                      <CalendarClock className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    )}
+                    {directBookingLoading ? 'Booking Visit...' : (existingScheduledVisit ? 'Reschedule Visit' : 'Schedule Visit')}
+                  </span>
                 </button>
               </div>
 
@@ -1000,6 +1176,66 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
                 <Lock className="w-2.5 h-2.5 text-amber-700" /> 100% Privacy Protected • Zero Spam
               </div>
 
+            </div>
+
+            {/* CARD 2: PROPERTY ACTIVITY & TENANT INTEREST */}
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-xs p-3.5 sm:p-4 space-y-2.5">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+                    <Activity size={14} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-xs">Property Activity & Demand</h3>
+                    <p className="text-[10px] text-gray-500">Live analytics & tenant demand</p>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1 text-[9.5px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                </span>
+              </div>
+
+              {(() => {
+                const realViews = viewsCount > 0 ? viewsCount : (Number(property?.total_views || property?.views_count || property?.views) || 1);
+                const baseShortlisted = Number(property?.shortlisted_count ?? property?.shortlistedBy ?? 0);
+                const isShortlisted = liked || (property?.id ? isTenantShortlisted(property.id) : false);
+                const shortlistedCount = Math.max(baseShortlisted, isShortlisted ? 1 : 0);
+                const baseContacted = Number(property?.inquiries_count ?? property?.direct_inquiries ?? property?.inquiries ?? 0);
+                const isEnquired = property?.id ? isTenantEnquired(property.id) : false;
+                const contactedCount = Math.max(baseContacted, isEnquired ? 1 : 0);
+
+                return (
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[9.5px] text-gray-400 font-semibold block uppercase">Total Views</span>
+                      <span className="text-xs font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
+                        <Eye size={12} className="text-blue-500" /> {realViews} Views
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[9.5px] text-gray-400 font-semibold block uppercase">Shortlisted By</span>
+                      <span className="text-xs font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
+                        <Heart size={12} className="text-rose-500 fill-rose-500" /> {shortlistedCount} Tenants
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[9.5px] text-gray-400 font-semibold block uppercase">Direct Inquiries</span>
+                      <span className="text-xs font-black text-slate-800 mt-0.5 flex items-center justify-center gap-1">
+                        <PhoneCall size={12} className="text-emerald-600" /> {contactedCount} Contacted
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[9.5px] text-gray-400 font-semibold block uppercase">Listing Status</span>
+                      <span className="text-[11px] font-black text-emerald-700 mt-0.5 flex items-center justify-center gap-1">
+                        <ShieldCheck size={12} className="text-emerald-600" /> 100% Verified
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* CARD 2: TENANT SECURITY & ASSURANCE */}
@@ -1054,12 +1290,85 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
 
       </div>
 
+      {/* 🌟 STICKY BOTTOM ACTION BAR (Desktop & Mobile) - Shows Owner Showing Time & Direct CTAs */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 py-2.5 px-3 sm:px-6 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-all animate-in slide-in-from-bottom duration-300">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+
+          {/* Left: Property Info + Owner Availability Strip */}
+          <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+            {images?.[0] && (
+              <img
+                src={images[0]}
+                alt="Property"
+                className="w-10 h-10 rounded-lg object-cover border border-slate-200 hidden md:block shrink-0 shadow-2xs"
+              />
+            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                  {propertyTitle}
+                </span>
+                <span className="text-xs sm:text-sm font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                  ₹{Number(property?.expected_rent || property?.monthly_rent || 0).toLocaleString('en-IN')}/mo
+                </span>
+              </div>
+
+              {/* Owner Showing Property Notice with Live Indicator */}
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-700 font-medium truncate mt-0.5">
+                <span className="flex h-2 w-2 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                <span className="truncate">
+                  Owner showing this property{' '}
+                  <strong className="text-blue-900 font-extrabold">
+                    {nextAvailableOwnerShowing.fullText}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+            <button
+              type="button"
+              onClick={() => handleOpenContact('contact')}
+              className="py-2 px-3.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-900 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <PhoneCall size={13} className="text-[#0b3856]" />
+              <span>Contact Owner</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={directBookingLoading}
+              onClick={handleDirectJoinShowingVisit}
+              className={`py-2 px-4 rounded-xl active:scale-[0.99] font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap disabled:opacity-60 ${existingScheduledVisit
+                ? 'bg-blue-900 hover:bg-blue-950 text-white ring-2 ring-blue-300'
+                : 'bg-[#0b3856] hover:bg-[#07263b] text-white'
+                }`}
+            >
+              {directBookingLoading ? (
+                <Loader2 size={14} className="animate-spin text-amber-300" />
+              ) : (
+                <CalendarClock size={14} className="text-amber-300" />
+              )}
+              <span>{directBookingLoading ? 'Booking Visit...' : (existingScheduledVisit ? ' Reschedule Visit' : 'Join / Schedule Visit')}</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
       {/* Contact Owner Tenant 4-Step Email OTP Modal */}
       <ContactOwnerTenantModal
         isOpen={showContactModal}
         onClose={() => setShowContactModal(false)}
         property={property}
         defaultAction={contactModalAction}
+        initialVisitDate={nextAvailableOwnerShowing.dateStr}
+        initialVisitTime={nextAvailableOwnerShowing.time}
       />
 
       {/* Report Listing Modal */}

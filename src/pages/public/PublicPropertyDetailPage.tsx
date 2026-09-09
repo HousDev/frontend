@@ -39,7 +39,6 @@ import {
   Crown,
   Gem,
   Bot,
-  Sparkles,
   TrendingDown,
   AlertCircle,
   Lightbulb,
@@ -2370,7 +2369,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                     <span className="text-xs sm:text-sm font-medium text-gray-700">Shortlisted By</span>
                   </div>
                   <span className="text-blue-600 text-xs sm:text-sm font-medium">
-                    {property?.shortlistedBy ?? property?.raw?.public_inquiries ?? (liked ? 1 : 0)} People
+                    {Math.max(Number(property?.shortlisted_count ?? property?.shortlistedBy ?? 0), liked ? 1 : 0)} People
                   </span>
                 </div>
 
@@ -2827,7 +2826,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                     {/* Insight note (compact) */}
                     <div className="p-3 bg-white rounded-lg border border-purple-100">
                       <div className="flex items-start space-x-2">
-                        <Sparkles className="text-purple-600 mt-0.5" size={16} />
+                        <Bot className="text-purple-600 mt-0.5" size={16} />
                         <p className="text-xs text-gray-700 leading-snug">
                           <strong>AI Insight:</strong> This property is in the top 5% for investment potential in this area. Current market conditions favor immediate purchase.
                         </p>

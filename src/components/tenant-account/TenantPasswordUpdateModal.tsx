@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   KeyRound,
   UserCheck,
-  Sparkles
+  XCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { tenantAPI } from '@/lib/tenantAPI';
@@ -125,23 +125,30 @@ export const TenantPasswordUpdateModal: React.FC<TenantPasswordUpdateModalProps>
 
         {/* Username Info Box */}
         <div className="px-5 pt-4">
-          <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 flex items-center justify-between">
+          <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-200 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-amber-200/70 text-amber-900 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-200/80 text-amber-950 flex items-center justify-center shrink-0 shadow-2xs">
                 <UserCheck className="w-4 h-4" />
               </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Your Login Identifier
+                  Your Account Username
                 </span>
                 <span className="font-mono font-black text-xs text-amber-950 truncate block">
-                  {tenantEmail || `@${derivedUsername}`}
+                  @{derivedUsername}
                 </span>
               </div>
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-              Active Tenant
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(`@${derivedUsername}`);
+                toast.success(`Copied username: @${derivedUsername}`);
+              }}
+              className="px-2.5 py-1 text-[10px] font-extrabold text-amber-900 bg-amber-200/70 hover:bg-amber-200 rounded-lg transition-colors cursor-pointer border border-amber-300/60"
+            >
+              Copy Username
+            </button>
           </div>
         </div>
 
@@ -161,7 +168,13 @@ export const TenantPasswordUpdateModal: React.FC<TenantPasswordUpdateModalProps>
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Create password (min 6 chars)"
-                className="w-full pl-3.5 pr-10 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#f59e0b] focus:border-transparent transition-all font-medium text-slate-800"
+                className={`w-full pl-3.5 pr-10 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 transition-all font-medium text-slate-800 ${
+                  newPassword.length >= 6
+                    ? 'border-slate-300 focus:ring-amber-500'
+                    : newPassword.length > 0
+                    ? 'border-amber-300 focus:ring-amber-500'
+                    : 'border-slate-200 focus:ring-amber-500'
+                }`}
               />
               <button
                 type="button"
@@ -171,6 +184,11 @@ export const TenantPasswordUpdateModal: React.FC<TenantPasswordUpdateModalProps>
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {newPassword.length > 0 && newPassword.length < 6 && (
+              <span className="text-[10.5px] text-amber-600 font-semibold block mt-1">
+                Min 6 characters required ({newPassword.length}/6)
+              </span>
+            )}
           </div>
 
           {/* Confirm Password */}
@@ -186,14 +204,28 @@ export const TenantPasswordUpdateModal: React.FC<TenantPasswordUpdateModalProps>
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-type your password"
-                className="w-full pl-3.5 pr-10 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#f59e0b] focus:border-transparent transition-all font-medium text-slate-800"
+                className={`w-full pl-3.5 pr-10 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 transition-all font-medium text-slate-800 ${
+                  confirmPassword.length > 0
+                    ? newPassword === confirmPassword
+                      ? 'border-emerald-400 focus:ring-emerald-500 bg-emerald-50/20'
+                      : 'border-rose-400 focus:ring-rose-500 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-amber-500'
+                }`}
               />
               <Lock className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
-            {newPassword && confirmPassword && newPassword !== confirmPassword && (
-              <span className="text-[10px] text-rose-500 font-semibold block mt-1">
-                ⚠️ Passwords do not match
-              </span>
+            {confirmPassword.length > 0 && (
+              newPassword === confirmPassword ? (
+                <span className="text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 mt-1">
+                  <CheckCircle2 size={12} className="text-emerald-600" />
+                  Passwords match perfectly
+                </span>
+              ) : (
+                <span className="text-[10.5px] text-rose-600 font-bold flex items-center gap-1 mt-1">
+                  <XCircle size={12} className="text-rose-600" />
+                  Passwords do not match
+                </span>
+              )
             )}
           </div>
 

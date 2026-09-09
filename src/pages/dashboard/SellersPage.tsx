@@ -462,6 +462,7 @@ const SellersPage: React.FC = () => {
     leadType: "all",
     assigned: "all",
     status: "all",
+    propertyLink: "all",
   });
 
   useEffect(() => {
@@ -769,6 +770,14 @@ const SellersPage: React.FC = () => {
         !filters.dateTo || !createdAt || createdAt <= new Date(filters.dateTo);
       const matchesDate = filters.ignoreDate || (fromOk && toOk);
 
+      // Property Link filter
+      const hasLinkedProperty = Array.isArray(seller.properties) && seller.properties.length > 0;
+      const matchesPropertyLink =
+        !filters.propertyLink ||
+        filters.propertyLink === 'all' ||
+        (filters.propertyLink === 'linked' && hasLinkedProperty) ||
+        (filters.propertyLink === 'unlinked' && !hasLinkedProperty);
+
       return (
         matchesSearch &&
         matchesColName &&
@@ -780,7 +789,8 @@ const SellersPage: React.FC = () => {
         matchesColCreated &&
         matchesTab &&
         matchesFilters &&
-        matchesDate
+        matchesDate &&
+        matchesPropertyLink
       );
     });
   }, [roleFilteredSellers, searchTerm, activeTab, filters, colSearch]);
@@ -1536,6 +1546,7 @@ const SellersPage: React.FC = () => {
       leadType: "all",
       assigned: "all",
       status: "all",
+      propertyLink: "all",
     });
 
   const isExecutive = useMemo(() => {
