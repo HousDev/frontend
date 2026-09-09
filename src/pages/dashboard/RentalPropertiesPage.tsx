@@ -328,6 +328,8 @@ const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string
   orange: { badge: 'bg-orange-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-orange-50 text-orange-600 border border-orange-200', countActive: 'bg-orange-200 text-orange-700' },
   indigo: { badge: 'bg-indigo-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-indigo-50 text-indigo-600 border border-indigo-200', countActive: 'bg-indigo-200 text-indigo-700' },
   red: { badge: 'bg-red-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-red-50 text-red-600 border border-red-200', countActive: 'bg-red-200 text-red-700' },
+  teal: { badge: 'bg-teal-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-teal-50 text-teal-700 border border-teal-200', countActive: 'bg-teal-200 text-teal-800' },
+  amber: { badge: 'bg-amber-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-amber-50 text-amber-700 border border-amber-200', countActive: 'bg-amber-200 text-amber-800' },
 };
 
 function tabBtnClass(active: boolean, color: string) {
@@ -456,6 +458,8 @@ export function RentalPropertiesPage() {
         if (p.id === linkingPropertyForOwner.id) {
           return {
             ...p,
+            owner_id: owner.id,
+            owner_name: owner.name,
             owner: {
               id: owner.id,
               name: owner.name,
@@ -1066,6 +1070,20 @@ export function RentalPropertiesPage() {
     return unique.sort().map(v => ({ label: v, value: v }));
   }, [properties]);
 
+  // Robust helper for owner/seller linkage check
+  const isOwnerLinked = (p: any) => {
+    const oid = p.owner?.id ?? p.owner_id ?? p.seller?.id ?? p.seller_id;
+    if (oid != null && oid !== '' && oid !== 'null' && oid !== 'undefined') {
+      const numId = Number(oid);
+      if (!isNaN(numId) && numId > 0) return true;
+    }
+    const rawName = String(p.owner?.name ?? p.owner_name ?? p.seller?.name ?? p.seller_name ?? '').trim();
+    if (!rawName) return false;
+    const cleanName = rawName.toLowerCase();
+    const invalidNames = ['-', ' - ', '--', '---', 'null', 'undefined', 'n/a', 'na', 'none', 'owner', 'no owner', 'no seller', 'direct', 'self', 'unassigned'];
+    return !invalidNames.includes(cleanName);
+  };
+
   const filteredProperties = useMemo(() => {
     let result = properties.filter((p: any) => {
       const q = searchTerm.toLowerCase().trim();
@@ -1100,6 +1118,8 @@ export function RentalPropertiesPage() {
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'available' && p.status === 'Available') ||
+        (activeTab === 'linked_owner' && isOwnerLinked(p)) ||
+        (activeTab === 'unlinked_owner' && !isOwnerLinked(p)) ||
         (activeTab === 'leased' && (p.status === 'Sold' || p.status === 'Leased')) ||
         (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
         (activeTab === 'public' && p.isPublic) ||
@@ -1171,6 +1191,8 @@ export function RentalPropertiesPage() {
   const tabs = useMemo(() => [
     { id: 'all', label: 'All Rental Properties', count: properties.length, color: 'blue' },
     { id: 'available', label: 'Available', count: properties.filter(p => p.status === 'Available').length, color: 'green' },
+    { id: 'linked_owner', label: 'Linked Owner', count: properties.filter(p => isOwnerLinked(p)).length, color: 'teal' },
+    { id: 'unlinked_owner', label: 'Unlinked Properties', count: properties.filter(p => !isOwnerLinked(p)).length, color: 'amber' },
     { id: 'leased', label: 'Leased / Signed', count: properties.filter(p => p.status === 'Sold' || p.status === 'Leased').length, color: 'purple' },
     { id: 'negotiation', label: 'Under Negotiation', count: properties.filter(p => p.status === 'Under Negotiation').length, color: 'orange' },
     { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
