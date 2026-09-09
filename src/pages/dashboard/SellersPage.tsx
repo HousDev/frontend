@@ -1581,11 +1581,13 @@ const SellersPage: React.FC = () => {
     return (
       <SellerViewPage
         seller={currentSellerView}
+        sellerId={currentSellerView.id}
         onBack={handleBackToList}
         onEdit={(sellerData) => {
           setCurrentSellerView(null);   // ← view band karo pehle
           handleEditSeller(sellerData as UISeller);
-        }} onAccount={handleSellerAccount}
+        }}
+        onAccount={handleSellerAccount}
         onNext={handleNextSeller}
         onPrevious={handlePreviousSeller}
         currentIndex={currentSellerIndex}

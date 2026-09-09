@@ -1023,7 +1023,47 @@ const LeadDetailPage: React.FC = () => {
                       f.scheduledDate || f.scheduled_date,
                       f.scheduledTime || f.scheduled_time
                     );
-                    const createdByName = `${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System";
+                    const fAny = f as any;
+                    const currentAccountProfileName =
+                      (user as any)?.name ||
+                      (user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "") ||
+                      (user as any)?.username ||
+                      "Executive";
+
+                    const stripSalutation = (val?: string | null): string => {
+                      if (!val) return "";
+                      return String(val)
+                        .replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.|shri\.|smt\.|mr|mrs|ms|dr|prof|shri|smt)\s+/i, "")
+                        .trim();
+                    };
+
+                    const rawCreatedByName =
+                      (fAny.created_by_name && fAny.created_by_name !== "System" && !String(fAny.created_by_name).toLowerCase().includes("system") ? fAny.created_by_name : null) ||
+                      (fAny.createdByName && fAny.createdByName !== "System" && !String(fAny.createdByName).toLowerCase().includes("system") ? fAny.createdByName : null) ||
+                      (`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || null) ||
+                      (typeof f.createdBy === "string" && f.createdBy !== "System" && !String(f.createdBy).toLowerCase().includes("system") ? f.createdBy : null) ||
+                      (fAny.created_by && isNaN(Number(fAny.created_by)) && !String(fAny.created_by).toLowerCase().includes("system") ? String(fAny.created_by) : null) ||
+                      (fAny.created_by ? `User #${fAny.created_by}` : null) ||
+                      (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+                      currentAccountProfileName;
+                    const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
+
+                    const rawAssignedToName =
+                      fAny.assigned_to_name ||
+                      fAny.assignedToName ||
+                      (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
+                      lead?.assigned_executive_name ||
+                      "Unassigned";
+                    const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
+                      ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
+                      : "Unassigned";
+
+                    const rawAssignedByName =
+                      (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+                      (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
+                      (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
+                      createdByName;
+                    const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
                     return (
                       <div key={f.id} className={`border rounded-lg p-2.5 transition-all bg-white shadow-xs hover:shadow-sm border-l-4 ${color.leftBar}`}>
@@ -1114,10 +1154,14 @@ const LeadDetailPage: React.FC = () => {
                                 <span>Created by:</span>
                                 <strong className="text-gray-700 font-semibold">{createdByName}</strong>
                               </span>
-                              {lead?.assigned_executive_name && (
+                              <span className="flex items-center gap-1">
+                                <span>Assigned to:</span>
+                                <strong className="text-gray-700 font-semibold">{assignedToName}</strong>
+                              </span>
+                              {assignedByName && (
                                 <span className="flex items-center gap-1">
-                                  <span>Assigned to:</span>
-                                  <strong className="text-gray-700 font-semibold">{lead.assigned_executive_name}</strong>
+                                  <span>📌 Assigned by:</span>
+                                  <strong className="text-gray-700 font-semibold">{assignedByName}</strong>
                                 </span>
                               )}
                             </div>

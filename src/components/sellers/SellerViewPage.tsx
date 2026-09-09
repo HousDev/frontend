@@ -666,6 +666,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
   canUpdate = true,
   canDelete = true,
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = React.useState<"sales" | "presales">(
     "sales",
   );
@@ -700,6 +701,12 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
       null;
     return meta ? `${meta.border} ${meta.bg}` : "border-l-gray-400 bg-gray-50";
   };
+
+  const currentAccountProfileName =
+    (user as any)?.name ||
+    (user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "") ||
+    (user as any)?.username ||
+    "Executive";
 
   return (
     <div className="space-y-4">
@@ -766,8 +773,44 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
             const rawRemark = (f as any).remark || (f as any).outcome || f.notes || '';
             const outcomeVal = (rawCustom && rawCustom.trim().length > 0) ? rawCustom : (rawRemark && rawRemark.trim().length > 0 ? rawRemark : null);
 
-            const createdByVal = f.createdByName || f.createdBy || ((f as any).created_by ? `User #${(f as any).created_by}` : "Admin");
-            const assignedToVal = f.assignedExecutiveName || f.assignedTo || "Unassigned";
+            const stripSalutation = (val?: string | null): string => {
+              if (!val) return "";
+              return String(val)
+                .replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.|shri\.|smt\.|mr|mrs|ms|dr|prof|shri|smt)\s+/i, "")
+                .trim();
+            };
+
+            const rawCreatedByName =
+              (fAny.created_by_name && fAny.created_by_name !== "System" && !String(fAny.created_by_name).toLowerCase().includes("system") ? fAny.created_by_name : null) ||
+              (fAny.createdByName && fAny.createdByName !== "System" && !String(fAny.createdByName).toLowerCase().includes("system") ? fAny.createdByName : null) ||
+              (f.createdBy && f.createdBy !== "System" && !String(f.createdBy).toLowerCase().includes("system") ? f.createdBy : null) ||
+              (fAny.raw?.created_by_name && fAny.raw?.created_by_name !== "System" && !String(fAny.raw?.created_by_name).toLowerCase().includes("system") ? fAny.raw?.created_by_name : null) ||
+              (fAny.raw?.created_by && isNaN(Number(fAny.raw?.created_by)) && !String(fAny.raw?.created_by).toLowerCase().includes("system") ? String(fAny.raw?.created_by) : null) ||
+              (fAny.raw?.created_by ? `User #${fAny.raw?.created_by}` : null) ||
+              (fAny.created_by && isNaN(Number(fAny.created_by)) && !String(fAny.created_by).toLowerCase().includes("system") ? String(fAny.created_by) : null) ||
+              (fAny.created_by ? `User #${fAny.created_by}` : null) ||
+              currentAccountProfileName;
+            const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
+
+            const rawAssignedToName =
+              fAny.assigned_to_name ||
+              fAny.assignedToName ||
+              f.assignedExecutiveName ||
+              f.assignedTo ||
+              (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
+              seller?.assigned_executive_name ||
+              seller?.assigned_to_name ||
+              "Unassigned";
+            const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
+              ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
+              : "Unassigned";
+
+            const rawAssignedByName =
+              (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+              (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
+              (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
+              createdByName;
+            const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
             return (
               <div key={idKey} className="h-full">
@@ -867,18 +910,24 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
                       </div>
                     )}
 
-                    {/* Footer Audit Metadata: Created By, Assigned To, Created At, Updated At */}
+                    {/* Footer Audit Metadata: Created By, Assigned To, Assigned By, Created At, Updated At */}
                     <div className="pt-2 mt-2 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="flex items-center gap-1">
                           <UserIcon size={11} className="text-gray-400" />
                           <span>Created by:</span>
-                          <strong className="text-gray-700 font-semibold">{createdByVal}</strong>
+                          <strong className="text-gray-700 font-semibold">{createdByName}</strong>
                         </span>
                         <span className="flex items-center gap-1">
-                          <span>Assigned to:</span>
-                          <strong className="text-gray-700 font-semibold">{assignedToVal}</strong>
+                          <span>🎯 Assigned to:</span>
+                          <strong className="text-gray-700 font-semibold">{assignedToName}</strong>
                         </span>
+                        {assignedByName && (
+                          <span className="flex items-center gap-1">
+                            <span>📌 Assigned by:</span>
+                            <strong className="text-gray-700 font-semibold">{assignedByName}</strong>
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {f.createdAt && (
@@ -975,10 +1024,18 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [editingFollowup, setEditingFollowup] = useState<Followup | null>(null);
   const [fuLoading, setFuLoading] = useState(false);
   const [fuError, setFuError] = useState<string | null>(null);
+  const [localFollowups, setLocalFollowups] = useState<Followup[]>(
+    ((seller as any)?.followups as Followup[]) || []
+  );
   const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const { properties: availableProperties = [], loadingProps } = useProperties({ autoLog: false });
   const sellerRef = React.useRef(seller);
-  useEffect(() => { sellerRef.current = seller; }, [seller]);
+  useEffect(() => { 
+    sellerRef.current = seller; 
+    if (Array.isArray((seller as any)?.followups) && (seller as any).followups.length > 0) {
+      setLocalFollowups((seller as any).followups);
+    }
+  }, [seller]);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: UserIcon },
@@ -998,7 +1055,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       id: "followups",
       label: "Follow-ups",
       icon: CalendarIcon,
-      count: ((seller as any).followups as Followup[] | undefined)?.length || 0,
+      count: localFollowups.length || ((seller as any).followups as Followup[] | undefined)?.length || 0,
     },
     {
       id: "documents",
@@ -1138,43 +1195,37 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     };
   };
 
-  const pushFollowupsIntoSeller = useCallback(
-    (rows: any[]) => {
-      const mapped = (rows || []).map(normalizeFromApi);
-      const updatedSeller: AnyObj = {
-        ...(seller as AnyObj),
-        followups: mapped,
-      };
-      onUpdateSeller(updatedSeller);
-    },
-    [seller, onUpdateSeller],
-  );
-  const fetchFollowups = useCallback(async () => {
-    if (!sellerIdVal) return;
+  const fetchFollowups = useCallback(async (forcedId?: string | number) => {
+    const idToFetch = forcedId ?? sellerIdVal ?? (sellerRef.current as any)?.id ?? (sellerRef.current as any)?.sellerId;
+    if (!idToFetch) return;
     try {
       setFuError(null);
       setFuLoading(true);
-      sellerFollowupAPI.clearCache();
       const res = await sellerFollowupAPI.getAll({
-        sellerId: sellerIdVal as any,
+        sellerId: idToFetch as any,
         page: 1,
         limit: 200,
       });
       const rows =
         res && typeof res === "object" && "data" in res ? res.data : res;
-      pushFollowupsIntoSeller(Array.isArray(rows) ? rows : []);
+      const mapped = (Array.isArray(rows) ? rows : []).map(normalizeFromApi);
+      setLocalFollowups(mapped);
     } catch (e: any) {
       console.error("Failed to load seller followups:", e);
       setFuError(e?.message || "Failed to load follow-ups");
-      pushFollowupsIntoSeller([]);
     } finally {
       setFuLoading(false);
     }
-  }, [sellerIdVal, pushFollowupsIntoSeller]);
+  }, [sellerIdVal]);
+
+  const lastFetchedIdRef = React.useRef<string | number | null>(null);
 
   useEffect(() => {
-    if (sellerId) fetchFollowups();
-  }, [sellerId]);
+    if (sellerIdVal && lastFetchedIdRef.current !== sellerIdVal) {
+      lastFetchedIdRef.current = sellerIdVal;
+      fetchFollowups(sellerIdVal);
+    }
+  }, [sellerIdVal, fetchFollowups]);
 
   const mapPropertyToInitialData = (property: AnyObj | null) => {
     if (!property) return null;
@@ -1375,28 +1426,29 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     setEditingActivity(null);
   };
   const upsertFollowupLocal = (followupData: Followup) => {
-    const updatedSeller = {
-      ...(seller as AnyObj),
-      followups: ((seller as AnyObj).followups as Followup[] | undefined)
-        ? ((seller as AnyObj).followups as Followup[]).some(
-          (f) => f.id === followupData.id,
-        )
-          ? ((seller as AnyObj).followups as Followup[]).map((f) =>
-            f.id === followupData.id ? followupData : f,
-          )
-          : [...((seller as AnyObj).followups as Followup[]), followupData]
-        : [followupData],
-    };
-    onUpdateSeller(updatedSeller);
+    setLocalFollowups((prev) => {
+      const exists = prev.some((f) => String(f.id) === String(followupData.id));
+      const next = exists
+        ? prev.map((f) => (String(f.id) === String(followupData.id) ? followupData : f))
+        : [followupData, ...prev];
+      const updatedSeller = {
+        ...(sellerRef.current as AnyObj),
+        followups: next,
+      };
+      onUpdateSeller(updatedSeller);
+      return next;
+    });
   };
   const handleDeleteFollowupLocal = (f: Followup) => {
-    const updatedSeller = {
-      ...(seller as AnyObj),
-      followups: (((seller as AnyObj).followups as Followup[]) || []).filter(
-        (x) => String(x.id) !== String(f.id),
-      ),
-    };
-    onUpdateSeller(updatedSeller);
+    setLocalFollowups((prev) => {
+      const next = prev.filter((x) => String(x.id) !== String(f.id));
+      const updatedSeller = {
+        ...(sellerRef.current as AnyObj),
+        followups: next,
+      };
+      onUpdateSeller(updatedSeller);
+      return next;
+    });
   };
   const handleAddVisit = (visitData: AnyObj) => {
     const updatedSeller = {
@@ -2732,7 +2784,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
           ) : (
             <SellerFollowupsTab
               seller={seller}
-              followups={((seller as any).followups as Followup[]) || []}
+              followups={localFollowups.length > 0 ? localFollowups : (((seller as any).followups as Followup[]) || [])}
               onAddFollowup={() => {
                 if (!canCreateFollowups) {
                   toast.error("No permission");
