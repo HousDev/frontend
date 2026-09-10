@@ -20,7 +20,7 @@ import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
 import TenantSidebarFilter, { TenantFiltersState } from "./components/TenantSidebarFilter";
 import ImportTenantsModal from "@/components/tenants/ImportTenantsModal";
 import TenantFormModal from "@/components/tenants/TenantFormModal";
-import TenantAccountPage from "@/components/tenants/TenantAccountPage";
+import TenantAccountPage from "@/components/tenant-account/TenantAccountPage";
 import TenantViewPage from "@/components/tenants/TenantViewPage";
 import TenantViewModal from "@/components/tenants/TenantViewModal";
 import TenantFollowupModal from "@/components/tenants/TenantFollowupModal";

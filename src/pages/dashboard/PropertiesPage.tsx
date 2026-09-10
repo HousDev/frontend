@@ -4248,27 +4248,27 @@ const PropertiesPage = () => {
 /* ---------------------- Badges ---------------------- */
 function getStatusBadge(status: string, compact: boolean = false) {
   const cfg: any = {
-    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Avail', icon: compact ? '●' : '🟢' },
+    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Available', icon: compact ? '●' : '🟢' },
     'Sold': { bg: 'bg-red-100', text: 'text-red-600', label: 'Sold', compactLabel: 'Sold', icon: compact ? '●' : '🔴' },
-    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Negot.', icon: compact ? '●' : '🟡' },
-    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'Hold', icon: compact ? '●' : '⚫' },
-    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', compactLabel: 'Final', icon: compact ? '●' : '🟣' },
+    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Under Negotiation', icon: compact ? '●' : '🟡' },
+    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'On Hold', icon: compact ? '●' : '⚫' },
+    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', compactLabel: 'Finalization', icon: compact ? '●' : '🟣' },
     ' - ': { bg: 'bg-gray-100', text: 'text-gray-700', label: ' - ', compactLabel: ' - ', icon: compact ? '●' : '•' },
   }[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(status), compactLabel: dash(status), icon: compact ? '●' : '•' };
 
-  const displayLabel = compact ? cfg.compactLabel : cfg.label;
+  const displayLabel = compact ? (cfg.compactLabel || cfg.label) : cfg.label;
 
   if (compact) {
     return (
-      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${cfg.bg} ${cfg.text}`}>
-        <span className="mr-0.5 text-[6px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold whitespace-nowrap shadow-xs backdrop-blur-xs ${cfg.bg} ${cfg.text}`}>
+        <span className="mr-1 text-[7px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
       </span>
     );
   }
 
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-      {cfg.icon} {displayLabel}
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold whitespace-nowrap ${cfg.bg} ${cfg.text}`}>
+      <span className="mr-1.5">{cfg.icon}</span> {displayLabel}
     </span>
   );
 }

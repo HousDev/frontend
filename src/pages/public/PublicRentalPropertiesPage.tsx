@@ -21,6 +21,7 @@ import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
 import { toggleTenantShortlist, getTenantShortlist } from '@/lib/tenantShortlist';
+import ContactOwnerTenantModal from '@/components/properties/ContactOwnerTenantModal';
 import { toast } from 'react-toastify';
 
 /* ==============================
@@ -159,24 +160,60 @@ const getAmenityIcon = (amenity: string) => {
 
 // unit extraction
 const extractUnitType = (p: Property) => {
-  const candidates = [p.type, (p as any)._raw?.unit_type, (p as any)._raw?.unit_type_name, p.title as any, p.property_type]
-    .filter(Boolean).map(String);
-  for (const c of candidates) {
-    const m = c.match(/(\d+\s*BHK|\d+BHK|studio|1RK)/i);
-    if (m) return m[0].replace(/\s+/g, '');
+  const directUnit = (p.unit_type || (p as any).unitType || (p as any)._raw?.unit_type || (p as any)._raw?.unit_type_name || (p as any)._raw?.bhk || '')?.toString().trim();
+  if (directUnit) {
+    if (/^\d+(\.\d+)?$/.test(directUnit)) return `${directUnit} BHK`;
+    return directUnit;
   }
-  if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms}BHK`;
+
+  const candidates = [
+    p.unit_type,
+    (p as any).unitType,
+    (p as any)._raw?.unit_type,
+    (p as any)._raw?.unit_type_name,
+    p.type,
+    p.title as any,
+    p.property_type
+  ].filter(Boolean).map(String);
+
+  for (const c of candidates) {
+    const m = c.match(/(\d+(?:\.\d+)?\s*BHK|\d+(?:\.\d+)?\s*RK|studio|penthouse|duplex|bungalow|villa)/i);
+    if (m) {
+      const matchText = m[0].trim();
+      if (/^\d+(\.\d+)?\s*BHK$/i.test(matchText)) {
+        return matchText.replace(/\s+/g, '').replace(/bhk/i, ' BHK');
+      }
+      return matchText;
+    }
+  }
+  if (p.bedrooms && Number.isFinite(p.bedrooms) && p.bedrooms > 0) return `${p.bedrooms} BHK`;
   return '';
 };
 
 const composeHeaderTitle = (p: Property) => {
   const parts: string[] = [];
-  const type = (p.property_type || p.type || (p as any)._raw?.property_type_name || '').toString().trim();
+  const type = ((p as any)._raw?.property_type_name || p.property_type || (p as any)._raw?.property_type || '').toString().trim();
   if (type) parts.push(type);
+
   const unit = extractUnitType(p);
-  if (unit) parts.push(unit);
-  const subtype = ((p as any)._raw?.property_subtype_name || (p as any)._raw?.property_subtype || (p as any)._raw?.subtype || p.society || '').toString().trim();
-  if (subtype) parts.push(subtype);
+  if (unit && !parts.some(pt => pt.toLowerCase() === unit.toLowerCase())) {
+    parts.push(unit);
+  }
+
+  const subtype = (
+    (p as any)._raw?.property_subtype_name ||
+    (p as any)._raw?.property_subtype ||
+    (p as any).property_subtype ||
+    (p as any)._raw?.subtype ||
+    (p as any).subtype ||
+    p.society ||
+    ''
+  ).toString().trim();
+
+  if (subtype && !parts.some(pt => pt.toLowerCase() === subtype.toLowerCase()) && subtype.toLowerCase() !== unit.toLowerCase()) {
+    parts.push(subtype);
+  }
+
   if (parts.length === 0 && p.title) return p.title as any;
   return parts.join(' ');
 };
@@ -417,9 +454,29 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
     }
   });
 
+  const [showContactModal, setShowContactModal] = useState<boolean>(false);
+  const [selectedModalProperty, setSelectedModalProperty] = useState<any>(null);
+  const [modalDefaultAction, setModalDefaultAction] = useState<'contact' | 'schedule' | 'shortlist'>('shortlist');
+
   const handleToggleShortlist = (e: React.MouseEvent, prop: any) => {
     e.stopPropagation();
     e.preventDefault();
+
+    const isLoggedIn = Boolean(
+      user?.id ||
+      user?.email ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('verified_tenant')
+    );
+
+    if (!isLoggedIn) {
+      setSelectedModalProperty(prop);
+      setModalDefaultAction('shortlist');
+      setShowContactModal(true);
+      toast.info('Please verify your email via OTP to save this rental property to your Shortlist.');
+      return;
+    }
+
     const nowShortlisted = toggleTenantShortlist(prop);
     setLikedProperties((prev) =>
       nowShortlisted
@@ -1857,7 +1914,7 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                           </div>
 
                           <div className="text-xs text-gray-500">
-                            {property.type || property.property_type} • {property.area || property.square_feet} sq ft
+                            {formatUnitAreaLine(property)}
                           </div>
                         </div>
                         <div className="flex items-center justify-between mb-3">
@@ -2244,10 +2301,26 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
             <Home className="mx-auto text-gray-300 mb-6" size={64} />
             <h3 className="text-2xl font-bold text-[#0b3856] mb-4">No Properties Available (0)</h3>
             <p className="text-gray-600 mb-8">Properties will appear here once they are added to the system</p>
-            <button onClick={() => loadPropertiesFromSearch()} className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold">
+            <button
+              onClick={() => loadPropertiesFromSearch()}
+              className="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+            >
               Refresh Page
             </button>
           </div>
+        )}
+
+        {/* Contact Owner Tenant Email OTP Verification Modal for Shortlisting & Inquiries */}
+        {showContactModal && selectedModalProperty && (
+          <ContactOwnerTenantModal
+            isOpen={showContactModal}
+            onClose={() => {
+              setShowContactModal(false);
+              setSelectedModalProperty(null);
+            }}
+            property={selectedModalProperty}
+            defaultAction={modalDefaultAction}
+          />
         )}
       </div>
     </div>

@@ -13,6 +13,7 @@ export interface Tenant {
   budget_max: string | number;
   preferred_bhk: string;
   tenant_type: string;
+  furnishing?: string;
   move_in_date?: string;
   current_address?: string;
   notes?: string;
@@ -23,7 +24,68 @@ export interface Tenant {
   owner_name?: string;
   assigned_to?: number | string;
   assigned_to_name?: string;
+  occupation_type?: string;
+  company_name?: string;
+  designation?: string;
+  monthly_income?: number | string;
+  office_location?: string;
+  food_preference?: 'Veg Only' | 'Veg/Non-Veg' | 'Any' | string;
+  has_pets?: 'Yes' | 'No' | string;
+  smoking_habits?: 'No' | 'Yes' | 'Occasionally' | string;
+  marital_status?: 'Single' | 'Married' | 'Other' | string;
+  family_members_count?: number | string;
+  vehicle_type?: '2-Wheeler' | '4-Wheeler' | 'Both' | 'None' | string;
+  expected_stay_duration?: string;
   created_at?: string;
+}
+
+export type InterestStatus =
+  | 'PENDING'
+  | 'OWNER_CONFIRMED'
+  | 'OWNER_REJECTED'
+  | 'TENANT_ACCEPTED'
+  | 'TENANT_DECLINED'
+  | 'PROPERTY_SELECTED'
+  | 'BOOKING_PENDING'
+  | 'BOOKED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export interface TenantOwnerInterest {
+  id: number;
+  rental_property_id: number;
+  tenant_id: number;
+  owner_id?: number | null;
+  sender_type: 'tenant' | 'owner';
+  status: InterestStatus;
+  match_score: number;
+  message?: string;
+  owner_notes?: string;
+  confirmed_at?: string;
+  tenant_responded_at?: string;
+  created_at: string;
+  updated_at?: string;
+  // Joins
+  tenant_name?: string;
+  tenant_phone?: string;
+  tenant_email?: string;
+  tenant_type?: string;
+  occupation_type?: string;
+  company_name?: string;
+  monthly_income?: number | string;
+  food_preference?: string;
+  has_pets?: string;
+  family_members_count?: number;
+  property_type_name?: string;
+  unit_type?: string;
+  society_name?: string;
+  location_name?: string;
+  expected_rent?: number | string;
+  monthly_rent?: number | string;
+  photos?: string[];
+  owner_name?: string;
+  owner_phone?: string;
+  owner_email?: string;
 }
 
 export interface MatchedProperty {

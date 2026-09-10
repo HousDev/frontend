@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   KeyRound, X, Copy, Check, Eye, EyeOff, Lock,
-  Mail, Loader2, Sparkles
+  Mail, Loader2
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { toast } from 'react-toastify';
@@ -141,7 +141,7 @@ export const OwnerCredentialsModal: React.FC<OwnerCredentialsModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
-
+        
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-[#0f2b3d] via-[#153e56] to-[#0b3856] p-4 sm:p-5 text-white relative">
           <div className="flex items-center gap-3">
@@ -180,7 +180,7 @@ export const OwnerCredentialsModal: React.FC<OwnerCredentialsModalProps> = ({
             <>
               {/* Credentials Card Box */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
-
+                
                 {/* Username */}
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -229,6 +229,7 @@ export const OwnerCredentialsModal: React.FC<OwnerCredentialsModalProps> = ({
                     onClick={handleGenerateRandomPassword}
                     className="text-[10px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 hover:underline cursor-pointer"
                   >
+                    <KeyRound size={11} />
                     <span>Auto Generate</span>
                   </button>
                 </div>

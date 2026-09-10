@@ -13,6 +13,8 @@ import {
   CreditCard,
   Wrench,
   MessageSquare,
+  Heart,
+  LogOut,
 } from "lucide-react";
 import { Tenant } from "./types";
 
@@ -27,9 +29,12 @@ interface TenantSidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   matchedCount: number;
+  shortlistedCount?: number;
   enquiredCount?: number;
   visitsCount: number;
   onBack?: () => void;
+  onLogout?: () => void;
+  onBackToWebsite?: () => void;
   showMobileSidebar: boolean;
   setShowMobileSidebar: (show: boolean) => void;
 }
@@ -39,9 +44,12 @@ export default function TenantSidebar({
   activeTab,
   setActiveTab,
   matchedCount,
+  shortlistedCount = 0,
   enquiredCount = 0,
   visitsCount,
   onBack,
+  onLogout,
+  onBackToWebsite,
   showMobileSidebar,
   setShowMobileSidebar,
 }: TenantSidebarProps) {
@@ -51,6 +59,11 @@ export default function TenantSidebar({
       id: "matched",
       label: `Property Matches (${matchedCount})`,
       icon: Building2,
+    },
+    {
+      id: "favorites",
+      label: `Shortlisted Homes (${shortlistedCount})`,
+      icon: Heart,
     },
     {
       id: "enquired",
@@ -101,8 +114,8 @@ export default function TenantSidebar({
               key={item.id}
               onClick={() => handleTabClick(item.id)}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all ${active
-                  ? "bg-orange-50 text-orange-600 border border-orange-200 font-bold shadow-2xs"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-slate-900 font-medium"
+                ? "bg-orange-50 text-orange-600 border border-orange-200 font-bold shadow-2xs"
+                : "text-gray-600 hover:bg-gray-50 hover:text-slate-900 font-medium"
                 }`}
             >
               <Icon
@@ -115,15 +128,25 @@ export default function TenantSidebar({
         })}
       </nav>
 
-      {/* Back Button */}
-      <div className="p-3 border-t border-gray-200 bg-gray-50/50">
-        {onBack && (
+      {/* Navigation & Logout Footer */}
+      <div className="p-3 border-t border-gray-200 bg-gray-50/50 space-y-1.5">
+        <button
+          onClick={onBackToWebsite || (() => { window.location.href = '/properties?transaction=rent&tab=rent'; })}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-bold hover:bg-gray-100 transition-colors text-xs shadow-2xs cursor-pointer"
+        >
+          <Home size={13} className="text-gray-500" />
+          <span>Back to Website</span>
+        </button>
+
+
+
+        {onLogout && (
           <button
-            onClick={onBack}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-bold hover:bg-gray-100 transition-colors text-xs shadow-2xs"
+            onClick={onLogout}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition-colors text-xs cursor-pointer"
           >
-            <ArrowLeft size={13} />
-            <span>Back to CRM List</span>
+            <LogOut size={13} />
+            <span>Sign Out</span>
           </button>
         )}
       </div>

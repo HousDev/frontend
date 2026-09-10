@@ -1615,6 +1615,7 @@ interface UsersManagementProps {
   masterLoading: boolean;
   onCreateUser?: (opts: { role: 'buyer' | 'seller'; prefill?: Partial<User> }) => Promise<void> | void;
   onTabChange?: (tabId: string) => void;
+  headerActions?: React.ReactNode;
 }
 
 const TABS = [
@@ -1652,10 +1653,24 @@ const TABS = [
     type: 'accounts',
     roles: ['seller'],
     showCreateButton: true
+  },
+  {
+    id: 'tenant-accounts',
+    name: 'Tenant Accounts',
+    type: 'accounts',
+    roles: ['tenant'],
+    showCreateButton: false
+  },
+  {
+    id: 'owner-accounts',
+    name: 'Owner Accounts',
+    type: 'accounts',
+    roles: ['owner'],
+    showCreateButton: false
   }
 ] as const;
 
-type TabId = 'all' | 'buyers' | 'sellers' | 'buyer-accounts' | 'seller-accounts';
+type TabId = 'all' | 'buyers' | 'sellers' | 'buyer-accounts' | 'seller-accounts' | 'tenant-accounts' | 'owner-accounts';
 
 const LOCAL_STORAGE_TAB_KEY = 'users-management-active-tab';
 
@@ -1838,7 +1853,8 @@ const UsersManagement: React.FC<UsersManagementProps> = ({
   masters,
   masterLoading,
   onCreateUser,
-  onTabChange
+  onTabChange,
+  headerActions
 }) => {
   const navigate = useNavigate();
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -2238,10 +2254,13 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
     let source: User[] = [];
 
     switch (activeTab) {
-      // ALL USERS - EXCLUDE BUYER AND SELLER ROLES
+      // ALL USERS - EXCLUDE CLIENT/CUSTOMER ROLES (BUYER, SELLER, TENANT, OWNER)
       case 'all':
         source = allUsers.filter(
-          u => normalizeRole(u.role) !== 'buyer' && normalizeRole(u.role) !== 'seller'
+          u => {
+            const r = normalizeRole(u.role);
+            return r !== 'buyer' && r !== 'seller' && r !== 'tenant' && r !== 'owner';
+          }
         );
         break;
 
@@ -2258,19 +2277,37 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
       // USER ACCOUNTS - BUYERS
       case 'buyer-accounts':
         source = allUsers.filter(
-          u => u.buyer_id != null && normalizeRole(u.role) === 'buyer'
+          u => normalizeRole(u.role) === 'buyer'
         );
         break;
 
+      // USER ACCOUNTS - SELLERS
       case 'seller-accounts':
         source = allUsers.filter(
-          u => u.seller_id != null && normalizeRole(u.role) === 'seller'
+          u => normalizeRole(u.role) === 'seller'
+        );
+        break;
+
+      // USER ACCOUNTS - TENANTS
+      case 'tenant-accounts':
+        source = allUsers.filter(
+          u => normalizeRole(u.role) === 'tenant'
+        );
+        break;
+
+      // USER ACCOUNTS - OWNERS
+      case 'owner-accounts':
+        source = allUsers.filter(
+          u => normalizeRole(u.role) === 'owner'
         );
         break;
 
       default:
         source = allUsers.filter(
-          u => normalizeRole(u.role) !== 'buyer' && normalizeRole(u.role) !== 'seller'
+          u => {
+            const r = normalizeRole(u.role);
+            return r !== 'buyer' && r !== 'seller' && r !== 'tenant' && r !== 'owner';
+          }
         );
         break;
     }
@@ -2348,12 +2385,17 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
       'buyers': 0,
       'sellers': 0,
       'buyer-accounts': 0,
-      'seller-accounts': 0
+      'seller-accounts': 0,
+      'tenant-accounts': 0,
+      'owner-accounts': 0,
     };
 
-    // Count for 'all' tab - exclude buyer and seller roles
+    // Count for 'all' tab - exclude buyer, seller, tenant, owner roles
     counts['all'] = allUsers.filter(
-      u => normalizeRole(u.role) !== 'buyer' && normalizeRole(u.role) !== 'seller'
+      u => {
+        const r = normalizeRole(u.role);
+        return r !== 'buyer' && r !== 'seller' && r !== 'tenant' && r !== 'owner';
+      }
     ).length;
 
     // Count for master buyers
@@ -2370,6 +2412,16 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
     // Count for seller accounts
     counts['seller-accounts'] = allUsers.filter(
       u => normalizeRole(u.role) === 'seller'
+    ).length;
+
+    // Count for tenant accounts
+    counts['tenant-accounts'] = allUsers.filter(
+      u => normalizeRole(u.role) === 'tenant'
+    ).length;
+
+    // Count for owner accounts
+    counts['owner-accounts'] = allUsers.filter(
+      u => normalizeRole(u.role) === 'owner'
     ).length;
 
     return counts;
@@ -2617,6 +2669,8 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
       case 'agent': return 'bg-blue-100 text-blue-800';
       case 'seller': return 'bg-green-100 text-green-800';
       case 'buyer': return 'bg-orange-100 text-orange-800';
+      case 'owner': return 'bg-amber-100 text-amber-800';
+      case 'tenant': return 'bg-teal-100 text-teal-800';
       case 'executive': return 'bg-indigo-100 text-indigo-800';
       case 'team leader': return 'bg-teal-100 text-teal-800';
       case 'team-leader': return 'bg-teal-100 text-teal-800';
@@ -2715,9 +2769,14 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
   />
 )}
 
-      {/* Tabs */}
-      <nav className="flex overflow-x-auto scrollbar-hide sm:-mt-9 mt-2" aria-label="Tabs">
-        <div className="flex gap-2 sm:gap-3 min-w-full sm:min-w-0">
+      {/* Tabs & Top Actions Bar */}
+      <div className="mt-1 mb-3 border-b border-gray-200 flex items-center justify-between gap-2 sm:gap-3">
+        {/* Scrollable Tabs */}
+        <nav 
+          className="flex-1 min-w-0 flex overflow-x-auto gap-1 sm:gap-2 pb-1 scrollbar-thin" 
+          style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }} 
+          aria-label="Tabs"
+        >
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const count = userCounts[tab.id] || 0;
@@ -2727,23 +2786,31 @@ const [viewingUser, setViewingUser] = useState<User | null>(null);
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-2 sm:px-3 border-b-2 transition-all whitespace-nowrap text-xs sm:text-sm font-medium ${isActive
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 py-1.5 sm:py-2 px-2.5 sm:px-3 border-b-2 transition-all whitespace-nowrap text-xs sm:text-sm ${
+                  isActive
+                    ? 'border-orange-500 text-orange-600 bg-orange-50/60 font-semibold rounded-t-md'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 hover:bg-gray-50 font-medium rounded-t-md'
+                }`}
               >
-                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">{tab.name}</span>
-                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold ${isActive ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
+                <Icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isActive ? 'text-orange-500' : 'text-gray-400'}`} />
+                <span>{tab.name}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold ${
+                  isActive ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
+                }`}>
                   {count}
                 </span>
               </button>
             );
           })}
-        </div>
-      </nav>
+        </nav>
+
+        {/* Right Action Buttons */}
+        {headerActions && (
+          <div className="shrink-0 flex items-center gap-1 sm:gap-2 pb-1">
+            {headerActions}
+          </div>
+        )}
+      </div>
 
       {/* Search & Filter Bar */}
       <div className="rounded-xl p-0 mt-0">
