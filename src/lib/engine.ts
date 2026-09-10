@@ -829,6 +829,15 @@ export function buildNextFollowUp(
   };
 }
 
+function isTypeMatch(typeA: string, typeB: string): boolean {
+  const a = (typeA || '').toUpperCase();
+  const b = (typeB || '').toUpperCase();
+  if (a === b) return true;
+  if ((a === 'VISIT' || a === 'SITE_VISIT') && (b === 'VISIT' || b === 'SITE_VISIT')) return true;
+  if ((a === 'CALL' || a === 'PHONE_CALL') && (b === 'CALL' || b === 'PHONE_CALL')) return true;
+  return false;
+}
+
 export function suggestStageStatus(
   rules: Rule[],
   stages: MasterData['stages'],
@@ -837,123 +846,66 @@ export function suggestStageStatus(
   followUpTypeCode: string,
   actionCode?: string,
 ): StageStatusSuggestion | null {
-  const activeStages = new Set(
-    stages.filter((s) => s.entity_code === entityCode && s.is_active).map((s) => s.code)
-  );
-  const activeStatuses = new Set(
-    statuses.filter((s) => s.entity_code === entityCode && s.is_active).map((s) => s.code)
-  );
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
 
-  // 1. Explicit Action Intent Overrides
-  if (actionCode === 'CLOSE') {
-    const closedStage =
-      stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'CLOSED' || s.code === 'CLOSE')) ||
-      stages.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST');
-    const closedStatus =
-      statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'CLOSED' || s.code === 'CLOSE')) ||
-      statuses.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST');
+  // 1. Exact Dynamic Match: Check rules from Database / Master Data
+  if (actionCode && rules && rules.length > 0) {
+    const matchingRule = rules.find(
+      (r) =>
+        r.is_active &&
+        (r.entity_code || '').toUpperCase() === normEntity &&
+        isTypeMatch(r.follow_up_type_code, normType) &&
+        (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase() &&
+        r.next_stage_code &&
+        r.next_status_code
+    );
 
-    if (closedStage && closedStatus) {
+    if (matchingRule) {
+      const stageName =
+        stages.find((s) => s.code.toUpperCase() === matchingRule.next_stage_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        matchingRule.next_stage_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const statusName =
+        statuses.find((s) => s.code.toUpperCase() === matchingRule.next_status_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        matchingRule.next_status_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
       return {
-        stageCode: closedStage.code,
-        statusCode: closedStatus.code,
+        stageCode: matchingRule.next_stage_code,
+        statusCode: matchingRule.next_status_code,
         source: 'rule',
-        ruleId: 'CLOSE_INTENT',
+        ruleId: matchingRule.rule_id || matchingRule.id || `${followUpTypeCode}_${normEntity}_${matchingRule.next_action_code}`,
         confidence: 'high',
-        reason: `Close Lead action automatically sets Stage to Closed and Status to Closed on ${entityCode}`,
+        reason: `${matchingRule.name || actionCode} sets Stage to ${stageName} and Status to ${statusName} from Master Rules`,
       };
     }
   }
 
-  if (actionCode === 'NOT_INTERESTED' || actionCode === 'DROP') {
-    const lostStage = stages.find((s) => s.entity_code === entityCode && s.is_active && s.code === 'LOST') || stages.find((s) => s.is_terminal);
-    const lostStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'NOT_INTERESTED' || s.code === 'LOST')) || statuses.find((s) => s.code === 'LOST');
-    if (lostStage && lostStatus) {
-      return {
-        stageCode: lostStage.code,
-        statusCode: lostStatus.code,
-        source: 'rule',
-        ruleId: 'NOT_INTERESTED_INTENT',
-        confidence: 'high',
-        reason: `Not Interested action automatically sets Stage to Lost and Status to Not Interested on ${entityCode}`,
-      };
-    }
-  }
-
-  if (actionCode === 'SCHEDULE_SITE_VISIT' || actionCode === 'SCHEDULE_SECOND_VISIT' || actionCode === 'SITE_VISIT') {
-    const visitStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SITE_VISIT' || s.code === 'VISIT' || s.code === 'QUALIFIED'));
-    const visitStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SCHEDULED' || s.code === 'IN_PROGRESS' || s.code === 'HOT'));
-    if (visitStage && visitStatus) {
-      return {
-        stageCode: visitStage.code,
-        statusCode: visitStatus.code,
-        source: 'rule',
-        ruleId: 'SITE_VISIT_INTENT',
-        confidence: 'high',
-        reason: `Schedule Site Visit action automatically sets Stage to ${visitStage.name} and Status to ${visitStatus.name}`,
-      };
-    }
-  }
-
-  if (actionCode === 'OFFICE_MEETING' || actionCode === 'MEETING') {
-    const meetStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'MEETING' || s.code === 'QUALIFIED' || s.code === 'NEGOTIATION'));
-    const meetStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'SCHEDULED' || s.code === 'IN_PROGRESS'));
-    if (meetStage && meetStatus) {
-      return {
-        stageCode: meetStage.code,
-        statusCode: meetStatus.code,
-        source: 'rule',
-        ruleId: 'MEETING_INTENT',
-        confidence: 'high',
-        reason: `Meeting action automatically sets Stage to ${meetStage.name} and Status to ${meetStatus.name}`,
-      };
-    }
-  }
-
-  if (actionCode === 'SEND_BROCHURE' || actionCode === 'SHARE_DETAILS' || actionCode === 'LOCATION_SHARED' || actionCode === 'BROCHURE_SENT') {
-    const detailStage = stages.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'IN_PROGRESS' || s.code === 'NEW' || s.code === 'QUALIFIED'));
-    const detailStatus = statuses.find((s) => s.entity_code === entityCode && s.is_active && (s.code === 'DETAILS_SENT' || s.code === 'IN_PROGRESS'));
-    if (detailStage && detailStatus) {
-      return {
-        stageCode: detailStage.code,
-        statusCode: detailStatus.code,
-        source: 'rule',
-        ruleId: 'SHARE_DETAILS_INTENT',
-        confidence: 'high',
-        reason: `Share Details/Brochure automatically sets Status to ${detailStatus.name}`,
-      };
-    }
-  }
-
-  const matchingRules = rules.filter(
+  // 2. If no actionCode specified, check if there are configured rules for this entity + followUpType
+  const matchingRules = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      (!actionCode || (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase())
   );
 
   if (matchingRules.length > 0) {
     const pairCounts = new Map<string, { stage: string; status: string; count: number; ruleId: string }>();
 
     for (const r of matchingRules) {
-      // If actionCode is specified, prefer target next_stage_code / next_status_code
-      let stage = actionCode && r.next_stage_code ? r.next_stage_code : r.current_stage_code;
-      let status = actionCode && r.next_status_code ? r.next_status_code : r.current_status_code;
-
-      // Fallback if target stage/status not active in entity
-      if (!activeStages.has(stage)) stage = r.current_stage_code;
-      if (!activeStatuses.has(status)) status = r.current_status_code;
+      const stage = actionCode && r.next_stage_code ? r.next_stage_code : r.current_stage_code;
+      const status = actionCode && r.next_status_code ? r.next_status_code : r.current_status_code;
 
       if (stage && status) {
         const key = `${stage}|${status}`;
         const existing = pairCounts.get(key);
         if (existing) {
-          existing.count += 2; // boost exact match
+          existing.count += 1;
         } else {
           pairCounts.set(key, {
             stage,
             status,
-            count: 2,
+            count: 1,
             ruleId: r.rule_id || (r as any).id || '',
           });
         }
@@ -972,29 +924,12 @@ export function suggestStageStatus(
         source: 'rule',
         ruleId: best.ruleId,
         confidence: matchingRules.length > 2 ? 'high' : 'medium',
-        reason: `${matchingRules.length} rule${matchingRules.length > 1 ? 's' : ''} expect this stage/status for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode}`,
+        reason: `${matchingRules.length} rule${matchingRules.length > 1 ? 's' : ''} configure this stage/status for ${followUpTypeCode} on ${entityCode}`,
       };
     }
   }
 
-  const entityStages = stages
-    .filter((s) => s.entity_code === entityCode && s.is_active && !s.is_terminal)
-    .sort((a, b) => a.display_order - b.display_order);
-  const entityStatuses = statuses
-    .filter((s) => s.entity_code === entityCode && s.is_active)
-    .sort((a, b) => a.display_order - b.display_order);
-
-  if (entityStages.length > 0 && entityStatuses.length > 0) {
-    return {
-      stageCode: entityStages[0].code,
-      statusCode: entityStatuses[0].code,
-      source: 'default',
-      ruleId: null,
-      confidence: 'medium',
-      reason: `No rules yet for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode} — starting at the first stage`,
-    };
-  }
-
+  // Strictly return null if no rules configured (NO generic fallback)
   return null;
 }
 
@@ -1007,7 +942,7 @@ export async function loadRemarkSuggestions(
     const raw = localStorage.getItem(FOLLOW_UPS_STORAGE_KEY);
     const list = raw ? (JSON.parse(raw) as FollowUp[]) : [];
     const remarks = list
-      .filter((r) => r.entity_code === entityCode && r.follow_up_type_code === followUpTypeCode && r.is_complete && r.custom_remark?.trim())
+      .filter((r) => r.entity_code === entityCode && isTypeMatch(r.follow_up_type_code, followUpTypeCode) && r.is_complete && r.custom_remark?.trim())
       .map((r) => r.custom_remark!.trim());
 
     const counts = new Map<string, number>();
@@ -1030,14 +965,19 @@ export function suggestPriority(
   stageCode: string,
   statusCode: string,
   actionCode?: string,
-): { priorityCode: string; source: 'rule' | 'default'; reason: string } {
-  const matching = rules.filter(
+): { priorityCode: string; source: 'rule' | 'default'; reason: string } | null {
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
+
+  const matching = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
       r.current_stage_code === stageCode &&
       r.current_status_code === statusCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      (!actionCode || r.next_action_code === actionCode) &&
+      r.priority_code
   );
 
   if (matching.length > 0) {
@@ -1053,11 +993,13 @@ export function suggestPriority(
     };
   }
 
-  const typeMatches = rules.filter(
+  const typeMatches = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      (!actionCode || r.next_action_code === actionCode) &&
+      r.priority_code
   );
   if (typeMatches.length > 0) {
     const counts = new Map<string, number>();
@@ -1067,16 +1009,13 @@ export function suggestPriority(
     const top = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
     return {
       priorityCode: top[0],
-      source: 'default',
-      reason: `No exact rule — using most common priority ${top[0]} for ${followUpTypeCode} on ${entityCode}`,
+      source: 'rule',
+      reason: `Rule sets priority ${top[0]} for ${followUpTypeCode} on ${entityCode}`,
     };
   }
 
-  return {
-    priorityCode: 'MEDIUM',
-    source: 'default',
-    reason: 'No rules matched — defaulting to MEDIUM priority',
-  };
+  // Strictly return null if no rule configured (NO generic fallback)
+  return null;
 }
 
 export function getEntityActions(
@@ -1085,28 +1024,42 @@ export function getEntityActions(
   entityCode: string,
   followUpTypeCode: string,
 ): NextAction[] {
-  const actionCodes = new Set(
-    rules
-      .filter((r) => r.entity_code === entityCode && r.follow_up_type_code === followUpTypeCode)
-      .map((r) => r.next_action_code),
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
+
+  // Strict Rule Match: Only show actions that have active configured rules in database
+  const matchingRuleActions = (rules || []).filter(
+    (r) =>
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      r.next_action_code
   );
-  const active = (nextActions || []).filter((a) => a.is_active);
-  const rawList = actionCodes.size === 0 ? active : active.filter((a) => actionCodes.has(a.code));
 
-  // Deduplicate by both uppercase code and lowercase trimmed name
-  const seenCodes = new Set<string>();
-  const seenNames = new Set<string>();
+  if (matchingRuleActions.length > 0) {
+    const list: NextAction[] = [];
+    const seen = new Set<string>();
 
-  return rawList.filter((a) => {
-    const codeKey = (a.code || '').trim().toUpperCase();
-    const nameKey = (a.name || '').trim().toLowerCase();
+    for (const r of matchingRuleActions) {
+      const code = r.next_action_code;
+      const codeKey = code.toUpperCase();
+      if (seen.has(codeKey)) continue;
+      seen.add(codeKey);
 
-    if (codeKey && seenCodes.has(codeKey)) return false;
-    if (nameKey && seenNames.has(nameKey)) return false;
+      const fromMaster = (nextActions || []).find((a) => (a.code || '').toUpperCase() === codeKey);
+      list.push({
+        id: r.id || `act_${codeKey}`,
+        code,
+        name: fromMaster?.name || (r.name && r.name.includes(' - ') ? r.name.split(' - ')[1] : code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())),
+        display_order: r.display_order ?? list.length + 1,
+        is_active: true,
+      });
+    }
 
-    if (codeKey) seenCodes.add(codeKey);
-    if (nameKey) seenNames.add(nameKey);
-    return true;
-  });
+    return list.sort((a, b) => a.display_order - b.display_order);
+  }
+
+  // If no rules configured for this entity + follow-up type, return empty array (no fallback)
+  return [];
 }
 

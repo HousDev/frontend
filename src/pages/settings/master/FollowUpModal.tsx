@@ -419,21 +419,50 @@ export function FollowUpModal({
     return Array.from(map.values()).sort((a, b) => a.display_order - b.display_order);
   }, [master.followUpTypes]);
 
-  const availableStages = useMemo(
-    () =>
-      master.stages
-        .filter((s) => s.entity_code === form.entityCode && s.is_active)
-        .sort((a, b) => a.display_order - b.display_order),
-    [master.stages, form.entityCode]
-  );
+  const availableStages = useMemo(() => {
+    const list = master.stages
+      .filter((s) => (!s.entity_code || s.entity_code === form.entityCode) && s.is_active)
+      .sort((a, b) => a.display_order - b.display_order);
 
-  const availableStatuses = useMemo(
-    () =>
-      master.statuses
-        .filter((s) => s.entity_code === form.entityCode && s.is_active)
-        .sort((a, b) => a.display_order - b.display_order),
-    [master.statuses, form.entityCode]
-  );
+    if (form.stageCode && !list.some((s) => s.code.toUpperCase() === form.stageCode.toUpperCase())) {
+      const formatted = form.stageCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      return [
+        ...list,
+        {
+          id: `dyn_${form.stageCode}`,
+          code: form.stageCode,
+          name: formatted,
+          entity_code: form.entityCode,
+          is_active: true,
+          display_order: 999,
+          is_terminal: false,
+        },
+      ];
+    }
+    return list;
+  }, [master.stages, form.entityCode, form.stageCode]);
+
+  const availableStatuses = useMemo(() => {
+    const list = master.statuses
+      .filter((s) => (!s.entity_code || s.entity_code === form.entityCode) && s.is_active)
+      .sort((a, b) => a.display_order - b.display_order);
+
+    if (form.statusCode && !list.some((s) => s.code.toUpperCase() === form.statusCode.toUpperCase())) {
+      const formatted = form.statusCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      return [
+        ...list,
+        {
+          id: `dyn_${form.statusCode}`,
+          code: form.statusCode,
+          name: formatted,
+          entity_code: form.entityCode,
+          is_active: true,
+          display_order: 999,
+        },
+      ];
+    }
+    return list;
+  }, [master.statuses, form.entityCode, form.statusCode]);
 
   const outcomes = useMemo<Outcome[]>(
     () => master.outcomes.filter((o) => o.follow_up_type_code === form.followUpTypeCode && o.is_active),
@@ -873,7 +902,7 @@ export function FollowUpModal({
       form.nextActionOverride || undefined
     );
     setPrioritySuggestion(suggestion);
-    if (!priorityAutoApplied) {
+    if (suggestion && !priorityAutoApplied) {
       setForm((c) => ({ ...c, priorityCode: suggestion.priorityCode }));
       setPriorityAutoApplied(true);
     }
@@ -2352,16 +2381,16 @@ export function FollowUpModal({
                             <small>STAGE</small>
                             <b>
                               {master.stages.find(
-                                (s) => s.code === stageSuggestion.stageCode && s.entity_code === form.entityCode
-                              )?.name ?? stageSuggestion.stageCode}
+                                (s) => s.code.toUpperCase() === stageSuggestion.stageCode.toUpperCase() && (!s.entity_code || s.entity_code === form.entityCode)
+                              )?.name ?? stageSuggestion.stageCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                             </b>
                           </div>
                           <div className="ss-item">
                             <small>STATUS</small>
                             <b>
                               {master.statuses.find(
-                                (s) => s.code === stageSuggestion.statusCode && s.entity_code === form.entityCode
-                              )?.name ?? stageSuggestion.statusCode}
+                                (s) => s.code.toUpperCase() === stageSuggestion.statusCode.toUpperCase() && (!s.entity_code || s.entity_code === form.entityCode)
+                              )?.name ?? stageSuggestion.statusCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                             </b>
                           </div>
                         </div>
