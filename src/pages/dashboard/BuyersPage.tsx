@@ -61,7 +61,9 @@ type UIBuyer = {
   city: string | null;
   location: string | null;
   source: string | null;
+  buyer_lead_source?: string | null;
   priority: 'high' | 'medium' | 'low' | string | null;
+  buyer_lead_priority?: string | null;
   stage: string | null;
   status: string | null;
   buyer_lead_status?: string | null;
@@ -551,10 +553,14 @@ const BuyersPage = () => {
       city: b.city ?? null,
       location: b.location ?? null,
       source: b.buyer_lead_source ?? b.source ?? null,
+      buyer_lead_source: b.buyer_lead_source ?? b.source ?? null,
       priority: (b.buyer_lead_priority ?? b.priority ?? null)?.toString().trim().toLowerCase() ?? null,
+      buyer_lead_priority: b.buyer_lead_priority ?? b.priority ?? null,
       is_active: b.is_active !== undefined ? Boolean(b.is_active) : true,
       stage: b.buyer_lead_stage ?? b.stage ?? null,
+      buyer_lead_stage: b.buyer_lead_stage ?? b.stage ?? null,
       status: b.buyer_lead_status ?? b.status ?? null,
+      buyer_lead_status: b.buyer_lead_status ?? b.status ?? null,
       assigned: b.assigned_to ?? b.assigned ?? null,
       assigned_executive: assignedExecutiveId,
       assigned_executive_name: execName !== 'Not assigned' ? execName : null,
@@ -674,8 +680,17 @@ const BuyersPage = () => {
         b =>
           b &&
           ((b.status || '').toLowerCase() === 'uncontacted' ||
+            (b.status || '').toLowerCase() === 'new' ||
+            (b.status || '').toLowerCase() === 'fresh' ||
             (b.buyer_lead_status || '').toLowerCase() === 'uncontacted' ||
-            (b.source || '').toLowerCase() === 'whatsapp'),
+            (b.buyer_lead_status || '').toLowerCase() === 'new' ||
+            (b.buyer_lead_status || '').toLowerCase() === 'fresh' ||
+            (b.stage || '').toLowerCase() === 'initial contact' ||
+            (b.source || '').toLowerCase() === 'whatsapp' ||
+            (b.source || '').toLowerCase() === 'rex chat' ||
+            (b.source || '').toLowerCase() === 'chatbot' ||
+            (b.buyer_lead_source || '').toLowerCase() === 'website user' ||
+            (b.buyer_lead_source || '').toLowerCase() === 'rex chat'),
       ).length,
     },
 
@@ -712,8 +727,17 @@ const BuyersPage = () => {
     const matchesTab = activeTab === 'all' ||
       (activeTab === 'uncontacts' &&
         ((buyer.status || '').toLowerCase() === 'uncontacted' ||
+          (buyer.status || '').toLowerCase() === 'new' ||
+          (buyer.status || '').toLowerCase() === 'fresh' ||
           (buyer.buyer_lead_status || '').toLowerCase() === 'uncontacted' ||
-          (buyer.source ?? '').toLowerCase() === 'whatsapp')) ||
+          (buyer.buyer_lead_status || '').toLowerCase() === 'new' ||
+          (buyer.buyer_lead_status || '').toLowerCase() === 'fresh' ||
+          (buyer.stage || '').toLowerCase() === 'initial contact' ||
+          (buyer.source ?? '').toLowerCase() === 'whatsapp' ||
+          (buyer.source ?? '').toLowerCase() === 'rex chat' ||
+          (buyer.source ?? '').toLowerCase() === 'chatbot' ||
+          (buyer.buyer_lead_source ?? '').toLowerCase() === 'website user' ||
+          (buyer.buyer_lead_source ?? '').toLowerCase() === 'rex chat')) ||
 
       (activeTab === 'hot_leads' && pri === 'high') ||
       (activeTab === 'active' && buyer.is_active === true) ||

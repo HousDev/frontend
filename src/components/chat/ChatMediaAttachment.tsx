@@ -62,13 +62,38 @@ export const ChatMediaBubble: React.FC<ChatMediaBubbleProps> = ({
   isCurrentUser,
   onOpenLightbox,
 }) => {
-  const meta = message.metadata_json || {};
-  const rawUrl = meta.file_url || (meta.url ? meta.url : null);
-  const mediaUrl = rawUrl ? getImageUrl(rawUrl) : null;
+  let meta: any = message.metadata_json || {};
+  if (typeof meta === "string") {
+    try {
+      meta = JSON.parse(meta);
+    } catch {
+      meta = {};
+    }
+  }
+
+  const rawUrl =
+    meta.file_url ||
+    meta.url ||
+    meta.media_url ||
+    meta.file_path ||
+    meta.path ||
+    (typeof (message as any).file_url === "string" ? (message as any).file_url : null) ||
+    null;
+
+  const fileName = meta.file_name || (rawUrl ? rawUrl.split("/").pop() : "Attachment") || "Attachment";
   const mimeType = meta.mime_type || "";
-  const isImage = message.message_type === "image" || isImageFile(mimeType) || isImageFile(rawUrl);
-  const isVideo = message.message_type === "video" || isVideoFile(mimeType) || isVideoFile(rawUrl);
-  const fileName = meta.file_name || "Attachment";
+  const isImage =
+    message.message_type === "image" ||
+    isImageFile(mimeType) ||
+    isImageFile(fileName) ||
+    isImageFile(rawUrl);
+  const isVideo =
+    message.message_type === "video" ||
+    isVideoFile(mimeType) ||
+    isVideoFile(fileName) ||
+    isVideoFile(rawUrl);
+
+  const mediaUrl = rawUrl ? getImageUrl(rawUrl) : null;
   const fileSize = meta.file_size ? formatFileSize(meta.file_size) : null;
 
   // Determine if message_text contains a real caption or is just a fallback label
@@ -81,7 +106,7 @@ export const ChatMediaBubble: React.FC<ChatMediaBubbleProps> = ({
 
   const captionText = !isFallbackText ? message.message_text : null;
 
-  if (!mediaUrl && !meta.file_url) {
+  if (!mediaUrl && !meta.file_url && !rawUrl) {
     return <p className="whitespace-pre-wrap">{message.message_text}</p>;
   }
 
@@ -94,6 +119,19 @@ export const ChatMediaBubble: React.FC<ChatMediaBubbleProps> = ({
             src={mediaUrl}
             alt={fileName}
             className="w-full max-h-72 object-cover rounded-xl cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (rawUrl && !target.dataset.fallbackApplied) {
+                target.dataset.fallbackApplied = "true";
+                const clean = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
+                // Try direct local backend origin if proxy or relative failed
+                if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+                  target.src = `http://localhost:3000${clean}`;
+                } else {
+                  target.src = `https://resaleexpert.in${clean}`;
+                }
+              }
+            }}
             onClick={() =>
               onOpenLightbox
                 ? onOpenLightbox({ url: mediaUrl, type: "image", title: captionText || fileName })

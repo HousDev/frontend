@@ -36,7 +36,6 @@ import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
 import { saveTenantShortlist } from '@/lib/tenantShortlist';
-import { EmailOtpLottie, SecurityShieldLottie, SuccessCelebrationLottie } from '@/components/animations/LottieAnimations';
 
 interface ContactOwnerTenantModalProps {
   isOpen: boolean;
