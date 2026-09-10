@@ -53,6 +53,8 @@ export interface PropertyConversation {
   property_unit_type?: string;
   property_type_name?: string;
   property_subtype_name?: string;
+  property_is_public?: boolean | number;
+  property_status?: string;
   user_first_name?: string;
   user_last_name?: string;
   user_email?: string;

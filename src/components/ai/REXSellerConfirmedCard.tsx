@@ -18,7 +18,7 @@ export const REXSellerConfirmedCard: React.FC<REXSellerConfirmedCardProps> = ({ 
             Property Submitted for Review!
           </h4>
           <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-full inline-block mt-0.5">
-            Admin Reviewing • Executive Assignment in Progress
+            Under Review • Executive Assignment in Progress
           </span>
         </div>
       </div>
@@ -43,7 +43,7 @@ export const REXSellerConfirmedCard: React.FC<REXSellerConfirmedCardProps> = ({ 
         <div className="flex items-start gap-2">
           <UserCheck size={14} className="text-emerald-700 shrink-0 mt-0.5" />
           <p className="leading-snug">
-            Admin will assign your dedicated <strong>Property Executive</strong> shortly.
+            Our team will assign a dedicated <strong>Property Executive</strong> for your property shortly.
           </p>
         </div>
         <div className="flex items-start gap-2">

@@ -242,7 +242,7 @@ export const REXSellerWizardCard: React.FC<REXSellerWizardCardProps> = ({
             <span>100% Managed Resale Listing</span>
           </div>
           <p className="text-[10px] text-slate-500 leading-tight">
-            Admin will assign a dedicated Property Executive to verify documents, coordinate visits, and handle negotiations.
+            Our team will assign a dedicated Property Executive for your property to verify documents, coordinate visits, and handle negotiations.
           </p>
         </div>
 

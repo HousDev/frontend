@@ -76,6 +76,7 @@ export interface RexChatResponse {
   session_uuid: string;
   intent: string;
   show_buyer_filter?: boolean;
+  show_seller_wizard?: boolean;
   show_visit_scheduler?: boolean;
   visit?: RexVisitData;
   profile: RexProfile;
