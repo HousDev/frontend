@@ -846,12 +846,14 @@ const BuyersPage = () => {
       if (found) {
         setCurrentBuyerView(found);
         const index = filteredSortedBuyers.findIndex((b) => String(b.id) === String(routeBuyerId));
-        setCurrentBuyerIndex(index >= 0 ? index : 0);
+        if (index >= 0) {
+          setCurrentBuyerIndex(index);
+        }
       }
     } else if (!routeBuyerId && currentBuyerView) {
       setCurrentBuyerView(null);
     }
-  }, [routeBuyerId, allBuyers]);
+  }, [routeBuyerId, allBuyers, filteredSortedBuyers]);
 
   const handleViewBuyer = (buyer: UIBuyer) => {
     if (!canViewBuyer(buyer)) { toast.error('You do not have permission to view this buyer'); return; }
@@ -985,16 +987,24 @@ const BuyersPage = () => {
   const handleNextBuyer = () => {
     if (currentBuyerIndex < filteredSortedBuyers.length - 1) {
       const nextIndex = currentBuyerIndex + 1;
+      const nextBuyer = filteredSortedBuyers[nextIndex];
       setCurrentBuyerIndex(nextIndex);
-      setCurrentBuyerView(filteredSortedBuyers[nextIndex]);
+      setCurrentBuyerView(nextBuyer);
+      if (nextBuyer?.id) {
+        navigate(`/dashboard/buyers/${nextBuyer.id}`, { replace: true });
+      }
     }
   };
 
   const handlePreviousBuyer = () => {
     if (currentBuyerIndex > 0) {
       const prevIndex = currentBuyerIndex - 1;
+      const prevBuyer = filteredSortedBuyers[prevIndex];
       setCurrentBuyerIndex(prevIndex);
-      setCurrentBuyerView(filteredSortedBuyers[prevIndex]);
+      setCurrentBuyerView(prevBuyer);
+      if (prevBuyer?.id) {
+        navigate(`/dashboard/buyers/${prevBuyer.id}`, { replace: true });
+      }
     }
   };
 
@@ -1328,8 +1338,7 @@ const BuyersPage = () => {
           totalBuyers={filteredSortedBuyers.length}
           onUpdateBuyer={(updatedBuyer: UIBuyer) => {
             setAllBuyers(prev => {
-              const next = (prev || []).filter(Boolean).map(b => (b && updatedBuyer && b.id === updatedBuyer.id ? updatedBuyer : b));
-              return next.sort((a, b) => new Date(b?.created_at || b?.lastActivity || 0).getTime() - new Date(a?.created_at || a?.lastActivity || 0).getTime());
+              return (prev || []).filter(Boolean).map(b => (b && updatedBuyer && b.id === updatedBuyer.id ? updatedBuyer : b));
             });
             setCurrentBuyerView(updatedBuyer);
           }}
