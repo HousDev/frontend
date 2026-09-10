@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  Lock,
 } from "lucide-react";
 
 export interface REXVisitSchedulePayload {
@@ -20,8 +21,14 @@ interface REXVisitSchedulerProps {
   isGuest?: boolean;
   defaultName?: string;
   defaultPhone?: string;
+  initialDate?: string;
+  initialTime?: string;
+  initialShift?: "Morning" | "Afternoon" | "Evening";
+  disabled?: boolean;
+  isReschedule?: boolean;
   onConfirm: (payload: REXVisitSchedulePayload) => void;
   onAskQuery?: () => void;
+  onScheduleLater?: () => void;
   loading?: boolean;
 }
 
@@ -36,13 +43,18 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
   isGuest = false,
   defaultName = "",
   defaultPhone = "",
+  initialTime = "07:00 PM",
+  initialShift = "Evening",
+  disabled = false,
+  isReschedule = false,
   onConfirm,
   onAskQuery,
+  onScheduleLater,
   loading = false,
 }) => {
   const [dayType, setDayType] = useState<"today" | "tomorrow" | "other">("today");
-  const [activeShift, setActiveShift] = useState<"Morning" | "Afternoon" | "Evening">("Evening");
-  const [selectedSlot, setSelectedSlot] = useState<string>("07:00 PM");
+  const [activeShift, setActiveShift] = useState<"Morning" | "Afternoon" | "Evening">(initialShift);
+  const [selectedSlot, setSelectedSlot] = useState<string>(initialTime);
   const [guestName, setGuestName] = useState(defaultName);
   const [guestPhone, setGuestPhone] = useState(defaultPhone);
   const [contactError, setContactError] = useState("");
@@ -74,6 +86,8 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
   const shouldAskContact = isGuest;
 
   const handleConfirmClick = () => {
+    if (disabled || loading) return;
+
     if (shouldAskContact) {
       if (!guestName.trim()) {
         setContactError("Please enter your name");
@@ -116,15 +130,44 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
   const nextMonth = () => setCalendarMonth(new Date(year, monthIdx + 1, 1));
 
   return (
-    <div className="w-full max-w-[340px] sm:max-w-[380px] bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden my-2 text-slate-800 animate-fadeIn">
+    <div className={`w-full max-w-[340px] sm:max-w-[380px] bg-white rounded-2xl border shadow-xs overflow-hidden my-2 text-slate-800 transition-all ${
+      disabled ? "border-emerald-300 opacity-90" : "border-slate-200"
+    }`}>
       {/* Header Banner */}
-      <div className="p-3.5 bg-slate-50 border-b border-slate-100">
-        <div className="text-[11px] font-bold text-slate-700 mb-0.5 uppercase tracking-wider">
-          Schedule Property Visit
+      <div className={`p-3.5 border-b flex items-center justify-between ${
+        disabled ? "bg-emerald-50/70 border-emerald-100" : "bg-slate-50 border-slate-100"
+      }`}>
+        <div>
+          <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            {disabled ? (
+              <>
+                <Lock size={12} className="text-emerald-700" />
+                <span className="text-emerald-900">Visit Confirmed & Locked</span>
+              </>
+            ) : (
+              <span>{isReschedule ? "Reschedule Property Visit" : "Schedule Property Visit"}</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-600 mt-0.5 truncate">
+            {propertyTitle
+              ? propertyTitle
+                  .replace(/\[REX\d+\]\s*/gi, "")
+                  .replace(/\s*\([^)]*\)/g, "")
+                  .replace(/\s+in\s+.*$/i, (match) => {
+                    const lower = match.toLowerCase();
+                    const allowedAreas = [
+                      "pune", "mumbai", "hinjewadi", "baner", "wakad", "punawale",
+                      "kharadi", "ravet", "kothrud", "hadapsar", "bavdhan", "pcmc", "maharashtra"
+                    ];
+                    if (allowedAreas.some((area) => lower.includes(area))) {
+                      return match;
+                    }
+                    return "";
+                  })
+                  .trim() || "Select date and time slot"
+              : "Select date and time slot"}
+          </p>
         </div>
-        <p className="text-xs text-slate-600">
-          Please select a date and time convenient for you.
-        </p>
       </div>
 
       <div className="p-3.5 space-y-3">
@@ -132,34 +175,37 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDayType("today")}
             className={`flex-1 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
               dayType === "today"
-                ? "bg-slate-900 border-slate-900 text-white shadow-2xs"
+                ? "bg-[#0f2b3d] border-[#0f2b3d] text-white shadow-2xs"
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
+            } disabled:cursor-not-allowed`}
           >
             Today
           </button>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDayType("tomorrow")}
             className={`flex-1 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
               dayType === "tomorrow"
-                ? "bg-slate-900 border-slate-900 text-white shadow-2xs"
+                ? "bg-[#0f2b3d] border-[#0f2b3d] text-white shadow-2xs"
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
+            } disabled:cursor-not-allowed`}
           >
             Tomorrow
           </button>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDayType("other")}
             className={`flex-1 py-1.5 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1 cursor-pointer ${
               dayType === "other"
-                ? "bg-slate-900 border-slate-900 text-white shadow-2xs"
+                ? "bg-[#0f2b3d] border-[#0f2b3d] text-white shadow-2xs"
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
+            } disabled:cursor-not-allowed`}
           >
             <CalendarIcon size={13} />
             <span>Other</span>
@@ -174,15 +220,17 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={prevMonth}
-                  className="p-1 rounded hover:bg-slate-200 text-slate-600"
+                  className="p-1 rounded hover:bg-slate-200 text-slate-600 disabled:opacity-50"
                 >
                   <ChevronLeft size={15} />
                 </button>
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={nextMonth}
-                  className="p-1 rounded hover:bg-slate-200 text-slate-600"
+                  className="p-1 rounded hover:bg-slate-200 text-slate-600 disabled:opacity-50"
                 >
                   <ChevronRight size={15} />
                 </button>
@@ -218,12 +266,12 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
                   <button
                     key={`day-${dayNum}`}
                     type="button"
-                    disabled={isPast}
+                    disabled={isPast || disabled}
                     onClick={() => setSelectedCustomDate(d)}
                     className={`h-7 w-7 mx-auto rounded-md flex items-center justify-center font-medium transition-all ${
                       isSelected
-                        ? "bg-slate-900 text-white font-bold shadow-xs"
-                        : isPast
+                        ? "bg-[#0f2b3d] text-white font-bold shadow-xs"
+                        : isPast || disabled
                         ? "text-slate-300 cursor-not-allowed"
                         : "hover:bg-slate-200 text-slate-700 cursor-pointer"
                     }`}
@@ -242,15 +290,16 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
             <button
               key={shift}
               type="button"
+              disabled={disabled}
               onClick={() => {
                 setActiveShift(shift);
                 setSelectedSlot(SHIFT_SLOTS[shift][0]);
               }}
               className={`flex-1 py-1.5 text-center transition-colors border-b-2 -mb-px cursor-pointer ${
                 activeShift === shift
-                  ? "border-slate-900 text-slate-900 font-bold"
+                  ? "border-[#e87722] text-[#e87722] font-bold"
                   : "border-transparent text-slate-400 hover:text-slate-700"
-              }`}
+              } disabled:cursor-not-allowed`}
             >
               {shift}
             </button>
@@ -265,12 +314,13 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
               <button
                 key={slot}
                 type="button"
+                disabled={disabled}
                 onClick={() => setSelectedSlot(slot)}
-                className={`py-1.5 px-2 text-[11px] font-medium rounded-xl border text-center transition-all cursor-pointer ${
+                className={`py-1.5 px-2 text-[11px] font-semibold rounded-xl border text-center transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
-                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                }`}
+                    ? "bg-gradient-to-r from-[#0f2b3d] to-[#1a4a6b] text-white border-[#0f2b3d] shadow-xs"
+                    : "bg-slate-50 hover:bg-orange-50/60 hover:text-[#0f2b3d] hover:border-orange-200 text-slate-700 border-slate-200"
+                } disabled:cursor-not-allowed`}
               >
                 {slot}
               </button>
@@ -278,61 +328,53 @@ export const REXVisitScheduler: React.FC<REXVisitSchedulerProps> = ({
           })}
         </div>
 
-        {/* Guest Contact Information for instant booking without page redirect */}
-        {shouldAskContact && (
-          <div className="pt-2 border-t border-slate-100 space-y-2">
-            <div className="text-[11px] font-bold text-slate-700">
-              Your Contact Details (for visit confirmation):
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <input
-                  type="text"
-                  placeholder="Your Full Name *"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white text-slate-800 placeholder-slate-400"
-                />
-              </div>
-              <div>
-                <input
-                  type="tel"
-                  placeholder="10-digit Mobile *"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white text-slate-800 placeholder-slate-400"
-                />
-              </div>
-            </div>
-            {contactError && (
-              <p className="text-[10px] text-red-600 font-semibold">{contactError}</p>
-            )}
-          </div>
-        )}
-
         {/* Action Buttons */}
         <div className="pt-2 space-y-1.5">
-          <button
-            type="button"
-            disabled={loading || !selectedSlot}
-            onClick={handleConfirmClick}
-            className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <CheckCircle2 size={14} />
-            <span>{loading ? "Scheduling visit..." : "Confirm Visit"}</span>
-          </button>
-
-          {onAskQuery && (
+          {!disabled && (
             <button
               type="button"
-              onClick={onAskQuery}
-              className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition-colors text-center cursor-pointer"
+              disabled={loading || !selectedSlot}
+              onClick={handleConfirmClick}
+              className="w-full py-2.5 bg-gradient-to-r from-[#e87722] to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
             >
-              Ask a Question
+              <CheckCircle2 size={14} />
+              <span>{loading ? "Scheduling visit..." : isReschedule ? "Confirm New Visit Slot" : "Confirm Visit"}</span>
             </button>
+          )}
+
+          {disabled && (
+            <div className="w-full py-2 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-200 flex items-center justify-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>Slot Booked Successfully</span>
+            </div>
+          )}
+
+          {!disabled && (
+            <div className="flex items-center gap-1.5">
+              {onScheduleLater && (
+                <button
+                  type="button"
+                  onClick={onScheduleLater}
+                  className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors text-center cursor-pointer active:scale-95"
+                >
+                  Schedule Later
+                </button>
+              )}
+              {onAskQuery && (
+                <button
+                  type="button"
+                  onClick={onAskQuery}
+                  className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors text-center cursor-pointer active:scale-95"
+                >
+                  Ask a Question
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 };
+
+export default REXVisitScheduler;

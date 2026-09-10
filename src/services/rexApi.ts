@@ -19,7 +19,11 @@ export interface RexRequirements {
   bathrooms?: number | null;
   budget_min?: number | null;
   budget_max?: number | null;
+  budget?: string | number | null;
+  society_name?: string | null;
+  carpet_area?: string | number | null;
   carpet_area_min?: number | null;
+  furnishing?: string | null;
 }
 
 export interface RexPropertyCardData {
@@ -71,6 +75,9 @@ export interface RexChatResponse {
   pagination?: RexPaginationInfo;
   session_uuid: string;
   intent: string;
+  show_buyer_filter?: boolean;
+  show_visit_scheduler?: boolean;
+  visit?: RexVisitData;
   profile: RexProfile;
   requirements: RexRequirements;
   is_qualified: boolean;
@@ -111,10 +118,18 @@ export const rexApi = {
     message,
     session_uuid,
     guest_uuid,
+    latitude,
+    longitude,
+    persona,
+    requirements,
   }: {
     message: string;
     session_uuid?: string | null;
     guest_uuid?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    persona?: string | null;
+    requirements?: Partial<RexRequirements> | null;
   }): Promise<RexChatResponse> {
     const headers: Record<string, string> = {};
     if (guest_uuid) {
@@ -127,6 +142,10 @@ export const rexApi = {
         message,
         session_uuid: session_uuid || undefined,
         guest_uuid: guest_uuid || undefined,
+        latitude: latitude != null ? latitude : undefined,
+        longitude: longitude != null ? longitude : undefined,
+        persona: persona || undefined,
+        requirements: requirements || undefined,
       },
       { headers }
     );
@@ -149,6 +168,8 @@ export const rexApi = {
     guest_uuid?: string | null;
   }): Promise<{
     success: boolean;
+    session_uuid?: string;
+    profile?: RexProfile;
     reply?: string;
     suggestions?: string[];
     properties?: RexPropertyCardData[];
@@ -283,6 +304,47 @@ export const rexApi = {
     if (location) params.location = location;
 
     const response = await api.get("/rex/sessions", { params });
+    return response.data;
+  },
+
+  /**
+   * Send In-Chat Email OTP for conversational real-life authentication
+   */
+  async sendInChatOtp(payload: {
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    role?: string;
+  }): Promise<{
+    success: boolean;
+    is_existing_user?: boolean;
+    email: string;
+    message: string;
+  }> {
+    const response = await api.post("/auth/in-chat-otp/send", payload);
+    return response.data;
+  },
+
+  /**
+   * Verify In-Chat Email OTP & Log in / Register in-session
+   */
+  async verifyInChatOtp(payload: {
+    email: string;
+    otp: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    role?: string;
+    session_uuid?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    user: any;
+    accessToken: string;
+    session_id: string;
+  }> {
+    const response = await api.post("/auth/in-chat-otp/verify", payload);
     return response.data;
   },
 };

@@ -41,6 +41,18 @@ export interface PropertyConversation {
   property_location?: string;
   property_society?: string;
   property_photos?: string[];
+  property_furnishing?: string;
+  property_carpet_area?: number | string;
+  property_builtup_area?: number | string;
+  property_floor?: number | string;
+  property_total_floors?: number | string;
+  property_bedrooms?: number | string;
+  property_bathrooms?: number | string;
+  property_balcony?: number | string;
+  property_facing?: string;
+  property_unit_type?: string;
+  property_type_name?: string;
+  property_subtype_name?: string;
   user_first_name?: string;
   user_last_name?: string;
   user_email?: string;
@@ -217,21 +229,40 @@ export const chatApi = {
   },
 
   /**
-   * Get available executives for reassignment
+   * Get dynamic AI smart reply suggestions for an executive
+   */
+  getSmartReplies: async (conversationId: number | string, lastMessage?: string) => {
+    const res = await api.post<{
+      success: boolean;
+      suggestions: Array<{
+        id: string;
+        label: string;
+        category?: string;
+        reply_text: string;
+      }>;
+    }>(`/chat/conversations/${conversationId}/smart-replies`, {
+      last_message: lastMessage,
+    });
+    return res.data;
+  },
+
+  /**
+   * Get list of active executives & agents
    */
   getAvailableExecutives: async () => {
-    try {
-      const res = await api.get<any>("/users/get-all-user");
-      const users = Array.isArray(res.data)
-        ? res.data
-        : res.data?.users || res.data?.data || [];
-      return users.filter((u: any) =>
-        ["executive", "agent", "sales_executive", "presales_executive", "telecaller", "manager", "admin"].includes(
-          String(u.role || "").toLowerCase()
-        )
-      );
-    } catch {
-      return [];
-    }
+    const res = await api.get<{
+      success: boolean;
+      executives: Array<{
+        id: number;
+        first_name: string;
+        last_name: string;
+        email: string;
+        phone?: string;
+        role: string;
+        avatar?: string;
+      }>;
+    }>("/chat/executives");
+    return res.data;
   },
 };
+

@@ -1,5 +1,5 @@
 // frontend/src/pages/communication/components/ChatConversationView.tsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Send,
   Building,
@@ -21,6 +21,18 @@ import {
   Compass,
   Paperclip,
   Loader2,
+  Calendar,
+  FileText,
+  PhoneCall,
+  CheckCircle2,
+  Clock,
+  Zap,
+  X,
+  Search,
+  Copy,
+  Plus,
+  BadgePercent,
+  HelpCircle,
 } from "lucide-react";
 import { PropertyConversation, PropertyChatMessage, chatApi } from "@/services/chatApi";
 import { LocationItem, PropertyItem, formatRupeePrice } from "./ChatConversationList";
@@ -29,6 +41,109 @@ import {
   ChatAttachmentDraftPreview,
   ChatLightboxModal,
 } from "@/components/chat/ChatMediaAttachment";
+
+export interface QuickActionTemplate {
+  id: string;
+  category: "visits" | "pricing" | "location" | "general";
+  categoryLabel: string;
+  label: string;
+  shortTag: string;
+  iconName: "calendar" | "map" | "file" | "phone" | "check" | "clock" | "pricing" | "general";
+  getText: (data: { clientFirst: string; clientName: string; propName: string; propLocation: string; propPrice?: string }) => string;
+}
+
+export const QUICK_ACTION_TEMPLATES: QuickActionTemplate[] = [
+  {
+    id: "visit_slot",
+    category: "visits",
+    categoryLabel: "Site Visits",
+    label: "Site Visit Slot",
+    shortTag: "Visit",
+    iconName: "calendar",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}! Are you available for an on-site visit for ${propName} this week? Let us know your preferred date & time slot.`,
+  },
+  {
+    id: "share_location",
+    category: "location",
+    categoryLabel: "Location & Directions",
+    label: "Location Pin",
+    shortTag: "Location",
+    iconName: "map",
+    getText: ({ propName, propLocation }) =>
+      `Here is the location & landmark details for ${propName}: ${propLocation || "Pune"}. We can also guide you directly when you arrive on site.`,
+  },
+  {
+    id: "brochure_price",
+    category: "pricing",
+    categoryLabel: "Pricing & Brochure",
+    label: "Brochure & Price Sheet",
+    shortTag: "Price Sheet",
+    iconName: "file",
+    getText: ({ propName }) =>
+      `I can share the complete price sheet breakdown, floor plan layout, and payment schedule for ${propName}. Would you like me to send it over WhatsApp or here?`,
+  },
+  {
+    id: "call_request",
+    category: "general",
+    categoryLabel: "Quick Connect",
+    label: "Request Call",
+    shortTag: "Call",
+    iconName: "phone",
+    getText: ({ clientFirst }) =>
+      `Hello ${clientFirst}, may I have the best time to connect with you for a quick 2-minute call to discuss your property requirements?`,
+  },
+  {
+    id: "confirm_available",
+    category: "visits",
+    categoryLabel: "Site Visits",
+    label: "Available for Visit",
+    shortTag: "Available",
+    iconName: "check",
+    getText: ({ propName }) =>
+      `Yes, ${propName} is actively available and ready for immediate site inspection. Shall I reserve a visit slot for you?`,
+  },
+  {
+    id: "reschedule_visit",
+    category: "visits",
+    categoryLabel: "Site Visits",
+    label: "Reschedule Visit",
+    shortTag: "Reschedule",
+    iconName: "clock",
+    getText: ({ clientFirst }) =>
+      `No problem at all! Please let us know your preferred revised date and time for the visit, and I will update your visit schedule.`,
+  },
+  {
+    id: "budget_discuss",
+    category: "pricing",
+    categoryLabel: "Pricing & Brochure",
+    label: "Pricing Discussion",
+    shortTag: "Offer",
+    iconName: "pricing",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}, we can also discuss negotiable terms and payment structure options for ${propName}. What is your target budget range?`,
+  },
+  {
+    id: "loan_assistance",
+    category: "pricing",
+    categoryLabel: "Pricing & Brochure",
+    label: "Home Loan Assistance",
+    shortTag: "Loan",
+    iconName: "pricing",
+    getText: ({ clientFirst }) =>
+      `Hello ${clientFirst}, we provide zero-fee home loan assistance with leading partner banks (SBI, HDFC, ICICI) at attractive interest rates. Would you like a quick eligibility check?`,
+  },
+  {
+    id: "general_greeting",
+    category: "general",
+    categoryLabel: "Quick Connect",
+    label: "Welcome Greeting",
+    shortTag: "Greeting",
+    iconName: "general",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}! Glad to connect with you. How can I assist you with ${propName} today?`,
+  },
+];
 
 interface ChatConversationViewProps {
   conversation: PropertyConversation | null;
@@ -168,10 +283,98 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
     title?: string;
   } | null>(null);
 
+  // Dynamic AI Smart Replies state
+  const [smartReplies, setSmartReplies] = useState<
+    Array<{ id: string; label: string; category?: string; reply_text: string }>
+  >([]);
+  const [loadingSmartReplies, setLoadingSmartReplies] = useState(false);
+  const [showQuickRepliesModal, setShowQuickRepliesModal] = useState(false);
+  const [selectedQuickCategory, setSelectedQuickCategory] = useState<string>("all");
+  const [quickReplySearch, setQuickReplySearch] = useState<string>("");
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
+
+  const lastUserMsg = useMemo(() => {
+    return (
+      messages
+        .slice()
+        .reverse()
+        .find((m) => m.sender_type === "user")?.message_text || ""
+    );
+  }, [messages]);
+
+  const loadSmartReplies = async () => {
+    if (!conversation?.id) return;
+    try {
+      setLoadingSmartReplies(true);
+      const res = await chatApi.getSmartReplies(conversation.id, lastUserMsg);
+      if (res.success && Array.isArray(res.suggestions) && res.suggestions.length > 0) {
+        setSmartReplies(res.suggestions);
+      }
+    } catch (err) {
+      console.warn("Could not fetch AI smart replies:", err);
+    } finally {
+      setLoadingSmartReplies(false);
+    }
+  };
+
+  useEffect(() => {
+    if (conversation?.id) {
+      loadSmartReplies();
+    }
+  }, [conversation?.id, lastUserMsg]);
+
+  const renderTemplateIcon = (iconName: QuickActionTemplate["iconName"], className = "w-3.5 h-3.5") => {
+    switch (iconName) {
+      case "calendar":
+        return <Calendar className={`${className} text-orange-500`} />;
+      case "map":
+        return <MapPin className={`${className} text-emerald-500`} />;
+      case "file":
+        return <FileText className={`${className} text-blue-500`} />;
+      case "phone":
+        return <PhoneCall className={`${className} text-purple-500`} />;
+      case "check":
+        return <CheckCircle2 className={`${className} text-teal-500`} />;
+      case "clock":
+        return <Clock className={`${className} text-amber-500`} />;
+      case "pricing":
+        return <BadgePercent className={`${className} text-rose-500`} />;
+      default:
+        return <Sparkles className={`${className} text-indigo-500`} />;
+    }
+  };
+
+  const insertQuickText = (text: string) => {
+    setInputText((prev) => {
+      if (!prev.trim()) return text;
+      return `${prev}\n\n${text}`;
+    });
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 50);
+  };
+
+  const filteredQuickTemplates = useMemo(() => {
+    let list = QUICK_ACTION_TEMPLATES;
+    if (selectedQuickCategory !== "all") {
+      list = list.filter((t) => t.category === selectedQuickCategory);
+    }
+    if (quickReplySearch.trim()) {
+      const q = quickReplySearch.toLowerCase().trim();
+      list = list.filter(
+        (t) =>
+          t.label.toLowerCase().includes(q) ||
+          t.shortTag.toLowerCase().includes(q) ||
+          t.categoryLabel.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [selectedQuickCategory, quickReplySearch]);
 
   // Auto-scroll to bottom on messages change
   const scrollToBottom = () => {
@@ -734,7 +937,88 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
 
       {/* Message Composer Footer */}
       <div className="p-3 bg-white border-t border-slate-200">
+        {/* Dynamic AI Smart Reply Suggestions Strip */}
+        <div className="flex items-center gap-1.5 pb-2.5 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 text-[11px] font-bold text-orange-600 uppercase tracking-wider shrink-0 mr-1 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
+            <Sparkles size={13} className="text-orange-600 animate-pulse" />
+            <span>AI Suggestions:</span>
+            <button
+              type="button"
+              onClick={loadSmartReplies}
+              disabled={loadingSmartReplies}
+              className="p-0.5 hover:bg-orange-200/60 rounded text-orange-700 transition-colors ml-0.5 cursor-pointer"
+              title="Refresh AI smart suggestions"
+            >
+              <RotateCcw size={10} className={loadingSmartReplies ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          {loadingSmartReplies && smartReplies.length === 0 ? (
+            <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium px-2 py-1">
+              <Loader2 size={12} className="animate-spin text-orange-500" />
+              <span>Generating AI replies...</span>
+            </div>
+          ) : smartReplies.length > 0 ? (
+            smartReplies.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => insertQuickText(item.reply_text)}
+                disabled={isClosed || isArchived}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 hover:border-orange-300 border border-orange-200/90 rounded-lg text-xs font-semibold text-slate-800 hover:text-orange-950 transition-all shrink-0 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-40 group"
+                title={`Click to insert: "${item.reply_text}"`}
+              >
+                <Zap size={11} className="text-orange-500 fill-orange-500" />
+                <span>{item.label}</span>
+              </button>
+            ))
+          ) : (
+            QUICK_ACTION_TEMPLATES.slice(0, 4).map((action) => {
+              const clientFirst = conversation.user_first_name || "there";
+              const clientName = `${conversation.user_first_name || "Customer"} ${conversation.user_last_name || ""}`.trim();
+              const propName = conversation.property_title || "this property";
+              const propLocation = conversation.property_location || "Pune";
+              const text = action.getText({ clientName, clientFirst, propName, propLocation });
+
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => insertQuickText(text)}
+                  disabled={isClosed || isArchived}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-orange-50 hover:border-orange-200 border border-slate-200/90 rounded-lg text-xs font-medium text-slate-700 hover:text-orange-700 transition-all shrink-0 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-40 group"
+                  title={`Click to insert: "${text}"`}
+                >
+                  {renderTemplateIcon(action.iconName)}
+                  <span>{action.label}</span>
+                </button>
+              );
+            })
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowQuickRepliesModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer shadow-2xs ml-auto"
+            title="Browse all quick reply templates"
+          >
+            <span>Templates</span>
+            <ChevronRight size={12} />
+          </button>
+        </div>
+
         <form onSubmit={handleSend} className="flex items-center gap-2">
+          {/* Quick Replies Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowQuickRepliesModal(true)}
+            disabled={isClosed || isArchived || sending}
+            className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors disabled:opacity-40 cursor-pointer shrink-0"
+            title="Quick Replies & Shortcuts"
+          >
+            <Zap size={19} className="text-amber-500" />
+          </button>
+
           {/* Pin / Paperclip Button */}
           <button
             type="button"
@@ -747,6 +1031,7 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
           </button>
 
           <textarea
+            ref={textareaRef}
             value={inputText}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
@@ -770,6 +1055,214 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
           </button>
         </form>
       </div>
+
+      {/* Quick Replies / All Templates Drawer Modal */}
+      {showQuickRepliesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-scaleUp">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+                  <Zap size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Executive Quick Replies & Shortcuts</h3>
+                  <p className="text-[11px] text-slate-500">Insert flexible pre-written responses with dynamic property details</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickRepliesModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search and Category Filter */}
+            <div className="p-3.5 border-b border-slate-100 space-y-2.5 bg-white">
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={quickReplySearch}
+                  onChange={(e) => setQuickReplySearch(e.target.value)}
+                  placeholder="Search templates (e.g. visit, loan, location, pricing)..."
+                  className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "ai", label: "✨ AI Suggestions" },
+                  { id: "visits", label: "Site Visits" },
+                  { id: "pricing", label: "Pricing & Docs" },
+                  { id: "location", label: "Location" },
+                  { id: "general", label: "Quick Connect" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedQuickCategory(cat.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
+                      selectedQuickCategory === cat.id
+                        ? "bg-[#0f2b3d] text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Template List & AI Smart Replies */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[400px]">
+              {/* Dynamic AI Suggestions Section in Modal */}
+              {(selectedQuickCategory === "all" || selectedQuickCategory === "ai") && (
+                <div className="space-y-2 pb-3 border-b border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
+                      <Sparkles size={13} className="text-orange-500" />
+                      <span>
+                        AI Suggestions {lastUserMsg ? `for "${lastUserMsg.slice(0, 30)}${lastUserMsg.length > 30 ? "..." : ""}"` : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadSmartReplies}
+                      disabled={loadingSmartReplies}
+                      className="text-[11px] text-orange-600 hover:text-orange-800 font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw size={11} className={loadingSmartReplies ? "animate-spin" : ""} />
+                      <span>Refresh AI</span>
+                    </button>
+                  </div>
+
+                  {loadingSmartReplies ? (
+                    <div className="p-3 text-center bg-orange-50/50 rounded-xl border border-orange-100 flex items-center justify-center gap-2 text-xs text-orange-700">
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Generating tailored AI responses...</span>
+                    </div>
+                  ) : smartReplies.length > 0 ? (
+                    smartReplies.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-xl border border-orange-200/90 bg-gradient-to-r from-orange-50/40 to-amber-50/40 hover:from-orange-50 hover:to-amber-50 transition-all group"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Zap size={13} className="text-orange-500 fill-orange-500" />
+                            <span className="font-bold text-xs text-slate-900">{item.label}</span>
+                            <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                              AI Generated
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                insertQuickText(item.reply_text);
+                                setShowQuickRepliesModal(false);
+                              }}
+                              className="px-2.5 py-1 bg-white hover:bg-orange-500 hover:text-white border border-slate-200 hover:border-orange-500 rounded-lg text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                            >
+                              <Copy size={11} />
+                              <span>Insert</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setShowQuickRepliesModal(false);
+                                await onSendMessage(item.reply_text);
+                              }}
+                              className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                            >
+                              <Send size={11} />
+                              <span>Send</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium bg-white/80 p-2.5 rounded-lg border border-orange-100">
+                          {item.reply_text}
+                        </p>
+                      </div>
+                    ))
+                  ) : null}
+                </div>
+              )}
+
+              {selectedQuickCategory !== "ai" && filteredQuickTemplates.length > 0 ? (
+                filteredQuickTemplates.map((template) => {
+                  const clientFirst = conversation.user_first_name || "there";
+                  const clientName = `${conversation.user_first_name || "Customer"} ${conversation.user_last_name || ""}`.trim();
+                  const propName = conversation.property_title || "this property";
+                  const propLocation = conversation.property_location || "Pune";
+                  const fullText = template.getText({ clientName, clientFirst, propName, propLocation });
+
+                  return (
+                    <div
+                      key={template.id}
+                      className="p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50/30 transition-all group"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          {renderTemplateIcon(template.iconName)}
+                          <span className="font-bold text-xs text-slate-900">{template.label}</span>
+                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {template.categoryLabel}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 opacity-90 group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              insertQuickText(fullText);
+                              setShowQuickRepliesModal(false);
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-orange-500 hover:text-white border border-slate-200 hover:border-orange-500 rounded-lg text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <Copy size={11} />
+                            <span>Insert</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setShowQuickRepliesModal(false);
+                              await onSendMessage(fullText);
+                            }}
+                            className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <Send size={11} />
+                            <span>Send</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed font-normal bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        {fullText}
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <HelpCircle size={28} className="mx-auto mb-2 text-slate-300" />
+                  <p className="text-xs font-semibold text-slate-600">No matching templates found</p>
+                  <p className="text-[11px] text-slate-400">Try a different search keyword</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox Modal for viewing photos/videos in full size */}
       <ChatLightboxModal

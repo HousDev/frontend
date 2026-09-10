@@ -41,8 +41,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/uploads": {
-      //  target: "http://localhost:3000",
-        target: "https://resaleexpert.in" ,  // for server
+        target: "http://localhost:3000",
         changeOrigin: true,
       },
       '/artifacts': {

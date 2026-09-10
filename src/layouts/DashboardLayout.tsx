@@ -438,7 +438,7 @@ const DashboardLayout = () => {
   useEffect(() => {
     const currentPath = location.pathname;
     const menuMappings: Record<string, string[]> = {
-      cms: ["/dashboard/blog-manager"],
+      cms: ["/dashboard/blog-manager", "/dashboard/home-manager"],
       crm: [
         "/dashboard/leads",
         "/dashboard/buyers",
@@ -455,6 +455,12 @@ const DashboardLayout = () => {
         "/dashboard/template-center",
         "/dashboard/accounts",
       ],
+      communication: [
+        "/dashboard/communication",
+        "/dashboard/communication/overview",
+        "/dashboard/communication/chat",
+        "/dashboard/communication/ai-sessions",
+      ],
       tools: ["/dashboard/vendors", "/dashboard/ai-training"],
       reports: ["/dashboard/activities", "/reports/activities", "/reports/logged-in", "/dashboard/analytics", "/admin/reports"],
       settings: [
@@ -470,7 +476,7 @@ const DashboardLayout = () => {
 
     let matchedKey: string | null = null;
     Object.entries(menuMappings).some(([menuKey, paths]) => {
-      if (paths.some((p) => currentPath.startsWith(p))) {
+      if (paths.some((p) => currentPath === p || currentPath.startsWith(p + "/") || (p === "/dashboard/communication" && currentPath.startsWith("/dashboard/communication")))) {
         matchedKey = menuKey;
         return true;
       }
@@ -478,9 +484,11 @@ const DashboardLayout = () => {
     });
 
     if (matchedKey) {
-      setExpandedMenus(new Set([matchedKey]));
-    } else {
-      setExpandedMenus(new Set());
+      setExpandedMenus((prev) => {
+        const next = new Set(prev);
+        next.add(matchedKey!);
+        return next;
+      });
     }
   }, [location.pathname]);
 
@@ -852,6 +860,7 @@ const DashboardLayout = () => {
     "Administrator": { title: "Administrator Panel", subtitle: "System administration tools" },
     "Communication": { title: "Communication Center", subtitle: "Manage messages and communications" },
     "Property Chat": { title: "Property Chat Desk", subtitle: "Real-time client inquiries and property communications" },
+    "REX AI Sessions": { title: "REX AI Sessions", subtitle: "Real-time live AI conversation sessions and client inquiries" },
     "Overview & Tools": { title: "Communication Overview & Tools", subtitle: "Manage campaigns, templates, and analytics" },
     "Vendors": { title: "Vendor Management", subtitle: "Manage vendor partnerships" },
     "AI Training": { title: "AI Training Center", subtitle: "Configure and train AI models" },

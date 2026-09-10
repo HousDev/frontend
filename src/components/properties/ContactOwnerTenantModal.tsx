@@ -36,6 +36,7 @@ import { tenantAPI } from '@/lib/tenantAPI';
 import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
+import { saveTenantShortlist } from '@/lib/tenantShortlist';
 import { saveTenantShortlist, saveTenantEnquiry } from '@/lib/tenantShortlist';
 import { getImageUrl } from '@/lib/helpers';
 

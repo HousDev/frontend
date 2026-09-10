@@ -49,7 +49,22 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
           const rawPhoto = prop.photos?.[0] || null;
           const photoUrl = rawPhoto ? getImageUrl(rawPhoto) : null;
           const displayPrice = formatIndianPrice(prop.price);
-          const address = [prop.society, prop.location, prop.city].filter(Boolean).join(", ");
+          const cleanTitle = (prop.title || "Residential Property")
+            .replace(/\[REX\d+\]\s*/gi, "")
+            .replace(/\s*\([^)]*\)/g, "")
+            .replace(/\s+in\s+.*$/i, (match) => {
+              const lower = match.toLowerCase();
+              const allowedAreas = [
+                "pune", "mumbai", "hinjewadi", "baner", "wakad", "punawale",
+                "kharadi", "ravet", "kothrud", "hadapsar", "bavdhan", "pcmc", "maharashtra"
+              ];
+              if (allowedAreas.some((area) => lower.includes(area))) {
+                return match;
+              }
+              return "";
+            })
+            .trim() || (prop.location ? `Property in ${prop.location}` : "Residential Property");
+          const address = [prop.location, prop.city].filter(Boolean).join(", ");
 
           return (
             <div
@@ -61,7 +76,7 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
                 {photoUrl ? (
                   <img
                     src={photoUrl}
-                    alt={prop.title}
+                    alt={cleanTitle}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
@@ -72,12 +87,12 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
                 )}
 
                 {/* Price Tag Overlay */}
-                <div className="absolute top-2 left-2 px-2.5 py-0.5 bg-slate-900/85 backdrop-blur-xs text-white rounded-md text-[11px] font-bold shadow-xs">
+                <div className="absolute top-2 left-2 px-2.5 py-0.5 bg-gradient-to-r from-[#0f2b3d] to-[#1a4a6b] text-white rounded-md text-[11px] font-bold shadow-xs">
                   {displayPrice}
                 </div>
 
                 {prop.unit_type && (
-                  <div className="absolute top-2 right-2 px-2 py-0.5 bg-slate-800 text-white rounded-md text-[10px] font-semibold shadow-xs">
+                  <div className="absolute top-2 right-2 px-2 py-0.5 bg-[#e87722] text-white rounded-md text-[10px] font-bold shadow-xs">
                     {prop.unit_type}
                   </div>
                 )}
@@ -86,13 +101,13 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
               {/* Card Body */}
               <div className="p-3 flex-1 flex flex-col justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-slate-700 transition-colors">
-                    {prop.title}
+                  <h4 className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-[#0f2b3d] transition-colors">
+                    {cleanTitle}
                   </h4>
 
                   {address && (
                     <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1 line-clamp-1">
-                      <MapPin size={11} className="text-slate-400 shrink-0" />
+                      <MapPin size={11} className="text-[#e87722] shrink-0" />
                       <span className="truncate">{address}</span>
                     </p>
                   )}
@@ -104,7 +119,7 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
                     <button
                       type="button"
                       onClick={() => onInterested ? onInterested(prop) : onSelectProperty?.(prop)}
-                      className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                      className="flex-1 py-1.5 px-2 bg-gradient-to-r from-[#e87722] to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
                     >
                       <Check size={12} />
                       <span>Interested</span>
@@ -114,7 +129,7 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
                         to={`/properties/${prop.slug}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center justify-center shrink-0"
+                        className="p-1.5 bg-slate-100 hover:bg-[#0f2b3d] hover:text-white text-slate-700 rounded-lg transition-colors flex items-center justify-center shrink-0"
                         title="View details"
                       >
                         <ExternalLink size={13} />
