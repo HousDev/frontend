@@ -36,7 +36,6 @@ import { tenantAPI } from '@/lib/tenantAPI';
 import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
-import { saveTenantShortlist } from '@/lib/tenantShortlist';
 import { saveTenantShortlist, saveTenantEnquiry } from '@/lib/tenantShortlist';
 import { getImageUrl } from '@/lib/helpers';
 
@@ -72,7 +71,7 @@ export function parseSlotMinutes(timeStr: string): number {
 
   // 1. Find all time segments (e.g., "10:00 AM", "1:00 PM", "5:00 PM", "8:00 PM", "2 PM", "5 PM")
   const timeMatches = Array.from(clean.matchAll(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/gi));
-  
+
   const validTimes = timeMatches.filter(m => {
     const h = parseInt(m[1], 10);
     return h >= 1 && h <= 24;
@@ -264,7 +263,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
         const saved = localStorage.getItem(`owner_preferred_slots_${ownerId}`);
         if (saved) slots = JSON.parse(saved);
       }
-    } catch {}
+    } catch { }
 
     if (slots.length === 0) {
       slots = [
@@ -300,7 +299,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
         try {
           const uStr = localStorage.getItem('user');
           if (uStr) activeUser = JSON.parse(uStr);
-        } catch {}
+        } catch { }
       }
 
       const isAdminOrStaff = activeUser && ['admin', 'superadmin', 'staff', 'employee', 'executive', 'agent', 'manager'].includes(String(activeUser.role || activeUser.user_type || '').toLowerCase());
@@ -1133,11 +1132,10 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
                                 type="button"
                                 disabled={passed}
                                 onClick={() => setVisitTime(slot)}
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                                  isSelected
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isSelected
                                     ? 'bg-orange-500 text-white shadow-2xs font-bold'
                                     : 'bg-white text-slate-700 hover:bg-orange-100/80 border border-amber-200'
-                                }`}
+                                  }`}
                               >
                                 {slot} {passed ? '(Passed)' : ''}
                               </button>
