@@ -133,6 +133,14 @@ export type Followup = {
   createdByName?: string | null;
   updatedByName?: string | null;
   assignedExecutiveName?: string | null;
+  assigned_to_name?: string | null;
+  assignedToName?: string | null;
+  assigned_by?: string | number | null;
+  assignedBy?: string | number | null;
+  assigned_by_name?: string | null;
+  assignedByName?: string | null;
+  transferredByName?: string | null;
+  transferred_by_name?: string | null;
   sellerId?: string | number | null;
   assignedExecutive?: string | number | null;
   completedDate?: string | null;
@@ -140,6 +148,7 @@ export type Followup = {
   outcome_id?: number | string | null;
   outcomeId?: number | string | null;
   custom_remark?: string | null;
+  [key: string]: any;
 };
 
 /* ------------------------------------------------------------------ */
@@ -809,7 +818,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
     if (user) {
       const role = String(user.role || '').toLowerCase();
       if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
-        const loggedName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || user.username;
+        const loggedName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || (user as any)?.name || user.username;
         if (loggedName) return loggedName;
       }
     }
