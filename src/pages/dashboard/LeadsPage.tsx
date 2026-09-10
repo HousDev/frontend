@@ -2131,7 +2131,6 @@ const LeadsPage: React.FC = () => {
             setSelectedLeadForFollowup(null);
           }}
           onSaved={() => {
-            toast.success('Follow-up scheduled successfully');
             setShowLeadFollowupModal(false);
             setSelectedLeadForFollowup(null);
             fetchLeads();

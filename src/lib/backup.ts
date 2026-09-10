@@ -263,7 +263,67 @@ export function normalizeExcelRow(table: ModuleTable, raw: Record<string, any>):
     }
   }
 
+  if (raw.id) {
+    normalized.id = raw.id;
+  } else if (!normalized.id) {
+    normalized.id =
+      normalized.rule_id ||
+      normalized.code ||
+      normalized.name ||
+      `${table.replace('fu_', '')}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  }
+  if (!normalized.name && (normalized.rule_id || normalized.code)) {
+    normalized.name = normalized.rule_id || normalized.code;
+  }
+
   return normalized;
+}
+
+// Export a single tab or table to JSON (.json)
+export function exportTabToJSON(tabKey: string, master: MasterData, rowsOverride?: any[]): void {
+  const table = tabToTableMap[tabKey] || 'fu_rules';
+  const masterKey = tableToMasterKey[table];
+  const list = rowsOverride ?? (masterKey && Array.isArray(master[masterKey]) ? (master[masterKey] as any[]) : []);
+
+  const cleanList = list.map((r) => cleanRow(table, r));
+  const jsonContent = JSON.stringify(cleanList, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+
+  const sheetName = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
+  const fileName = `${sheetName}_Rules_${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Export all modules into a comprehensive JSON file
+export function exportAllModulesToJSON(master: MasterData): void {
+  const tables: ModuleRows = {};
+  for (const table of moduleTables) {
+    const masterKey = tableToMasterKey[table];
+    if (masterKey && Array.isArray(master[masterKey])) {
+      tables[table] = (master[masterKey] as any[]).map((r) => cleanRow(table, r));
+    }
+  }
+
+  const payload: ModuleBackup = {
+    format: 'follow-up-center-module',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    tables,
+  };
+
+  const jsonContent = JSON.stringify(payload, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `follow-up-center-module-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // Export a single tab or table to Excel (.xlsx)
@@ -309,6 +369,107 @@ export function exportAllModulesToExcel(master: MasterData): void {
 
   const fileName = `FollowUp_Master_All_Modules_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
+}
+
+// Download a sample template JSON (.json) file with pre-filled sample rows
+export function downloadSampleJSONTemplate(tabKey: string): void {
+  const table = tabToTableMap[tabKey] || 'fu_rules';
+  let sampleRows: Record<string, any>[] = [];
+
+  if (table === 'fu_rules') {
+    sampleRows = [
+      {
+        id: 'FUR-001',
+        rule_id: 'FUR-001',
+        name: 'FUR-001',
+        entity_code: 'LEAD',
+        follow_up_type_code: 'CALL',
+        current_stage_code: 'INITIAL_CONTACT',
+        current_status_code: 'IN_PROGRESS',
+        outcome_code: 'NO_ANSWER',
+        reason_code: null,
+        next_stage_code: 'INITIAL_CONTACT',
+        next_status_code: 'NOT_CONNECTED',
+        next_action_code: 'CALL',
+        next_follow_up_type_code: 'CALL',
+        gap_days: 1,
+        gap_hours: 0,
+        priority_code: 'MEDIUM',
+        auto_remark_template: 'Lead did not answer. Retry call next day.',
+        sequence_name: 'NO_ANSWER_DRIP',
+        auto_send_channel: 'WHATSAPP',
+        display_order: 1,
+        is_active: 1,
+      },
+      {
+        id: 'FUR-002',
+        rule_id: 'FUR-002',
+        name: 'FUR-002',
+        entity_code: 'LEAD',
+        follow_up_type_code: 'CALL',
+        current_stage_code: 'INITIAL_CONTACT',
+        current_status_code: 'IN_PROGRESS',
+        outcome_code: 'CONNECTED',
+        reason_code: null,
+        next_stage_code: 'REQUIREMENT_QUALIFIED',
+        next_status_code: 'QUALIFIED',
+        next_action_code: 'WHATSAPP',
+        next_follow_up_type_code: 'WHATSAPP',
+        gap_days: 0,
+        gap_hours: 2,
+        priority_code: 'HIGH',
+        auto_remark_template: 'Lead connected and qualified. Send property options on WhatsApp.',
+        sequence_name: null,
+        auto_send_channel: 'WHATSAPP',
+        display_order: 2,
+        is_active: 1,
+      },
+    ];
+  } else if (table === 'fu_sequences') {
+    sampleRows = [
+      {
+        sequence_name: 'NO_ANSWER_DRIP',
+        step: 1,
+        after_days: 1,
+        after_hours: 0,
+        action_code: 'CALL',
+        follow_up_type_code: 'CALL',
+        priority_code: 'MEDIUM',
+        terminal_step: 0,
+        next_status_code: 'NOT_CONNECTED',
+        reason_code: null,
+        is_active: 1,
+      },
+      {
+        sequence_name: 'NO_ANSWER_DRIP',
+        step: 2,
+        after_days: 2,
+        after_hours: 0,
+        action_code: 'WHATSAPP',
+        follow_up_type_code: 'WHATSAPP',
+        priority_code: 'LOW',
+        terminal_step: 1,
+        next_status_code: 'ON_HOLD',
+        reason_code: null,
+        is_active: 1,
+      },
+    ];
+  } else {
+    sampleRows = [
+      { code: 'SAMPLE_01', name: 'Sample Item 1', is_active: 1, display_order: 1 },
+      { code: 'SAMPLE_02', name: 'Sample Item 2', is_active: 1, display_order: 2 },
+    ];
+  }
+
+  const jsonContent = JSON.stringify(sampleRows, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  const sheetName = tabKey.charAt(0).toUpperCase() + tabKey.slice(1);
+  link.download = `Sample_Template_${sheetName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // Download a sample template Excel (.xlsx) file with pre-filled sample rows
@@ -437,17 +598,95 @@ export function downloadSampleExcelTemplate(tabKey: string): void {
   XLSX.writeFile(wb, `Sample_Template_${sheetName}.xlsx`);
 }
 
+export function parseJsonFileToBackup(parsed: unknown, activeTab: string): ModuleBackup {
+  const activeTable = tabToTableMap[activeTab] || 'fu_rules';
+  const tables: ModuleRows = {};
+
+  // Case 1: Plain Array of objects (e.g. [ { name: 'FUR-001', ... } ])
+  if (Array.isArray(parsed)) {
+    if (parsed.length === 0) throw new Error('The JSON file contains an empty array.');
+    tables[activeTable] = parsed.map((item) => normalizeExcelRow(activeTable, item));
+    return {
+      format: 'follow-up-center-module',
+      version: 1,
+      exported_at: new Date().toISOString(),
+      tables,
+    };
+  }
+
+  // Case 2: Object with table keys or standard backup
+  if (isRecord(parsed)) {
+    // If standard backup with parsed.tables
+    if (isRecord(parsed.tables)) {
+      for (const table of moduleTables) {
+        const rows = (parsed.tables as Record<string, unknown>)[table];
+        if (Array.isArray(rows) && rows.length > 0) {
+          tables[table] = rows.map((r) => normalizeExcelRow(table, r));
+        }
+      }
+    }
+
+    // Check direct keys like rules, fu_rules, sequences, etc.
+    const keyMap: Record<string, ModuleTable> = {
+      rules: 'fu_rules',
+      fu_rules: 'fu_rules',
+      sequences: 'fu_sequences',
+      fu_sequences: 'fu_sequences',
+      entities: 'fu_entities',
+      fu_entities: 'fu_entities',
+      followUpTypes: 'fu_follow_up_types',
+      fu_follow_up_types: 'fu_follow_up_types',
+      stages: 'fu_stages',
+      fu_stages: 'fu_stages',
+      statuses: 'fu_statuses',
+      fu_statuses: 'fu_statuses',
+      outcomes: 'fu_outcomes',
+      fu_outcomes: 'fu_outcomes',
+      reasons: 'fu_reasons',
+      fu_reasons: 'fu_reasons',
+      nextActions: 'fu_next_actions',
+      fu_next_actions: 'fu_next_actions',
+      priorities: 'fu_priorities',
+      fu_priorities: 'fu_priorities',
+    };
+
+    for (const [k, tbl] of Object.entries(keyMap)) {
+      const rows = parsed[k];
+      if (Array.isArray(rows) && rows.length > 0) {
+        tables[tbl] = rows.map((r) => normalizeExcelRow(tbl, r));
+      }
+    }
+
+    // If single record object (not containing array keys)
+    if (Object.keys(tables).length === 0 && (parsed.name || parsed.code || parsed.entity_code)) {
+      tables[activeTable] = [normalizeExcelRow(activeTable, parsed)];
+    }
+
+    if (Object.keys(tables).length > 0) {
+      return {
+        format: 'follow-up-center-module',
+        version: 1,
+        exported_at: new Date().toISOString(),
+        tables,
+      };
+    }
+  }
+
+  throw new Error('Could not parse valid Follow-up rules or master data from the uploaded JSON file.');
+}
+
 // Import Excel (.xlsx, .xls, .csv) or JSON Backup File
 export async function importExcelOrFile(
   file: File,
   activeTab: string,
   _master: MasterData
-): Promise<{ tables: number; rows: number }> {
+): Promise<{ tables: number; rows: number; duplicatesSkipped: number }> {
   const isJson = file.name.endsWith('.json');
 
   if (isJson) {
     const text = await file.text();
-    const backup = validateModuleBackup(JSON.parse(text) as unknown);
+    const rawParsed = JSON.parse(text) as unknown;
+    const backup = parseJsonFileToBackup(rawParsed, activeTab);
     return await importModuleBackup(backup);
   }
 
@@ -519,32 +758,6 @@ export async function importExcelOrFile(
   });
 }
 
-export async function exportModuleBackup(): Promise<ModuleBackup> {
-  const master = await loadMasterData();
-  const followUps = await loadFollowUps();
-
-  const tables: ModuleRows = {
-    fu_entities: (master.entities ?? []).map((r) => cleanRow('fu_entities', r as unknown as Record<string, unknown>)),
-    fu_follow_up_types: (master.followUpTypes ?? []).map((r) => cleanRow('fu_follow_up_types', r as unknown as Record<string, unknown>)),
-    fu_stages: (master.stages ?? []).map((r) => cleanRow('fu_stages', r as unknown as Record<string, unknown>)),
-    fu_statuses: (master.statuses ?? []).map((r) => cleanRow('fu_statuses', r as unknown as Record<string, unknown>)),
-    fu_outcomes: (master.outcomes ?? []).map((r) => cleanRow('fu_outcomes', r as unknown as Record<string, unknown>)),
-    fu_reasons: (master.reasons ?? []).map((r) => cleanRow('fu_reasons', r as unknown as Record<string, unknown>)),
-    fu_next_actions: (master.nextActions ?? []).map((r) => cleanRow('fu_next_actions', r as unknown as Record<string, unknown>)),
-    fu_priorities: (master.priorities ?? []).map((r) => cleanRow('fu_priorities', r as unknown as Record<string, unknown>)),
-    fu_sequences: (master.sequences ?? []).map((r) => cleanRow('fu_sequences', r as unknown as Record<string, unknown>)),
-    fu_rules: (master.rules ?? []).map((r) => cleanRow('fu_rules', r as unknown as Record<string, unknown>)),
-    fu_follow_ups: (followUps ?? []).map((r) => cleanRow('fu_follow_ups', r as unknown as Record<string, unknown>)),
-  };
-
-  return {
-    format: 'follow-up-center-module',
-    version: 1,
-    exported_at: new Date().toISOString(),
-    tables,
-  };
-}
-
 export function validateModuleBackup(value: unknown): ModuleBackup {
   if (!isRecord(value) || value.format !== 'follow-up-center-module' || value.version !== 1 || !isRecord(value.tables)) {
     throw new Error('This file is not a valid Follow-up Center module export.');
@@ -572,16 +785,18 @@ export function validateModuleBackup(value: unknown): ModuleBackup {
   };
 }
 
-export async function importModuleBackup(backup: ModuleBackup): Promise<{ tables: number; rows: number }> {
+export async function importModuleBackup(backup: ModuleBackup): Promise<{ tables: number; rows: number; duplicatesSkipped: number }> {
   let tableCount = 0;
   let rowCount = 0;
+  let duplicatesSkipped = 0;
 
   // Try importing on backend first
   try {
     const backendResult = await followUpMasterAPI.importModule(backup.tables as Record<string, any[]>);
     if (backendResult && backendResult.result) {
-      tableCount = backendResult.result.importedTables;
-      rowCount = backendResult.result.importedRows;
+      tableCount = backendResult.result.importedTables || 0;
+      rowCount = backendResult.result.importedRows || 0;
+      duplicatesSkipped = backendResult.result.duplicatesSkipped || 0;
     }
   } catch (err) {
     console.warn('Backend module import failed, storing locally:', err);
@@ -604,23 +819,31 @@ export async function importModuleBackup(backup: ModuleBackup): Promise<{ tables
       }
     } else {
       const key = tableToMasterKey[table];
-      if (key && Array.isArray(master[key])) {
-        const currentList = master[key] as Record<string, unknown>[];
-        const newRecords = rows.map((r, i) => ({
-          ...r,
-          id: (r.id as string) || `imp_${table}_${Date.now()}_${i}`,
-          is_active: r.is_active !== undefined ? r.is_active : 1,
-        }));
-        (master as unknown as Record<string, unknown>)[key] = [...currentList, ...newRecords];
-      }
+        const newRecords = rows.map((r, i) => {
+          let id = r.id as string;
+          if (!id) {
+            if (table === 'fu_rules') id = (r.rule_id as string) || (r.name as string) || `rule_${i}`;
+            else if (table === 'fu_sequences') id = `${r.sequence_name}_STEP_${r.step}`;
+            else if (table === 'fu_stages' || table === 'fu_statuses') id = `${r.entity_code || 'GEN'}_${r.code || r.name}`;
+            else if (table === 'fu_outcomes') id = `${r.follow_up_type_code || 'ALL'}_${r.code || r.name}`;
+            else if (table === 'fu_reasons') id = `${r.outcome_code ? r.outcome_code + '_' : ''}${r.code || r.name}`;
+            else id = (r.code as string) || (r.name as string) || `imp_${table}_${i}`;
+          }
+          return {
+            ...r,
+            id,
+            is_active: r.is_active !== undefined ? r.is_active : 1,
+          };
+        });
+        (master as unknown as Record<string, unknown>)[key] = newRecords;
     }
 
-    if (tableCount === 0) tableCount += 1;
+    if (tableCount === 0 && rows.length > 0) tableCount += 1;
     if (rowCount === 0) rowCount += rows.length;
   }
 
   localStorage.setItem('fu_master_data_v3', JSON.stringify(master));
-  return { tables: tableCount || Object.keys(backup.tables).length, rows: rowCount };
+  return { tables: tableCount || Object.keys(backup.tables).length, rows: rowCount, duplicatesSkipped };
 }
 
 export function downloadModuleBackup(backup: ModuleBackup): void {

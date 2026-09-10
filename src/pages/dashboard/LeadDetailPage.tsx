@@ -109,6 +109,9 @@ interface Followup {
   customRemark?: string;
   nextAction?: string;
   scheduledDate?: string | null;
+  scheduledTime?: string | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
   completedDate?: string | null;
   createdBy?: string;
   createdAt?: string;
@@ -352,6 +355,9 @@ const LeadDetailPage: React.FC = () => {
         customRemark: f.customRemark || f.custom_remark || "",
         nextAction: f.nextAction || f.next_action || "",
         scheduledDate: f.scheduledDate || f.scheduled_date || f.schedule || f.createdAt || f.created_at || null,
+        scheduledTime: f.scheduledTime || f.scheduled_time || f.time || null,
+        scheduled_date: f.scheduled_date || f.scheduledDate || null,
+        scheduled_time: f.scheduled_time || f.scheduledTime || null,
         createdAt: f.createdAt || f.created_at || null,
         priority: f.priority || "Medium",
         createdByFirstName: f.createdByFirstName || f.created_by_first_name || f.created_first_name || "",
@@ -650,6 +656,44 @@ const LeadDetailPage: React.FC = () => {
     } catch { return { date: "-", time: "-" }; }
   };
 
+  const formatScheduleDisplay = (dateStr?: string | null, timeStr?: string | null) => {
+    if (!dateStr) return null;
+    let dateFormatted = "";
+    try {
+      if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+        const [y, m, d] = dateStr.trim().split("-").map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        dateFormatted = dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      } else {
+        const dateObj = new Date(dateStr);
+        dateFormatted = dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      }
+    } catch {
+      dateFormatted = String(dateStr);
+    }
+
+    let timeFormatted = "";
+    if (timeStr) {
+      try {
+        const timeClean = String(timeStr).trim();
+        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeClean)) {
+          const parts = timeClean.split(":");
+          const hours = parseInt(parts[0], 10);
+          const minutes = parseInt(parts[1], 10);
+          const period = hours >= 12 ? "pm" : "am";
+          const h12 = hours % 12 || 12;
+          timeFormatted = `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
+        } else {
+          timeFormatted = timeClean;
+        }
+      } catch {
+        timeFormatted = String(timeStr);
+      }
+    }
+
+    return { date: dateFormatted, time: timeFormatted };
+  };
+
   const shouldShowTransfer = (ld?: Lead | null, lf?: Followup | null): boolean => {
     const lStage = (ld?.stage || "").trim().toLowerCase();
     const lStatus = (ld?.status || "").trim().toLowerCase();
@@ -720,7 +764,7 @@ const LeadDetailPage: React.FC = () => {
 
   const typeIcon = (t: string) => { const found = FOLLOWUP_TYPES.find((ft) => ft.value === t); return found ? found.Icon : MessageSquare; };
   const followupCardClasses = (t: string) => { const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray"; return FOLLOWUP_COLOR_MAP[color] || FOLLOWUP_COLOR_MAP.gray; };
-  const formatDateShort = (iso?: string | null): string => { if (!iso) return "-"; const d = new Date(iso); const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); return `${date} • ${time}`; };
+  const formatDateShort = (iso?: string | null): string => { if (!iso) return "-"; const d = new Date(iso); if (isNaN(d.getTime())) return iso; const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }); return `${date} at ${time}`; };
 
   const tabId = "lead";
   const leadId = id || "";
@@ -975,9 +1019,51 @@ const LeadDetailPage: React.FC = () => {
                   {followups.map((f) => {
                     const Ico = typeIcon(f.type);
                     const color = followupCardClasses(f.type);
-                    const hasValidSchedule = f.scheduledDate && new Date(f.scheduledDate).getFullYear() > 1970;
-                    const sched = hasValidSchedule ? formatDateTime(f.scheduledDate) : null;
-                    const createdByName = `${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || "System";
+                    const sched = formatScheduleDisplay(
+                      f.scheduledDate || f.scheduled_date,
+                      f.scheduledTime || f.scheduled_time
+                    );
+                    const fAny = f as any;
+                    const currentAccountProfileName =
+                      (user as any)?.name ||
+                      (user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "") ||
+                      (user as any)?.username ||
+                      "Executive";
+
+                    const stripSalutation = (val?: string | null): string => {
+                      if (!val) return "";
+                      return String(val)
+                        .replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.|shri\.|smt\.|mr|mrs|ms|dr|prof|shri|smt)\s+/i, "")
+                        .trim();
+                    };
+
+                    const rawCreatedByName =
+                      (fAny.created_by_name && fAny.created_by_name !== "System" && !String(fAny.created_by_name).toLowerCase().includes("system") ? fAny.created_by_name : null) ||
+                      (fAny.createdByName && fAny.createdByName !== "System" && !String(fAny.createdByName).toLowerCase().includes("system") ? fAny.createdByName : null) ||
+                      (`${f.createdByFirstName || ""} ${f.createdByLastName || ""}`.trim() || null) ||
+                      (typeof f.createdBy === "string" && f.createdBy !== "System" && !String(f.createdBy).toLowerCase().includes("system") ? f.createdBy : null) ||
+                      (fAny.created_by && isNaN(Number(fAny.created_by)) && !String(fAny.created_by).toLowerCase().includes("system") ? String(fAny.created_by) : null) ||
+                      (fAny.created_by ? `User #${fAny.created_by}` : null) ||
+                      (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+                      currentAccountProfileName;
+                    const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
+
+                    const rawAssignedToName =
+                      fAny.assigned_to_name ||
+                      fAny.assignedToName ||
+                      (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
+                      lead?.assigned_executive_name ||
+                      "Unassigned";
+                    const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
+                      ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
+                      : "Unassigned";
+
+                    const rawAssignedByName =
+                      (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+                      (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
+                      (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
+                      createdByName;
+                    const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
                     return (
                       <div key={f.id} className={`border rounded-lg p-2.5 transition-all bg-white shadow-xs hover:shadow-sm border-l-4 ${color.leftBar}`}>
@@ -1068,10 +1154,14 @@ const LeadDetailPage: React.FC = () => {
                                 <span>Created by:</span>
                                 <strong className="text-gray-700 font-semibold">{createdByName}</strong>
                               </span>
-                              {lead?.assigned_executive_name && (
+                              <span className="flex items-center gap-1">
+                                <span>Assigned to:</span>
+                                <strong className="text-gray-700 font-semibold">{assignedToName}</strong>
+                              </span>
+                              {assignedByName && (
                                 <span className="flex items-center gap-1">
-                                  <span>Assigned to:</span>
-                                  <strong className="text-gray-700 font-semibold">{lead.assigned_executive_name}</strong>
+                                  <span>📌 Assigned by:</span>
+                                  <strong className="text-gray-700 font-semibold">{assignedByName}</strong>
                                 </span>
                               )}
                             </div>
@@ -1113,7 +1203,6 @@ const LeadDetailPage: React.FC = () => {
           setEditingFollowup(null);
         }}
         onSaved={() => {
-          toast.success(editingFollowup ? "Follow-up updated successfully" : "Follow-up scheduled successfully");
           setShowFollowUpModal(false);
           setIsFollowupModalOpen(false);
           setEditingFollowup(null);
