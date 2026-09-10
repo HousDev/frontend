@@ -355,67 +355,6 @@ const [currentTab, setCurrentTab] = useState<string>('all');
 
   return (
     <div className="py-2 px-3">
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 px-0 mt-3">
-  
-<div className="flex flex-nowrap gap-1 sm:gap-2 w-auto max-w-full overflow-x-auto scrollbar-hide pr-0 items-end justify-end">
-
-  {/* Export */}
-  <Button
-    variant="outline"
-    onClick={() => {
-      setModalMode('export');
-      setShowImportExportModal(true);
-    }}
-    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
-  >
-    <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-    <span className="truncate">Export</span>
-  </Button>
-
-  {/* Import */}
-  <Button
-    variant="outline"
-    onClick={() => {
-      setModalMode('import');
-      setShowImportExportModal(true);
-    }}
-    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
-  >
-    <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-    <span className="truncate">Import</span>
-  </Button>
-
-  {/* Roles */}
-  <Link
-    to="/dashboard/settings/roles-permissions"
-    className="flex-shrink-0"
-  >
-    <Button
-      variant="outline"
-      className="flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
-    >
-      <Shield className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-      <span className="truncate">Roles</span>
-    </Button>
-  </Link>
-
-  {/* Add User */}
-  <Button
-    onClick={() => {
-      resetForm();
-      setShowUserModal(true);
-    }}
-    className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5 text-white bg-[#0f2b3d] hover:bg-[#0f2b3d]"
-    disabled={masterLoading}
-  >
-    <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-    <span className="truncate">Add User</span>
-  </Button>
-
-</div>
-</div>
-
-
       {/* UsersManagement */}
       <UsersManagement
         onEditUser={handleEditUser}
@@ -425,6 +364,62 @@ const [currentTab, setCurrentTab] = useState<string>('all');
         masterLoading={masterLoading}
         onCreateUser={handleOpenCreateFromChild}
         onTabChange={(tabId) => setCurrentTab(tabId)}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            {/* Export */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setModalMode('export');
+                setShowImportExportModal(true);
+              }}
+              className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
+            >
+              <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="truncate">Export</span>
+            </Button>
+
+            {/* Import */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setModalMode('import');
+                setShowImportExportModal(true);
+              }}
+              className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
+            >
+              <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="truncate">Import</span>
+            </Button>
+
+            {/* Roles */}
+            <Link
+              to="/dashboard/settings/roles-permissions"
+              className="flex-shrink-0"
+            >
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5"
+              >
+                <Shield className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="truncate">Roles</span>
+              </Button>
+            </Link>
+
+            {/* Add User */}
+            <Button
+              onClick={() => {
+                resetForm();
+                setShowUserModal(true);
+              }}
+              className="flex-shrink-0 flex items-center justify-center gap-1 text-[10px] sm:text-xs py-1 sm:py-1.5 px-2 sm:px-2.5 text-white bg-[#0f2b3d] hover:bg-[#1a3a4f]"
+              disabled={masterLoading}
+            >
+              <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="truncate">Add User</span>
+            </Button>
+          </div>
+        }
       />
 
       {/* Reusable UserForm component */}

@@ -225,10 +225,15 @@ export async function createAutomationJobs(
   const jobs: AutomationJob[] = [];
   const scheduledAt = new Date().toISOString();
 
-  const body = rule.message_body ?? '';
-  const subject = rule.message_subject ?? null;
+  const isEmail = Boolean(rule.auto_email || (rule as any).auto_send_channel === 'EMAIL');
+  const isWhatsApp = Boolean(rule.auto_whatsapp || (rule as any).auto_send_channel === 'WHATSAPP');
+  const isMessage = Boolean(rule.auto_message || (rule as any).auto_send_channel === 'SMS' || (rule as any).auto_send_channel === 'MESSAGE');
 
-  if (rule.auto_email) {
+  const body = rule.message_body || (rule as any).auto_remark_template || (rule as any).remark || '';
+  const subject = rule.message_subject || null;
+  const ruleId = rule.rule_id || rule.id || (rule as any).name || null;
+
+  if (isEmail) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -242,11 +247,11 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
-  if (rule.auto_whatsapp) {
+  if (isWhatsApp) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -260,11 +265,11 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
-  if (rule.auto_message) {
+  if (isMessage) {
     jobs.push({
       id: 'job_' + Math.random().toString(36).slice(2, 10),
       follow_up_id: followUpId,
@@ -278,7 +283,7 @@ export async function createAutomationJobs(
       scheduled_at: scheduledAt,
       sent_at: null,
       error_message: null,
-      rule_id: rule.rule_id,
+      rule_id: ruleId,
       created_at: new Date().toISOString(),
     });
   }
@@ -289,6 +294,30 @@ export async function createAutomationJobs(
     const existing = raw ? (JSON.parse(raw) as AutomationJob[]) : [];
     const updated = [...jobs, ...existing];
     localStorage.setItem(AUTOMATION_JOBS_KEY, JSON.stringify(updated));
+
+    // Persist each job to MySQL fu_automation_jobs table
+    for (const job of jobs) {
+      const phoneMatch = entityRef?.match(/\(([^)]+)\)/);
+      const phone = phoneMatch ? phoneMatch[1] : '';
+      void followUpMasterAPI.upsertItem('fu_automation_jobs', {
+        id: job.id,
+        channel: job.channel,
+        recipient_phone: phone || null,
+        recipient_email: null,
+        template_id: null,
+        payload: {
+          subject: job.subject,
+          body: job.body,
+          entity_ref: entityRef,
+          ...context,
+        },
+        status: 'PENDING',
+        scheduled_for: scheduledAt,
+        entity_code: entityCode,
+        entity_id: followUpId,
+        rule_id: ruleId,
+      });
+    }
   } catch (err) {
     console.error('createAutomationJobs error', err);
   }
@@ -300,6 +329,34 @@ export async function createAutomationJobs(
  */
 export async function loadAutomationJobs(): Promise<AutomationJob[]> {
   try {
+    try {
+      const serverRows = await followUpMasterAPI.getTableData('fu_automation_jobs');
+      if (serverRows && Array.isArray(serverRows) && serverRows.length > 0) {
+        const mapped: AutomationJob[] = serverRows.map((r: any) => {
+          const payload = typeof r.payload === 'string' ? JSON.parse(r.payload || '{}') : (r.payload || {});
+          return {
+            id: r.id,
+            follow_up_id: r.entity_id || null,
+            entity_code: r.entity_code || 'LEAD',
+            entity_ref: payload.entity_ref || null,
+            channel: r.channel || 'WHATSAPP',
+            subject: payload.subject || null,
+            body: payload.body || '',
+            status: r.status || 'PENDING',
+            priority_code: r.priority_code || 'MEDIUM',
+            scheduled_at: r.scheduled_for || r.created_at || new Date().toISOString(),
+            sent_at: r.sent_at || null,
+            error_message: r.error_message || null,
+            rule_id: r.rule_id || null,
+            created_at: r.created_at || new Date().toISOString(),
+          };
+        });
+        localStorage.setItem(AUTOMATION_JOBS_KEY, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch (apiErr) {
+      console.warn('Could not fetch automation jobs from backend:', apiErr);
+    }
     const raw = localStorage.getItem(AUTOMATION_JOBS_KEY);
     return raw ? (JSON.parse(raw) as AutomationJob[]) : [];
   } catch (err) {
@@ -336,6 +393,33 @@ export function getSequenceStep(
   const steps = sequences
     .filter((s) => s.sequence_name === sequenceName)
     .sort((a, b) => a.step - b.step);
+
+  if (currentAttempt >= 3) {
+    const termStep = steps.find((s) => s.terminal_step) || steps[steps.length - 1];
+    if (termStep) {
+      return {
+        ...termStep,
+        action_code: 'CLOSE',
+        next_status_code: 'LOST',
+        terminal_step: true,
+      };
+    }
+    return {
+      id: 'term_3_auto_lost',
+      sequence_name: sequenceName,
+      step: 3,
+      after_days: 0,
+      after_hours: 0,
+      action_code: 'CLOSE',
+      follow_up_type_code: 'CALL',
+      priority_code: 'LOW',
+      terminal_step: true,
+      next_status_code: 'LOST',
+      reason_code: null,
+      is_active: true,
+    };
+  }
+
   const nextStepNumber = currentAttempt;
   return steps.find((s) => s.step === nextStepNumber) ?? null;
 }
@@ -565,6 +649,39 @@ export async function loadFollowUps(): Promise<FollowUp[]> {
   }
 }
 
+/**
+ * Smart Time Slot Optimizer:
+ * Alternates follow-up calling windows so customers aren't called at the same unavailable time twice.
+ * - If last call was Morning/Noon (e.g., 10am - 1pm / 12pm), schedule next call in the Evening (05:00 PM / 17:00).
+ * - If last call was Evening (e.g., 2pm - 7pm / 5pm), schedule next call in the Morning/Noon (11:30 AM / 11:30).
+ */
+export function getSmartAlternatingTime(
+  currentAttempt: number,
+  lastTimeOrNow?: string | null,
+  defaultRuleTime?: string | null,
+): string {
+  let hour = 11;
+  if (lastTimeOrNow) {
+    const s = String(lastTimeOrNow).trim();
+    const timeMatch = s.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      hour = Number(timeMatch[1]);
+      if (/pm/i.test(s) && hour < 12) hour += 12;
+      if (/am/i.test(s) && hour === 12) hour = 0;
+    }
+  } else {
+    hour = new Date().getHours();
+  }
+
+  // If called in morning/afternoon (before 2 PM / 14:00, e.g. 11am or 12pm) -> Next attempt schedules for 5:00 PM (17:00)
+  if (hour < 14) {
+    return '17:00'; // 5:00 PM Evening Slot
+  }
+
+  // If called in evening (2 PM / 14:00 or later) -> Next attempt schedules for 11:30 AM
+  return '11:30'; // 11:30 AM Morning Slot
+}
+
 export type NextStepPreview = {
   nextStageCode: string;
   nextStatusCode: string;
@@ -583,13 +700,15 @@ export function previewNextStep(
   rule: Rule,
   sequences: SequenceStep[],
   currentAttempt: number,
+  lastTime?: string | null,
 ): NextStepPreview | null {
   if (rule.terminal && !rule.require_follow_up && !rule.sequence_name) {
     return null;
   }
 
+  const smartTime = getSmartAlternatingTime(currentAttempt, lastTime, rule.default_time);
   let scheduledDate: string;
-  let scheduledTime: string;
+  let scheduledTime: string = smartTime;
   let nextTypeCode = rule.next_follow_up_type_code ?? rule.follow_up_type_code;
   let nextActionCode = rule.next_action_code;
   let nextStatusCode = rule.next_status_code;
@@ -597,29 +716,38 @@ export function previewNextStep(
   let nextAttempt = 1;
   let isSequenceTerminal = false;
 
+  let nextStageCode = rule.next_stage_code;
+
   if (rule.sequence_name) {
     const step = getSequenceStep(sequences, rule.sequence_name, currentAttempt);
     if (step) {
-      const sched = computeNextSchedule(new Date(), step.after_days, step.after_hours, '11:00');
+      const sched = computeNextSchedule(new Date(), step.after_days, step.after_hours, smartTime);
       scheduledDate = sched.date;
-      scheduledTime = sched.time;
+      scheduledTime = smartTime;
       nextTypeCode = step.follow_up_type_code;
       nextActionCode = step.action_code;
       priorityCode = step.priority_code;
       nextAttempt = currentAttempt + 1;
       if (step.next_status_code) nextStatusCode = step.next_status_code;
       isSequenceTerminal = step.terminal_step;
+
+      if (currentAttempt >= 3 || step.terminal_step) {
+        nextStatusCode = 'LOST';
+        nextStageCode = 'LOST';
+        nextActionCode = 'CLOSE';
+        isSequenceTerminal = true;
+      }
     } else {
       return null;
     }
   } else {
-    const sched = computeNextSchedule(new Date(), rule.default_days, 0, rule.default_time);
+    const sched = computeNextSchedule(new Date(), rule.default_days, 0, smartTime);
     scheduledDate = sched.date;
-    scheduledTime = sched.time;
+    scheduledTime = smartTime;
   }
 
   return {
-    nextStageCode: rule.next_stage_code,
+    nextStageCode,
     nextStatusCode,
     nextActionCode: nextActionCode,
     nextFollowUpTypeCode: nextTypeCode,
@@ -628,7 +756,7 @@ export function previewNextStep(
     scheduledTime,
     nextAttempt,
     sequenceName: rule.sequence_name,
-    terminal: rule.terminal,
+    terminal: rule.terminal || isSequenceTerminal,
     isSequenceTerminal,
   };
 }
@@ -639,9 +767,9 @@ export function buildNextFollowUp(
   currentAttempt: number,
   entityRef: string | null,
   customRemark: string | null,
-  extra: { project?: string; siteLocation?: string; participants?: string; messageTemplate?: string } = {},
+  extra: { project?: string; siteLocation?: string; participants?: string; messageTemplate?: string; lastTime?: string | null } = {},
 ): NewFollowUp | null {
-  const preview = previewNextStep(rule, sequences, currentAttempt);
+  const preview = previewNextStep(rule, sequences, currentAttempt, extra.lastTime);
   if (!preview) return null;
 
   if (preview.isSequenceTerminal) {
@@ -701,6 +829,15 @@ export function buildNextFollowUp(
   };
 }
 
+function isTypeMatch(typeA: string, typeB: string): boolean {
+  const a = (typeA || '').toUpperCase();
+  const b = (typeB || '').toUpperCase();
+  if (a === b) return true;
+  if ((a === 'VISIT' || a === 'SITE_VISIT') && (b === 'VISIT' || b === 'SITE_VISIT')) return true;
+  if ((a === 'CALL' || a === 'PHONE_CALL') && (b === 'CALL' || b === 'PHONE_CALL')) return true;
+  return false;
+}
+
 export function suggestStageStatus(
   rules: Rule[],
   stages: MasterData['stages'],
@@ -709,27 +846,69 @@ export function suggestStageStatus(
   followUpTypeCode: string,
   actionCode?: string,
 ): StageStatusSuggestion | null {
-  const matchingRules = rules.filter(
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
+
+  // 1. Exact Dynamic Match: Check rules from Database / Master Data
+  if (actionCode && rules && rules.length > 0) {
+    const matchingRule = rules.find(
+      (r) =>
+        r.is_active &&
+        (r.entity_code || '').toUpperCase() === normEntity &&
+        isTypeMatch(r.follow_up_type_code, normType) &&
+        (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase() &&
+        r.next_stage_code &&
+        r.next_status_code
+    );
+
+    if (matchingRule) {
+      const stageName =
+        stages.find((s) => s.code.toUpperCase() === matchingRule.next_stage_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        matchingRule.next_stage_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const statusName =
+        statuses.find((s) => s.code.toUpperCase() === matchingRule.next_status_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        matchingRule.next_status_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+      return {
+        stageCode: matchingRule.next_stage_code,
+        statusCode: matchingRule.next_status_code,
+        source: 'rule',
+        ruleId: matchingRule.rule_id || matchingRule.id || `${followUpTypeCode}_${normEntity}_${matchingRule.next_action_code}`,
+        confidence: 'high',
+        reason: `${matchingRule.name || actionCode} sets Stage to ${stageName} and Status to ${statusName} from Master Rules`,
+      };
+    }
+  }
+
+  // 2. If no actionCode specified, check if there are configured rules for this entity + followUpType
+  const matchingRules = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      (!actionCode || (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase())
   );
 
   if (matchingRules.length > 0) {
     const pairCounts = new Map<string, { stage: string; status: string; count: number; ruleId: string }>();
+
     for (const r of matchingRules) {
-      const key = `${r.current_stage_code}|${r.current_status_code}`;
-      const existing = pairCounts.get(key);
-      if (existing) {
-        existing.count++;
-      } else {
-        pairCounts.set(key, {
-          stage: r.current_stage_code,
-          status: r.current_status_code,
-          count: 1,
-          ruleId: r.rule_id,
-        });
+      const stage = actionCode && r.next_stage_code ? r.next_stage_code : r.current_stage_code;
+      const status = actionCode && r.next_status_code ? r.next_status_code : r.current_status_code;
+
+      if (stage && status) {
+        const key = `${stage}|${status}`;
+        const existing = pairCounts.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          pairCounts.set(key, {
+            stage,
+            status,
+            count: 1,
+            ruleId: r.rule_id || (r as any).id || '',
+          });
+        }
       }
     }
 
@@ -744,30 +923,13 @@ export function suggestStageStatus(
         statusCode: best.status,
         source: 'rule',
         ruleId: best.ruleId,
-        confidence: matchingRules.length > 3 ? 'high' : 'medium',
-        reason: `${best.count} rule${best.count > 1 ? 's' : ''} expect this stage/status for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode}`,
+        confidence: matchingRules.length > 2 ? 'high' : 'medium',
+        reason: `${matchingRules.length} rule${matchingRules.length > 1 ? 's' : ''} configure this stage/status for ${followUpTypeCode} on ${entityCode}`,
       };
     }
   }
 
-  const entityStages = stages
-    .filter((s) => s.entity_code === entityCode && s.is_active && !s.is_terminal)
-    .sort((a, b) => a.display_order - b.display_order);
-  const entityStatuses = statuses
-    .filter((s) => s.entity_code === entityCode && s.is_active)
-    .sort((a, b) => a.display_order - b.display_order);
-
-  if (entityStages.length > 0 && entityStatuses.length > 0) {
-    return {
-      stageCode: entityStages[0].code,
-      statusCode: entityStatuses[0].code,
-      source: 'default',
-      ruleId: null,
-      confidence: 'medium',
-      reason: `No rules yet for ${followUpTypeCode}${actionCode ? ' → ' + actionCode : ''} on ${entityCode} — starting at the first stage`,
-    };
-  }
-
+  // Strictly return null if no rules configured (NO generic fallback)
   return null;
 }
 
@@ -780,7 +942,7 @@ export async function loadRemarkSuggestions(
     const raw = localStorage.getItem(FOLLOW_UPS_STORAGE_KEY);
     const list = raw ? (JSON.parse(raw) as FollowUp[]) : [];
     const remarks = list
-      .filter((r) => r.entity_code === entityCode && r.follow_up_type_code === followUpTypeCode && r.is_complete && r.custom_remark?.trim())
+      .filter((r) => r.entity_code === entityCode && isTypeMatch(r.follow_up_type_code, followUpTypeCode) && r.is_complete && r.custom_remark?.trim())
       .map((r) => r.custom_remark!.trim());
 
     const counts = new Map<string, number>();
@@ -803,14 +965,19 @@ export function suggestPriority(
   stageCode: string,
   statusCode: string,
   actionCode?: string,
-): { priorityCode: string; source: 'rule' | 'default'; reason: string } {
-  const matching = rules.filter(
+): { priorityCode: string; source: 'rule' | 'default'; reason: string } | null {
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
+
+  const matching = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
       r.current_stage_code === stageCode &&
       r.current_status_code === statusCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      (!actionCode || r.next_action_code === actionCode) &&
+      r.priority_code
   );
 
   if (matching.length > 0) {
@@ -826,11 +993,13 @@ export function suggestPriority(
     };
   }
 
-  const typeMatches = rules.filter(
+  const typeMatches = (rules || []).filter(
     (r) =>
-      r.entity_code === entityCode &&
-      r.follow_up_type_code === followUpTypeCode &&
-      (!actionCode || r.next_action_code === actionCode),
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      (!actionCode || r.next_action_code === actionCode) &&
+      r.priority_code
   );
   if (typeMatches.length > 0) {
     const counts = new Map<string, number>();
@@ -840,16 +1009,13 @@ export function suggestPriority(
     const top = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
     return {
       priorityCode: top[0],
-      source: 'default',
-      reason: `No exact rule — using most common priority ${top[0]} for ${followUpTypeCode} on ${entityCode}`,
+      source: 'rule',
+      reason: `Rule sets priority ${top[0]} for ${followUpTypeCode} on ${entityCode}`,
     };
   }
 
-  return {
-    priorityCode: 'MEDIUM',
-    source: 'default',
-    reason: 'No rules matched — defaulting to MEDIUM priority',
-  };
+  // Strictly return null if no rule configured (NO generic fallback)
+  return null;
 }
 
 export function getEntityActions(
@@ -858,12 +1024,42 @@ export function getEntityActions(
   entityCode: string,
   followUpTypeCode: string,
 ): NextAction[] {
-  const actionCodes = new Set(
-    rules
-      .filter((r) => r.entity_code === entityCode && r.follow_up_type_code === followUpTypeCode)
-      .map((r) => r.next_action_code),
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const normType = (followUpTypeCode || '').trim().toUpperCase();
+
+  // Strict Rule Match: Only show actions that have active configured rules in database
+  const matchingRuleActions = (rules || []).filter(
+    (r) =>
+      r.is_active &&
+      (r.entity_code || '').toUpperCase() === normEntity &&
+      isTypeMatch(r.follow_up_type_code, normType) &&
+      r.next_action_code
   );
-  const active = nextActions.filter((a) => a.is_active);
-  if (actionCodes.size === 0) return active;
-  return active.filter((a) => actionCodes.has(a.code));
+
+  if (matchingRuleActions.length > 0) {
+    const list: NextAction[] = [];
+    const seen = new Set<string>();
+
+    for (const r of matchingRuleActions) {
+      const code = r.next_action_code;
+      const codeKey = code.toUpperCase();
+      if (seen.has(codeKey)) continue;
+      seen.add(codeKey);
+
+      const fromMaster = (nextActions || []).find((a) => (a.code || '').toUpperCase() === codeKey);
+      list.push({
+        id: r.id || `act_${codeKey}`,
+        code,
+        name: fromMaster?.name || (r.name && r.name.includes(' - ') ? r.name.split(' - ')[1] : code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())),
+        display_order: r.display_order ?? list.length + 1,
+        is_active: true,
+      });
+    }
+
+    return list.sort((a, b) => a.display_order - b.display_order);
+  }
+
+  // If no rules configured for this entity + follow-up type, return empty array (no fallback)
+  return [];
 }
+

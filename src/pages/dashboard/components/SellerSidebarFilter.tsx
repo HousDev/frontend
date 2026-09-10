@@ -274,6 +274,7 @@ export type SellerFiltersState = {
   assigned: string;
   status: string;
   leadType?: string;
+  propertyLink?: string; // 'all' | 'linked' | 'unlinked'
 };
 
 type OptionList = string[];
@@ -373,11 +374,10 @@ const SellerSidebarFilter: React.FC<Props> = ({
         onClick={onClose}
         aria-hidden={!isOpen}
         style={{ background: "rgba(15,43,61,0.45)", backdropFilter: "blur(2px)" }}
-        className={`fixed inset-0 transition-opacity duration-200 ${
-          isOpen
+        className={`fixed inset-0 transition-opacity duration-200 ${isOpen
             ? "opacity-100 pointer-events-auto z-40"
             : "opacity-0 pointer-events-none"
-        }`}
+          }`}
       />
 
       {/* Sidebar */}
@@ -545,6 +545,20 @@ const SellerSidebarFilter: React.FC<Props> = ({
               </select>
             </div>
 
+            {/* Property Link Status — full width */}
+            <div className="col-span-2">
+              <label style={labelStyle}>Property Link Status</label>
+              <select
+                value={draft.propertyLink || 'all'}
+                onChange={(e) => updateDraft("propertyLink", e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">All Sellers</option>
+                <option value="linked"> Linked Property (has property)</option>
+                <option value="unlinked"> Unlinked (no property linked)</option>
+              </select>
+            </div>
+
             {/* From Date */}
             <div>
               <label style={labelStyle}>From Date</label>
@@ -640,7 +654,7 @@ const SellerSidebarFilter: React.FC<Props> = ({
         >
           <button
             onClick={() => {
-              const cleared: SellerFiltersState = { source: 'all', stage: 'all', priority: 'all', assigned: 'all', status: 'all', dateFrom: '', dateTo: '', ignoreDate: false };
+              const cleared: SellerFiltersState = { source: 'all', stage: 'all', priority: 'all', assigned: 'all', status: 'all', dateFrom: '', dateTo: '', ignoreDate: false, propertyLink: 'all' };
               setFilters(() => cleared);
               resetFilters();
               setDraft(cleared);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   MapPin, Building, User, Check, Loader2, Search, X, ChevronDown,
-  Building2, SlidersHorizontal, CheckSquare, Square, IndianRupee, Navigation, Sparkles
+  Building2, SlidersHorizontal, CheckSquare, Square, IndianRupee, Navigation
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { tenantAPI } from '@/lib/tenantAPI';
@@ -26,6 +26,7 @@ interface TenantPreferenceSetupModalProps {
     preferred_bhk: string;
     tenant_type: string;
   }) => void;
+  onClose?: () => void;
   allowDismiss?: boolean;
 }
 
@@ -72,7 +73,8 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
   isOpen,
   tenant,
   onSaveSuccess,
-  allowDismiss = false,
+  onClose,
+  allowDismiss = true,
 }) => {
   // Master options state
   const [masterLocations, setMasterLocations] = useState<string[]>([]);
@@ -253,6 +255,77 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Proximity cluster mapping for intelligent nearby suggestions (Pune / PCMC & nearby hubs)
+  const nearbyLocalityClusters: Record<string, string[]> = useMemo(() => ({
+    'pimple saudagar': ['Rahatani', 'Wakad', 'Kalewadi', 'Pimple Gurav', 'Pimple Nilakh', 'Jagtap Dairy', 'Thergaon', 'Ravet', 'Sangvi', 'Baner', 'Hinjawadi'],
+    'kalewadi': ['Pimple Saudagar', 'Rahatani', 'Thergaon', 'Pimpri', 'Chinchwad', 'Wakad', 'Pimple Gurav'],
+    'rahatani': ['Pimple Saudagar', 'Kalewadi', 'Wakad', 'Thergaon', 'Pimple Nilakh', 'Jagtap Dairy', 'Ravet'],
+    'wakad': ['Pimple Saudagar', 'Hinjawadi Phase 1', 'Hinjawadi', 'Tathawade', 'Punawale', 'Baner', 'Balewadi', 'Rahatani', 'Ravet', 'Bhumkar Chowk'],
+    'hinjawadi': ['Wakad', 'Maan', 'Marunji', 'Tathawade', 'Punawale', 'Baner', 'Balewadi', 'Mahalunge', 'Bavdhan'],
+    'baner': ['Balewadi', 'Aundh', 'Pashan', 'Mahalunge', 'Sus', 'Bavdhan', 'Wakad', 'Hinjawadi', 'Someshwarwadi'],
+    'balewadi': ['Baner', 'Mahalunge', 'Wakad', 'Hinjawadi', 'Aundh', 'Pashan', 'Sus', 'Tathawade'],
+    'aundh': ['Baner', 'Pashan', 'Pimple Nilakh', 'Pimple Gurav', 'Khadki', 'Shivajinagar', 'Bopodi', 'Sangvi'],
+    'ravet': ['Punawale', 'Tathawade', 'Kiwale', 'Akurdi', 'Nigdi', 'Dehu Road', 'Wakad', 'Chinchwad', 'Pradhikaran'],
+    'punawale': ['Ravet', 'Tathawade', 'Wakad', 'Marunji', 'Kiwale', 'Hinjawadi', 'Dehu Road'],
+    'tathawade': ['Wakad', 'Punawale', 'Ravet', 'Hinjawadi', 'Thergaon', 'Chinchwad'],
+    'kharadi': ['Viman Nagar', 'Wagholi', 'Kalyani Nagar', 'Wadgaon Sheri', 'Chandan Nagar', 'Magarpatta', 'Keshav Nagar', 'Mundhwa'],
+    'viman nagar': ['Kharadi', 'Kalyani Nagar', 'Wadgaon Sheri', 'Tingre Nagar', 'Dhanori', 'Lohegaon', 'Koregaon Park'],
+    'hadapsar': ['Magarpatta', 'Amanora', 'Handewadi', 'Manjri', 'Fatima Nagar', 'Wanowrie', 'Fursungi', 'Kharadi'],
+    'magarpatta': ['Hadapsar', 'Amanora', 'Kharadi', 'Mundhwa', 'Keshav Nagar', 'Fatima Nagar', 'Kalyani Nagar'],
+    'kothrud': ['Bavdhan', 'Karve Nagar', 'Warje', 'Paud Road', 'Deccan', 'Erandwane', 'Shivajinagar'],
+    'bavdhan': ['Kothrud', 'Baner', 'Pashan', 'Warje', 'Sus', 'Hinjawadi', 'Paud Road'],
+    'pashan': ['Baner', 'Aundh', 'Bavdhan', 'Sus', 'Pashan Sus Road', 'Kothrud'],
+    'chinchwad': ['Pimpri', 'Akurdi', 'Nigdi', 'Thergaon', 'Kalewadi', 'Ravet', 'Pimple Saudagar', 'Bhosari'],
+    'dhanori': ['Vishrantwadi', 'Lohegaon', 'Viman Nagar', 'Tingre Nagar', 'Yerwada', 'Kharadi', 'Dighi'],
+    'wagholi': ['Kharadi', 'Bakori', 'Lohegaon', 'Keshav Nagar', 'Chandan Nagar', 'Viman Nagar'],
+  }), []);
+
+  // Compute smart suggested nearby localities based on user selected locations or detected locality
+  const suggestedNearbyLocations = useMemo(() => {
+    const candidateKeywords = new Set<string>();
+
+    // 1. Collect keywords from currently selected locations
+    selectedLocations.forEach((loc) => {
+      candidateKeywords.add(loc.toLowerCase());
+      loc.split(/[-–,]+/).forEach((part) => {
+        const clean = part.trim().toLowerCase();
+        if (clean.length > 2) candidateKeywords.add(clean);
+      });
+    });
+
+    // 2. Add detected locality keywords
+    if (detectedLocality) {
+      candidateKeywords.add(detectedLocality.toLowerCase());
+      detectedLocality.split(/[-–,]+/).forEach((part) => {
+        const clean = part.trim().toLowerCase();
+        if (clean.length > 2) candidateKeywords.add(clean);
+      });
+    }
+
+    const nearbySuggestions = new Set<string>();
+
+    candidateKeywords.forEach((kw) => {
+      for (const [clusterKey, places] of Object.entries(nearbyLocalityClusters)) {
+        if (kw.includes(clusterKey) || clusterKey.includes(kw)) {
+          places.forEach((p) => {
+            // Find closest match in masterLocations if available, otherwise use place name
+            const masterMatch = masterLocations.find(
+              (m) => m.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(m.toLowerCase())
+            );
+            nearbySuggestions.add(masterMatch || p);
+          });
+        }
+      }
+    });
+
+    // Fallback if no cluster match found: suggest top popular master locations
+    if (nearbySuggestions.size === 0 && masterLocations.length > 0) {
+      masterLocations.slice(0, 8).forEach((loc) => nearbySuggestions.add(loc));
+    }
+
+    return Array.from(nearbySuggestions).slice(0, 10);
+  }, [selectedLocations, detectedLocality, masterLocations, nearbyLocalityClusters]);
+
   // Filtered lists
   const filteredLocationOptions = useMemo(() => {
     if (!locationSearchTerm.trim()) return masterLocations;
@@ -369,6 +442,10 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
               type="button"
               onClick={() => {
                 localStorage.removeItem('prompt_tenant_preferences');
+                if (tenant?.id) {
+                  localStorage.setItem(`tenant_preferences_dismissed_${tenant.id}`, 'true');
+                }
+                onClose?.();
               }}
               className="absolute top-3.5 right-3.5 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
             >
@@ -524,7 +601,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                 {selectedLocations.map((loc) => (
                   <span
                     key={loc}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-bold"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-bold shadow-2xs"
                   >
                     <span>{loc}</span>
                     <button
@@ -536,6 +613,43 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                     </button>
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* 📍 Suggested Nearby Locations (Based on selected / detected location) */}
+            {suggestedNearbyLocations.length > 0 && (
+              <div className="mt-2.5 p-2.5 bg-gradient-to-r from-amber-50/70 via-orange-50/50 to-slate-50 rounded-xl border border-orange-200/70">
+                <div className="flex items-center justify-between gap-1 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-950">
+                    <MapPin size={12} className="text-orange-600" />
+                    <span>Suggested Nearby Locations</span>
+                    <span className="text-[9px] text-gray-500 font-medium">(Based on your area)</span>
+                  </div>
+                  <span className="text-[9px] text-orange-600 font-semibold">1-Click Add</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestedNearbyLocations.map((loc) => {
+                    const isSelected = selectedLocations.some(
+                      (sel) => sel.toLowerCase().trim() === loc.toLowerCase().trim()
+                    );
+                    return (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => toggleLocationSelection(loc)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                          isSelected
+                            ? 'bg-orange-500 text-white shadow-xs border border-orange-600'
+                            : 'bg-white text-slate-700 hover:bg-orange-100/80 hover:text-orange-900 border border-gray-200/90 shadow-2xs hover:border-orange-300'
+                        }`}
+                      >
+                        <span>{isSelected ? '✓' : '+'}</span>
+                        <span>{loc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -627,10 +741,31 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
               </div>
             )}
 
+            {/* Selected BHK Chips (Removable) */}
+            {selectedBhks.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                {selectedBhks.map((bhk) => (
+                  <span
+                    key={bhk}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-950 border border-orange-200 text-xs font-bold shadow-2xs animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    <span>{bhk}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleBhkSelection(bhk)}
+                      className="w-4 h-4 rounded-full hover:bg-orange-200/80 text-orange-700 flex items-center justify-center transition-colors cursor-pointer"
+                      title={`Remove ${bhk}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
           </div>
 
-          {/* 3. Monthly Budget Range (Min & Max with Real-Time Formatted Currency Text) */}
+          {/* 3. Monthly Budget Range (Min & Max with Real-Time Formatted Currency Text & Instant onBlur Validation) */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -652,7 +787,16 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                   placeholder="e.g. 8000"
                   value={budgetMin}
                   onChange={(e) => setBudgetMin(e.target.value)}
-                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${budgetMin && Number(budgetMin) > 0 && Number(budgetMin) < 1000
+                  onBlur={() => {
+                    const min = Number(budgetMin);
+                    const max = Number(budgetMax);
+                    if (budgetMin && budgetMax && min > 0 && max > 0 && max < min) {
+                      toast.error(`Maximum budget (₹${max.toLocaleString('en-IN')}) cannot be less than Minimum budget (₹${min.toLocaleString('en-IN')})`);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    (budgetMin && Number(budgetMin) > 0 && Number(budgetMin) < 1000) ||
+                    (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
                     ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
                     : 'border-gray-300 focus:ring-orange-500'
                     }`}
@@ -684,14 +828,27 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                   placeholder="e.g. 29000"
                   value={budgetMax}
                   onChange={(e) => setBudgetMax(e.target.value)}
-                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000
+                  onBlur={() => {
+                    const min = Number(budgetMin);
+                    const max = Number(budgetMax);
+                    if (budgetMin && budgetMax && min > 0 && max > 0 && max < min) {
+                      toast.error(`Maximum budget (₹${max.toLocaleString('en-IN')}) cannot be less than Minimum budget (₹${min.toLocaleString('en-IN')})`);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                    (budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000) ||
+                    (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
                     ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
                     : 'border-gray-300 focus:ring-orange-500'
                     }`}
                 />
                 {/* Formatted Text in Words */}
                 <div className="min-h-[16px]">
-                  {budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000 ? (
+                  {budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin) ? (
+                    <span className="text-[10px] font-bold text-red-600 block">
+                      ⚠️ Max budget cannot be less than Min (₹{Number(budgetMin).toLocaleString('en-IN')})
+                    </span>
+                  ) : budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000 ? (
                     <span className="text-[10px] font-bold text-red-500 block">
                       ⚠️ Min ₹1,000 required
                     </span>

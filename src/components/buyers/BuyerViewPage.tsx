@@ -780,7 +780,6 @@ ResaleExpert Team`;
           setEditingFollowup(null);
         }}
         onSaved={(newFu) => {
-          toast.success('Follow-up scheduled successfully');
           setShowFollowupModal(false);
           setEditingFollowup(null);
           if (onUpdateBuyer && buyer) {
@@ -978,7 +977,37 @@ function formatTime(timeOrIso?: string | null): string {
   return `${hours}:${pad(minutes)} ${ampm}`;
 }
 
+function formatDateTime(isoOrDate?: string | null): string {
+  if (!isoOrDate) return "";
+  let d = new Date(isoOrDate);
+  if (isNaN(d.getTime())) {
+    const m = String(isoOrDate).match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (m) {
+      const year = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      const day = Number(m[3]);
+      const hour = m[4] ? Number(m[4]) : 0;
+      const min = m[5] ? Number(m[5]) : 0;
+      d = new Date(year, month, day, hour, min);
+    } else {
+      return String(isoOrDate);
+    }
+  }
+  const dd = pad(d.getDate());
+  const mm = pad(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = pad(d.getMinutes());
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+
+  return `${dd}/${mm}/${yyyy} at ${hours}:${minutes} ${ampm}`;
+}
+
 const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEditFollowup }) => {
+  const { user } = useAuth();
   const [followups, setFollowups] = useState<Followup[]>(buyer?.followups ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1399,10 +1428,68 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
           const nextAction = followup.nextAction || followup.raw?.next_action || null;
           const typeName = followup.followupType || followup.type || followup.raw?.followup_type || "phone";
           const priority = followup.priority || "Medium";
-          const createdBy = followup.createdBy || followup.raw?.created_by_name || (followup.raw?.created_by ? `User #${followup.raw.created_by}` : "System");
-          const assignedTo = followup.assignedTo || buyer?.assigned_executive_name || buyer?.assigned_to_name || "Unassigned";
-          const schedDateStr = followup.scheduleDate || followup.raw?.schedule_date || followup.date || null;
-          const schedTimeStr = followup.scheduleTime || followup.raw?.schedule_time || followup.time || null;
+          const fAny = followup as any;
+
+          const currentAccountProfileName =
+            (user as any)?.name ||
+            (user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "") ||
+            (user as any)?.username ||
+            "Executive";
+
+          const stripSalutation = (val?: string | null): string => {
+            if (!val) return "";
+            return String(val)
+              .replace(/^(mr\.|mrs\.|ms\.|dr\.|prof\.|shri\.|smt\.|mr|mrs|ms|dr|prof|shri|smt)\s+/i, "")
+              .trim();
+          };
+
+          const rawCreatedByName =
+            (fAny.created_by_name && fAny.created_by_name !== "System" && !String(fAny.created_by_name).toLowerCase().includes("system") ? fAny.created_by_name : null) ||
+            (fAny.createdByName && fAny.createdByName !== "System" && !String(fAny.createdByName).toLowerCase().includes("system") ? fAny.createdByName : null) ||
+            (followup.createdBy && followup.createdBy !== "System" && !String(followup.createdBy).toLowerCase().includes("system") ? followup.createdBy : null) ||
+            (fAny.raw?.created_by_name && fAny.raw?.created_by_name !== "System" && !String(fAny.raw?.created_by_name).toLowerCase().includes("system") ? fAny.raw?.created_by_name : null) ||
+            (fAny.raw?.created_by && isNaN(Number(fAny.raw?.created_by)) && !String(fAny.raw?.created_by).toLowerCase().includes("system") ? String(fAny.raw?.created_by) : null) ||
+            (fAny.raw?.created_by ? `User #${fAny.raw?.created_by}` : null) ||
+            currentAccountProfileName;
+          const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
+
+          const rawAssignedToName =
+            fAny.assigned_to_name ||
+            fAny.assignedToName ||
+            followup.assignedTo ||
+            (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
+            buyer?.assigned_executive_name ||
+            buyer?.assigned_to_name ||
+            "Unassigned";
+          const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
+            ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
+            : "Unassigned";
+
+          const rawAssignedByName =
+            (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
+            (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
+            (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
+            createdByName;
+          const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
+
+          const schedDateStr =
+            fAny.scheduled_date ||
+            fAny.scheduledDate ||
+            followup.scheduleDate ||
+            fAny.schedule_date ||
+            followup.raw?.scheduled_date ||
+            followup.raw?.schedule_date ||
+            followup.date ||
+            null;
+          const schedTimeStr =
+            fAny.scheduled_time ||
+            fAny.scheduledTime ||
+            followup.scheduleTime ||
+            fAny.schedule_time ||
+            followup.raw?.scheduled_time ||
+            followup.raw?.schedule_time ||
+            followup.time ||
+            null;
           const schedFormatted = schedDateStr ? `${formatDate(schedDateStr)}${schedTimeStr ? ` at ${formatTime(schedTimeStr)}` : ''}` : null;
 
           return (
@@ -1509,12 +1596,15 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                 {/* Audit Metadata */}
                 <div className="pt-2 mt-2 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span>👤 Created by: <strong className="text-gray-700">{createdBy}</strong></span>
-                    <span>🎯 Assigned: <strong className="text-gray-700">{assignedTo}</strong></span>
+                    <span>👤 Created by: <strong className="text-gray-700 font-semibold">{createdByName}</strong></span>
+                    <span>🎯 Assigned to: <strong className="text-gray-700 font-semibold">{assignedToName}</strong></span>
+                    {assignedByName && (
+                      <span>📌 Assigned by: <strong className="text-gray-700 font-semibold">{assignedByName}</strong></span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-gray-400">
-                    {followup.createdAt && <span>Created: {formatDate(followup.createdAt)}</span>}
-                    {followup.updatedAt && followup.updatedAt !== followup.createdAt && <span>Updated: {formatDate(followup.updatedAt)}</span>}
+                    {followup.createdAt && <span>Created: {formatDateTime(followup.createdAt)}</span>}
+                    {followup.updatedAt && followup.updatedAt !== followup.createdAt && <span>Updated: {formatDateTime(followup.updatedAt)}</span>}
                   </div>
                 </div>
               </div>

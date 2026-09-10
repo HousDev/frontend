@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Calculator,
-  DollarSign,
   IndianRupee,
   Users,
   User,

@@ -14,7 +14,6 @@ import {
   Brain,
   BarChart3,
   Target,
-  Sparkles,
   TrendingUp,
   Users,
   Award,
@@ -227,7 +226,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   >(() => {
     try {
       const raw = sessionStorage.getItem('cached_hero_slides');
-      return raw ? JSON.parse(raw) : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((s: any) => s?.url && !s.url.includes('property.png'))
+        : [];
     } catch {
       return [];
     }
@@ -518,7 +520,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           const photos = Array.isArray(b.photos) ? b.photos as PhotoPreview[] : [];
           photos.forEach((p) => {
             const url = (p?.url || '').replace(/\\/g, '/');
-            if (url) slides.push({ url, title: b.title, description: b.description });
+            if (url && !url.includes('property.png')) {
+              slides.push({ url, title: b.title, description: b.description });
+            }
           });
         }
         setHeroSlides(slides);
@@ -814,13 +818,17 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   }
 
   // ---------- HERO background source preference ----------
-  // 1) Use hero slides if present, else 2) fallback to featured property images
-  const rawHeroUrl =
-    heroSlides.length > 0
-      ? heroSlides[heroIndex]?.url
-      : (featuredProperties[featuredIndex]?.images?.[0] || featuredProperties[featuredIndex]?.photos?.[0]);
-  const activeHeroUrl = getImageUrl(rawHeroUrl) || rawHeroUrl;
-
+  // Only use valid hero slide images from CMS; never fallback to /property.png "Coming Soon" placeholder
+  const rawHeroUrl = heroSlides.length > 0 ? heroSlides[heroIndex]?.url : null;
+  const resolvedUrl = rawHeroUrl ? getImageUrl(rawHeroUrl, '') : '';
+  const activeHeroUrl =
+    resolvedUrl &&
+    !resolvedUrl.includes('property.png') &&
+    resolvedUrl !== '/' &&
+    resolvedUrl !== 'null' &&
+    resolvedUrl !== 'undefined'
+      ? resolvedUrl
+      : null;
 
   const activeHeroTitle =
     heroSlides.length > 0 ? (heroSlides[heroIndex]?.title || '') : '';
@@ -831,10 +839,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   return (
     <div className="">
       {/* HERO / SEARCH */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
-        <div className="absolute inset-0 bg-black/30"></div>
+      <section className="relative bg-gradient-to-br from-[#0b3856] via-[#0f2b3d] to-[#1a4460] text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
+        <div className="absolute inset-0 bg-black/25"></div>
 
-        {/* ✅ dynamic background (hero first, then fallback) */}
+        {/* ✅ Dynamic background (Only rendered if a real hero slide image is available) */}
         {activeHeroUrl && (
           <div
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
@@ -1125,7 +1133,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             <div className="bg-white border border-gray-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
               <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-3">
                 <div className="p-2 rounded-xl bg-orange-50 ring-1 ring-orange-100">
-                  <Sparkles className="text-orange-600" size={20} />
+                  <Brain className="text-orange-600" size={20} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">AI Score</h3>
@@ -1180,7 +1188,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                   ? (property.propertyId ? property.propertyId.replace(/^REX/i, 'RENT-') : `RENT-${property.id ?? ''}`)
                   : (property.propertyId || `REX${String(property.id ?? '').padStart(4, '0')}`);
 
-                const displayTitle = [property.type, property.unitType, property.subtype].filter(Boolean).join(' ') || property.title || 'Property';
+                const rawUnit = (property.unitType || (property as any).unit_type || (property as any)._raw?.unit_type || (property as any)._raw?.unit_type_name || (property as any).bhk || '')?.toString().trim();
+                const formattedUnit = rawUnit ? (/^\d+(\.\d+)?$/.test(rawUnit) ? `${rawUnit} BHK` : rawUnit) : (property.bedrooms ? `${property.bedrooms} BHK` : '');
+
+                const propType = (property.property_type || (property as any)._raw?.property_type_name || property.type || '').toString().trim();
+                const propSubtype = (property.subtype || (property as any)._raw?.property_subtype_name || (property as any).property_subtype || '').toString().trim();
+
+                const displayTitle = [propType, formattedUnit, propSubtype]
+                  .filter(Boolean)
+                  .filter((val, i, arr) => arr.indexOf(val) === i)
+                  .join(' ') || property.title || 'Property';
 
                 const amenities = Array.isArray(property.amenities) ? property.amenities : [];
                 const shownAmenities = amenities.slice(0, 2);

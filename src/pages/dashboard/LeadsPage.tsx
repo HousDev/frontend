@@ -1182,8 +1182,8 @@ const LeadsPage: React.FC = () => {
                         setCurrentPage(1);
                       }}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium transition-all whitespace-nowrap ${isActive
-                          ? "bg-white shadow-sm"
-                          : "text-gray-500 hover:text-gray-700"
+                        ? "bg-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
                         }`}
                       style={isActive ? { color: RESALE.orange } : {}}
                     >
@@ -1317,8 +1317,8 @@ const LeadsPage: React.FC = () => {
                         setCurrentPage(1);
                       }}
                       className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap ${isActive
-                          ? "bg-white shadow-sm"
-                          : "text-gray-500"
+                        ? "bg-white shadow-sm"
+                        : "text-gray-500"
                         }`}
                       style={isActive ? { color: RESALE.orange } : {}}
                     >
@@ -1669,6 +1669,7 @@ const LeadsPage: React.FC = () => {
                         <th className="px-2 py-0.5" />
 
                         {/* 🆕 empty th for COMMUNICATE column */}
+                        <th className="px-1.5 py-0.5" />
                         <th className="px-1.5 py-0.5" />
 
                         {/* NAME search */}
@@ -2130,7 +2131,6 @@ const LeadsPage: React.FC = () => {
             setSelectedLeadForFollowup(null);
           }}
           onSaved={() => {
-            toast.success('Follow-up scheduled successfully');
             setShowLeadFollowupModal(false);
             setSelectedLeadForFollowup(null);
             fetchLeads();

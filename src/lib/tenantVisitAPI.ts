@@ -93,9 +93,29 @@ export const tenantVisitAPI = {
     },
 
     // Delete visit
+    delete: async (id: string | number) => {
+        try {
+            const res = await api.delete(`/tenant-visits/${id}`);
+            return res.data;
+        } catch (error) {
+            handleError(error);
+        }
+    },
+
+    // Bulk Delete visits
+    bulkDelete: async (ids: (string | number)[]) => {
+        try {
+            const res = await api.delete(`/tenant-visits/bulk-delete`, { data: { ids } });
+            return res.data;
+        } catch (error) {
+            handleError(error);
+        }
+    },
+
+    // Delete visit (alias)
     remove: async (id: string | number) => {
         try {
-            const res = await api.delete(`/tenant-visits/remove/${id}`);
+            const res = await api.delete(`/tenant-visits/${id}`);
             return res.data;
         } catch (error) {
             handleError(error);

@@ -969,6 +969,8 @@ const TAB_STYLES: Record<string, { badge: string; btn: string; btnActive: string
   orange: { badge: 'bg-orange-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-orange-50 text-orange-600 border border-orange-200', countActive: 'bg-orange-200 text-orange-700' },
   indigo: { badge: 'bg-indigo-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-indigo-50 text-indigo-600 border border-indigo-200', countActive: 'bg-indigo-200 text-indigo-700' },
   red: { badge: 'bg-red-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-red-50 text-red-600 border border-red-200', countActive: 'bg-red-200 text-red-700' },
+  teal: { badge: 'bg-teal-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-teal-50 text-teal-700 border border-teal-200', countActive: 'bg-teal-200 text-teal-800' },
+  amber: { badge: 'bg-amber-100', btn: 'text-gray-600 hover:bg-gray-100', btnActive: 'bg-amber-50 text-amber-700 border border-amber-200', countActive: 'bg-amber-200 text-amber-800' },
 };
 
 function tabBtnClass(active: boolean, color: string) {
@@ -1692,10 +1694,25 @@ const PropertiesPage = () => {
   }, [properties.length, hasAutoTagged]);
 
 
+  const isSellerLinked = (p: UIProperty) => {
+    const sid = p.seller?.id ?? (p as any).seller_id;
+    if (sid != null && sid !== '' && sid !== 'null' && sid !== 'undefined') {
+      const numId = Number(sid);
+      if (!isNaN(numId) && numId > 0) return true;
+    }
+    const rawName = String(p.seller?.name ?? (p as any).seller_name ?? '').trim();
+    if (!rawName) return false;
+    const cleanName = rawName.toLowerCase();
+    const invalidNames = ['-', ' - ', '--', '---', 'null', 'undefined', 'n/a', 'na', 'none', 'no seller', 'no owner', 'direct', 'self', 'unassigned'];
+    return !invalidNames.includes(cleanName);
+  };
+
   const tabs = useMemo(
     () => [
       { id: 'all', label: 'All Properties', count: properties.length, color: 'blue' },
       { id: 'available', label: 'Available', count: properties.filter(p => p.status === 'Available').length, color: 'green' },
+      { id: 'linked_seller', label: 'Linked Seller', count: properties.filter(p => isSellerLinked(p)).length, color: 'teal' },
+      { id: 'unlinked_seller', label: 'Unlinked Properties', count: properties.filter(p => !isSellerLinked(p)).length, color: 'amber' },
       { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
       { id: 'private', label: 'Private Listings', count: properties.filter(p => !p.isPublic).length, color: 'red' },
       {
@@ -1744,6 +1761,8 @@ const PropertiesPage = () => {
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'available' && p.status === 'Available') ||
+        (activeTab === 'linked_seller' && isSellerLinked(p)) ||
+        (activeTab === 'unlinked_seller' && !isSellerLinked(p)) ||
         (activeTab === 'sold' && p.status === 'Sold') ||
         (activeTab === 'negotiation' && p.status === 'Under Negotiation') ||
         (activeTab === 'public' && p.isPublic) ||
@@ -4229,27 +4248,27 @@ const PropertiesPage = () => {
 /* ---------------------- Badges ---------------------- */
 function getStatusBadge(status: string, compact: boolean = false) {
   const cfg: any = {
-    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Avail', icon: compact ? '●' : '🟢' },
+    'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Available', icon: compact ? '●' : '🟢' },
     'Sold': { bg: 'bg-red-100', text: 'text-red-600', label: 'Sold', compactLabel: 'Sold', icon: compact ? '●' : '🔴' },
-    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Negot.', icon: compact ? '●' : '🟡' },
-    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'Hold', icon: compact ? '●' : '⚫' },
-    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', compactLabel: 'Final', icon: compact ? '●' : '🟣' },
+    'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Under Negotiation', icon: compact ? '●' : '🟡' },
+    'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'On Hold', icon: compact ? '●' : '⚫' },
+    'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Finalization', compactLabel: 'Finalization', icon: compact ? '●' : '🟣' },
     ' - ': { bg: 'bg-gray-100', text: 'text-gray-700', label: ' - ', compactLabel: ' - ', icon: compact ? '●' : '•' },
   }[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: dash(status), compactLabel: dash(status), icon: compact ? '●' : '•' };
 
-  const displayLabel = compact ? cfg.compactLabel : cfg.label;
+  const displayLabel = compact ? (cfg.compactLabel || cfg.label) : cfg.label;
 
   if (compact) {
     return (
-      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${cfg.bg} ${cfg.text}`}>
-        <span className="mr-0.5 text-[6px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold whitespace-nowrap shadow-xs backdrop-blur-xs ${cfg.bg} ${cfg.text}`}>
+        <span className="mr-1 text-[7px] sm:text-[8px]">{cfg.icon}</span> {displayLabel}
       </span>
     );
   }
 
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-      {cfg.icon} {displayLabel}
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold whitespace-nowrap ${cfg.bg} ${cfg.text}`}>
+      <span className="mr-1.5">{cfg.icon}</span> {displayLabel}
     </span>
   );
 }

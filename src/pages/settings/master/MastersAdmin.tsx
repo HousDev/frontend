@@ -1,5 +1,6 @@
 // frontend/src/pages/settings/master/MastersAdmin.tsx
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { toast } from 'react-toastify';
 import {
   ChevronDown,
   ChevronUp,
@@ -20,6 +21,8 @@ import {
   Mail,
   MessageCircle,
   Send,
+  FileCode,
+  FileJson,
 } from 'lucide-react';
 import type {
   Entity,
@@ -38,10 +41,12 @@ import { upsertMaster, updateMaster, deleteMaster } from '@/lib/engine';
 import {
   exportTabToExcel,
   exportAllModulesToExcel,
+  exportTabToJSON,
+  exportAllModulesToJSON,
   downloadSampleExcelTemplate,
+  downloadSampleJSONTemplate,
   importExcelOrFile,
   downloadModuleBackup,
-  exportModuleBackup,
   importModuleBackup,
   validateModuleBackup,
   exportSequenceBackup,
@@ -114,8 +119,10 @@ export const DEFAULT_RULE_FOLLOW_UP_TYPES = [
   { code: 'CALL', name: 'Phone Call' },
   { code: 'WHATSAPP', name: 'WhatsApp' },
   { code: 'EMAIL', name: 'Email' },
+  { code: 'VISIT', name: 'Site Visit' },
   { code: 'SITE_VISIT', name: 'Site Visit' },
   { code: 'MEETING', name: 'Meeting' },
+  { code: 'VIDEO', name: 'Video Call' },
   { code: 'VIDEO_CALL', name: 'Video Call' },
   { code: 'OTHER', name: 'Other' },
 ];
@@ -172,6 +179,11 @@ export function mergeOptions<T extends { code: string; name: string }>(
   return Array.from(map.values());
 }
 
+export function formatSequenceName(code?: string | null): string {
+  if (!code) return '—';
+  return code.replace(/_/g, ' ');
+}
+
 type SimpleRow = { id: string; name: string; code?: string; is_active?: boolean; display_order?: number; entity_code?: string; follow_up_type_code?: string; [key: string]: unknown };
 
 export function MastersAdmin({ master, onChanged }: Props) {
@@ -208,11 +220,23 @@ export function MastersAdmin({ master, onChanged }: Props) {
         DEFAULT_RULE_ENTITIES.find((e) => match(e?.code, e?.name, code))?.name ??
         code ??
         '—',
-      type: (code?: string | null) =>
-        master.followUpTypes.find((t) => match(t?.code, t?.name, code))?.name ??
-        DEFAULT_RULE_FOLLOW_UP_TYPES.find((t) => match(t?.code, t?.name, code))?.name ??
-        code ??
-        '—',
+      type: (code?: string | null) => {
+        if (!code) return '—';
+        const norm = (c: string) => c.toUpperCase().replace(/[\s\-_]+/g, '');
+        const target = norm(code);
+        const found = master.followUpTypes.find((t) => norm(t?.code || '') === target || norm(t?.name || '') === target);
+        if (found) return found.name;
+        const def = DEFAULT_RULE_FOLLOW_UP_TYPES.find((t) => norm(t.code) === target || norm(t.name) === target);
+        if (def) return def.name;
+        if (target === 'VISIT' || target === 'SITEVISIT') return 'Site Visit';
+        if (target === 'VIDEO' || target === 'VIDEOCALL') return 'Video Call';
+        if (target === 'CALL' || target === 'PHONECALL') return 'Phone Call';
+        if (target === 'WHATSAPP') return 'WhatsApp';
+        if (target === 'EMAIL') return 'Email';
+        if (target === 'MEETING') return 'Meeting';
+        if (target === 'OTHER') return 'Other';
+        return code;
+      },
       stage: (code?: string | null, entity?: string | null) =>
         master.stages.find((s) => match(s?.code, s?.name, code) && (!entity || s?.entity_code === entity))?.name ??
         DEFAULT_RULE_STAGES.find((s) => match(s?.code, s?.name, code))?.name ??
@@ -234,13 +258,25 @@ export function MastersAdmin({ master, onChanged }: Props) {
         master.priorities.find((p) => match(p?.code, p?.name, code))?.name ?? code ?? '—',
       reason: (code?: string | null) =>
         master.reasons.find((r) => match(r?.code, r?.name, code))?.name ?? code ?? '—',
+      sequence: (code?: string | null) => formatSequenceName(code),
     };
   }, [master]);
 
   const filteredRules = useMemo(() => {
     let r = master.rules;
     if (entityFilter !== 'All') r = r.filter((x) => x.entity_code === entityFilter);
-    if (typeFilter !== 'All') r = r.filter((x) => x.follow_up_type_code === typeFilter);
+    if (typeFilter !== 'All') {
+      const norm = (c: string) => c.toUpperCase().replace(/[\s\-_]+/g, '');
+      const target = norm(typeFilter);
+      r = r.filter((x) => {
+        const code = norm(x.follow_up_type_code || '');
+        if (code === target) return true;
+        if ((target === 'VISIT' || target === 'SITEVISIT') && (code === 'VISIT' || code === 'SITEVISIT')) return true;
+        if ((target === 'VIDEO' || target === 'VIDEOCALL') && (code === 'VIDEO' || code === 'VIDEOCALL')) return true;
+        if (nameFor.type(x.follow_up_type_code).toLowerCase() === nameFor.type(typeFilter).toLowerCase()) return true;
+        return false;
+      });
+    }
     if (query) {
       const q = query.toLowerCase();
       r = r.filter((x) => {
@@ -370,24 +406,63 @@ export function MastersAdmin({ master, onChanged }: Props) {
   }, [master.sequences]);
 
   const distinctFollowUpTypes = useMemo(() => {
-    const map = new Map<string, FollowUpType>();
-    master.followUpTypes.forEach((t) => {
-      const codeKey = (t?.code || t?.name || '').toUpperCase();
-      if (codeKey && !map.has(codeKey)) {
-        map.set(codeKey, t);
+    const map = new Map<string, { code: string; name: string }>();
+
+    // 1. Standard base types
+    const baseTypes = [
+      { code: 'CALL', name: 'Phone Call' },
+      { code: 'WHATSAPP', name: 'WhatsApp' },
+      { code: 'EMAIL', name: 'Email' },
+      { code: 'VISIT', name: 'Site Visit' },
+      { code: 'MEETING', name: 'Meeting' },
+      { code: 'VIDEO', name: 'Video Call' },
+      { code: 'OTHER', name: 'Other' },
+    ];
+    baseTypes.forEach((t) => {
+      map.set(t.code.toUpperCase(), t);
+    });
+
+    // 2. Types from database master.followUpTypes
+    (master.followUpTypes || []).forEach((t) => {
+      if (t && t.code) {
+        const codeKey = t.code.toUpperCase();
+        map.set(codeKey, { code: t.code, name: t.name || nameFor.type(t.code) });
       }
     });
-    return Array.from(map.values());
-  }, [master.followUpTypes]);
+
+    // 3. Types from master.rules
+    (master.rules || []).forEach((r) => {
+      if (r && r.follow_up_type_code) {
+        const codeKey = r.follow_up_type_code.toUpperCase();
+        if (!map.has(codeKey)) {
+          map.set(codeKey, { code: r.follow_up_type_code, name: nameFor.type(r.follow_up_type_code) });
+        }
+      }
+    });
+
+    // Remove duplicates where name is the same but alias codes differ (e.g. VISIT vs SITE_VISIT)
+    const seenNames = new Set<string>();
+    const result: { code: string; name: string }[] = [];
+    for (const item of map.values()) {
+      const nameKey = item.name.toLowerCase();
+      if (!seenNames.has(nameKey)) {
+        seenNames.add(nameKey);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [master.followUpTypes, master.rules, nameFor]);
 
 
   async function handleDeleteSequence(id: string) {
     const deleted = await deleteMaster('fu_sequences', id);
     if (!deleted) {
+      toast.error('Could not delete this sequence step.');
       setModuleFeedback({ type: 'error', text: 'Could not delete this sequence step.' });
       return;
     }
     setConfirmDeleteId(null);
+    toast.success('Sequence step deleted successfully! 🗑️');
     setModuleFeedback({ type: 'success', text: 'Sequence step deleted.' });
     onChanged();
   }
@@ -397,9 +472,11 @@ export function MastersAdmin({ master, onChanged }: Props) {
     const ok = await deleteSequenceByName(seqName);
     setModuleBusy(false);
     if (!ok) {
+      toast.error('Could not delete this sequence.');
       setModuleFeedback({ type: 'error', text: 'Could not delete this sequence.' });
       return;
     }
+    toast.success(`Sequence "${seqName.replace(/_/g, ' ')}" deleted successfully! 🗑️`);
     setModuleFeedback({ type: 'success', text: `Sequence "${seqName.replace(/_/g, ' ')}" deleted.` });
     onChanged();
   }
@@ -409,8 +486,10 @@ export function MastersAdmin({ master, onChanged }: Props) {
     try {
       const steps = master.sequences.filter((s) => s.sequence_name === seqName);
       exportTabToExcel('fu_sequences', master, steps);
+      toast.success(`Sequence "${seqName.replace(/_/g, ' ')}" exported to Excel successfully! 📥`);
       setModuleFeedback({ type: 'success', text: `Sequence "${seqName.replace(/_/g, ' ')}" exported to Excel.` });
     } catch {
+      toast.error('Could not export this sequence.');
       setModuleFeedback({ type: 'error', text: 'Could not export this sequence.' });
     } finally {
       setModuleBusy(false);
@@ -420,12 +499,40 @@ export function MastersAdmin({ master, onChanged }: Props) {
   async function handleDelete(id: string) {
     const deleted = await deleteMaster(tableMap[tab], id);
     if (!deleted) {
+      toast.error('Could not delete this item.');
       setModuleFeedback({ type: 'error', text: 'Could not delete this item.' });
       return;
     }
     setConfirmDeleteId(null);
-    setModuleFeedback({ type: 'success', text: 'Item deleted.' });
+    toast.success('Record deleted successfully! 🗑️');
+    setModuleFeedback({ type: 'success', text: 'Record deleted.' });
     onChanged();
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!window.confirm(`Are you sure you want to permanently delete ${count} selected item(s)?`)) return;
+
+    setModuleBusy(true);
+    try {
+      let deletedCount = 0;
+      const currentTable = tableMap[tab];
+      for (const id of Array.from(selectedIds)) {
+        const ok = await deleteMaster(currentTable, id);
+        if (ok) deletedCount++;
+      }
+      setSelectedIds(new Set());
+      toast.success(`Successfully deleted ${deletedCount} item(s)! 🗑️`);
+      setModuleFeedback({ type: 'success', text: `Successfully deleted ${deletedCount} item(s).` });
+      onChanged();
+    } catch (err) {
+      console.error(err);
+      toast.error('Error deleting selected items.');
+      setModuleFeedback({ type: 'error', text: 'Error deleting selected items.' });
+    } finally {
+      setModuleBusy(false);
+    }
   }
 
   function startEdit(id: string) {
@@ -436,9 +543,11 @@ export function MastersAdmin({ master, onChanged }: Props) {
   async function handleToggleFlag(id: string, field: string, currentValue: boolean) {
     const saved = await updateMaster(tableMap[tab], id, { [field]: !currentValue });
     if (!saved) {
+      toast.error('Could not update status.');
       setModuleFeedback({ type: 'error', text: 'Could not update this item.' });
       return;
     }
+    toast.success('Status updated successfully! ✅');
     onChanged();
   }
 
@@ -458,20 +567,36 @@ export function MastersAdmin({ master, onChanged }: Props) {
     });
   }
 
-  async function handleExport(allModules = false) {
+  async function handleExport(allModules = false, format: 'excel' | 'json' = 'excel') {
     setModuleBusy(true);
     try {
-      if (allModules) {
-        exportAllModulesToExcel(master);
-        setModuleFeedback({ type: 'success', text: 'All master tables exported to Excel workbook successfully.' });
+      if (format === 'json') {
+        if (allModules) {
+          exportAllModulesToJSON(master);
+          toast.success('All master modules exported to JSON successfully! 📥');
+          setModuleFeedback({ type: 'success', text: 'All master tables exported to JSON successfully.' });
+        } else {
+          exportTabToJSON(tab, master, tab === 'rules' ? filteredRules : undefined);
+          const label = tabs.find((t) => t.key === tab)?.label || tab;
+          toast.success(`${label} exported to JSON successfully! 📥`);
+          setModuleFeedback({ type: 'success', text: `${label} exported to JSON successfully.` });
+        }
       } else {
-        exportTabToExcel(tab, master, tab === 'rules' ? filteredRules : undefined);
-        const label = tabs.find((t) => t.key === tab)?.label || tab;
-        setModuleFeedback({ type: 'success', text: `${label} exported to Excel successfully.` });
+        if (allModules) {
+          exportAllModulesToExcel(master);
+          toast.success('All master modules exported to Excel successfully! 📥');
+          setModuleFeedback({ type: 'success', text: 'All master tables exported to Excel workbook successfully.' });
+        } else {
+          exportTabToExcel(tab, master, tab === 'rules' ? filteredRules : undefined);
+          const label = tabs.find((t) => t.key === tab)?.label || tab;
+          toast.success(`${label} exported to Excel successfully! 📥`);
+          setModuleFeedback({ type: 'success', text: `${label} exported to Excel successfully.` });
+        }
       }
     } catch (error) {
       console.error(error);
-      setModuleFeedback({ type: 'error', text: 'Could not export to Excel.' });
+      toast.error(`Could not export to ${format.toUpperCase()}.`);
+      setModuleFeedback({ type: 'error', text: `Could not export to ${format.toUpperCase()}.` });
     } finally {
       setModuleBusy(false);
     }
@@ -485,16 +610,27 @@ export function MastersAdmin({ master, onChanged }: Props) {
     setModuleBusy(true);
     try {
       const result = await importExcelOrFile(file, tab, master);
+      if (result.rows > 0 && result.duplicatesSkipped > 0) {
+        toast.success(`Successfully imported ${result.rows} records (${result.duplicatesSkipped} duplicates skipped) from "${file.name}"! ✅`);
+      } else if (result.rows > 0) {
+        toast.success(`Successfully imported ${result.rows} records across ${result.tables} table(s) from "${file.name}"! ✅`);
+      } else if (result.duplicatesSkipped > 0) {
+        toast.info(`All ${result.duplicatesSkipped} records in "${file.name}" already exist (duplicates skipped). ℹ️`);
+      } else {
+        toast.success(`Import completed successfully from "${file.name}"! ✅`);
+      }
       setModuleFeedback({
         type: 'success',
-        text: `Successfully imported ${result.rows} records across ${result.tables} table(s) from "${file.name}".`,
+        text: `Successfully imported ${result.rows} records across ${result.tables} table(s) from "${file.name}".` + (result.duplicatesSkipped ? ` (${result.duplicatesSkipped} duplicates skipped)` : ''),
       });
       onChanged();
     } catch (error) {
       console.error(error);
+      const msg = error instanceof Error ? error.message : 'Could not import this file. Please check format.';
+      toast.error(msg);
       setModuleFeedback({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Could not import this file. Please check Excel format.',
+        text: msg,
       });
     } finally {
       setModuleBusy(false);
@@ -569,15 +705,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               >
                 All Types
               </button>
-              {distinctFollowUpTypes.map((t) => (
-                <button
-                  key={t.code}
-                  className={`pill-btn ${typeFilter === t.code ? 'active' : ''}`}
-                  onClick={() => setTypeFilter(t.code)}
-                >
-                  {t.name}
-                </button>
-              ))}
+              {distinctFollowUpTypes.map((t) => {
+                const isSelected = typeFilter === t.code || (typeFilter !== 'All' && nameFor.type(typeFilter).toLowerCase() === t.name.toLowerCase());
+                return (
+                  <button
+                    key={t.code}
+                    className={`pill-btn ${isSelected ? 'active' : ''}`}
+                    onClick={() => setTypeFilter(t.code)}
+                  >
+                    {t.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -606,25 +745,17 @@ export function MastersAdmin({ master, onChanged }: Props) {
                 className="btn-white-secondary"
                 onClick={() => setShowImportModal(true)}
                 disabled={moduleBusy}
-                title="Import from Excel (.xlsx, .xls, .csv) or JSON"
+                title="Import module from JSON or Excel"
               >
-                <Import size={15} /> Import Excel
+                <Import size={15} /> Import module
               </button>
               <button
                 className="btn-white-secondary"
-                onClick={() => void handleExport(false)}
+                onClick={() => void handleExport(true, 'json')}
                 disabled={moduleBusy}
-                title="Export Rules to Excel (.xlsx)"
+                title="Export module backup to JSON"
               >
-                <Download size={15} /> Export Excel
-              </button>
-              <button
-                className="btn-white-secondary"
-                onClick={() => void handleExport(true)}
-                disabled={moduleBusy}
-                title="Export all tables to a single Excel workbook"
-              >
-                <Download size={15} /> Export All
+                <Download size={15} /> Export module
               </button>
             </div>
           </div>
@@ -661,25 +792,17 @@ export function MastersAdmin({ master, onChanged }: Props) {
                 className="btn-white-secondary"
                 onClick={() => setShowImportModal(true)}
                 disabled={moduleBusy}
-                title="Import from Excel (.xlsx, .xls, .csv) or JSON"
+                title="Import module from JSON or Excel"
               >
-                <Import size={15} /> Import Excel
+                <Import size={15} /> Import module
               </button>
               <button
                 className="btn-white-secondary"
-                onClick={() => void handleExport(false)}
+                onClick={() => void handleExport(true, 'json')}
                 disabled={moduleBusy}
-                title="Export Sequences to Excel (.xlsx)"
+                title="Export module backup to JSON"
               >
-                <Download size={15} /> Export Excel
-              </button>
-              <button
-                className="btn-white-secondary"
-                onClick={() => void handleExport(true)}
-                disabled={moduleBusy}
-                title="Export all tables to a single Excel workbook"
-              >
-                <Download size={15} /> Export All
+                <Download size={15} /> Export module
               </button>
             </div>
           </div>
@@ -716,15 +839,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
                   >
                     All Types
                   </button>
-                  {distinctFollowUpTypes.map((t) => (
-                    <button
-                      key={t.code}
-                      className={`pill-btn ${typeFilter === t.code ? 'active' : ''}`}
-                      onClick={() => setTypeFilter(t.code)}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
+                  {distinctFollowUpTypes.map((t) => {
+                    const isSelected = typeFilter === t.code || (typeFilter !== 'All' && nameFor.type(typeFilter).toLowerCase() === t.name.toLowerCase());
+                    return (
+                      <button
+                        key={t.code}
+                        className={`pill-btn ${isSelected ? 'active' : ''}`}
+                        onClick={() => setTypeFilter(t.code)}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -750,25 +876,17 @@ export function MastersAdmin({ master, onChanged }: Props) {
                 className="btn-white-secondary"
                 onClick={() => setShowImportModal(true)}
                 disabled={moduleBusy}
-                title="Import from Excel (.xlsx, .xls, .csv) or JSON"
+                title="Import module from JSON or Excel"
               >
-                <Import size={15} /> Import Excel
+                <Import size={15} /> Import module
               </button>
               <button
                 className="btn-white-secondary"
-                onClick={() => void handleExport(false)}
+                onClick={() => void handleExport(true, 'json')}
                 disabled={moduleBusy}
-                title="Export current table to Excel (.xlsx)"
+                title="Export module backup to JSON"
               >
-                <Download size={15} /> Export Excel
-              </button>
-              <button
-                className="btn-white-secondary"
-                onClick={() => void handleExport(true)}
-                disabled={moduleBusy}
-                title="Export all tables to a single Excel workbook"
-              >
-                <Download size={15} /> Export All
+                <Download size={15} /> Export module
               </button>
             </div>
           </div>
@@ -789,6 +907,20 @@ export function MastersAdmin({ master, onChanged }: Props) {
             <table className="rules-table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <button
+                      className={`custom-checkbox-btn ${(showAll ? filteredRules : filteredRules.slice(0, 50)).length > 0 && (showAll ? filteredRules : filteredRules.slice(0, 50)).every((r) => selectedIds.has(r.id)) ? 'checked' : ''}`}
+                      onClick={() => toggleSelectAll((showAll ? filteredRules : filteredRules.slice(0, 50)).map((r) => r.id))}
+                      title="Select All Rules"
+                    >
+                      {(showAll ? filteredRules : filteredRules.slice(0, 50)).length > 0 && (showAll ? filteredRules : filteredRules.slice(0, 50)).every((r) => selectedIds.has(r.id)) ? (
+                        <CheckSquare size={16} />
+                      ) : (
+                        <Square size={16} />
+                      )}
+                    </button>
+                  </th>
+                  <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                   <th>RULE ID</th>
                   <th>ENTITY</th>
                   <th>TYPE</th>
@@ -800,68 +932,104 @@ export function MastersAdmin({ master, onChanged }: Props) {
                   <th>→ STATUS</th>
                   <th>→ ACTION</th>
                   <th>→ TYPE</th>
+                  <th>DAYS</th>
+                  <th>TIME</th>
+                  <th>PRIORITY</th>
+                  <th>FLAGS</th>
                 </tr>
               </thead>
               <tbody>
-                {(showAll ? filteredRules : filteredRules.slice(0, 50)).map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <div className="rule-id-cell">
-                        <span className="rule-id-text">{r.rule_id || (r as any).name || r.id}</span>
-                        <div className="rule-id-actions">
-                          <button
-                            onClick={() => {
-                              setEditingRule(r);
-                              setShowRuleForm(true);
-                            }}
-                            title="Edit"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          {confirmDeleteId === r.id ? (
+                {(showAll ? filteredRules : filteredRules.slice(0, 50)).map((r, index) => {
+                  const isChecked = selectedIds.has(r.id);
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <button
+                          className={`custom-checkbox-btn ${isChecked ? 'checked' : ''}`}
+                          onClick={() => toggleSelect(r.id)}
+                        >
+                          {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
+                        </button>
+                      </td>
+                      <td className="sr-no-cell">{index + 1}</td>
+                      <td>
+                        <div className="rule-id-cell">
+                          <span className="rule-id-text">{r.rule_id || (r as any).name || r.id}</span>
+                          <div className="rule-id-actions">
                             <button
-                              className="del"
-                              onClick={() => void handleDelete(r.id)}
-                              title="Confirm Delete"
+                              onClick={() => {
+                                setEditingRule(r);
+                                setShowRuleForm(true);
+                              }}
+                              title="Edit"
                             >
-                              <Check size={13} color="#ef4444" />
+                              <Pencil size={13} />
                             </button>
-                          ) : (
-                            <button
-                              className="del"
-                              onClick={() => setConfirmDeleteId(r.id)}
-                              title="Delete"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            {confirmDeleteId === r.id ? (
+                              <button
+                                className="del"
+                                onClick={() => void handleDelete(r.id)}
+                                title="Confirm Delete"
+                              >
+                                <Check size={13} color="#ef4444" />
+                              </button>
+                            ) : (
+                              <button
+                                className="del"
+                                onClick={() => setConfirmDeleteId(r.id)}
+                                title="Delete"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="entity-pill-badge">{nameFor.entity(r.entity_code)}</span>
+                      </td>
+                      <td>{nameFor.type(r.follow_up_type_code)}</td>
+                      <td>{nameFor.stage(r.current_stage_code, r.entity_code)}</td>
+                      <td>{nameFor.status(r.current_status_code, r.entity_code)}</td>
+                      <td>
+                        <span className="outcome-text-orange">{nameFor.outcome(r.outcome_code)}</span>
+                      </td>
+                      <td>{r.reason_code ? nameFor.reason(r.reason_code) : '—'}</td>
+                      <td>
+                        <span className="target-green-text">{nameFor.stage(r.next_stage_code, r.entity_code)}</span>
+                      </td>
+                      <td>
+                        <span className="target-green-text">{nameFor.status(r.next_status_code, r.entity_code)}</span>
+                      </td>
+                      <td>
+                        <span className="target-green-text">{nameFor.action(r.next_action_code)}</span>
+                      </td>
+                      <td>
+                        <span className="order-slate-text">{nameFor.type(r.next_follow_up_type_code ?? r.follow_up_type_code)}</span>
+                      </td>
+                      <td>{r.default_days ?? (r as any).gap_days ?? 1}</td>
+                      <td>{r.default_time || '11:00'}</td>
+                      <td>
+                        <span className={`priority-pill ${(r.priority_code || 'MEDIUM').toLowerCase()}`}>
+                          {r.priority_code || 'MEDIUM'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          {(Boolean(r.auto_schedule) || (r.auto_schedule === undefined && (!r.terminal && (r as any).flag_dead_lead !== 1 && r.next_action_code && r.next_action_code !== 'CLOSE_LEAD' && r.next_action_code !== 'NO_FURTHER_ACTION'))) && (
+                            <span className="flag-badge auto" title="Auto Schedule">A</span>
+                          )}
+                          {(Boolean(r.notification) || (r.notification === undefined && (!r.terminal && (r as any).flag_dead_lead !== 1 && r.next_action_code !== 'CLOSE_LEAD'))) && (
+                            <span className="flag-badge notif" title="Notification">N</span>
+                          )}
+                          {(Boolean(r.terminal) || Boolean((r as any).is_terminal) || (r as any).flag_dead_lead === 1 || r.next_action_code === 'CLOSE_LEAD' || r.next_status_code === 'LOST' || r.next_status_code === 'CLOSED' || r.outcome_code === 'NOT_INTERESTED') && (
+                            <span className="flag-badge term" title="Terminal / End">T</span>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="entity-pill-badge">{nameFor.entity(r.entity_code)}</span>
-                    </td>
-                    <td>{nameFor.type(r.follow_up_type_code)}</td>
-                    <td>{nameFor.stage(r.current_stage_code, r.entity_code)}</td>
-                    <td>{nameFor.status(r.current_status_code, r.entity_code)}</td>
-                    <td>
-                      <span className="outcome-text-orange">{(r.outcome_code ?? '').replace(/_/g, ' ') || '—'}</span>
-                    </td>
-                    <td>{r.reason_code ? nameFor.reason(r.reason_code) : '—'}</td>
-                    <td>
-                      <span className="target-green-text">{nameFor.stage(r.next_stage_code, r.entity_code)}</span>
-                    </td>
-                    <td>
-                      <span className="target-green-text">{nameFor.status(r.next_status_code, r.entity_code)}</span>
-                    </td>
-                    <td>
-                      <span className="target-green-text">{nameFor.action(r.next_action_code)}</span>
-                    </td>
-                    <td>
-                      <span className="order-slate-text">{nameFor.type(r.next_follow_up_type_code ?? r.follow_up_type_code)}</span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1003,12 +1171,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.entities.map((e) => e.id))}
+                    className={`custom-checkbox-btn ${filteredEntities.length > 0 && filteredEntities.every((e) => selectedIds.has(e.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredEntities.map((e) => e.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredEntities.length > 0 && filteredEntities.every((e) => selectedIds.has(e.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ORDER</th>
@@ -1017,7 +1191,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredEntities.map((e) => {
+              {filteredEntities.map((e, index) => {
                 const isChecked = selectedIds.has(e.id);
                 return (
                   <tr key={e.id}>
@@ -1029,6 +1203,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{e.name}</span>
                     </td>
@@ -1072,12 +1247,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.followUpTypes.map((t) => t.id))}
+                    className={`custom-checkbox-btn ${filteredFollowUpTypes.length > 0 && filteredFollowUpTypes.every((t) => selectedIds.has(t.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredFollowUpTypes.map((t) => t.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredFollowUpTypes.length > 0 && filteredFollowUpTypes.every((t) => selectedIds.has(t.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ENTITY</th>
@@ -1087,7 +1268,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredFollowUpTypes.map((t) => {
+              {filteredFollowUpTypes.map((t, index) => {
                 const isChecked = selectedIds.has(t.id);
                 const IconComp = getIcon((t as any).icon || (t as any).icon_name, t.code);
                 return (
@@ -1100,6 +1281,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <IconComp size={14} /> {t.name}
@@ -1152,12 +1334,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.stages.map((s) => s.id))}
+                    className={`custom-checkbox-btn ${filteredStages.length > 0 && filteredStages.every((s) => selectedIds.has(s.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredStages.map((s) => s.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredStages.length > 0 && filteredStages.every((s) => selectedIds.has(s.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ENTITY</th>
@@ -1167,7 +1355,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredStages.map((s) => {
+              {filteredStages.map((s, index) => {
                 const isChecked = selectedIds.has(s.id);
                 return (
                   <tr key={s.id}>
@@ -1179,6 +1367,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{s.name}</span>
                     </td>
@@ -1225,12 +1414,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.statuses.map((s) => s.id))}
+                    className={`custom-checkbox-btn ${filteredStatuses.length > 0 && filteredStatuses.every((s) => selectedIds.has(s.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredStatuses.map((s) => s.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredStatuses.length > 0 && filteredStatuses.every((s) => selectedIds.has(s.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ENTITY</th>
@@ -1240,7 +1435,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredStatuses.map((s) => {
+              {filteredStatuses.map((s, index) => {
                 const isChecked = selectedIds.has(s.id);
                 return (
                   <tr key={s.id}>
@@ -1252,6 +1447,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{s.name}</span>
                     </td>
@@ -1298,12 +1494,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.outcomes.map((o) => o.id))}
+                    className={`custom-checkbox-btn ${filteredOutcomes.length > 0 && filteredOutcomes.every((o) => selectedIds.has(o.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredOutcomes.map((o) => o.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredOutcomes.length > 0 && filteredOutcomes.every((o) => selectedIds.has(o.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>TYPE</th>
@@ -1313,7 +1515,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredOutcomes.map((o) => {
+              {filteredOutcomes.map((o, index) => {
                 const isChecked = selectedIds.has(o.id);
                 return (
                   <tr key={o.id}>
@@ -1325,6 +1527,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{o.name}</span>
                     </td>
@@ -1371,12 +1574,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.reasons.map((r) => r.id))}
+                    className={`custom-checkbox-btn ${filteredReasons.length > 0 && filteredReasons.every((r) => selectedIds.has(r.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredReasons.map((r) => r.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredReasons.length > 0 && filteredReasons.every((r) => selectedIds.has(r.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ORDER</th>
@@ -1385,7 +1594,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredReasons.map((r) => {
+              {filteredReasons.map((r, index) => {
                 const isChecked = selectedIds.has(r.id);
                 return (
                   <tr key={r.id}>
@@ -1397,6 +1606,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{r.name}</span>
                     </td>
@@ -1440,12 +1650,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.nextActions.map((a) => a.id))}
+                    className={`custom-checkbox-btn ${filteredNextActions.length > 0 && filteredNextActions.every((a) => selectedIds.has(a.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredNextActions.map((a) => a.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredNextActions.length > 0 && filteredNextActions.every((a) => selectedIds.has(a.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>ORDER</th>
@@ -1454,7 +1670,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredNextActions.map((a) => {
+              {filteredNextActions.map((a, index) => {
                 const isChecked = selectedIds.has(a.id);
                 return (
                   <tr key={a.id}>
@@ -1466,6 +1682,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className="name-cell-pill">{a.name}</span>
                     </td>
@@ -1509,12 +1726,18 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tr>
                 <th style={{ width: '40px' }}>
                   <button
-                    className="custom-checkbox-btn"
-                    onClick={() => toggleSelectAll(master.priorities.map((p) => p.id))}
+                    className={`custom-checkbox-btn ${filteredPriorities.length > 0 && filteredPriorities.every((p) => selectedIds.has(p.id)) ? 'checked' : ''}`}
+                    onClick={() => toggleSelectAll(filteredPriorities.map((p) => p.id))}
+                    title="Select All"
                   >
-                    <Square size={16} />
+                    {filteredPriorities.length > 0 && filteredPriorities.every((p) => selectedIds.has(p.id)) ? (
+                      <CheckSquare size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
                   </button>
                 </th>
+                <th style={{ width: '44px', textAlign: 'center' }}>#</th>
                 <th>NAME</th>
                 <th>CODE</th>
                 <th>LEVEL</th>
@@ -1523,7 +1746,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredPriorities.map((p) => {
+              {filteredPriorities.map((p, index) => {
                 const isChecked = selectedIds.has(p.id);
                 return (
                   <tr key={p.id}>
@@ -1535,6 +1758,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                         {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
                     </td>
+                    <td className="sr-no-cell">{index + 1}</td>
                     <td>
                       <span className={`priority-pill-badge ${(p.code || '').toLowerCase()}`}>{p.name}</span>
                     </td>
@@ -1567,6 +1791,33 @@ export function MastersAdmin({ master, onChanged }: Props) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Bulk actions floating action bar */}
+      {selectedIds.size > 0 && (
+        <div className="bulk-actions-floating-bar">
+          <div className="bulk-count-badge">
+            <CheckSquare size={17} />
+            <span><strong>{selectedIds.size}</strong> item{selectedIds.size > 1 ? 's' : ''} selected</span>
+          </div>
+          <div className="bulk-buttons">
+            <button
+              type="button"
+              className="btn-danger-bulk"
+              onClick={() => void handleBulkDelete()}
+              disabled={moduleBusy}
+            >
+              <Trash2 size={15} /> Delete Selected ({selectedIds.size})
+            </button>
+            <button
+              type="button"
+              className="btn-clear-bulk"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <X size={15} /> Deselect All
+            </button>
+          </div>
         </div>
       )}
 
@@ -1617,9 +1868,17 @@ export function MastersAdmin({ master, onChanged }: Props) {
           master={master}
           onClose={() => setShowImportModal(false)}
           onSuccess={(res) => {
+            const dupText = res.duplicatesSkipped ? ` (${res.duplicatesSkipped} duplicates skipped)` : '';
+            if (res.rows > 0) {
+              toast.success(`Successfully imported ${res.rows} records across ${res.tables} table(s)${dupText}! ✅`);
+            } else if (res.duplicatesSkipped && res.duplicatesSkipped > 0) {
+              toast.info(`All ${res.duplicatesSkipped} records already exist (duplicates skipped). ℹ️`);
+            } else {
+              toast.success(`Import completed successfully! ✅`);
+            }
             setModuleFeedback({
               type: 'success',
-              text: `Successfully imported ${res.rows} records across ${res.tables} table(s).`,
+              text: `Successfully imported ${res.rows} records across ${res.tables} table(s)${dupText}.`,
             });
             onChanged();
           }}
@@ -1644,11 +1903,20 @@ function RuleForm({
   const [form, setForm] = useState<Partial<Rule>>(() => {
     if (existing) {
       const ex = existing as any;
+      const isTerm = ex.terminal === true || ex.terminal === 1 || ex.is_terminal === true || ex.flag_dead_lead === 1 || ex.next_action_code === 'CLOSE_LEAD' || ex.next_status_code === 'LOST' || ex.next_status_code === 'CLOSED';
+      const isAuto = ex.auto_schedule === true || ex.auto_schedule === 1 || ex.ai_enabled === 1 || (!isTerm && ex.auto_schedule !== false);
+      const isNotif = ex.notification === true || ex.notification === 1 || (!isTerm && ex.notification !== false);
       return {
         ...existing,
         rule_id: existing.rule_id || ex.name || ex.id || '',
         remark: existing.remark || ex.auto_remark_template || '',
         default_days: existing.default_days ?? ex.gap_days ?? 1,
+        default_time: existing.default_time || '11:00',
+        auto_schedule: isAuto,
+        notification: isNotif,
+        terminal: isTerm,
+        require_follow_up: ex.require_follow_up !== false && !isTerm,
+        is_catch_all: ex.is_catch_all === true || ex.is_catch_all === 1,
       };
     }
     return {
@@ -1881,17 +2149,27 @@ function RuleForm({
       sequence_name: form.sequence_name || null,
       auto_send_channel: form.auto_whatsapp ? 'WHATSAPP' : form.auto_email ? 'EMAIL' : form.auto_message ? 'SMS' : null,
       auto_send_delay_mins: (form as any).auto_send_delay_mins ?? 0,
+      flag_dead_lead: form.terminal ? 1 : 0,
+      ai_enabled: form.auto_schedule ? 1 : 0,
+      auto_schedule: form.auto_schedule ? true : false,
+      notification: form.notification ? true : false,
+      terminal: form.terminal ? true : false,
+      require_follow_up: form.require_follow_up ? true : false,
+      is_catch_all: form.is_catch_all ? true : false,
       display_order: form.display_order ?? 1,
       is_active: form.is_active ? 1 : 0,
     };
     try {
       if (existing) {
         await updateMaster('fu_rules', existing.id, payload);
+        toast.success('Rule updated successfully! ✅');
       } else {
         await upsertMaster('fu_rules', payload);
+        toast.success('Rule created successfully! ✅');
       }
       onSaved();
     } catch {
+      toast.error('Failed to save rule.');
       setError('Failed to save rule');
     } finally {
       setBusy(false);
@@ -1902,19 +2180,19 @@ function RuleForm({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal rule-form-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-header-icon">
+          <div className="modal-title-icon">
             <Zap size={20} />
           </div>
           <div>
-            <h2>{existing ? 'Edit rule' : 'Add new rule'}</h2>
-            <p>Create a new automation rule</p>
+            <h2>{existing ? 'Edit Follow-up Rule' : 'Create Follow-up Rule'}</h2>
+            <p>Configure automated next actions, stage progressions, and triggers</p>
           </div>
-          <button className="close-button" onClick={onClose}><X size={18} /></button>
+          <button className="close-button" onClick={onClose}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div className="modal-body">
-            {error && <div style={{ color: '#dc2626', fontSize: '12px' }}>{error}</div>}
+            {error && <div style={{ color: '#dc2626', fontSize: '12px', padding: '8px 12px', background: '#fee2e2', borderRadius: '8px', border: '1px solid #fca5a5' }}>{error}</div>}
 
             {/* 1. Match Conditions */}
             <div className="rule-form-section">
@@ -1928,7 +2206,7 @@ function RuleForm({
                   <input
                     value={form.rule_id ?? ''}
                     onChange={(e) => update('rule_id', e.target.value)}
-                    placeholder="FUR-121"
+                    placeholder="e.g. FUR-121"
                     required
                   />
                 </div>
@@ -1982,6 +2260,22 @@ function RuleForm({
                 </div>
 
                 <div className="field">
+                  <label>Outcome <span className="req-star">*</span></label>
+                  <div className="select-wrap">
+                    <select
+                      value={form.outcome_code ?? ''}
+                      onChange={(e) => update('outcome_code', e.target.value)}
+                    >
+                      <option value="">Select Outcome...</option>
+                      {availableOutcomes.map((o) => (
+                        <option key={o.code} value={o.code}>{o.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
+
+                <div className="field">
                   <label>Current stage <span className="req-star">*</span></label>
                   <div className="select-wrap">
                     <select
@@ -2013,30 +2307,14 @@ function RuleForm({
                   </div>
                 </div>
 
-                <div className="field">
-                  <label>Outcome <span className="req-star">*</span></label>
-                  <div className="select-wrap">
-                    <select
-                      value={form.outcome_code ?? ''}
-                      onChange={(e) => update('outcome_code', e.target.value)}
-                    >
-                      <option value="">Select Outcome...</option>
-                      {availableOutcomes.map((o) => (
-                        <option key={o.code} value={o.code}>{o.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} />
-                  </div>
-                </div>
-
-                <div className="field">
+                <div className="field wide">
                   <label>Reason</label>
                   <div className="select-wrap">
                     <select
                       value={form.reason_code ?? ''}
                       onChange={(e) => update('reason_code', e.target.value ? e.target.value : null)}
                     >
-                      <option value="">None</option>
+                      <option value="">None (all reasons)</option>
                       {availableReasons.map((r) => (
                         <option key={r.code} value={r.code}>{r.name}</option>
                       ))}
@@ -2174,7 +2452,7 @@ function RuleForm({
                     >
                       <option value="">None (single follow-up)</option>
                       {sequenceNames.map((name) => (
-                        <option key={name} value={name}>{name}</option>
+                        <option key={name} value={name}>{formatSequenceName(name)}</option>
                       ))}
                     </select>
                     <ChevronDown size={14} />
@@ -2190,7 +2468,7 @@ function RuleForm({
                 <h3>Auto Remark & Flags</h3>
               </div>
 
-              <div className="field">
+              <div className="field wide">
                 <label>Auto remark (shown to employee when completing)</label>
                 <textarea
                   placeholder="e.g. Customer did not answer. Schedule another attempt."
@@ -2440,11 +2718,14 @@ function SequenceForm({
     try {
       if (existing) {
         await updateMaster('fu_sequences', existing.id, form);
+        toast.success('Sequence step updated successfully! ✅');
       } else {
         await upsertMaster('fu_sequences', form);
+        toast.success('Sequence step created successfully! ✅');
       }
       onSaved();
     } catch {
+      toast.error('Failed to save sequence step.');
       setError('Failed to save sequence step');
     } finally {
       setBusy(false);
@@ -2775,12 +3056,15 @@ function MasterItemModal({
     try {
       if (mode === 'edit' && id) {
         await updateMaster(tableMap[tab], id, payload);
+        toast.success(`${singularLabel} updated successfully! ✅`);
       } else {
         await upsertMaster(tableMap[tab], payload);
+        toast.success(`${singularLabel} added successfully! ✅`);
       }
       onSaved();
     } catch (err) {
       console.error(err);
+      toast.error('Failed to save record. Please ensure unique code.');
       setError('Failed to save record. Please ensure unique code.');
     } finally {
       setBusy(false);
@@ -3404,7 +3688,7 @@ function ImportExcelModal({
   tab: TabKey;
   master: MasterData;
   onClose: () => void;
-  onSuccess: (result: { tables: number; rows: number }) => void;
+  onSuccess: (result: { tables: number; rows: number; duplicatesSkipped?: number }) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -3413,17 +3697,10 @@ function ImportExcelModal({
 
   const tabTitle = tabs.find((t) => t.key === tab)?.label ?? tab;
 
-  function handleDownloadSample() {
-    try {
-      downloadSampleExcelTemplate(tab);
-    } catch {
-      setError('Could not download sample template.');
-    }
-  }
-
   async function handleImportSubmit() {
     if (!file) {
-      setError('Please select an Excel (.xlsx) or JSON file first.');
+      setError('Please select a JSON (.json) file first.');
+      toast.error('Please select a JSON (.json) file first.');
       return;
     }
     setBusy(true);
@@ -3433,7 +3710,9 @@ function ImportExcelModal({
       onSuccess(res);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed. Please check Excel format.');
+      const msg = err instanceof Error ? err.message : 'Import failed. Please check JSON format.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -3447,8 +3726,8 @@ function ImportExcelModal({
             <Import size={20} />
           </div>
           <div>
-            <h2>Import {tabTitle} Data</h2>
-            <p>Upload an Excel (.xlsx / .csv) or JSON file to bulk import records</p>
+            <h2>Import {tabTitle} Module</h2>
+            <p>Upload a JSON (.json) module file to bulk import records</p>
           </div>
           <button className="close-button" onClick={onClose}><X size={18} /></button>
         </div>
@@ -3465,28 +3744,30 @@ function ImportExcelModal({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <strong style={{ display: 'block', fontSize: '14px', color: '#1e293b' }}>1. Need sample format?</strong>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Download ready-to-fill Excel template for {tabTitle}</span>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>Download sample JSON template for {tabTitle}</span>
               </div>
-              <button
-                type="button"
-                className="btn-white-secondary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 12px' }}
-                onClick={handleDownloadSample}
-              >
-                <Download size={14} /> Download Sample Excel
-              </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-white-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 12px' }}
+                  onClick={() => downloadSampleJSONTemplate(tab)}
+                >
+                  <FileCode size={14} /> Download Sample JSON
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Section 2: Upload File Area */}
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-              2. Upload Excel / CSV / JSON File
+              2. Upload JSON File
             </label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls,.csv,.json,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              accept=".json,application/json"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) {
@@ -3517,8 +3798,8 @@ function ImportExcelModal({
                 </div>
               ) : (
                 <div>
-                  <strong style={{ display: 'block', color: '#334155', fontSize: '14px' }}>Click to select Excel (.xlsx) file</strong>
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>Supports .xlsx, .xls, .csv, .json</span>
+                  <strong style={{ display: 'block', color: '#334155', fontSize: '14px' }}>Click to select JSON (.json) file</strong>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>Supports .json module backup</span>
                 </div>
               )}
             </div>

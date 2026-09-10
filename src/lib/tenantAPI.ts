@@ -113,6 +113,54 @@ export const tenantAPI = {
     });
     return response.data;
   },
+
+  // Profile Completeness & Matching
+  getProfileCompleteness: async (tenantId: number | string) => {
+    const response = await api.get(`/tenants/completeness/${tenantId}`);
+    return response.data;
+  },
+
+  getMatchScore: async (tenantId: number | string, propertyId: number | string) => {
+    const response = await api.get(`/tenants/match/${tenantId}/${propertyId}`);
+    return response.data;
+  },
+
+  // Interest Requests Workflow (Two-Way)
+  sendInterest: async (data: {
+    rental_property_id: number | string;
+    tenant_id: number | string;
+    owner_id?: number | string | null;
+    sender_type?: 'tenant' | 'owner';
+    message?: string;
+  }) => {
+    const response = await api.post('/tenants/interests/send', data);
+    return response.data;
+  },
+
+  getTenantInterests: async (tenantId: number | string) => {
+    const response = await api.get(`/tenants/interests/tenant/${tenantId}`);
+    return response.data;
+  },
+
+  getOwnerInterests: async (ownerId: number | string) => {
+    const response = await api.get(`/tenants/interests/owner/${ownerId}`);
+    return response.data;
+  },
+
+  ownerConfirmTenant: async (interestId: number | string, owner_id?: number | string) => {
+    const response = await api.post(`/tenants/interests/${interestId}/owner-confirm`, { owner_id });
+    return response.data;
+  },
+
+  ownerRejectTenant: async (interestId: number | string, notes?: string) => {
+    const response = await api.post(`/tenants/interests/${interestId}/owner-reject`, { notes });
+    return response.data;
+  },
+
+  tenantRespondConfirmation: async (interestId: number | string, tenant_id: number | string, action: 'accept' | 'decline') => {
+    const response = await api.post(`/tenants/interests/${interestId}/tenant-respond`, { tenant_id, action });
+    return response.data;
+  },
 };
 
 

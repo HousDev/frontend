@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Building2, Search, Filter, Plus, MapPin, ExternalLink,
   Shield, CheckCircle2, AlertCircle, Clock, Home, ArrowUpRight,
-  Eye, Share2, DollarSign, Layers
+  Eye, Share2, DollarSign, Layers, IndianRupee, Calendar
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { getImageUrl } from '@/lib/helpers';
@@ -192,6 +192,23 @@ export const OwnerPropertiesTab: React.FC<OwnerPropertiesTabProps> = ({
                         <span className="text-[9px] text-gray-400 block font-normal">Deposit</span>
                         <span className="font-bold text-slate-800">₹{depositVal.toLocaleString('en-IN')}</span>
                       </div>
+                    </div>
+
+                    {/* Preferred Visit Timings Tag */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50/70 border border-orange-200/60 text-[10px] text-orange-950 font-bold truncate">
+                      <Calendar size={12} className="text-orange-600 shrink-0" />
+                      <span className="truncate">
+                        Visit Timings: {(() => {
+                          try {
+                            const pSlots = localStorage.getItem(`property_preferred_slots_${prop.id}`) || localStorage.getItem(`owner_preferred_slots_${prop.owner_id}`) || localStorage.getItem('owner_preferred_slots_global');
+                            if (pSlots) {
+                              const parsed = JSON.parse(pSlots);
+                              if (Array.isArray(parsed) && parsed.length > 0) return parsed.join(', ');
+                            }
+                          } catch {}
+                          return '10:00 AM - 1:00 PM, 5:00 PM - 8:00 PM';
+                        })()}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Building2, MessageSquare, Calendar, DollarSign, ArrowUpRight,
   TrendingUp, Phone, CheckCircle2, Clock, Plus, ExternalLink,
-  ChevronRight, Shield, Sparkles, MapPin, UserCheck
+  ChevronRight, Shield, MapPin, UserCheck
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { getImageUrl } from '@/lib/helpers';
@@ -47,7 +47,7 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-orange-300 text-[11px] font-semibold mb-1">
-              <Sparkles size={11} className="text-orange-400" />
+              <Building2 size={11} className="text-orange-400" />
               <span>Owner Real Estate Portfolio</span>
             </div>
             <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">

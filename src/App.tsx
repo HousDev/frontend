@@ -56,7 +56,7 @@ import PropertiesPage from '@/pages/dashboard/PropertiesPage';
 import RentalPropertiesPage from '@/pages/dashboard/RentalPropertiesPage';
 import SellersPage from '@/pages/dashboard/SellersPage';
 import OwnersPage from '@/pages/dashboard/OwnersPage';
-import StandaloneOwnerAccountPage from './components/owners/StandaloneOwnerAccountPage';
+import StandaloneOwnerAccountPage from './components/owner-account/StandaloneOwnerAccountPage';
 import TenantsPage from '@/pages/dashboard/TenantsPage';
 import DocumentCenter from '@/pages/dashboard/DocumentCenter';
 import AccountsPage from '@/pages/dashboard/AccountsPage';
@@ -82,7 +82,7 @@ import TermsConditionsPage from '@/pages/public/TermsConditionsPage';
 // 🎯 Buyer & Tenant Portal Components
 import StandaloneBuyerAccountPage from './components/buyers/StandaloneBuyerAccountPage';
 import StandaloneSellerAccountPage from './components/sellers/StandaloneSellerAccountPage';
-import StandaloneTenantAccountPage from './components/tenants/StandaloneTenantAccountPage';
+import StandaloneTenantAccountPage from './components/tenant-account/StandaloneTenantAccountPage';
 import VariableCenter from './pages/settings/VariableCenter';
 
 import HomePageCMS from './pages/dashboard/HomePageCMS';
