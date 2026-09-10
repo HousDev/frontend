@@ -218,7 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </p>
                     </div>
                   </div>
-                  <Link to={`/dashboard/leads/${lead.id}`} className="p-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 shadow-2xs shrink-0">
+                  <Link to={`/dashboard/leads/${lead.lead_number || lead.id}`} className="p-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 shadow-2xs shrink-0">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Phone, Mail, MapPin, User as UserIcon, ChevronDown, Calendar, Clock,
   Users, UserPlus, ArrowLeftToLine, ArrowRightToLine, MessageSquare,
@@ -284,6 +284,192 @@ const LeadDetailPage: React.FC = () => {
     fetchExecs();
     return () => { mounted = false; };
   }, [user]);
+
+  const [crmUsers, setCrmUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadUsers = async () => {
+      try {
+        let list: any[] = [];
+        try {
+          const res = await usersAPI.getAllUsers?.();
+          const raw = res?.data ?? res?.items ?? res ?? [];
+          if (Array.isArray(raw) && raw.length > 0) {
+            list = raw;
+          }
+        } catch (e) {}
+
+        if (list.length === 0 && usersAPI.getSalesExecutives) {
+          try {
+            const resExec = await usersAPI.getSalesExecutives();
+            const rawExec = resExec?.data ?? resExec?.items ?? resExec ?? [];
+            if (Array.isArray(rawExec) && rawExec.length > 0) {
+              list = rawExec;
+            }
+          } catch (e) {}
+        }
+
+        if (mounted && list.length > 0) {
+          setCrmUsers(list);
+        }
+      } catch (err) {}
+    };
+    loadUsers();
+    return () => { mounted = false; };
+  }, []);
+
+  const resolveAdminOrAssignerFullName = useCallback((fAny: any, leadObj: any): string => {
+    // 1. Explicit assigned_by on lead
+    if (leadObj?.assigned_by_name && leadObj.assigned_by_name.toLowerCase() !== 'admin') {
+      return leadObj.assigned_by_name;
+    }
+    if (leadObj?.assigned_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(leadObj.assigned_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(leadObj.assigned_by))) return String(leadObj.assigned_by);
+    }
+
+    // 2. Creator of the lead (Admin who created/assigned profile)
+    if (leadObj?.created_by_user?.name && leadObj.created_by_user.name.toLowerCase() !== 'admin') {
+      return leadObj.created_by_user.name;
+    }
+    if (leadObj?.created_user_first_name || leadObj?.created_user_last_name) {
+      const fullName = `${leadObj.created_user_salutation ? leadObj.created_user_salutation + ' ' : ''}${leadObj.created_user_first_name || ''} ${leadObj.created_user_last_name || ''}`.trim();
+      if (fullName && fullName.toLowerCase() !== 'admin') return fullName;
+    }
+    if (leadObj?.created_by_name && leadObj.created_by_name.toLowerCase() !== 'admin') {
+      return leadObj.created_by_name;
+    }
+    if (leadObj?.created_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(leadObj.created_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+    }
+
+    // 3. Explicit assigned_by on followup row (only if an admin/manager)
+    const rawVal =
+      fAny?.assigned_by_name ||
+      fAny?.assignedByName ||
+      fAny?.raw?.assigned_by_name ||
+      fAny?.raw?.assignedByName ||
+      fAny?.assigned_by ||
+      fAny?.raw?.assigned_by ||
+      null;
+    const strVal = rawVal ? String(rawVal).trim() : '';
+
+    if (strVal && strVal !== 'System' && !strVal.toLowerCase().includes('system') && strVal.toLowerCase() !== 'admin') {
+      const match = crmUsers.find(
+        (u) => String(u.id) === strVal ||
+               (u.name && u.name.toLowerCase() === strVal.toLowerCase()) ||
+               (u.username && u.username.toLowerCase() === strVal.toLowerCase())
+      );
+      if (match) {
+        const role = String(match.role || '').toLowerCase();
+        if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+          const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+          if (full) return full;
+        }
+      }
+    }
+
+    // 4. Current logged-in user if Admin/Manager
+    if (user) {
+      const role = String(user.role || '').toLowerCase();
+      if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+        const loggedName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || (user as any).name || (user as any).username;
+        if (loggedName) return loggedName;
+      }
+    }
+
+    // 5. Any Admin or Manager in crmUsers
+    const adminUser = crmUsers.find(
+      (u) => {
+        const role = String(u.role || '').toLowerCase();
+        return role.includes('admin') || role.includes('super') || role.includes('manager');
+      }
+    );
+
+    if (adminUser) {
+      const full = `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || adminUser.name || adminUser.username;
+      if (full) return full;
+    }
+
+    return "";
+  }, [crmUsers, user]);
+
+  const resolveAssignedToName = useCallback((fAny: any, leadObj: any): string => {
+    // 1. Direct explicit assigned executive name from followup row
+    const directFollowupName =
+      fAny?.raw?.assigned_to_name ||
+      fAny?.raw?.assignedToName ||
+      fAny?.raw?.assigned_executive_name ||
+      fAny?.assigned_to_name ||
+      fAny?.assigned_executive_name;
+
+    if (directFollowupName && directFollowupName !== "Unassigned" && directFollowupName !== "You" && directFollowupName !== "Not assigned" && isNaN(Number(directFollowupName))) {
+      return directFollowupName;
+    }
+
+    // 2. Lookup explicit assigned_to ID from followup DB row
+    const fAsgnId =
+      fAny?.raw?.assigned_to ??
+      fAny?.raw?.assigned_executive ??
+      fAny?.assigned_to ??
+      fAny?.assigned_executive;
+
+    if (fAsgnId && fAsgnId !== "Unassigned" && fAsgnId !== "You" && fAsgnId !== "Not assigned" && fAsgnId !== 0 && fAsgnId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(fAsgnId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(fAsgnId))) return String(fAsgnId);
+    }
+
+    // 3. Lead's currently assigned executive name
+    const lName =
+      leadObj?.assigned_executive_name ||
+      leadObj?.assigned_to_name ||
+      leadObj?.assigned_executive_user?.name ||
+      leadObj?.executive_name ||
+      leadObj?.assigned_user?.name ||
+      (typeof leadObj?.assigned === 'string' && isNaN(Number(leadObj?.assigned)) ? leadObj.assigned : null);
+    if (lName && lName !== "Unassigned" && lName !== "You" && lName !== "Not assigned" && isNaN(Number(lName))) {
+      return lName;
+    }
+
+    // 4. Lookup lead's assigned_executive / assigned_to ID in crmUsers
+    const lExecId =
+      leadObj?.assigned_executive ??
+      leadObj?.assigned_to ??
+      leadObj?.assigned_user_id ??
+      (typeof leadObj?.assigned === 'number' || (!isNaN(Number(leadObj?.assigned)) && leadObj?.assigned !== null && leadObj?.assigned !== '') ? leadObj?.assigned : null);
+    if (lExecId && lExecId !== "Unassigned" && lExecId !== "You" && lExecId !== 0 && lExecId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(lExecId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (user && String(user.id) === String(lExecId)) {
+        const myName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || (user as any).name;
+        if (myName) return myName;
+      }
+      if (isNaN(Number(lExecId))) return String(lExecId);
+    }
+
+    // 5. Fallback to fAny.assignedTo if string and not "Unassigned"
+    if (fAny?.assignedTo && fAny.assignedTo !== "Unassigned" && fAny.assignedTo !== "You" && isNaN(Number(fAny.assignedTo))) {
+      return fAny.assignedTo;
+    }
+
+    return "Unassigned";
+  }, [crmUsers, user]);
 
   useEffect(() => {
     const filtered = getFilteredLeads(allLeads, user);
@@ -637,7 +823,7 @@ const LeadDetailPage: React.FC = () => {
     const prevIndex = currentLeadIndex - 1;
     const prevLead = filteredLeads[prevIndex];
     setCurrentLeadIndex(prevIndex);
-    navigate(`/dashboard/leads/${prevLead.id}`);
+    navigate(`/dashboard/leads/${prevLead.lead_number || prevLead.id}`);
   };
 
   const handleNextLead = () => {
@@ -645,7 +831,7 @@ const LeadDetailPage: React.FC = () => {
     const nextIndex = currentLeadIndex + 1;
     const nextLead = filteredLeads[nextIndex];
     setCurrentLeadIndex(nextIndex);
-    navigate(`/dashboard/leads/${nextLead.id}`);
+    navigate(`/dashboard/leads/${nextLead.lead_number || nextLead.id}`);
   };
 
   const formatDateTime = (dateString: string | null) => {
@@ -1048,21 +1234,12 @@ const LeadDetailPage: React.FC = () => {
                       currentAccountProfileName;
                     const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
 
-                    const rawAssignedToName =
-                      fAny.assigned_to_name ||
-                      fAny.assignedToName ||
-                      (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
-                      lead?.assigned_executive_name ||
-                      "Unassigned";
+                    const rawAssignedToName = resolveAssignedToName(fAny, lead);
                     const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
                       ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
                       : "Unassigned";
 
-                    const rawAssignedByName =
-                      (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
-                      (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
-                      (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
-                      createdByName;
+                    const rawAssignedByName = resolveAdminOrAssignerFullName(fAny, lead);
                     const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
                     return (

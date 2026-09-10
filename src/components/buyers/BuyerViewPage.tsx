@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ArrowLeft,
   User,
@@ -38,6 +38,7 @@ import PropertySuggestionModal from './PropertySuggestionModal';
 import LoanApplicationModal from './LoanApplicationModal';
 import { FollowUpModal } from '@/pages/settings/master/FollowUpModal';
 import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
+import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import DocumentsTab from './buyerviewcomponents/DocumentsTab';
 import FinancialTab from './buyerviewcomponents/FinancialTab';
@@ -46,9 +47,9 @@ import PropertiesTab from './buyerviewcomponents/PropertiesTab';
 import OverviewTab from './buyerviewcomponents/OverviewTab';
 import VisitScheduleTab from './buyerviewcomponents/VisitScheduleTab';
 
-// ---- Permission helpers (adjust import paths to match your project) ----
 import { useAuth } from '@/contexts/AuthContext';
 import { can } from '@/utils/permission';
+import { usersAPI } from '@/lib/api';
 import Swal from 'sweetalert2';
 
 const BuyerViewPage = ({
@@ -1009,9 +1010,215 @@ function formatDateTime(isoOrDate?: string | null): string {
 const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEditFollowup }) => {
   const { user } = useAuth();
   const [followups, setFollowups] = useState<Followup[]>(buyer?.followups ?? []);
+  const [currentBuyer, setCurrentBuyer] = useState<any>(buyer);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"sales" | "presales">("sales");
+
+  useEffect(() => {
+    if (buyer) setCurrentBuyer((prev: any) => ({ ...prev, ...buyer }));
+  }, [buyer]);
+
+  useEffect(() => {
+    const bId = buyer?.id ?? buyer?.buyerId;
+    if (bId) {
+      buyerAPI.getById(String(bId)).then((res: any) => {
+        const d = res?.data ?? res?.buyer ?? res;
+        if (d && typeof d === 'object') {
+          setCurrentBuyer((prev: any) => ({ ...prev, ...d }));
+        }
+      }).catch(() => {});
+    }
+  }, [buyer?.id, buyer?.buyerId]);
+
+  const [crmUsers, setCrmUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadUsers = async () => {
+      try {
+        let list: any[] = [];
+        try {
+          const res = await usersAPI.getAllUsers();
+          const raw = res?.data ?? res?.items ?? res ?? [];
+          if (Array.isArray(raw) && raw.length > 0) {
+            list = raw;
+          }
+        } catch (e) {}
+
+        if (list.length === 0 && usersAPI.getSalesExecutives) {
+          try {
+            const resExec = await usersAPI.getSalesExecutives();
+            const rawExec = resExec?.data ?? resExec?.items ?? resExec ?? [];
+            if (Array.isArray(rawExec) && rawExec.length > 0) {
+              list = rawExec;
+            }
+          } catch (e) {}
+        }
+
+        if (mounted && list.length > 0) {
+          setCrmUsers(list);
+        }
+      } catch (err) {}
+    };
+    loadUsers();
+    return () => { mounted = false; };
+  }, []);
+
+  const resolveAdminOrAssignerFullName = useCallback((fAny: any, buyerObj: any): string => {
+    // 1. Explicit assigned_by on buyer
+    if (buyerObj?.assigned_by_name && buyerObj.assigned_by_name.toLowerCase() !== 'admin') {
+      return buyerObj.assigned_by_name;
+    }
+    if (buyerObj?.assigned_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(buyerObj.assigned_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(buyerObj.assigned_by))) return String(buyerObj.assigned_by);
+    }
+
+    // 2. Creator of the buyer (Admin who created/assigned profile)
+    if (buyerObj?.created_by_user?.name && buyerObj.created_by_user.name.toLowerCase() !== 'admin') {
+      return buyerObj.created_by_user.name;
+    }
+    if (buyerObj?.created_user_first_name || buyerObj?.created_user_last_name) {
+      const fullName = `${buyerObj.created_user_salutation ? buyerObj.created_user_salutation + ' ' : ''}${buyerObj.created_user_first_name || ''} ${buyerObj.created_user_last_name || ''}`.trim();
+      if (fullName && fullName.toLowerCase() !== 'admin') return fullName;
+    }
+    if (buyerObj?.created_by_name && buyerObj.created_by_name.toLowerCase() !== 'admin') {
+      return buyerObj.created_by_name;
+    }
+    if (buyerObj?.created_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(buyerObj.created_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+    }
+
+    // 3. Explicit assigned_by / entity_creator on followup row
+    const rawVal =
+      fAny?.assigned_by_name ||
+      fAny?.assignedByName ||
+      fAny?.raw?.assigned_by_name ||
+      fAny?.raw?.assignedByName ||
+      fAny?.raw?.entity_creator_name ||
+      fAny?.entity_creator_name ||
+      fAny?.assigned_by ||
+      fAny?.raw?.assigned_by ||
+      null;
+    const strVal = rawVal ? String(rawVal).trim() : '';
+
+    if (strVal && strVal !== 'System' && !strVal.toLowerCase().includes('system') && strVal.toLowerCase() !== 'admin') {
+      const match = crmUsers.find(
+        (u) => String(u.id) === strVal ||
+               (u.name && u.name.toLowerCase() === strVal.toLowerCase()) ||
+               (u.username && u.username.toLowerCase() === strVal.toLowerCase())
+      );
+      if (match) {
+        const role = String(match.role || '').toLowerCase();
+        if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+          const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+          if (full) return full;
+        }
+      }
+      if (isNaN(Number(strVal))) return strVal;
+    }
+
+    // 4. Current logged-in user if Admin/Manager
+    if (user) {
+      const role = String((user as any).role || '').toLowerCase();
+      if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+        const loggedName = `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).name || (user as any).username;
+        if (loggedName) return loggedName;
+      }
+    }
+
+    // 5. Any Admin or Manager in crmUsers
+    const adminUser = crmUsers.find(
+      (u) => {
+        const role = String(u.role || '').toLowerCase();
+        return role.includes('admin') || role.includes('super') || role.includes('manager');
+      }
+    );
+
+    if (adminUser) {
+      const full = `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || adminUser.name || adminUser.username;
+      if (full) return full;
+    }
+
+    return "";
+  }, [crmUsers, user]);
+
+  const resolveAssignedToName = useCallback((fAny: any, buyerObj: any): string => {
+    // 1. Direct explicit assigned executive name from followup row
+    const directFollowupName =
+      fAny?.raw?.assigned_to_name ||
+      fAny?.raw?.assignedToName ||
+      fAny?.raw?.assigned_executive_name ||
+      fAny?.assigned_to_name ||
+      fAny?.assigned_executive_name;
+
+    if (directFollowupName && directFollowupName !== "Unassigned" && directFollowupName !== "You" && directFollowupName !== "Not assigned" && isNaN(Number(directFollowupName))) {
+      return directFollowupName;
+    }
+
+    // 2. Lookup explicit assigned_to ID from followup DB row
+    const fAsgnId =
+      fAny?.raw?.assigned_to ??
+      fAny?.raw?.assigned_executive ??
+      fAny?.assigned_to ??
+      fAny?.assigned_executive;
+
+    if (fAsgnId && fAsgnId !== "Unassigned" && fAsgnId !== "You" && fAsgnId !== "Not assigned" && fAsgnId !== 0 && fAsgnId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(fAsgnId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(fAsgnId))) return String(fAsgnId);
+    }
+
+    // 3. Buyer's currently assigned executive name
+    const bName =
+      buyerObj?.assigned_executive_name ||
+      buyerObj?.assigned_to_name ||
+      buyerObj?.assigned_executive_user?.name ||
+      buyerObj?.executive_name ||
+      buyerObj?.assigned_user?.name ||
+      (typeof buyerObj?.assigned === 'string' && isNaN(Number(buyerObj?.assigned)) ? buyerObj.assigned : null);
+    if (bName && bName !== "Unassigned" && bName !== "You" && bName !== "Not assigned" && isNaN(Number(bName))) {
+      return bName;
+    }
+
+    // 4. Lookup buyer's assigned_executive ID in crmUsers
+    const bExecId =
+      buyerObj?.assigned_executive ??
+      buyerObj?.assigned_to ??
+      buyerObj?.assigned_user_id ??
+      (typeof buyerObj?.assigned === 'number' || (!isNaN(Number(buyerObj?.assigned)) && buyerObj?.assigned !== null && buyerObj?.assigned !== '') ? buyerObj?.assigned : null);
+    if (bExecId && bExecId !== "Unassigned" && bExecId !== "You" && bExecId !== 0 && bExecId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(bExecId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (user && String((user as any).id) === String(bExecId)) {
+        const myName = `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).name;
+        if (myName) return myName;
+      }
+      if (isNaN(Number(bExecId))) return String(bExecId);
+    }
+
+    // 5. Fallback to fAny.assignedTo if string and not "Unassigned"
+    if (fAny?.assignedTo && fAny.assignedTo !== "Unassigned" && fAny.assignedTo !== "You" && isNaN(Number(fAny.assignedTo))) {
+      return fAny.assignedTo;
+    }
+
+    return "Unassigned";
+  }, [crmUsers, user]);
 
   const statusConfig = getStatusConfig();
   const priorityConfig = getPriorityConfig();
@@ -1234,15 +1441,15 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         f.transferred_from_lead === true;
 
       const assignedToName =
+        f.assigned_to_name ??
+        f.assignedToName ??
+        f.assigned_executive_name ??
+        f.assignedExecutiveName ??
+        (f.assigned_to && isNaN(Number(f.assigned_to)) ? f.assigned_to : null) ??
+        (f.assignedTo && isNaN(Number(f.assignedTo)) ? f.assignedTo : null) ??
+        f.assignee ??
         f.transferredByName ??
         f.transferred_by_name ??
-        f.createdByName ??
-        f.created_by_name ??
-        f.updatedByName ??
-        f.updated_by_name ??
-        f.assignedTo ??
-        f.assignee ??
-        (f.createdBy || f.created_by) ??
         null;
 
       let transferredAtRaw =
@@ -1304,6 +1511,9 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
         nextAction: f.nextAction ?? f.next_action ?? null,
         scheduleDate: f.scheduleDate ?? f.schedule_date ?? f.date ?? null,
         scheduleTime: f.scheduleTime ?? f.schedule_time ?? f.time ?? null,
+        assigned_by: f.assigned_by ?? f.assignedBy ?? f.raw?.assigned_by,
+        assigned_by_name: f.assigned_by_name ?? f.assignedByName ?? f.raw?.assigned_by_name ?? f.entity_creator_name ?? f.raw?.entity_creator_name ?? buyer?.created_by_name ?? buyer?.created_by_user?.name,
+        assignedByName: f.assigned_by_name ?? f.assignedByName ?? f.raw?.assigned_by_name ?? f.entity_creator_name ?? f.raw?.entity_creator_name ?? buyer?.created_by_name ?? buyer?.created_by_user?.name,
 
         createdAt: createdAtRaw ?? null,
         updatedAt: updatedAtRaw ?? null,
@@ -1453,23 +1663,13 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
             currentAccountProfileName;
           const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
 
-          const rawAssignedToName =
-            fAny.assigned_to_name ||
-            fAny.assignedToName ||
-            followup.assignedTo ||
-            (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
-            buyer?.assigned_executive_name ||
-            buyer?.assigned_to_name ||
-            "Unassigned";
+          const targetBuyer = currentBuyer || buyer;
+          const rawAssignedToName = resolveAssignedToName(fAny, targetBuyer);
           const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
             ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
             : "Unassigned";
 
-          const rawAssignedByName =
-            (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
-            (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
-            (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
-            createdByName;
+          const rawAssignedByName = resolveAdminOrAssignerFullName(fAny, targetBuyer);
           const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
           const schedDateStr =

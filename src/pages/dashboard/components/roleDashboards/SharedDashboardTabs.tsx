@@ -457,7 +457,7 @@ export const SharedDashboardTabs: React.FC<SharedDashboardTabsProps> = ({
                       </td>
                       <td className="py-2 px-3 text-slate-500 font-medium text-[11px]">{formatDate(lead.created_at || lead.createdAt)}</td>
                       <td className="py-2 px-3 text-right">
-                        <Link to={`/dashboard/leads/${lead.id}`} className="text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-0.5 text-xs">
+                        <Link to={`/dashboard/leads/${lead.lead_number || lead.id}`} className="text-blue-600 hover:text-blue-800 font-bold inline-flex items-center gap-0.5 text-xs">
                           View <ArrowUpRight className="w-3.5 h-3.5" />
                         </Link>
                       </td>
