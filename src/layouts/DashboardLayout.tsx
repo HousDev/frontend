@@ -294,9 +294,6 @@ const DashboardLayout = () => {
       );
       const newUnread = ui.filter((n) => !n.read).length;
 
-      if (newUnread > prevUnreadCountRef.current) {
-        playNotificationSound();
-      }
       prevUnreadCountRef.current = newUnread;
 
       setUnreadCount((prev) =>
@@ -321,9 +318,6 @@ const DashboardLayout = () => {
         totalUnread += Number(contact.unread_count) || 0;
       });
 
-      if (totalUnread > prevWhatsappCountRef.current) {
-        playNotificationSound();
-      }
       prevWhatsappCountRef.current = totalUnread;
       setWhatsappCount(totalUnread);
     } catch (err) {
