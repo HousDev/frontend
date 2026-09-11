@@ -216,7 +216,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
             localStorage.setItem('user_detected_locality', main);
           }
         }
-      } catch (_) {} finally {
+      } catch (_) { } finally {
         setDetectingLoc(false);
       }
     };
@@ -638,11 +638,10 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                         key={loc}
                         type="button"
                         onClick={() => toggleLocationSelection(loc)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                          isSelected
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${isSelected
                             ? 'bg-orange-500 text-white shadow-xs border border-orange-600'
                             : 'bg-white text-slate-700 hover:bg-orange-100/80 hover:text-orange-900 border border-gray-200/90 shadow-2xs hover:border-orange-300'
-                        }`}
+                          }`}
                       >
                         <span>{isSelected ? '✓' : '+'}</span>
                         <span>{loc}</span>
@@ -794,11 +793,10 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                       toast.error(`Maximum budget (₹${max.toLocaleString('en-IN')}) cannot be less than Minimum budget (₹${min.toLocaleString('en-IN')})`);
                     }
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                    (budgetMin && Number(budgetMin) > 0 && Number(budgetMin) < 1000) ||
-                    (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
-                    ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-orange-500'
+                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${(budgetMin && Number(budgetMin) > 0 && Number(budgetMin) < 1000) ||
+                      (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
+                      ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
+                      : 'border-gray-300 focus:ring-orange-500'
                     }`}
                 />
                 {/* Formatted Text in Words */}
@@ -835,11 +833,10 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                       toast.error(`Maximum budget (₹${max.toLocaleString('en-IN')}) cannot be less than Minimum budget (₹${min.toLocaleString('en-IN')})`);
                     }
                   }}
-                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                    (budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000) ||
-                    (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
-                    ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-orange-500'
+                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 font-semibold text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${(budgetMax && Number(budgetMax) > 0 && Number(budgetMax) < 1000) ||
+                      (budgetMin && budgetMax && Number(budgetMin) > 0 && Number(budgetMax) > 0 && Number(budgetMax) < Number(budgetMin))
+                      ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
+                      : 'border-gray-300 focus:ring-orange-500'
                     }`}
                 />
                 {/* Formatted Text in Words */}
@@ -866,7 +863,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
           </div>
 
           {/* 4. Tenant Type - Dropdown / Select from Master */}
-          <div className="relative" ref={tenantTypeDropdownRef}>
+          {/* <div className="relative" ref={tenantTypeDropdownRef}>
             <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <User size={12} className="text-purple-600" />
@@ -874,7 +871,6 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
               </span>
             </label>
 
-            {/* Dropdown Selector */}
             <select
               value={selectedTenantType}
               onChange={(e) => setSelectedTenantType(e.target.value)}
@@ -888,7 +884,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
             </select>
 
 
-          </div>
+          </div> */}
 
           {/* Action CTA (Mandatory - No Skip Button!) */}
           <div className="pt-3 border-t border-gray-100">

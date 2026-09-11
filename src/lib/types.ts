@@ -83,6 +83,7 @@ export type Rule = {
   id: string;
   name?: string;
   rule_id: string;
+  name?: string;
   name?: string | null;
   entity_code: string;
   follow_up_type_code: string;

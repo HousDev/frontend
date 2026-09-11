@@ -161,6 +161,26 @@ export const tenantAPI = {
     const response = await api.post(`/tenants/interests/${interestId}/tenant-respond`, { tenant_id, action });
     return response.data;
   },
+
+  uploadPhoto: async (tenantId: number | string, file: File) => {
+    const fd = new FormData();
+    fd.append('profile_photo', file);
+    const response = await api.post(`/tenants/upload-photo/${tenantId}`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  uploadIdProof: async (tenantId: number | string, file: File, id_proof_type?: string, id_proof_number?: string) => {
+    const fd = new FormData();
+    fd.append('id_proof_document', file);
+    if (id_proof_type) fd.append('id_proof_type', id_proof_type);
+    if (id_proof_number) fd.append('id_proof_number', id_proof_number);
+    const response = await api.post(`/tenants/upload-id-proof/${tenantId}`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 };
 
 

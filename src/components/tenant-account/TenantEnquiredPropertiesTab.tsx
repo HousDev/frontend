@@ -9,7 +9,8 @@ import { toast } from 'react-toastify';
 import { getImageUrl } from '@/lib/helpers';
 import { MatchedProperty, TenantOwnerInterest } from './types';
 import { tenantAPI } from '@/lib/tenantAPI';
-
+import TenantBookingPaymentModal from './TenantBookingPaymentModal';
+import { tenantBookingAPI } from '@/lib/tenantBookingAPI';
 interface TenantEnquiredPropertiesTabProps {
   enquiredProperties: MatchedProperty[];
   linkingId: number | string | null;
@@ -32,10 +33,13 @@ export default function TenantEnquiredPropertiesTab({
   const navigate = useNavigate();
   const [enquiredList, setEnquiredList] = useState<MatchedProperty[]>(initialEnquired || []);
   const [interestsList, setInterestsList] = useState<TenantOwnerInterest[]>([]);
+  const [tenantBookings, setTenantBookings] = useState<any[]>([]);
   const [loadingInterests, setLoadingInterests] = useState(false);
   const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [activeBookingModal, setActiveBookingModal] = useState<any | null>(null);
+  const [creatingBookingId, setCreatingBookingId] = useState<number | null>(null);
 
   const fetchInterests = async () => {
     if (!tenantId) return;
@@ -52,20 +56,33 @@ export default function TenantEnquiredPropertiesTab({
     }
   };
 
+  const fetchBookings = async () => {
+    if (!tenantId) return;
+    try {
+      const res = await tenantBookingAPI.getByTenantId(tenantId);
+      if (res?.success && Array.isArray(res.data)) {
+        setTenantBookings(res.data);
+      }
+    } catch (e) {
+      console.warn("Could not fetch tenant bookings:", e);
+    }
+  };
+
   useEffect(() => {
     fetchInterests();
+    fetchBookings();
   }, [tenantId]);
 
-  const handleTenantResponse = async (interestId: number, action: 'accept' | 'decline') => {
+  const handleTenantResponse = async (item: TenantOwnerInterest, action: 'accept' | 'decline') => {
     if (!tenantId) return;
-    setActionLoadingId(interestId);
+    setActionLoadingId(item.id);
     try {
-      const res = await tenantAPI.tenantRespondConfirmation(interestId, tenantId, action);
+      const res = await tenantAPI.tenantRespondConfirmation(item.id, tenantId, action);
       if (res?.success) {
         toast.success(res.message || `Interest updated: ${action}`);
         await fetchInterests();
         if (action === 'accept') {
-          onNavigateTab('bookings');
+          handleReserveAndPay(item);
         }
       } else {
         toast.error(res?.message || "Failed to update response");
@@ -131,14 +148,39 @@ export default function TenantEnquiredPropertiesTab({
               const updated = arr.filter((item: any) => (item?.id || item) !== propId && (item?.id || item) !== Number(propId));
               localStorage.setItem(k, JSON.stringify(updated));
             }
-          } catch {}
+          } catch { }
         }
       });
-    } catch {}
+    } catch { }
 
     toast.success('Property enquiry removed');
   };
 
+  const handleReserveAndPay = async (item: TenantOwnerInterest) => {
+    if (!tenantId) return;
+    setCreatingBookingId(item.id);
+    try {
+      const res = await tenantBookingAPI.create({
+        tenant_id: tenantId,
+        property_id: item.rental_property_id,
+        property_title: item.society_name ? `${item.unit_type || '2 BHK'} at ${item.society_name}` : undefined,
+        interest_id: item.id,
+        owner_id: (item as any).owner_id,
+        monthly_rent: Number(item.monthly_rent) || 0,
+        token_amount: 5000, // ya jo bhi default token amount aapka hai
+        move_in_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      });
+      if (res?.success) {
+        setActiveBookingModal(res.data);
+      } else {
+        toast.error(res?.message || 'Failed to reserve property');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to reserve property');
+    } finally {
+      setCreatingBookingId(null);
+    }
+  };
   // Handle bulk delete
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
@@ -165,10 +207,10 @@ export default function TenantEnquiredPropertiesTab({
               const updated = arr.filter((item: any) => !idsSet.has(String(item?.id || item)));
               localStorage.setItem(k, JSON.stringify(updated));
             }
-          } catch {}
+          } catch { }
         }
       });
-    } catch {}
+    } catch { }
 
     toast.success(`${idsSet.size} enquiries removed successfully`);
   };
@@ -191,7 +233,7 @@ export default function TenantEnquiredPropertiesTab({
 
   return (
     <div className="space-y-3.5 animate-in fade-in duration-200">
-      
+
       {/* 🌟 Header Banner */}
       <div className="bg-[#0b3856] p-4 sm:p-5 rounded-2xl text-white shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-slate-700">
         <div className="flex items-center gap-3">
@@ -229,11 +271,10 @@ export default function TenantEnquiredPropertiesTab({
           </span>
           <button
             onClick={() => setSelectedPropertyFilter('all')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${
-              selectedPropertyFilter === 'all'
-                ? 'bg-[#0b3856] text-white shadow-2xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${selectedPropertyFilter === 'all'
+              ? 'bg-[#0b3856] text-white shadow-2xs'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
           >
             All Properties ({enquiredList.length})
           </button>
@@ -241,16 +282,14 @@ export default function TenantEnquiredPropertiesTab({
             <button
               key={prop.id}
               onClick={() => setSelectedPropertyFilter(prop.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedPropertyFilter === prop.id
-                  ? 'bg-[#0b3856] text-white shadow-2xs font-bold'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${selectedPropertyFilter === prop.id
+                ? 'bg-[#0b3856] text-white shadow-2xs font-bold'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
             >
               <span className="truncate max-w-[160px]">{prop.title}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono ${
-                selectedPropertyFilter === prop.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600 font-bold'
-              }`}>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono ${selectedPropertyFilter === prop.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600 font-bold'
+                }`}>
                 {prop.count}
               </span>
             </button>
@@ -271,6 +310,7 @@ export default function TenantEnquiredPropertiesTab({
           <div className="grid grid-cols-1 gap-3">
             {interestsList.map((item) => {
               const isConfirmed = item.status === 'OWNER_CONFIRMED';
+              const isOffered = item.status === 'OWNER_OFFERED';
               const isSelectedOthers = item.status === 'PROPERTY_SELECTED';
               const isAccepted = item.status === 'TENANT_ACCEPTED' || item.status === 'BOOKING_PENDING';
               const isRejected = item.status === 'OWNER_REJECTED' || item.status === 'TENANT_DECLINED';
@@ -278,17 +318,18 @@ export default function TenantEnquiredPropertiesTab({
               return (
                 <div
                   key={`interest-${item.id}`}
-                  className={`rounded-2xl border p-4 transition-all ${
-                    isConfirmed
-                      ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300 shadow-md ring-2 ring-emerald-400/30'
+                  className={`rounded-2xl border p-4 transition-all ${isConfirmed
+                    ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300 shadow-md ring-2 ring-emerald-400/30'
+                    : isOffered
+                      ? 'bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-purple-300 shadow-md ring-2 ring-purple-400/30'
                       : isSelectedOthers
-                      ? 'bg-amber-50/50 border-amber-200'
-                      : isAccepted
-                      ? 'bg-indigo-50/50 border-indigo-200'
-                      : isRejected
-                      ? 'bg-rose-50/50 border-rose-200 opacity-80'
-                      : 'bg-white border-slate-200 shadow-xs'
-                  }`}
+                        ? 'bg-amber-50/50 border-amber-200'
+                        : isAccepted
+                          ? 'bg-indigo-50/50 border-indigo-200'
+                          : isRejected
+                            ? 'bg-rose-50/50 border-rose-200 opacity-80'
+                            : 'bg-white border-slate-200 shadow-xs'
+                    }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1 min-w-0">
@@ -329,17 +370,68 @@ export default function TenantEnquiredPropertiesTab({
                           <CheckCircle size={14} />
                           <span>Owner Selected You!</span>
                         </span>
+                      ) : isOffered ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-600 text-white shadow-xs animate-pulse">
+                          <Sparkles size={14} />
+                          <span>Owner Sent Direct Offer!</span>
+                        </span>
                       ) : isSelectedOthers ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                           <Clock size={13} />
                           <span>Under Owner Review (Reserve Queue)</span>
                         </span>
-                      ) : isAccepted ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
-                          <Check size={13} />
-                          <span>Accepted & Ready for Token</span>
-                        </span>
-                      ) : isRejected ? (
+                      ) : isAccepted ? (() => {
+                        const matchingBooking = tenantBookings.find(
+                          (b) => String(b.property_id) === String(item.rental_property_id) || String(b.interest_id) === String(item.id)
+                        );
+                        if (matchingBooking) {
+                          if (matchingBooking.payment_status === 'CLAIMED') {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setActiveBookingModal(matchingBooking)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition cursor-pointer"
+                              >
+                                <Clock size={13} />
+                                <span>🟡 Payment Claimed — Awaiting Verification</span>
+                              </button>
+                            );
+                          }
+                          if (matchingBooking.payment_status === 'VERIFIED') {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => onNavigateTab('linked')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition cursor-pointer"
+                              >
+                                <CheckCircle size={13} />
+                                <span>✓ Verified — View Linked Lease</span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setActiveBookingModal(matchingBooking)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer"
+                            >
+                              <Check size={13} />
+                              <span>Complete Payment Claim</span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <button
+                            type="button"
+                            disabled={creatingBookingId === item.id}
+                            onClick={() => handleReserveAndPay(item)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+                          >
+                            {creatingBookingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                            <span>Reserve & Pay Token</span>
+                          </button>
+                        );
+                      })() : isRejected ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">
                           <X size={13} />
                           <span>{item.status.replace(/_/g, ' ')}</span>
@@ -363,7 +455,7 @@ export default function TenantEnquiredPropertiesTab({
                         <button
                           type="button"
                           disabled={actionLoadingId === item.id}
-                          onClick={() => handleTenantResponse(item.id, 'accept')}
+                          onClick={() => handleTenantResponse(item, 'accept')}
                           className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                         >
                           {actionLoadingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
@@ -372,7 +464,35 @@ export default function TenantEnquiredPropertiesTab({
                         <button
                           type="button"
                           disabled={actionLoadingId === item.id}
-                          onClick={() => handleTenantResponse(item.id, 'decline')}
+                          onClick={() => handleTenantResponse(item, 'decline')}
+                          className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Offered Action Box */}
+                  {isOffered && (
+                    <div className="mt-3 pt-3 border-t border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/60 p-3 rounded-xl">
+                      <div className="text-xs text-purple-950 font-medium">
+                        🎁 <strong>Direct Offer!</strong> Landlord has sent you a direct tenancy offer for this property. Click below to accept and reserve your unit.
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={actionLoadingId === item.id}
+                          onClick={() => handleTenantResponse(item, 'accept')}
+                          className="px-4 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                        >
+                          {actionLoadingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                          <span>Confirm & Proceed</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLoadingId === item.id}
+                          onClick={() => handleTenantResponse(item, 'decline')}
                           className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                         >
                           Decline
@@ -448,9 +568,8 @@ export default function TenantEnquiredPropertiesTab({
             return (
               <div
                 key={`enquired-${p.id || idx}`}
-                className={`bg-white rounded-2xl border overflow-hidden transition-all flex flex-col justify-between ${
-                  isSelected ? 'border-blue-400 bg-blue-50/10 shadow-xs' : 'border-gray-200/90 shadow-2xs hover:shadow-md'
-                }`}
+                className={`bg-white rounded-2xl border overflow-hidden transition-all flex flex-col justify-between ${isSelected ? 'border-blue-400 bg-blue-50/10 shadow-xs' : 'border-gray-200/90 shadow-2xs hover:shadow-md'
+                  }`}
               >
                 {/* Media Header */}
                 <div className="h-36 relative bg-slate-100 overflow-hidden group">
@@ -608,6 +727,19 @@ export default function TenantEnquiredPropertiesTab({
           </button>
         </div>
       )}
+
+      {/* 👇 YE BLOCK ADD KARO — Payment Popup */}
+      {activeBookingModal && (
+        <TenantBookingPaymentModal
+          isOpen={!!activeBookingModal}
+          onClose={() => setActiveBookingModal(null)}
+          booking={activeBookingModal}
+          onPaymentClaimed={(updated) => {
+            setActiveBookingModal(updated);
+          }}
+        />
+      )}
     </div>
+
   );
 }

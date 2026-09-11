@@ -267,6 +267,10 @@ export default function TenantVisitModal({
 
   if (!isOpen) return null;
 
+  // Custom time state
+  const [isCustomTimeMode, setIsCustomTimeMode] = useState(false);
+  const [customTime, setCustomTime] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!visitDate) {
@@ -274,9 +278,20 @@ export default function TenantVisitModal({
       return;
     }
 
-    const cleanTime = extractCleanTimeSlot(visitTime);
+    // If custom time mode, use the custom time directly
+    const effectiveTime = isCustomTimeMode && customTime ? customTime : visitTime;
+    const cleanTime = isCustomTimeMode && customTime ? formatToAmPm(customTime) : extractCleanTimeSlot(effectiveTime);
     const formattedTime = formatToAmPm(cleanTime);
-    if (isSlotPassed(formattedTime, visitDate)) {
+
+    // Store the FULL slot label for preset slots (e.g. "Afternoon (02:00 PM - 05:00 PM)")
+    // so the visit card can display the slot category + range.
+    // For custom time, store the formatted AM/PM time.
+    const storedTime = isCustomTimeMode && customTime ? formattedTime : effectiveTime;
+
+    // Check against the FULL slot string first (range-aware: uses end time of range)
+    // This prevents "Afternoon (02:00 PM - 05:00 PM)" from showing as passed at 2:42 PM
+    const slotPassed = isSlotPassed(effectiveTime, visitDate) && isSlotPassed(formattedTime, visitDate);
+    if (slotPassed) {
       toast.error(`The selected time slot (${formattedTime}) has already passed for today. Please choose an upcoming time slot or a future date.`);
       return;
     }
@@ -297,7 +312,7 @@ export default function TenantVisitModal({
         rental_property_id: propId,
         owner_id: ownerId,
         visit_date: visitDate,
-        visit_time: cleanTime,
+        visit_time: storedTime,   // full slot label e.g. "Afternoon (02:00 PM - 05:00 PM)"
         meeting_point: meetingPoint,
         status: currentStatus,
       };
@@ -519,50 +534,78 @@ export default function TenantVisitModal({
           </div>
 
           {/* ⏰ Time Dropdown (Dynamically listing Owner Preferred Slots) */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-              Select Time Slot <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={visitTime}
-              onChange={(e) => setVisitTime(e.target.value)}
-              className="w-full h-9 px-3 border border-gray-300 rounded-md bg-white focus:outline-none focus:border-emerald-500 text-xs font-bold text-slate-800 cursor-pointer"
-              required
-            >
-              <optgroup label="⭐ Owner's Preferred Timings">
-                {ownerPreferredSlots.map((slot) => {
-                  const passed = isSlotPassed(slot, visitDate);
-                  return (
-                    <option key={slot} value={slot} disabled={passed}>
-                      ⚡ {slot} {passed ? '(Passed for Today)' : ''}
-                    </option>
-                  );
-                })}
-              </optgroup>
-              <optgroup label="⏳ Other Convenient Time Slots">
-                {[
-                  { value: '09:00 AM', label: '09:00 AM (Early Morning)' },
-                  { value: '10:00 AM', label: '10:00 AM (Morning)' },
-                  { value: '11:00 AM', label: '11:00 AM (Morning)' },
-                  { value: '12:00 PM', label: '12:00 PM (Noon)' },
-                  { value: '01:00 PM', label: '01:00 PM (Lunch Hour)' },
-                  { value: '02:00 PM', label: '02:00 PM (Afternoon)' },
-                  { value: '03:00 PM', label: '03:00 PM (Afternoon)' },
-                  { value: '04:00 PM', label: '04:00 PM (Afternoon)' },
-                  { value: '05:00 PM', label: '05:00 PM (Evening)' },
-                  { value: '06:00 PM', label: '06:00 PM (Evening)' },
-                  { value: '07:00 PM', label: '07:00 PM (Evening)' },
-                  { value: '08:00 PM', label: '08:00 PM (Night)' },
-                ].map((item) => {
-                  const passed = isSlotPassed(item.value, visitDate);
-                  return (
-                    <option key={item.value} value={item.value} disabled={passed}>
-                      {item.label} {passed ? '(Passed for Today)' : ''}
-                    </option>
-                  );
-                })}
-              </optgroup>
-            </select>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                Select Time Slot <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCustomTimeMode(!isCustomTimeMode)}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                {isCustomTimeMode ? 'Use Preset Slots' : '+ Set Custom Time'}
+              </button>
+            </div>
+
+            {!isCustomTimeMode ? (
+              <select
+                value={visitTime}
+                onChange={(e) => setVisitTime(e.target.value)}
+                className="w-full h-9 px-3 border border-gray-300 rounded-md bg-white focus:outline-none focus:border-emerald-500 text-xs font-bold text-slate-800 cursor-pointer"
+                required
+              >
+                <optgroup label="⭐ Owner's Preferred Timings">
+                  {ownerPreferredSlots.map((slot) => {
+                    const passed = isSlotPassed(slot, visitDate);
+                    return (
+                      <option key={slot} value={slot} disabled={passed}>
+                        ⚡ {slot} {passed ? '(Passed for Today)' : ''}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="⏳ Other Convenient Time Slots">
+                  {[
+                    { value: '09:00 AM', label: '09:00 AM (Early Morning)' },
+                    { value: '10:00 AM', label: '10:00 AM (Morning)' },
+                    { value: '11:00 AM', label: '11:00 AM (Morning)' },
+                    { value: '12:00 PM', label: '12:00 PM (Noon)' },
+                    { value: '01:00 PM', label: '01:00 PM (Lunch Hour)' },
+                    { value: '02:00 PM', label: '02:00 PM (Afternoon)' },
+                    { value: '03:00 PM', label: '03:00 PM (Afternoon)' },
+                    { value: '04:00 PM', label: '04:00 PM (Afternoon)' },
+                    { value: '05:00 PM', label: '05:00 PM (Evening)' },
+                    { value: '06:00 PM', label: '06:00 PM (Evening)' },
+                    { value: '07:00 PM', label: '07:00 PM (Evening)' },
+                    { value: '08:00 PM', label: '08:00 PM (Night)' },
+                  ].map((item) => {
+                    const passed = isSlotPassed(item.value, visitDate);
+                    return (
+                      <option key={item.value} value={item.value} disabled={passed}>
+                        {item.label} {passed ? '(Passed for Today)' : ''}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+              </select>
+            ) : (
+              <div className="space-y-1 p-2.5 bg-blue-50/60 rounded-md border border-blue-200">
+                <label className="block text-[10px] font-bold text-blue-900 uppercase">
+                  Enter Custom Time (Clock Picker)
+                </label>
+                <input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-blue-300 bg-white text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  required={isCustomTimeMode}
+                />
+                <p className="text-[10px] text-blue-700">
+                  Select any precise time (e.g. 04:15 PM, 06:45 PM).
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 🔔 Intelligent Notice */}

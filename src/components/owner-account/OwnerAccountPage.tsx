@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Home, Building2, MessageSquare, Calendar, FileText,
   DollarSign, User, X, ArrowLeft, LogOut,
-  IndianRupee, Clock, CheckCircle2
+  IndianRupee, Clock, CheckCircle2, HeartHandshake
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ownerAPI from '@/lib/ownerAPI';
@@ -20,6 +20,7 @@ import OwnerLeaseVaultTab from './OwnerLeaseVaultTab';
 import OwnerFinancialsTab from './OwnerFinancialsTab';
 import OwnerProfileTab from './OwnerProfileTab';
 import OwnerSelfSetupModal from './OwnerSelfSetupModal';
+import OwnerApplicantsTab from './OwnerApplicantsTab';
 
 interface OwnerAccountPageProps {
   owner: any;
@@ -46,6 +47,7 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [interestsList, setInterestsList] = useState<any[]>([]);
 
   // Modals
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -79,6 +81,7 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
         setInquiries(d.tenant_inquiries || d.inquiries || []);
         setVisits(d.tenant_visits || d.visits || []);
         setActivities(d.activities || []);
+        setInterestsList(d.interests || []);
       }
     } catch (err) {
       console.error('Error fetching owner full data:', err);
@@ -122,7 +125,7 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
       console.error('Logout error:', e);
     }
     toast.info('Logged out from owner account');
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const handleSavedOwner = (updated?: any) => {
@@ -140,6 +143,7 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
     { id: 'dashboard', label: 'Portal Dashboard', icon: Home },
     { id: 'properties', label: `My Properties (${properties.length})`, icon: Building2 },
     { id: 'inquiries', label: `Tenant Inquiries (${inquiries.length})`, icon: MessageSquare, badge: inquiries.length > 0 ? inquiries.length : undefined },
+    { id: 'applicants', label: 'Applicants', icon: HeartHandshake },
     { id: 'visits', label: `Site Visits (${visits.length})`, icon: Calendar, badge: visits.length > 0 ? visits.length : undefined },
     { id: 'vault', label: 'Lease & Doc Vault', icon: FileText },
     { id: 'financials', label: 'Rent Tracker & ROI', icon: IndianRupee },
@@ -331,6 +335,14 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
               inquiries={inquiries}
               ownerName={owner?.name || 'Owner'}
               ownerId={owner?.id}
+              onRefresh={fetchOwnerFullData}
+            />
+          )}
+
+          {activeTab === 'applicants' && (
+            <OwnerApplicantsTab
+              ownerId={owner?.id}
+              ownerName={owner?.name || 'Owner'}
               onRefresh={fetchOwnerFullData}
             />
           )}
