@@ -2077,7 +2077,7 @@ const ContactUsPage: React.FC = () => {
               <div className="col-span-2">
                 <label className={labelCls + " text-xs"}>Full Name <span className="text-red-500">*</span></label>
                 <input type="text" name="fullName" value={form.fullName} onChange={onChange}
-                  placeholder="e.g. Kamlesh Shah" required autoComplete="name"
+                  placeholder="e.g. Rahul Sharma" required autoComplete="name"
                   className={inputCls + " py-2 text-sm"} style={{ borderColor: BORDER }} />
               </div>
               <div className="col-span-2">

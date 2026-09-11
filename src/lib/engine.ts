@@ -369,15 +369,31 @@ export async function loadAutomationJobs(): Promise<AutomationJob[]> {
  * Compute the next scheduled date/time.
  */
 export function computeNextSchedule(
-  baseDate: Date,
-  days: number,
-  hours: number,
+  baseDate: Date | string | number | null | undefined,
+  days: number | string | null | undefined,
+  hours: number | string | null | undefined,
   defaultTime: string,
 ): { date: string; time: string } {
-  const next = new Date(baseDate);
-  next.setDate(next.getDate() + days);
-  next.setHours(next.getHours() + hours);
-  const date = next.toISOString().slice(0, 10);
+  const parsedDays = Number(days);
+  const safeDays = isNaN(parsedDays) ? 0 : parsedDays;
+  const parsedHours = Number(hours);
+  const safeHours = isNaN(parsedHours) ? 0 : parsedHours;
+
+  let next = baseDate ? new Date(baseDate) : new Date();
+  if (isNaN(next.getTime())) {
+    next = new Date();
+  }
+  next.setDate(next.getDate() + safeDays);
+  next.setHours(next.getHours() + safeHours);
+
+  if (isNaN(next.getTime())) {
+    next = new Date();
+  }
+
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, '0');
+  const d = String(next.getDate()).padStart(2, '0');
+  const date = `${y}-${m}-${d}`;
   const time = defaultTime || '11:00';
   return { date, time };
 }
@@ -509,25 +525,29 @@ export async function deleteFollowUp(id: string): Promise<boolean> {
   }
 }
 
-export async function updateFollowUp(id: string, patch: Partial<FollowUp>): Promise<FollowUp | null> {
+export async function updateFollowUp(id: string | number, patch: Partial<FollowUp>): Promise<FollowUp | null> {
   try {
+    let backendRes: any = null;
     try {
-      await api.put(`/followups/update/${id}`, patch);
+      const res = await api.put(`/followups/update/${id}`, patch);
+      backendRes = res?.data?.data || res?.data;
     } catch (err) {
       console.warn('Backend update error:', err);
     }
     const raw = localStorage.getItem(FOLLOW_UPS_STORAGE_KEY);
     const list = raw ? (JSON.parse(raw) as FollowUp[]) : [];
-    const index = list.findIndex((f) => f.id === id);
-    if (index === -1) return null;
-    const updated: FollowUp = {
-      ...list[index],
-      ...patch,
-      updated_at: new Date().toISOString(),
-    };
-    list[index] = updated;
-    localStorage.setItem(FOLLOW_UPS_STORAGE_KEY, JSON.stringify(list));
-    return updated;
+    const index = list.findIndex((f) => String(f.id) === String(id));
+    if (index !== -1) {
+      const updated: FollowUp = {
+        ...list[index],
+        ...patch,
+        updated_at: new Date().toISOString(),
+      };
+      list[index] = updated;
+      localStorage.setItem(FOLLOW_UPS_STORAGE_KEY, JSON.stringify(list));
+      return updated;
+    }
+    return backendRes || ({ id, ...patch } as any);
   } catch (error) {
     console.error('updateFollowUp error', error);
     return null;

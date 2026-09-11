@@ -2,6 +2,8 @@ import { Howl } from "howler";
 import notificationMp3 from "@/assets/audio/notification.mp3";
 
 let sound: Howl | null = null;
+let lastPlayAt = 0;
+const SOUND_COOLDOWN_MS = 900;
 
 export const initNotificationSound = () => {
   if (sound) return;
@@ -17,6 +19,12 @@ export const initNotificationSound = () => {
 };
 
 export const playNotificationSound = () => {
+  const now = Date.now();
+  if (now - lastPlayAt < SOUND_COOLDOWN_MS) {
+    return;
+  }
+  lastPlayAt = now;
+
   try {
     if (!sound) {
       sound = new Howl({

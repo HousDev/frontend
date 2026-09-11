@@ -1376,7 +1376,7 @@ const LeadsPage: React.FC = () => {
                     borderColor: `${RESALE.orange}40`
                   }}
                 >
-                  {selectedLeads.length}
+                  Selected: {selectedLeads.length}
                 </span>
 
                 {canUpdate && (
@@ -1847,7 +1847,7 @@ const LeadsPage: React.FC = () => {
 
                           {/* NAME */}
                           <td className="px-2 py-1">
-                            <Link to={`/dashboard/leads/${lead.id}`} className="flex items-center gap-1.5 group">
+                            <Link to={`/dashboard/leads/${lead.lead_number || lead.id}`} className="flex items-center gap-1.5 group">
                               <div
                                 className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0 shadow-sm"
                                 style={{ backgroundColor: RESALE.orange }}
@@ -1958,7 +1958,7 @@ const LeadsPage: React.FC = () => {
                                 <Calendar size={13} />
                               </button>
                               {canRead && (
-                                <Link to={`/dashboard/leads/${lead.id}`}>
+                                <Link to={`/dashboard/leads/${lead.lead_number || lead.id}`}>
                                   <button className="p-1 rounded hover:bg-gray-100 transition-colors text-blue-500" title="View">
                                     <Eye size={13} />
                                   </button>

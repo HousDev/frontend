@@ -2481,7 +2481,11 @@ const PropertiesPage = () => {
 
       if (response.success) {
         setProperties(prev => prev.map(p =>
-          p.id === propertyId ? { ...p, isPublic: response.data.isPublic } : p
+          p.id === propertyId ? {
+            ...p,
+            isPublic: response.data.isPublic,
+            status: response.data.isPublic && (p.status === 'Pending Review' || !p.status || p.status === ' - ') ? 'Available' : p.status,
+          } : p
         ));
         toast.success(`Property marked as ${response.data.isPublic ? 'public' : 'private'}`);
       } else {

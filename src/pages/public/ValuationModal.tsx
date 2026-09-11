@@ -654,7 +654,7 @@ const ValuationModal: React.FC<Props> = ({ open, onClose, onListProperty }) => {
                             <Field label="Full Name">
                                 <input
                                     className={inputCls}
-                                    placeholder="e.g. Kamlesh Shah"
+                                    placeholder="e.g. Rahul Sharma"
                                     value={form.fullName}
                                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                                 />

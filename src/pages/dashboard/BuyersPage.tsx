@@ -24,7 +24,7 @@ import { FollowUpModal } from '../settings/master/FollowUpModal';
 import { buyerAPI } from '@/lib/buyerAPI';
 import BuyerSidebarFilter from './components/BuyerSidebarFilter';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import TableLoader from '@/components/ui/TableLoader';
 import { usersAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +36,6 @@ import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Pagination from '@/components/ui/Pagination';
 import * as XLSX from 'xlsx';
-import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 
 
 type Executive = {
@@ -108,6 +107,14 @@ type UIBuyer = {
   totalVisits: number;
   lastActivity: string | null;
   created_at: string | null;
+  created_by?: string | number | null;
+  created_by_user?: any;
+  created_by_name?: string | null;
+  created_user_first_name?: string | null;
+  created_user_last_name?: string | null;
+  created_user_salutation?: string | null;
+  assigned_by?: string | number | null;
+  assigned_by_name?: string | null;
   notifications: number;
   currentStage: string | null;
   stageProgress: number;
@@ -184,6 +191,7 @@ const BuyersPage = () => {
   }
 
   /* ---------------- UI state ---------------- */
+  const { id: routeBuyerId } = useParams<{ id?: string }>();
   const [activeTab, setActiveTab] = useState('uncontacts'); const [searchTerm, setSearchTerm] = useState(''); const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedBuyers, setSelectedBuyers] = useState<Array<number | string>>([]);
   const [showBuyerForm, setShowBuyerForm] = useState(false);
@@ -561,11 +569,17 @@ const BuyersPage = () => {
       buyer_lead_stage: b.buyer_lead_stage ?? b.stage ?? null,
       status: b.buyer_lead_status ?? b.status ?? null,
       buyer_lead_status: b.buyer_lead_status ?? b.status ?? null,
-      assigned: b.assigned_to ?? b.assigned ?? null,
+      assigned: b.assigned_to ?? b.assigned ?? b.assigned_executive_name ?? b.assigned_to_name ?? null,
       assigned_executive: assignedExecutiveId,
-      assigned_executive_name: execName !== 'Not assigned' ? execName : null,
-      assigned_executive_email: null,
-      assigned_executive_phone: null,
+      assigned_executive_name:
+        (b.assigned_executive_name && b.assigned_executive_name !== 'Not assigned' ? b.assigned_executive_name : null) ||
+        (b.assigned_to_name && b.assigned_to_name !== 'Not assigned' ? b.assigned_to_name : null) ||
+        b.assigned_executive_user?.name ||
+        b.assigned_user?.name ||
+        (b.assigned_user_first_name ? `${b.assigned_user_salutation ? b.assigned_user_salutation + ' ' : ''}${b.assigned_user_first_name} ${b.assigned_user_last_name || ''}`.trim() : null) ||
+        (execName !== 'Not assigned' ? execName : null),
+      assigned_executive_email: b.assigned_executive_email || b.assigned_executive_user?.email || null,
+      assigned_executive_phone: b.assigned_executive_phone || b.assigned_executive_user?.phone || null,
       leadScore: toNumOrNull(b.lead_score) ?? toNumOrNull(b.leadScore) ?? 0,
       budget: { min: budgetMin, max: budgetMax },
       expectedClose: toMySQLDate(b.expected_close ?? b.expectedClose ?? null),
@@ -607,6 +621,14 @@ const BuyersPage = () => {
       totalVisits: toNumOrNull(b.totalVisits) ?? 0,
       lastActivity: b.lastActivity ?? b.updated_at ?? null,
       created_at: createdAt || new Date().toISOString(),
+      created_by: b.created_by ?? null,
+      created_by_user: b.created_by_user || null,
+      created_user_first_name: b.created_user_first_name || b.created_by_first_name || null,
+      created_user_last_name: b.created_user_last_name || b.created_by_last_name || null,
+      created_user_salutation: b.created_user_salutation || null,
+      created_by_name: b.created_by_name || (b.created_user_first_name ? `${b.created_user_salutation ? b.created_user_salutation + ' ' : ''}${b.created_user_first_name} ${b.created_user_last_name || ''}`.trim() : null) || b.created_by_user?.name || null,
+      assigned_by: b.assigned_by ?? b.created_by ?? null,
+      assigned_by_name: b.assigned_by_name || b.created_by_name || b.created_by_user?.name || null,
       notifications: toNumOrNull(b.notifications) ?? 0,
       currentStage: b.currentStage ?? (b.buyer_lead_stage ?? b.stage ?? null),
       stageProgress: toNumOrNull(b.stageProgress) ?? 0,
@@ -817,17 +839,35 @@ const BuyersPage = () => {
     if (!canEditBuyer(buyer)) { toast.error('You do not have permission to edit this buyer'); return; }
     setEditingBuyer(buyer); setShowBuyerForm(true);
   };
+  useEffect(() => {
+    if (routeBuyerId && allBuyers.length > 0) {
+      const found = allBuyers.find((b) => String(b.id) === String(routeBuyerId));
+      if (found) {
+        setCurrentBuyerView(found);
+        const index = filteredSortedBuyers.findIndex((b) => String(b.id) === String(routeBuyerId));
+        if (index >= 0) {
+          setCurrentBuyerIndex(index);
+        }
+      }
+    } else if (!routeBuyerId && currentBuyerView) {
+      setCurrentBuyerView(null);
+    }
+  }, [routeBuyerId, allBuyers, filteredSortedBuyers]);
+
   const handleViewBuyer = (buyer: UIBuyer) => {
     if (!canViewBuyer(buyer)) { toast.error('You do not have permission to view this buyer'); return; }
-    const index = filteredSortedBuyers.findIndex(b => b.id === buyer.id);
-    setCurrentBuyerIndex(index >= 0 ? index : 0);
-    setCurrentBuyerView(buyer);
+    navigate(`/dashboard/buyers/${buyer.id}`);
   };
   const handleBuyerAccount = (buyer: UIBuyer) => {
     if (!canViewBuyer(buyer)) { toast.error('You do not have permission to view this buyer account'); return; }
     navigate(`/dashboard/buyers-account/${buyer.id}`);
   };
-  const handleBackToList = () => { setCurrentBuyerView(null); setCurrentBuyerIndex(0); setShowBuyerForm(false); };
+  const handleBackToList = () => {
+    setCurrentBuyerView(null);
+    setCurrentBuyerIndex(0);
+    setShowBuyerForm(false);
+    navigate('/dashboard/buyers');
+  };
 
   // Updated Delete Buyer with SweetAlert
   const handleDeleteBuyer = async (buyerId: number | string, buyerName?: string) => {
@@ -946,16 +986,24 @@ const BuyersPage = () => {
   const handleNextBuyer = () => {
     if (currentBuyerIndex < filteredSortedBuyers.length - 1) {
       const nextIndex = currentBuyerIndex + 1;
+      const nextBuyer = filteredSortedBuyers[nextIndex];
       setCurrentBuyerIndex(nextIndex);
-      setCurrentBuyerView(filteredSortedBuyers[nextIndex]);
+      setCurrentBuyerView(nextBuyer);
+      if (nextBuyer?.id) {
+        navigate(`/dashboard/buyers/${nextBuyer.id}`, { replace: true });
+      }
     }
   };
 
   const handlePreviousBuyer = () => {
     if (currentBuyerIndex > 0) {
       const prevIndex = currentBuyerIndex - 1;
+      const prevBuyer = filteredSortedBuyers[prevIndex];
       setCurrentBuyerIndex(prevIndex);
-      setCurrentBuyerView(filteredSortedBuyers[prevIndex]);
+      setCurrentBuyerView(prevBuyer);
+      if (prevBuyer?.id) {
+        navigate(`/dashboard/buyers/${prevBuyer.id}`, { replace: true });
+      }
     }
   };
 
@@ -1289,8 +1337,7 @@ const BuyersPage = () => {
           totalBuyers={filteredSortedBuyers.length}
           onUpdateBuyer={(updatedBuyer: UIBuyer) => {
             setAllBuyers(prev => {
-              const next = (prev || []).filter(Boolean).map(b => (b && updatedBuyer && b.id === updatedBuyer.id ? updatedBuyer : b));
-              return next.sort((a, b) => new Date(b?.created_at || b?.lastActivity || 0).getTime() - new Date(a?.created_at || a?.lastActivity || 0).getTime());
+              return (prev || []).filter(Boolean).map(b => (b && updatedBuyer && b.id === updatedBuyer.id ? updatedBuyer : b));
             });
             setCurrentBuyerView(updatedBuyer);
           }}

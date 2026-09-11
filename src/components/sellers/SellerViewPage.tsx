@@ -58,11 +58,12 @@ import VisitModal from "../buyers/VisitModal";
 import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
 import LinkPropertyModal from "./LinkPropertyModal";
 import { FollowUpModal } from "@/pages/settings/master/FollowUpModal";
-import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
+import { followupAPI } from "@/lib/followupAPI";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
 import { getImageUrl } from "@/lib/helpers";
+import { usersAPI } from "@/lib/api";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
@@ -132,6 +133,14 @@ export type Followup = {
   createdByName?: string | null;
   updatedByName?: string | null;
   assignedExecutiveName?: string | null;
+  assigned_to_name?: string | null;
+  assignedToName?: string | null;
+  assigned_by?: string | number | null;
+  assignedBy?: string | number | null;
+  assigned_by_name?: string | null;
+  assignedByName?: string | null;
+  transferredByName?: string | null;
+  transferred_by_name?: string | null;
   sellerId?: string | number | null;
   assignedExecutive?: string | number | null;
   completedDate?: string | null;
@@ -139,6 +148,7 @@ export type Followup = {
   outcome_id?: number | string | null;
   outcomeId?: number | string | null;
   custom_remark?: string | null;
+  [key: string]: any;
 };
 
 /* ------------------------------------------------------------------ */
@@ -708,6 +718,195 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
     (user as any)?.username ||
     "Executive";
 
+  const [crmUsers, setCrmUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadUsers = async () => {
+      try {
+        let list: any[] = [];
+        try {
+          const res = await usersAPI.getAllUsers();
+          const raw = res?.data ?? res?.items ?? res ?? [];
+          if (Array.isArray(raw) && raw.length > 0) {
+            list = raw;
+          }
+        } catch (e) {}
+
+        if (list.length === 0 && usersAPI.getSalesExecutives) {
+          try {
+            const resExec = await usersAPI.getSalesExecutives();
+            const rawExec = resExec?.data ?? resExec?.items ?? resExec ?? [];
+            if (Array.isArray(rawExec) && rawExec.length > 0) {
+              list = rawExec;
+            }
+          } catch (e) {}
+        }
+
+        if (mounted && list.length > 0) {
+          setCrmUsers(list);
+        }
+      } catch (err) {}
+    };
+    loadUsers();
+    return () => { mounted = false; };
+  }, []);
+
+  const resolveAdminOrAssignerFullName = useCallback((fAny: any, sellerObj: any): string => {
+    // 1. Explicit assigned_by on parent seller
+    if (sellerObj?.assigned_by_name && sellerObj.assigned_by_name.toLowerCase() !== 'admin') {
+      return sellerObj.assigned_by_name;
+    }
+    if (sellerObj?.assigned_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(sellerObj.assigned_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(sellerObj.assigned_by))) return String(sellerObj.assigned_by);
+    }
+
+    // 2. Creator of the seller (Admin who created/assigned profile)
+    if (sellerObj?.created_by_user?.name && sellerObj.created_by_user.name.toLowerCase() !== 'admin') {
+      return sellerObj.created_by_user.name;
+    }
+    if (sellerObj?.created_user_first_name || sellerObj?.created_user_last_name) {
+      const fullName = `${sellerObj.created_user_salutation ? sellerObj.created_user_salutation + ' ' : ''}${sellerObj.created_user_first_name || ''} ${sellerObj.created_user_last_name || ''}`.trim();
+      if (fullName && fullName.toLowerCase() !== 'admin') return fullName;
+    }
+    if (sellerObj?.created_by_name && sellerObj.created_by_name.toLowerCase() !== 'admin') {
+      return sellerObj.created_by_name;
+    }
+    if (sellerObj?.created_by) {
+      const match = crmUsers.find((u) => String(u.id) === String(sellerObj.created_by));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+    }
+
+    // 3. Explicit assigned_by / entity_creator on followup row
+    const rawVal =
+      fAny?.assigned_by_name ||
+      fAny?.assignedByName ||
+      fAny?.raw?.assigned_by_name ||
+      fAny?.raw?.assignedByName ||
+      fAny?.raw?.entity_creator_name ||
+      fAny?.entity_creator_name ||
+      fAny?.assigned_by ||
+      fAny?.raw?.assigned_by ||
+      null;
+    const strVal = rawVal ? String(rawVal).trim() : '';
+
+    if (strVal && strVal !== 'System' && !strVal.toLowerCase().includes('system') && strVal.toLowerCase() !== 'admin') {
+      const match = crmUsers.find(
+        (u) => String(u.id) === strVal ||
+               (u.name && u.name.toLowerCase() === strVal.toLowerCase()) ||
+               (u.username && u.username.toLowerCase() === strVal.toLowerCase())
+      );
+      if (match) {
+        const role = String(match.role || '').toLowerCase();
+        if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+          const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+          if (full) return full;
+        }
+      }
+      if (isNaN(Number(strVal))) return strVal;
+    }
+
+    // 4. Current logged-in user if Admin/Manager
+    if (user) {
+      const role = String(user.role || '').toLowerCase();
+      if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
+        const loggedName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || (user as any)?.name || user.username;
+        if (loggedName) return loggedName;
+      }
+    }
+
+    // 5. Any Admin or Manager in crmUsers
+    const adminUser = crmUsers.find(
+      (u) => {
+        const role = String(u.role || '').toLowerCase();
+        return role.includes('admin') || role.includes('super') || role.includes('manager');
+      }
+    );
+
+    if (adminUser) {
+      const full = `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || adminUser.name || adminUser.username;
+      if (full) return full;
+    }
+
+    return "";
+  }, [crmUsers, user]);
+
+  const resolveAssignedToName = useCallback((fAny: any, sellerObj: any): string => {
+    // 1. Direct explicit assigned executive name from followup row
+    const directFollowupName =
+      fAny?.raw?.assigned_to_name ||
+      fAny?.raw?.assignedToName ||
+      fAny?.raw?.assigned_executive_name ||
+      fAny?.assigned_to_name ||
+      fAny?.assigned_executive_name;
+
+    if (directFollowupName && directFollowupName !== "Unassigned" && directFollowupName !== "You" && directFollowupName !== "Not assigned" && isNaN(Number(directFollowupName))) {
+      return directFollowupName;
+    }
+
+    // 2. Lookup explicit assigned_to ID from followup DB row
+    const fAsgnId =
+      fAny?.raw?.assigned_to ??
+      fAny?.raw?.assigned_executive ??
+      fAny?.assigned_to ??
+      fAny?.assigned_executive;
+
+    if (fAsgnId && fAsgnId !== "Unassigned" && fAsgnId !== "You" && fAsgnId !== "Not assigned" && fAsgnId !== 0 && fAsgnId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(fAsgnId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (isNaN(Number(fAsgnId))) return String(fAsgnId);
+    }
+
+    // 3. Seller's currently assigned executive name
+    const sName =
+      sellerObj?.assigned_executive_name ||
+      sellerObj?.assigned_to_name ||
+      sellerObj?.assigned_executive_user?.name ||
+      sellerObj?.executive_name ||
+      sellerObj?.assigned_user?.name ||
+      (typeof sellerObj?.assigned === 'string' && isNaN(Number(sellerObj?.assigned)) ? sellerObj.assigned : null);
+    if (sName && sName !== "Unassigned" && sName !== "You" && sName !== "Not assigned" && isNaN(Number(sName))) {
+      return sName;
+    }
+
+    // 4. Lookup seller's assigned_to / assigned_executive ID in crmUsers
+    const sExecId =
+      sellerObj?.assigned_to ??
+      sellerObj?.assigned_executive ??
+      sellerObj?.assigned_user_id ??
+      (typeof sellerObj?.assigned === 'number' || (!isNaN(Number(sellerObj?.assigned)) && sellerObj?.assigned !== null && sellerObj?.assigned !== '') ? sellerObj?.assigned : null);
+    if (sExecId && sExecId !== "Unassigned" && sExecId !== "You" && sExecId !== 0 && sExecId !== "0") {
+      const match = crmUsers.find((u) => String(u.id) === String(sExecId));
+      if (match) {
+        const full = `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.name || match.username;
+        if (full) return full;
+      }
+      if (user && String((user as any).id) === String(sExecId)) {
+        const myName = `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).name;
+        if (myName) return myName;
+      }
+      if (isNaN(Number(sExecId))) return String(sExecId);
+    }
+
+    // 5. Fallback to fAny.assignedTo if string and not "Unassigned"
+    if (fAny?.assignedTo && fAny.assignedTo !== "Unassigned" && fAny.assignedTo !== "You" && isNaN(Number(fAny.assignedTo))) {
+      return fAny.assignedTo;
+    }
+
+    return "Unassigned";
+  }, [crmUsers, user]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -792,24 +991,12 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
               currentAccountProfileName;
             const createdByName = stripSalutation(rawCreatedByName) || rawCreatedByName;
 
-            const rawAssignedToName =
-              fAny.assigned_to_name ||
-              fAny.assignedToName ||
-              f.assignedExecutiveName ||
-              f.assignedTo ||
-              (typeof fAny.assigned_to === "string" && isNaN(Number(fAny.assigned_to)) ? fAny.assigned_to : null) ||
-              seller?.assigned_executive_name ||
-              seller?.assigned_to_name ||
-              "Unassigned";
+            const rawAssignedToName = resolveAssignedToName(fAny, seller);
             const assignedToName = (rawAssignedToName && rawAssignedToName !== "Unassigned")
               ? (stripSalutation(rawAssignedToName) || rawAssignedToName)
               : "Unassigned";
 
-            const rawAssignedByName =
-              (fAny.assigned_by_name && fAny.assigned_by_name !== "System" && !String(fAny.assigned_by_name).toLowerCase().includes("system") ? fAny.assigned_by_name : null) ||
-              (fAny.assignedByName && fAny.assignedByName !== "System" && !String(fAny.assignedByName).toLowerCase().includes("system") ? fAny.assignedByName : null) ||
-              (typeof fAny.assigned_by === "string" && isNaN(Number(fAny.assigned_by)) && !String(fAny.assigned_by).toLowerCase().includes("system") ? fAny.assigned_by : null) ||
-              createdByName;
+            const rawAssignedByName = resolveAdminOrAssignerFullName(fAny, seller);
             const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
             return (
@@ -1027,15 +1214,29 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [localFollowups, setLocalFollowups] = useState<Followup[]>(
     ((seller as any)?.followups as Followup[]) || []
   );
+  const [currentSeller, setCurrentSeller] = useState<any>(seller);
   const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const { properties: availableProperties = [], loadingProps } = useProperties({ autoLog: false });
   const sellerRef = React.useRef(seller);
   useEffect(() => { 
-    sellerRef.current = seller; 
+    sellerRef.current = seller;
+    if (seller) setCurrentSeller((prev: any) => ({ ...prev, ...seller }));
     if (Array.isArray((seller as any)?.followups) && (seller as any).followups.length > 0) {
       setLocalFollowups((seller as any).followups);
     }
   }, [seller]);
+
+  useEffect(() => {
+    const sId = sellerId ?? (seller as any)?.id ?? (seller as any)?.sellerId;
+    if (sId) {
+      sellerAPI.getById(String(sId)).then((res: any) => {
+        const d = res?.data ?? res?.seller ?? res;
+        if (d && typeof d === 'object') {
+          setCurrentSeller((prev: any) => ({ ...prev, ...d }));
+        }
+      }).catch(() => {});
+    }
+  }, [sellerId, (seller as any)?.id]);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: UserIcon },
@@ -1055,7 +1256,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       id: "followups",
       label: "Follow-ups",
       icon: CalendarIcon,
-      count: localFollowups.length || ((seller as any).followups as Followup[] | undefined)?.length || 0,
+      count: (localFollowups && localFollowups.length > 0) ? localFollowups.length : (((seller as any)?.followups as Followup[] | undefined)?.length ?? (seller as any)?.followups_count ?? 0),
     },
     {
       id: "documents",
@@ -1173,6 +1374,14 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       nextAction: row?.next_action ?? row?.nextAction ?? undefined,
       assigned_to:
         row?.assigned_executive ?? row?.assignedExecutive ?? row?.assigned_to,
+      assigned_to_name:
+        row?.assigned_to_name ?? row?.assignedToName ?? row?.assigned_executive_name,
+      assigned_by:
+        row?.assigned_by ?? row?.assignedBy,
+      assigned_by_name:
+        row?.assigned_by_name ?? row?.assignedByName ?? row?.entity_creator_name ?? (seller as any)?.created_by_name ?? (seller as any)?.created_by_user?.name,
+      assignedByName:
+        row?.assigned_by_name ?? row?.assignedByName ?? row?.entity_creator_name ?? (seller as any)?.created_by_name ?? (seller as any)?.created_by_user?.name,
       reminder: Number(row?.reminder ?? 0) as 0 | 1,
       created_at: row?.created_at ?? row?.createdAt,
       updated_at: row?.updated_at ?? row?.updatedAt,
@@ -1182,6 +1391,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       updatedByName: row?.updated_by_name ?? row?.updatedByName,
       assignedExecutiveName:
         row?.assigned_executive_name ?? row?.assignedExecutiveName ?? (seller as any)?.assigned_to_name ?? (seller as any)?.assigned ?? null,
+      raw: row,
       transferred_from_lead:
         row?.transferred_from_lead === true ||
         row?.transferred_from_lead === 1 ||
@@ -1201,7 +1411,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     try {
       setFuError(null);
       setFuLoading(true);
-      const res = await sellerFollowupAPI.getAll({
+      const res = await followupAPI.getAll({
         sellerId: idToFetch as any,
         page: 1,
         limit: 200,
@@ -1802,15 +2012,15 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         seller_id: payload.seller_id ?? sellerIdVal,
       };
       if (editingFollowup?.id) {
-        const res = await sellerFollowupAPI.update(
+        const res = await followupAPI.update(
           editingFollowup.id,
           apiPayload
         );
-        const normalized = normalizeFromApi(res ?? apiPayload);
+        const normalized = normalizeFromApi(res?.data ?? res ?? apiPayload);
         upsertFollowupLocal(normalized);
       } else {
-        const res = await sellerFollowupAPI.create(apiPayload);
-        const normalized = normalizeFromApi(res ?? apiPayload);
+        const res = await followupAPI.create(apiPayload);
+        const normalized = normalizeFromApi(res?.data ?? res ?? apiPayload);
         upsertFollowupLocal(normalized);
       }
       setShowFollowupModal(false);
@@ -1857,7 +2067,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     try {
       setFuError(null);
       setFuLoading(true);
-      await sellerFollowupAPI.remove(f.id);
+      await followupAPI.delete(f.id);
       handleDeleteFollowupLocal(f);
       await fetchFollowups();
       toast.success("Follow-up deleted successfully");
@@ -2783,7 +2993,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
             </div>
           ) : (
             <SellerFollowupsTab
-              seller={seller}
+              seller={currentSeller || seller}
               followups={localFollowups.length > 0 ? localFollowups : (((seller as any).followups as Followup[]) || [])}
               onAddFollowup={() => {
                 if (!canCreateFollowups) {
@@ -3028,6 +3238,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       <FollowUpModal
         open={showFollowupModal}
         mode={editingFollowup ? "edit" : "add"}
+        currentFollowUp={editingFollowup ? (editingFollowup.raw ?? editingFollowup) : null}
         initialEntityCode="SELLER"
         initialEntityId={(seller as any)?.id}
         initialEntityName={(seller as any)?.name}

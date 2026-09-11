@@ -48,7 +48,7 @@ import LinkPropertyModal from "../../components/sellers/LinkPropertyModal";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { toast } from "react-toastify";
 import SellerSidebarFilter from "./components/SellerSidebarFilter";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import TableLoader from "@/components/ui/TableLoader";
 import Dropdown from "@/components/ui/Dropdown";
 import { getMasterDropdownOptions, MasterOption } from "@/lib/useMasterData";
@@ -57,7 +57,6 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
-import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
@@ -157,6 +156,11 @@ type UISeller = {
   isActive: boolean;
   notes: string;
   seller_dob: string;
+  created_by?: string | number | null;
+  created_by_name?: string | null;
+  created_by_user?: any;
+  assigned_by?: string | number | null;
+  assigned_by_name?: string | null;
 };
 
 type Executive = {
@@ -205,6 +209,11 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
     api.activities?.[0]?.created_at ||
     null,
   created_at: api.created_at || null,
+  created_by: api.created_by ?? api.created_by_id ?? null,
+  created_by_name: api.created_by_name ?? api.created_by_user?.name ?? null,
+  created_by_user: api.created_by_user ?? (api.created_by_name ? { name: api.created_by_name } : null),
+  assigned_by: api.assigned_by ?? null,
+  assigned_by_name: api.assigned_by_name ?? null,
   notifications: Number(api.notifications || 0),
   currentStage: normalizeStage(api.current_stage || api.stage),
   stageProgress: Number(api.stage_progress || 0),
@@ -371,6 +380,7 @@ const getStatusBadgeClass = (isActive: boolean) => {
 
 const SellersPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id: routeSellerId } = useParams<{ id?: string }>();
   const { user } = useAuth();
 
   const canRead = can(user, "seller.read");
@@ -1020,14 +1030,27 @@ const SellersPage: React.FC = () => {
     setQuickViewSeller(seller);
     setShowQuickViewModal(true);
   };
+  useEffect(() => {
+    if (routeSellerId && allSellers.length > 0) {
+      const found = allSellers.find((s) => String(s.id) === String(routeSellerId));
+      if (found) {
+        setCurrentSellerView(found);
+        const index = filteredSellers.findIndex((s) => String(s.id) === String(routeSellerId));
+        if (index >= 0) {
+          setCurrentSellerIndex(index);
+        }
+      }
+    } else if (!routeSellerId && currentSellerView) {
+      setCurrentSellerView(null);
+    }
+  }, [routeSellerId, allSellers, filteredSellers]);
+
   const handleViewSeller = (seller: UISeller) => {
     if (!canViewSeller(user, seller)) {
       toast.error("You do not have permission to view this seller");
       return;
     }
-    const index = filteredSellers.findIndex((s) => s.id === seller.id);
-    setCurrentSellerIndex(index);
-    setCurrentSellerView(seller);
+    navigate(`/dashboard/sellers/${seller.id}`);
   };
   const handleSellerAccount = (sellerId: number) => {
     navigate(`/dashboard/sellers-account/${sellerId}`);
@@ -1036,6 +1059,7 @@ const SellersPage: React.FC = () => {
     setCurrentSellerView(null);
     setCurrentSellerAccount(null);
     setCurrentSellerIndex(0);
+    navigate('/dashboard/sellers');
   };
 
   const handleDeleteSeller = async (sellerId: number) => {
@@ -1140,15 +1164,23 @@ const SellersPage: React.FC = () => {
   const handleNextSeller = () => {
     if (currentSellerIndex < filteredSellers.length - 1) {
       const nextIndex = currentSellerIndex + 1;
+      const nextSeller = filteredSellers[nextIndex];
       setCurrentSellerIndex(nextIndex);
-      setCurrentSellerView(filteredSellers[nextIndex]);
+      setCurrentSellerView(nextSeller);
+      if (nextSeller?.id) {
+        navigate(`/dashboard/sellers/${nextSeller.id}`, { replace: true });
+      }
     }
   };
   const handlePreviousSeller = () => {
     if (currentSellerIndex > 0) {
       const prevIndex = currentSellerIndex - 1;
+      const prevSeller = filteredSellers[prevIndex];
       setCurrentSellerIndex(prevIndex);
-      setCurrentSellerView(filteredSellers[prevIndex]);
+      setCurrentSellerView(prevSeller);
+      if (prevSeller?.id) {
+        navigate(`/dashboard/sellers/${prevSeller.id}`, { replace: true });
+      }
     }
   };
 

@@ -145,6 +145,69 @@ export const QUICK_ACTION_TEMPLATES: QuickActionTemplate[] = [
   },
 ];
 
+export const SELLER_QUICK_ACTION_TEMPLATES: QuickActionTemplate[] = [
+  {
+    id: "seller_welcome",
+    category: "general",
+    categoryLabel: "Quick Connect",
+    label: "Acknowledge & Welcome",
+    shortTag: "Welcome",
+    iconName: "check",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}! I am your dedicated Property Executive for ${propName}. I have reviewed your submission and will be managing the marketing, verification, and buyer negotiations for your property.`,
+  },
+  {
+    id: "seller_inspection",
+    category: "visits",
+    categoryLabel: "Property Inspection",
+    label: "Schedule Inspection",
+    shortTag: "Inspection",
+    iconName: "calendar",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}, I would like to schedule a 15-minute physical inspection of ${propName} to verify details, take professional photos, and initiate buyer matching. Are you available this week?`,
+  },
+  {
+    id: "seller_pricing",
+    category: "pricing",
+    categoryLabel: "Pricing & Valuation",
+    label: "Pricing & Valuation",
+    shortTag: "Valuation",
+    iconName: "pricing",
+    getText: ({ clientFirst, propName, propLocation }) =>
+      `Hello ${clientFirst}, regarding ${propName}, we have strong active buyer demand in ${propLocation || "your locality"}. Let us discuss pricing strategy and recent market benchmarks.`,
+  },
+  {
+    id: "seller_docs",
+    category: "pricing",
+    categoryLabel: "Verification & Docs",
+    label: "Request Index II / Docs",
+    shortTag: "Documents",
+    iconName: "file",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}, to make ${propName} 100% Verified and publish it to verified buyers, please share a soft copy of your Index II or property tax receipt.`,
+  },
+  {
+    id: "seller_call",
+    category: "general",
+    categoryLabel: "Quick Connect",
+    label: "Request 2-Min Call",
+    shortTag: "Call",
+    iconName: "phone",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}, may I have the best time to connect for a quick 2-minute call to discuss your property listing at ${propName} and next steps?`,
+  },
+  {
+    id: "seller_photos",
+    category: "visits",
+    categoryLabel: "Property Inspection",
+    label: "Photos & Key Handover",
+    shortTag: "Keys/Photos",
+    iconName: "check",
+    getText: ({ clientFirst, propName }) =>
+      `Hello ${clientFirst}, shall we arrange high-definition property photoshoot and key holding agreement for ${propName} to facilitate seamless buyer visits?`,
+  },
+];
+
 interface ChatConversationViewProps {
   conversation: PropertyConversation | null;
   messages: PropertyChatMessage[];
@@ -359,8 +422,20 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
     }, 50);
   };
 
+  const isSellerConversation = useMemo(() => {
+    const role = (conversation?.user_role || "").toLowerCase();
+    if (role === "seller" || role === "owner") return true;
+    if (lastUserMsg.toLowerCase().includes("seller") || lastUserMsg.toLowerCase().includes("selling")) return true;
+    if (conversation?.property_title && lastUserMsg.toLowerCase().includes("listing")) return true;
+    return false;
+  }, [conversation?.user_role, conversation?.property_title, lastUserMsg]);
+
+  const activeTemplates = useMemo(() => {
+    return isSellerConversation ? SELLER_QUICK_ACTION_TEMPLATES : QUICK_ACTION_TEMPLATES;
+  }, [isSellerConversation]);
+
   const filteredQuickTemplates = useMemo(() => {
-    let list = QUICK_ACTION_TEMPLATES;
+    let list = activeTemplates;
     if (selectedQuickCategory !== "all") {
       list = list.filter((t) => t.category === selectedQuickCategory);
     }
@@ -374,7 +449,7 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
       );
     }
     return list;
-  }, [selectedQuickCategory, quickReplySearch]);
+  }, [activeTemplates, selectedQuickCategory, quickReplySearch]);
 
   // Auto-scroll to bottom on messages change
   const scrollToBottom = () => {
@@ -940,7 +1015,7 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
         {/* Dynamic AI Smart Reply Suggestions Strip */}
         <div className="flex items-center gap-1.5 pb-2.5 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1 text-[11px] font-bold text-orange-600 uppercase tracking-wider shrink-0 mr-1 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
-            <Sparkles size={13} className="text-orange-600 animate-pulse" />
+            
             <span>AI Suggestions:</span>
             <button
               type="button"
@@ -973,27 +1048,16 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
               </button>
             ))
           ) : (
-            QUICK_ACTION_TEMPLATES.slice(0, 4).map((action) => {
-              const clientFirst = conversation.user_first_name || "there";
-              const clientName = `${conversation.user_first_name || "Customer"} ${conversation.user_last_name || ""}`.trim();
-              const propName = conversation.property_title || "this property";
-              const propLocation = conversation.property_location || "Pune";
-              const text = action.getText({ clientName, clientFirst, propName, propLocation });
-
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() => insertQuickText(text)}
-                  disabled={isClosed || isArchived}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 hover:bg-orange-50 hover:border-orange-200 border border-slate-200/90 rounded-lg text-xs font-medium text-slate-700 hover:text-orange-700 transition-all shrink-0 cursor-pointer shadow-2xs active:scale-95 disabled:opacity-40 group"
-                  title={`Click to insert: "${text}"`}
-                >
-                  {renderTemplateIcon(action.iconName)}
-                  <span>{action.label}</span>
-                </button>
-              );
-            })
+            <button
+              type="button"
+              onClick={loadSmartReplies}
+              disabled={loadingSmartReplies || isClosed || isArchived}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer shadow-2xs group"
+              title="Click to generate AI smart replies for this conversation"
+            >
+              <Sparkles size={11} className="text-orange-600" />
+              <span>Generate AI Suggestions</span>
+            </button>
           )}
 
           <button

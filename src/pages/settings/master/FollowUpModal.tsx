@@ -114,9 +114,11 @@ function localTodayISO() {
   return `${y}-${m}-${dd}`;
 }
 
-function localDatePlus(days: number) {
+function localDatePlus(days?: number | null) {
+  const parsed = Number(days);
+  const safeDays = isNaN(parsed) ? 0 : parsed;
   const d = new Date();
-  d.setDate(d.getDate() + days);
+  d.setDate(d.getDate() + safeDays);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
@@ -297,36 +299,50 @@ export function FollowUpModal({
     const defaultAssigned = resolveExecutiveName(rawAssigned);
 
     if (mode === 'edit' && currentFollowUp) {
+      setSuggestionApplied(true);
+      setPriorityAutoApplied(true);
+      const cu = currentFollowUp as any;
+      const fType = cu.follow_up_type_code || cu.followupType || cu.type || cu.follow_up_type || 'CALL';
+      const fStage = cu.stage_code || cu.stage || cu.buyerLeadStage || cu.sellerLeadStage || cu.leadStage || '';
+      const fStatus = cu.status_code || cu.status || cu.buyerLeadStatus || cu.sellerLeadStatus || cu.leadStatus || '';
+      const fPriority = cu.priority_code || cu.priority || 'MEDIUM';
+      const fDate = cu.scheduled_date || cu.scheduledDate || cu.date || '';
+      const fTime = cu.scheduled_time || cu.scheduledTime || cu.time || '11:00';
+      const fRemark = cu.custom_remark || cu.customRemark || cu.remark || cu.notes || '';
+      const fAction = cu.next_action_code || cu.nextAction || cu.next_action || '';
+      const fOutcome = cu.outcome_code || cu.outcomeCode || cu.outcome || '';
+      const fReason = cu.reason_code || cu.reasonCode || cu.reason || '';
+
       setForm({
-        entityCode: currentFollowUp.entity_code,
+        entityCode: cu.entity_code || cu.entityCode || targetEntityCode,
         entityName: targetEntityName,
         entityPhone: targetEntityPhone,
         entityRef: targetEntityRef,
-        followUpTypeCode: currentFollowUp.follow_up_type_code,
-        stageCode: currentFollowUp.stage_code,
-        statusCode: currentFollowUp.status_code,
-        outcomeCode: currentFollowUp.outcome_code ?? '',
-        reasonCode: currentFollowUp.reason_code ?? '',
-        customRemark: currentFollowUp.custom_remark ?? '',
-        date: currentFollowUp.scheduled_date,
-        time: currentFollowUp.scheduled_time,
-        project: currentFollowUp.project ?? '',
-        siteLocation: currentFollowUp.site_location ?? '',
-        participants: currentFollowUp.participants ?? '',
-        messageTemplate: currentFollowUp.message_template ?? '',
-        priorityCode: currentFollowUp.priority_code,
-        nextActionOverride: currentFollowUp.next_action_code ?? '',
-        scheduleDateOverride: currentFollowUp.scheduled_date,
-        scheduleTimeOverride: currentFollowUp.scheduled_time,
+        followUpTypeCode: fType,
+        stageCode: fStage,
+        statusCode: fStatus,
+        outcomeCode: fOutcome,
+        reasonCode: fReason,
+        customRemark: fRemark,
+        date: fDate,
+        time: fTime,
+        project: cu.project ?? '',
+        siteLocation: cu.site_location ?? cu.siteLocation ?? '',
+        participants: cu.participants ?? '',
+        messageTemplate: cu.message_template ?? cu.messageTemplate ?? '',
+        priorityCode: fPriority,
+        nextActionOverride: fAction,
+        scheduleDateOverride: fDate,
+        scheduleTimeOverride: fTime,
         createNext: true,
         overrideStage: '',
         overrideStatus: '',
         overrideAction: '',
         overrideType: '',
         overridePriority: '',
-        assignedTo: resolveExecutiveName(currentFollowUp.assigned_to) || defaultAssigned,
-        dueDate: currentFollowUp.due_date ?? '',
-        dueTime: currentFollowUp.due_time ?? '',
+        assignedTo: resolveExecutiveName(cu.assigned_to || cu.assignedTo) || defaultAssigned,
+        dueDate: cu.due_date ?? cu.dueDate ?? '',
+        dueTime: cu.due_time ?? cu.dueTime ?? '',
       });
     } else if (mode === 'complete' && currentFollowUp) {
       setForm({
@@ -632,7 +648,7 @@ export function FollowUpModal({
   }, [followUps, form.entityCode, form.entityRef]);
 
   const addModeRuleHint = useMemo(() => {
-    if (mode !== 'add') return null;
+    if (mode !== 'add' && mode !== 'edit') return null;
     return (
       master.rules.find(
         (r) =>
@@ -645,7 +661,7 @@ export function FollowUpModal({
   }, [master.rules, mode, form.entityCode, form.followUpTypeCode, form.stageCode, form.statusCode]);
 
   const stageSuggestion = useMemo<StageStatusSuggestion | null>(() => {
-    if (mode !== 'add') return null;
+    if (mode !== 'add' && mode !== 'edit') return null;
     if (!form.entityCode || !form.followUpTypeCode) return null;
     return suggestStageStatus(
       master.rules,
@@ -666,7 +682,7 @@ export function FollowUpModal({
   ]);
 
   const entityActions = useMemo<NextAction[]>(() => {
-    if (mode !== 'add') return [];
+    if (mode !== 'add' && mode !== 'edit') return [];
     return getEntityActions(master.rules, master.nextActions, form.entityCode, form.followUpTypeCode);
   }, [mode, master.rules, master.nextActions, form.entityCode, form.followUpTypeCode]);
 
@@ -850,7 +866,7 @@ export function FollowUpModal({
 
   // Load historical remark suggestions
   useEffect(() => {
-    if (mode !== 'add') return;
+    if (mode !== 'add' && mode !== 'edit') return;
     if (!form.entityCode || !form.followUpTypeCode) return;
     let cancelled = false;
     setRemarkSuggestionsLoading(true);
@@ -866,7 +882,7 @@ export function FollowUpModal({
   }, [mode, form.entityCode, form.followUpTypeCode]);
 
   useEffect(() => {
-    if (mode !== 'add' || !form.entityRef.trim()) {
+    if ((mode !== 'add' && mode !== 'edit') || !form.entityRef.trim()) {
       setAiLeadInsight(null);
       return;
     }
@@ -983,8 +999,8 @@ export function FollowUpModal({
       upper === 'WHATSAPP'
         ? 'Hi , thank you for your interest. We will get back to you shortly.'
         : upper === 'EMAIL'
-        ? 'Dear ,\n\nThank you for your interest. We will get back to you shortly.\n\nBest regards'
-        : '';
+          ? 'Dear ,\n\nThank you for your interest. We will get back to you shortly.\n\nBest regards'
+          : '';
 
     const newTemplate = ft?.default_message_template
       ? ft.default_message_template.replace(/\{\{entity_ref\}\}/g, form.entityRef || '')
@@ -1285,7 +1301,7 @@ export function FollowUpModal({
         }
 
         toast.success('Follow-up updated successfully! ✅');
-        onSaved?.(null);
+        onSaved?.(updated as any);
         return;
       }
 
@@ -1524,8 +1540,8 @@ export function FollowUpModal({
         err instanceof Error
           ? err.message
           : typeof err === 'object' && err && 'message' in err
-          ? String((err as { message: unknown }).message)
-          : 'Could not save. Please try again.';
+            ? String((err as { message: unknown }).message)
+            : 'Could not save. Please try again.';
       toast.error(msg);
       setError(msg);
     } finally {
@@ -1611,8 +1627,8 @@ export function FollowUpModal({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            {/* Context bar for complete/edit modes */}
-            {mode !== 'add' && currentFollowUp && (
+            {/* Context bar for complete mode only */}
+            {mode === 'complete' && currentFollowUp && (
               <div className="context-bar">
                 <div className="context-item">
                   <span>Entity</span>
@@ -1767,101 +1783,101 @@ export function FollowUpModal({
                       fuType?.requires_location ||
                       fuType?.requires_participants ||
                       fuType?.requires_template) && (
-                      <div className="special-section">
-                        <div className="special-header">
-                          {(() => {
-                            const SI = getIcon((fuType as any)?.icon_name || fuType?.icon, fuType?.code);
-                            return <SI size={15} />;
-                          })()}
-                          <h4>
-                            {fuType?.code === 'WHATSAPP'
-                              ? 'WHATSAPP DETAILS'
-                              : fuType?.code === 'EMAIL'
-                              ? 'EMAIL DETAILS'
-                              : fuType?.code === 'SITE_VISIT' || fuType?.code === 'VISIT'
-                              ? 'SITE VISIT DETAILS'
-                              : fuType?.code === 'MEETING'
-                              ? 'MEETING DETAILS'
-                              : `${fuType?.name?.toUpperCase() ?? ''} DETAILS`}
-                          </h4>
+                        <div className="special-section">
+                          <div className="special-header">
+                            {(() => {
+                              const SI = getIcon((fuType as any)?.icon_name || fuType?.icon, fuType?.code);
+                              return <SI size={15} />;
+                            })()}
+                            <h4>
+                              {fuType?.code === 'WHATSAPP'
+                                ? 'WHATSAPP DETAILS'
+                                : fuType?.code === 'EMAIL'
+                                  ? 'EMAIL DETAILS'
+                                  : fuType?.code === 'SITE_VISIT' || fuType?.code === 'VISIT'
+                                    ? 'SITE VISIT DETAILS'
+                                    : fuType?.code === 'MEETING'
+                                      ? 'MEETING DETAILS'
+                                      : `${fuType?.name?.toUpperCase() ?? ''} DETAILS`}
+                            </h4>
+                          </div>
+                          <div className="form-grid" style={{ marginBottom: '18px' }}>
+                            {fuType.requires_date && (
+                              <label className="field">
+                                <span>
+                                  Date <em>*</em>
+                                </span>
+                                <input
+                                  type="date"
+                                  value={form.date}
+                                  onChange={(e) => update('date', e.target.value)}
+                                  required
+                                />
+                              </label>
+                            )}
+                            {fuType.requires_time && (
+                              <label className="field">
+                                <span>
+                                  Time <em>*</em>
+                                </span>
+                                <input
+                                  type="time"
+                                  value={form.time}
+                                  onChange={(e) => update('time', e.target.value)}
+                                  required
+                                />
+                              </label>
+                            )}
+                            {fuType.requires_project && (
+                              <label className="field">
+                                <span>
+                                  Project <em>*</em>
+                                </span>
+                                <input
+                                  value={form.project}
+                                  onChange={(e) => update('project', e.target.value)}
+                                  placeholder="e.g. Tamara Uprise"
+                                />
+                              </label>
+                            )}
+                            {fuType.requires_location && (
+                              <label className="field">
+                                <span>
+                                  Site location <em>*</em>
+                                </span>
+                                <input
+                                  value={form.siteLocation}
+                                  onChange={(e) => update('siteLocation', e.target.value)}
+                                  placeholder="Site address"
+                                />
+                              </label>
+                            )}
+                            {fuType.requires_participants && (
+                              <label className="field wide">
+                                <span>
+                                  Participants <em>*</em>
+                                </span>
+                                <input
+                                  value={form.participants}
+                                  onChange={(e) => update('participants', e.target.value)}
+                                  placeholder="Comma-separated names"
+                                />
+                              </label>
+                            )}
+                            {fuType.requires_template && (
+                              <label className="field wide">
+                                <span>Message template</span>
+                                <textarea
+                                  rows={3}
+                                  value={form.messageTemplate}
+                                  onChange={(e) => update('messageTemplate', e.target.value)}
+                                  placeholder="Message to send..."
+                                />
+                              </label>
+                            )}
+                          </div>
                         </div>
-                        <div className="form-grid" style={{ marginBottom: '18px' }}>
-                          {fuType.requires_date && (
-                            <label className="field">
-                              <span>
-                                Date <em>*</em>
-                              </span>
-                              <input
-                                type="date"
-                                value={form.date}
-                                onChange={(e) => update('date', e.target.value)}
-                                required
-                              />
-                            </label>
-                          )}
-                          {fuType.requires_time && (
-                            <label className="field">
-                              <span>
-                                Time <em>*</em>
-                              </span>
-                              <input
-                                type="time"
-                                value={form.time}
-                                onChange={(e) => update('time', e.target.value)}
-                                required
-                              />
-                            </label>
-                          )}
-                          {fuType.requires_project && (
-                            <label className="field">
-                              <span>
-                                Project <em>*</em>
-                              </span>
-                              <input
-                                value={form.project}
-                                onChange={(e) => update('project', e.target.value)}
-                                placeholder="e.g. Tamara Uprise"
-                              />
-                            </label>
-                          )}
-                          {fuType.requires_location && (
-                            <label className="field">
-                              <span>
-                                Site location <em>*</em>
-                              </span>
-                              <input
-                                value={form.siteLocation}
-                                onChange={(e) => update('siteLocation', e.target.value)}
-                                placeholder="Site address"
-                              />
-                            </label>
-                          )}
-                          {fuType.requires_participants && (
-                            <label className="field wide">
-                              <span>
-                                Participants <em>*</em>
-                              </span>
-                              <input
-                                value={form.participants}
-                                onChange={(e) => update('participants', e.target.value)}
-                                placeholder="Comma-separated names"
-                              />
-                            </label>
-                          )}
-                          {fuType.requires_template && (
-                            <label className="field wide">
-                              <span>Message template</span>
-                              <textarea
-                                rows={3}
-                                value={form.messageTemplate}
-                                onChange={(e) => update('messageTemplate', e.target.value)}
-                                placeholder="Message to send..."
-                              />
-                            </label>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Automatic Decision Panel */}
                     {matchedRule ? (
@@ -1874,8 +1890,8 @@ export function FollowUpModal({
                             {isOverridden
                               ? 'Manager override applied'
                               : matchedRule.terminal
-                              ? 'Terminal outcome'
-                              : 'Matched & ready'}
+                                ? 'Terminal outcome'
+                                : 'Matched & ready'}
                           </small>
                         </div>
                         <div className="auto-grid">
@@ -2186,22 +2202,38 @@ export function FollowUpModal({
               </>
             )}
 
-            {/* ===== ADD MODE: Guided wizard ===== */}
-            {mode === 'add' && (
+            {/* ===== ADD / EDIT MODE: Guided wizard ===== */}
+            {(mode === 'add' || mode === 'edit') && (
               <>
                 {/* Step indicator */}
                 <div className="wizard-steps">
-                  <div className={`wizard-step-indicator ${addWizardStep === 1 ? 'active' : ''} ${addWizardStep > 1 ? 'done' : ''}`}>
+                  <div
+                    className={`wizard-step-indicator ${addWizardStep === 1 ? 'active' : ''} ${addWizardStep > 1 ? 'done' : ''}`}
+                    onClick={() => setAddWizardStep(1)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <span className="ws-num">{addWizardStep > 1 ? <Check size={13} /> : 1}</span>
                     <span className="ws-label">Who & What</span>
                   </div>
                   <div className="wizard-step-line" />
-                  <div className={`wizard-step-indicator ${addWizardStep === 2 ? 'active' : ''} ${addWizardStep > 2 ? 'done' : ''}`}>
+                  <div
+                    className={`wizard-step-indicator ${addWizardStep === 2 ? 'active' : ''} ${addWizardStep > 2 ? 'done' : ''}`}
+                    onClick={() => {
+                      if (form.stageCode && form.statusCode) setAddWizardStep(2);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <span className="ws-num">{addWizardStep > 2 ? <Check size={13} /> : 2}</span>
                     <span className="ws-label">Details</span>
                   </div>
                   <div className="wizard-step-line" />
-                  <div className={`wizard-step-indicator ${addWizardStep === 3 ? 'active' : ''}`}>
+                  <div
+                    className={`wizard-step-indicator ${addWizardStep === 3 ? 'active' : ''}`}
+                    onClick={() => {
+                      if (form.stageCode && form.statusCode) setAddWizardStep(3);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <span className="ws-num">3</span>
                     <span className="ws-label">Review</span>
                   </div>
@@ -2460,11 +2492,11 @@ export function FollowUpModal({
                 {addWizardStep === 2 && (
                   <div className="wizard-panel">
                     {fuType?.requires_date ||
-                    fuType?.requires_time ||
-                    fuType?.requires_project ||
-                    fuType?.requires_location ||
-                    fuType?.requires_participants ||
-                    fuType?.requires_template ? (
+                      fuType?.requires_time ||
+                      fuType?.requires_project ||
+                      fuType?.requires_location ||
+                      fuType?.requires_participants ||
+                      fuType?.requires_template ? (
                       <div className="special-section">
                         <div className="special-header">
                           {(() => {
@@ -2475,12 +2507,12 @@ export function FollowUpModal({
                             {fuType?.code === 'WHATSAPP'
                               ? 'WHATSAPP DETAILS'
                               : fuType?.code === 'EMAIL'
-                              ? 'EMAIL DETAILS'
-                              : fuType?.code === 'SITE_VISIT' || fuType?.code === 'VISIT'
-                              ? 'SITE VISIT DETAILS'
-                              : fuType?.code === 'MEETING'
-                              ? 'MEETING DETAILS'
-                              : `${fuType?.name?.toUpperCase() ?? ''} DETAILS`}
+                                ? 'EMAIL DETAILS'
+                                : fuType?.code === 'SITE_VISIT' || fuType?.code === 'VISIT'
+                                  ? 'SITE VISIT DETAILS'
+                                  : fuType?.code === 'MEETING'
+                                    ? 'MEETING DETAILS'
+                                    : `${fuType?.name?.toUpperCase() ?? ''} DETAILS`}
                           </h4>
                         </div>
                         <div className="form-grid">
@@ -2637,9 +2669,8 @@ export function FollowUpModal({
                               <button
                                 type="button"
                                 key={p.code}
-                                className={`priority-option ${p.code.toLowerCase()} ${
-                                  form.priorityCode === p.code ? 'selected' : ''
-                                }`}
+                                className={`priority-option ${p.code.toLowerCase()} ${form.priorityCode === p.code ? 'selected' : ''
+                                  }`}
                                 onClick={() => update('priorityCode', p.code)}
                               >
                                 <span className="priority-dot" /> {p.name}
@@ -2823,6 +2854,27 @@ export function FollowUpModal({
                       </div>
                     </div>
 
+                    {/* Delete confirmation for edit mode */}
+                    {mode === 'edit' && (
+                      <div className="delete-zone" style={{ marginTop: '20px' }}>
+                        {!confirmDelete ? (
+                          <button type="button" className="delete-button" onClick={() => setConfirmDelete(true)}>
+                            <Trash2 size={15} /> Delete this follow-up
+                          </button>
+                        ) : (
+                          <div className="confirm-delete">
+                            <span>Are you sure? This cannot be undone.</span>
+                            <button type="button" className="secondary-button" onClick={() => setConfirmDelete(false)}>
+                              Cancel
+                            </button>
+                            <button type="button" className="danger-button" onClick={() => void handleDelete()}>
+                              <Trash2 size={15} /> Yes, delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="wizard-nav">
                       <button type="button" className="secondary-button" onClick={() => setAddWizardStep(2)}>
                         Back
@@ -2831,301 +2883,6 @@ export function FollowUpModal({
                   </div>
                 )}
               </>
-            )}
-
-            {/* ===== EDIT MODE: Full form ===== */}
-            {mode === 'edit' && (
-              <div className="form-grid">
-                <label className="field">
-                  <span>
-                    Entity <em>*</em>
-                  </span>
-                  <div className="select-wrap">
-                    <select value={form.entityCode} onChange={(e) => changeEntity(e.target.value)}>
-                      {master.entities.map((e) => (
-                        <option key={e.code} value={e.code}>
-                          {e.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} />
-                  </div>
-                </label>
-                <label className="field">
-                  <span>{entityNameLabel} <em>*</em></span>
-                  <input
-                    value={form.entityName}
-                    onChange={(e) => {
-                      const nameVal = e.target.value;
-                      const phoneVal = form.entityPhone;
-                      const refVal = nameVal ? (phoneVal ? `${nameVal} (${phoneVal})` : nameVal) : (phoneVal || '');
-                      setForm((c) => ({ ...c, entityName: nameVal, entityRef: refVal }));
-                    }}
-                    placeholder={entityNamePlaceholder}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>Phone number</span>
-                  <input
-                    type="tel"
-                    value={form.entityPhone}
-                    onChange={(e) => {
-                      const phoneVal = e.target.value;
-                      const nameVal = form.entityName;
-                      const refVal = nameVal ? (phoneVal ? `${nameVal} (${phoneVal})` : nameVal) : (phoneVal || '');
-                      setForm((c) => ({ ...c, entityPhone: phoneVal, entityRef: refVal }));
-                    }}
-                    placeholder="e.g. +91 9876543210"
-                  />
-                </label>
-                <label className="field">
-                  <span>
-                    Stage <em>*</em>
-                  </span>
-                  <div className="select-wrap">
-                    <select value={form.stageCode} onChange={(e) => update('stageCode', e.target.value)}>
-                      <option value="">Select stage...</option>
-                      {availableStages.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} />
-                  </div>
-                </label>
-                <label className="field">
-                  <span>
-                    Status <em>*</em>
-                  </span>
-                  <div className="select-wrap">
-                    <select value={form.statusCode} onChange={(e) => update('statusCode', e.target.value)}>
-                      <option value="">Select status...</option>
-                      {availableStatuses.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} />
-                  </div>
-                </label>
-                <label className="field wide">
-                  <span>Follow-up type</span>
-                  <div className="type-selector">
-                    {availableFollowUpTypes.map((t) => {
-                      const Icon = getIcon(t.icon, t.code);
-                      return (
-                        <button
-                          type="button"
-                          key={t.code}
-                          className={form.followUpTypeCode === t.code ? 'type-option selected' : 'type-option'}
-                          onClick={() => changeType(t.code)}
-                        >
-                          <Icon size={16} />
-                          <span>{t.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </label>
-                {outcomes.length > 0 && (
-                  <label className="field wide">
-                    <span>Outcome</span>
-                    <div className="outcome-grid">
-                      {outcomes.map((o) => (
-                        <button
-                          type="button"
-                          key={o.code}
-                          className={form.outcomeCode === o.code ? 'outcome-option selected' : 'outcome-option'}
-                          onClick={() => changeOutcome(o.code)}
-                        >
-                          {o.name}
-                        </button>
-                      ))}
-                    </div>
-                  </label>
-                )}
-                {showReasons && (
-                  <label className="field wide">
-                    <span>Reason {reasonRequired ? <em>*</em> : '(optional)'}</span>
-                    <div className="select-wrap">
-                      <select value={form.reasonCode} onChange={(e) => update('reasonCode', e.target.value)}>
-                        <option value="">Select reason...</option>
-                        {master.reasons.map((r) => (
-                          <option key={r.code} value={r.code}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown size={16} />
-                    </div>
-                  </label>
-                )}
-                {fuType?.requires_date && (
-                  <label className="field">
-                    <span>
-                      Date <em>*</em>
-                    </span>
-                    <input
-                      type="date"
-                      value={form.date}
-                      onChange={(e) => update('date', e.target.value)}
-                      required
-                    />
-                  </label>
-                )}
-                {fuType?.requires_time && (
-                  <label className="field">
-                    <span>
-                      Time <em>*</em>
-                    </span>
-                    <input
-                      type="time"
-                      value={form.time}
-                      onChange={(e) => update('time', e.target.value)}
-                      required
-                    />
-                  </label>
-                )}
-                {fuType?.requires_project && (
-                  <label className="field">
-                    <span>
-                      Project <em>*</em>
-                    </span>
-                    <input
-                      value={form.project}
-                      onChange={(e) => update('project', e.target.value)}
-                      placeholder="e.g. Tamara Uprise"
-                    />
-                  </label>
-                )}
-                {fuType?.requires_location && (
-                  <label className="field">
-                    <span>
-                      Site location <em>*</em>
-                    </span>
-                    <input
-                      value={form.siteLocation}
-                      onChange={(e) => update('siteLocation', e.target.value)}
-                      placeholder="Site address"
-                    />
-                  </label>
-                )}
-                {fuType?.requires_participants && (
-                  <label className="field wide">
-                    <span>
-                      Participants <em>*</em>
-                    </span>
-                    <input
-                      value={form.participants}
-                      onChange={(e) => update('participants', e.target.value)}
-                      placeholder="Comma-separated names"
-                    />
-                  </label>
-                )}
-                {fuType?.requires_template && (
-                  <label className="field wide">
-                    <span>Message template</span>
-                    <textarea
-                      rows={3}
-                      value={form.messageTemplate}
-                      onChange={(e) => update('messageTemplate', e.target.value)}
-                      placeholder="Message to send..."
-                    />
-                  </label>
-                )}
-                <label className="field">
-                  <span>Priority</span>
-                  <div className="select-wrap">
-                    <select value={form.priorityCode} onChange={(e) => update('priorityCode', e.target.value)}>
-                      {master.priorities.map((p) => (
-                        <option key={p.code} value={p.code}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} />
-                  </div>
-                </label>
-                <label className="field">
-                  <span>Assign to</span>
-                  <input
-                    type="text"
-                    value={form.assignedTo || 'Unassigned'}
-                    readOnly
-                    disabled
-                    style={{
-                      backgroundColor: '#f8fafc',
-                      cursor: 'not-allowed',
-                      color: '#0f172a',
-                      fontWeight: 600,
-                      border: '1px solid #cbd5e1',
-                    }}
-                  />
-                </label>
-                <label className="field">
-                  <span>Due date</span>
-                  <input type="date" value={form.dueDate} onChange={(e) => update('dueDate', e.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Due time</span>
-                  <input type="time" value={form.dueTime} onChange={(e) => update('dueTime', e.target.value)} />
-                </label>
-                <label className="field">
-                  <span>
-                    Schedule date <em>*</em>
-                  </span>
-                  <input
-                    type="date"
-                    value={form.scheduleDateOverride || form.date}
-                    onChange={(e) => update('scheduleDateOverride', e.target.value)}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>
-                    Schedule time <em>*</em>
-                  </span>
-                  <input
-                    type="time"
-                    value={form.scheduleTimeOverride || form.time}
-                    onChange={(e) => update('scheduleTimeOverride', e.target.value)}
-                    required
-                  />
-                </label>
-                <label className="field wide">
-                  <span>Employee note</span>
-                  <textarea
-                    rows={2}
-                    value={form.customRemark}
-                    onChange={(e) => update('customRemark', e.target.value)}
-                    placeholder="Free-text note (optional)..."
-                  />
-                </label>
-              </div>
-            )}
-
-            {/* Delete confirmation */}
-            {mode === 'edit' && (
-              <div className="delete-zone">
-                {!confirmDelete ? (
-                  <button type="button" className="delete-button" onClick={() => setConfirmDelete(true)}>
-                    <Trash2 size={15} /> Delete this follow-up
-                  </button>
-                ) : (
-                  <div className="confirm-delete">
-                    <span>Are you sure? This cannot be undone.</span>
-                    <button type="button" className="secondary-button" onClick={() => setConfirmDelete(false)}>
-                      Cancel
-                    </button>
-                    <button type="button" className="danger-button" onClick={() => void handleDelete()}>
-                      <Trash2 size={15} /> Yes, delete
-                    </button>
-                  </div>
-                )}
-              </div>
             )}
 
             {error && (
@@ -3141,8 +2898,8 @@ export function FollowUpModal({
               {mode === 'complete'
                 ? 'Rules auto-fill the next step'
                 : mode === 'add'
-                ? 'Create a new task'
-                : 'Save your changes'}
+                  ? 'Create a new task'
+                  : 'Save your changes'}
             </span>
             <button type="button" className="secondary-button" onClick={onClose}>
               Cancel
