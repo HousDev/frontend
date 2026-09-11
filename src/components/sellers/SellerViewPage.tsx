@@ -58,7 +58,7 @@ import VisitModal from "../buyers/VisitModal";
 import PropertyFormModal from "@/pages/dashboard/components/PropertyFormModal";
 import LinkPropertyModal from "./LinkPropertyModal";
 import { FollowUpModal } from "@/pages/settings/master/FollowUpModal";
-import { sellerFollowupAPI } from "@/lib/sellerFollowupAPI";
+import { followupAPI } from "@/lib/followupAPI";
 import { sellerAPI } from "@/lib/sellersAPI";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
@@ -1256,7 +1256,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       id: "followups",
       label: "Follow-ups",
       icon: CalendarIcon,
-      count: localFollowups.length || ((seller as any).followups as Followup[] | undefined)?.length || 0,
+      count: (localFollowups && localFollowups.length > 0) ? localFollowups.length : (((seller as any)?.followups as Followup[] | undefined)?.length ?? (seller as any)?.followups_count ?? 0),
     },
     {
       id: "documents",
@@ -1411,7 +1411,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     try {
       setFuError(null);
       setFuLoading(true);
-      const res = await sellerFollowupAPI.getAll({
+      const res = await followupAPI.getAll({
         sellerId: idToFetch as any,
         page: 1,
         limit: 200,
@@ -2012,15 +2012,15 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         seller_id: payload.seller_id ?? sellerIdVal,
       };
       if (editingFollowup?.id) {
-        const res = await sellerFollowupAPI.update(
+        const res = await followupAPI.update(
           editingFollowup.id,
           apiPayload
         );
-        const normalized = normalizeFromApi(res ?? apiPayload);
+        const normalized = normalizeFromApi(res?.data ?? res ?? apiPayload);
         upsertFollowupLocal(normalized);
       } else {
-        const res = await sellerFollowupAPI.create(apiPayload);
-        const normalized = normalizeFromApi(res ?? apiPayload);
+        const res = await followupAPI.create(apiPayload);
+        const normalized = normalizeFromApi(res?.data ?? res ?? apiPayload);
         upsertFollowupLocal(normalized);
       }
       setShowFollowupModal(false);
@@ -2067,7 +2067,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
     try {
       setFuError(null);
       setFuLoading(true);
-      await sellerFollowupAPI.remove(f.id);
+      await followupAPI.delete(f.id);
       handleDeleteFollowupLocal(f);
       await fetchFollowups();
       toast.success("Follow-up deleted successfully");
@@ -3238,6 +3238,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       <FollowUpModal
         open={showFollowupModal}
         mode={editingFollowup ? "edit" : "add"}
+        currentFollowUp={editingFollowup ? (editingFollowup.raw ?? editingFollowup) : null}
         initialEntityCode="SELLER"
         initialEntityId={(seller as any)?.id}
         initialEntityName={(seller as any)?.name}

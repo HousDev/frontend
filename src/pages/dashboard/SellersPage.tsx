@@ -57,7 +57,6 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
-import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
@@ -1037,12 +1036,14 @@ const SellersPage: React.FC = () => {
       if (found) {
         setCurrentSellerView(found);
         const index = filteredSellers.findIndex((s) => String(s.id) === String(routeSellerId));
-        setCurrentSellerIndex(index >= 0 ? index : 0);
+        if (index >= 0) {
+          setCurrentSellerIndex(index);
+        }
       }
     } else if (!routeSellerId && currentSellerView) {
       setCurrentSellerView(null);
     }
-  }, [routeSellerId, allSellers]);
+  }, [routeSellerId, allSellers, filteredSellers]);
 
   const handleViewSeller = (seller: UISeller) => {
     if (!canViewSeller(user, seller)) {
@@ -1163,15 +1164,23 @@ const SellersPage: React.FC = () => {
   const handleNextSeller = () => {
     if (currentSellerIndex < filteredSellers.length - 1) {
       const nextIndex = currentSellerIndex + 1;
+      const nextSeller = filteredSellers[nextIndex];
       setCurrentSellerIndex(nextIndex);
-      setCurrentSellerView(filteredSellers[nextIndex]);
+      setCurrentSellerView(nextSeller);
+      if (nextSeller?.id) {
+        navigate(`/dashboard/sellers/${nextSeller.id}`, { replace: true });
+      }
     }
   };
   const handlePreviousSeller = () => {
     if (currentSellerIndex > 0) {
       const prevIndex = currentSellerIndex - 1;
+      const prevSeller = filteredSellers[prevIndex];
       setCurrentSellerIndex(prevIndex);
-      setCurrentSellerView(filteredSellers[prevIndex]);
+      setCurrentSellerView(prevSeller);
+      if (prevSeller?.id) {
+        navigate(`/dashboard/sellers/${prevSeller.id}`, { replace: true });
+      }
     }
   };
 
