@@ -57,7 +57,6 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
-import sellerFollowupAPI from "@/lib/sellerFollowupAPI";
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";

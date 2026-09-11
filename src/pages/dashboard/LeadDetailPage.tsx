@@ -96,6 +96,7 @@ export interface Lead {
   updated_by_name?: string;
   created_by_name?: string;
   updated_at?: string;
+  followups_count?: number;
 }
 
 interface Followup {
@@ -1041,6 +1042,9 @@ const LeadDetailPage: React.FC = () => {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getLeadTypeColor(lead.lead_type || "")}`}>
                         {lead.lead_type || "Lead"}
                       </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                        📅 Follow-ups: {followups.length || lead.followups_count || 0}
+                      </span>
                       <span className="text-[11px]" style={{ color: TEXT_MUTED }}>({currentLeadIndex + 1} of {filteredLeads.length})</span>
                     </div>
                   </div>
@@ -1179,7 +1183,10 @@ const LeadDetailPage: React.FC = () => {
             <div className="p-3 md:p-4 border-b flex items-center justify-between" style={{ borderColor: BORDER, background: BG_GRAY }}>
               <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: PRIMARY_NAVY }}>
                 <MessageSquare size={14} style={{ color: PRIMARY_ORANGE }} />
-                Follow-ups Timeline
+                <span>Follow-ups Timeline</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                  {followups.length}
+                </span>
               </h3>
               <button
                 onClick={() => setShowFollowUpModal(true)}

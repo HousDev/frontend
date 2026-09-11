@@ -7,11 +7,21 @@ export interface FollowUpFilters {
   leadId?: string | number;
   buyerId?: string | number;
   sellerId?: string | number;
+  buyerLeadStage?: string;
+  buyerLeadStatus?: string;
+  sellerLeadStage?: string;
+  sellerLeadStatus?: string;
   type?: string;
   isComplete?: boolean;
   scheduledDate?: string;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  limit?: number;
+  sortOrder?: "ASC" | "DESC" | string;
   priority?: string;
-  assignedTo?: string;
+  assignedTo?: string | number;
+  assignedExecutive?: string | number;
 }
 
 export const followupAPI = {
@@ -40,44 +50,56 @@ export const followupAPI = {
   },
 
   // Get followup by ID
-  getById: async (id: string) => {
+  getById: async (id: string | number) => {
     const response = await api.get(`/followups/getById/${id}`);
     return response.data;
   },
 
   // Backward compatible alias
-  getFollowupById: async (id: string) => {
+  getFollowupById: async (id: string | number) => {
     const response = await api.get(`/followups/getById/${id}`);
     return response.data;
   },
 
   // Update followup
-  update: async (id: string, data: any) => {
+  update: async (id: string | number, data: any) => {
     const response = await api.put(`/followups/update/${id}`, data);
     return response.data;
   },
 
   // Backward compatible alias
-  updateFollowup: async (id: string, data: any) => {
+  updateFollowup: async (id: string | number, data: any) => {
     const response = await api.put(`/followups/update/${id}`, data);
     return response.data;
   },
 
   // Complete followup with outcome & reason
-  complete: async (id: string, outcomeData: any) => {
+  complete: async (id: string | number, outcomeData: any) => {
     const response = await api.post(`/followups/complete/${id}`, outcomeData);
     return response.data;
   },
 
   // Delete followup
-  delete: async (id: string) => {
+  delete: async (id: string | number) => {
     const response = await api.delete(`/followups/delete/${id}`);
     return response.data;
   },
 
   // Backward compatible alias
-  deleteFollowup: async (id: string) => {
+  deleteFollowup: async (id: string | number) => {
     const response = await api.delete(`/followups/delete/${id}`);
+    return response.data;
+  },
+
+  // Backward compatible alias for remove
+  remove: async (id: string | number) => {
+    const response = await api.delete(`/followups/delete/${id}`);
+    return response.data;
+  },
+
+  // Get followups count / stats
+  getCount: async (filters?: FollowUpFilters) => {
+    const response = await api.get("/followups/get-all", { params: filters });
     return response.data;
   },
 

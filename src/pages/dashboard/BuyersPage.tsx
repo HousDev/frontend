@@ -36,7 +36,6 @@ import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Pagination from '@/components/ui/Pagination';
 import * as XLSX from 'xlsx';
-import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
 
 
 type Executive = {

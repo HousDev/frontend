@@ -37,7 +37,7 @@ import PropertyMatchModal from './PropertyMatchModal';
 import PropertySuggestionModal from './PropertySuggestionModal';
 import LoanApplicationModal from './LoanApplicationModal';
 import { FollowUpModal } from '@/pages/settings/master/FollowUpModal';
-import { buyerFollowupAPI } from '@/lib/buyerFollowupAPI';
+import { followupAPI } from '@/lib/followupAPI';
 import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import DocumentsTab from './buyerviewcomponents/DocumentsTab';
@@ -74,14 +74,21 @@ const BuyerViewPage = ({
   const [editingFollowup, setEditingFollowup] = useState<any | null>(null);
   const [editingVisit, setEditingVisit] = useState(null);
   const [showVisitSchedule, setShowVisitSchedule] = useState(false);
+  const [followupsCount, setFollowupsCount] = useState<number>(buyer?.followups_count || (Array.isArray(buyer?.followups) ? buyer.followups.length : 0));
+
+  useEffect(() => {
+    if (buyer) {
+      setFollowupsCount(buyer.followups_count ?? (Array.isArray(buyer.followups) ? buyer.followups.length : 0));
+    }
+  }, [buyer?.id, buyer?.followups_count, buyer?.followups]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
-    { id: 'properties', label: 'Matched Properties', icon: Building },
-    { id: 'visit-schedule', label: 'Visit Schedule', icon: Calendar },
-    { id: 'activities', label: 'Activities', icon: Activity },
-    { id: 'followups', label: 'Follow-ups', icon: Calendar },
-    { id: 'documents', label: 'Documents', icon: FileText },
+    { id: 'properties', label: 'Matched Properties', icon: Building, count: buyer?.properties?.length || buyer?.matched_properties_count || 0 },
+    { id: 'visit-schedule', label: 'Visit Schedule', icon: Calendar, count: buyer?.visits?.length || 0 },
+    { id: 'activities', label: 'Activities', icon: Activity, count: buyer?.activities?.length || 0 },
+    { id: 'followups', label: 'Follow-ups', icon: Calendar, count: followupsCount },
+    { id: 'documents', label: 'Documents', icon: FileText, count: buyer?.documents?.length || 0 },
     { id: 'financial', label: 'Financial', icon: CreditCard }
   ];
   const N = "#0f2b3d";
@@ -227,12 +234,16 @@ const MU = "#5a7184";
   };
 
   const handleSaveFollowup = (followupData: any) => {
+    const isNew = !editingFollowup;
     const updatedBuyer = {
       ...buyer,
       followups: editingFollowup
         ? (buyer.followups || []).map((f: any) => (f.id === editingFollowup.id ? followupData : f))
         : [...(buyer.followups || []), followupData]
     };
+    if (isNew) {
+      setFollowupsCount((prev) => prev + 1);
+    }
     onUpdateBuyer(updatedBuyer);
     setShowFollowupModal(false);
     setEditingFollowup(null);
@@ -555,18 +566,29 @@ ResaleExpert Team`;
     <nav className="flex space-x-1 overflow-x-auto pb-1">
       {tabs.map((tab) => {
         const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+        const count = (tab as any).count;
         return (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center space-x-1 md:space-x-2 px-3 py-1 md:px-4 md:py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${
-              activeTab === tab.id
-                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+            className={`flex items-center space-x-1 md:space-x-2 px-3 py-1.5 md:px-4 md:py-2 rounded-lg transition-colors whitespace-nowrap text-xs ${
+              isActive
+                ? 'bg-purple-100 text-purple-700 border border-purple-200 shadow-xs'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <Icon size={16} />
             <span className="font-medium">{tab.label}</span>
+            {typeof count === 'number' && count > 0 && (
+              <span
+                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  isActive ? 'bg-purple-600 text-white shadow-sm' : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                {count}
+              </span>
+            )}
           </button>
         );
       })}
@@ -597,6 +619,7 @@ ResaleExpert Team`;
             buyer={buyer}
             onAddFollowup={handleAddFollowup}
             onEditFollowup={handleEditFollowup}
+            onCountChange={setFollowupsCount}
           />
         )}
         {activeTab === 'documents' && <DocumentsTab buyer={buyer} />}
@@ -768,7 +791,8 @@ ResaleExpert Team`;
       {/* Buyer Follow-up Modal */}
       <FollowUpModal
         open={showFollowupModal}
-        mode="add"
+        mode={editingFollowup ? "edit" : "add"}
+        currentFollowUp={editingFollowup ? (editingFollowup.raw ?? editingFollowup) : null}
         initialEntityCode="BUYER"
         initialEntityId={buyer?.id}
         initialEntityName={buyer?.name}
@@ -780,15 +804,29 @@ ResaleExpert Team`;
           setShowFollowupModal(false);
           setEditingFollowup(null);
         }}
-        onSaved={(newFu) => {
+        onSaved={(savedFu) => {
+          const wasEditing = !!editingFollowup;
+          const targetId = editingFollowup?.id;
           setShowFollowupModal(false);
           setEditingFollowup(null);
           if (onUpdateBuyer && buyer) {
-            onUpdateBuyer({
-              ...buyer,
-              lastActivity: new Date().toISOString(),
-              followups: [newFu, ...(buyer.followups || [])]
-            });
+            if (wasEditing && targetId) {
+              const updatedList = (buyer.followups || []).map((f: any) =>
+                String(f.id) === String(targetId) ? { ...f, ...(savedFu || {}) } : f
+              );
+              onUpdateBuyer({
+                ...buyer,
+                lastActivity: new Date().toISOString(),
+                followups: updatedList,
+              });
+            } else if (savedFu) {
+              onUpdateBuyer({
+                ...buyer,
+                lastActivity: new Date().toISOString(),
+                followups: [savedFu, ...(buyer.followups || [])],
+              });
+              setFollowupsCount((prev) => prev + 1);
+            }
           }
         }}
       />
@@ -876,6 +914,7 @@ interface FollowupsTabProps {
   buyer: any;
   onAddFollowup: () => void;
   onEditFollowup: (followup: any) => void;
+  onCountChange?: (count: number) => void;
 }
 
 const getStatusConfig = () => ({
@@ -1007,7 +1046,7 @@ function formatDateTime(isoOrDate?: string | null): string {
   return `${dd}/${mm}/${yyyy} at ${hours}:${minutes} ${ampm}`;
 }
 
-const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEditFollowup }) => {
+const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEditFollowup, onCountChange }) => {
   const { user } = useAuth();
   const [followups, setFollowups] = useState<Followup[]>(buyer?.followups ?? []);
   const [currentBuyer, setCurrentBuyer] = useState<any>(buyer);
@@ -1535,8 +1574,7 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
       setLoading(true);
       setError(null);
       try {
-        // replace buyerFollowupAPI.getAll with your actual API call
-        const res = await (buyerFollowupAPI?.getAll?.({ buyerId, page: 1, limit: 200 }) ?? Promise.resolve({ data: buyer?.followups ?? [] }));
+        const res = await (followupAPI?.getAll?.({ buyerId, page: 1, limit: 200 }) ?? Promise.resolve({ data: buyer?.followups ?? [] }));
 
         const raw =
           res?.data ??
@@ -1550,12 +1588,22 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
             combined.unshift(pf);
           }
         }
-        if (!cancelled) setFollowups(mapAndNormalize(combined.length ? combined : propFollowups));
+        if (!cancelled) {
+          const finalFollowups = mapAndNormalize(combined.length ? combined : propFollowups);
+          setFollowups(finalFollowups);
+          if (typeof onCountChange === 'function') {
+            onCountChange(finalFollowups.length);
+          }
+        }
       } catch (err: any) {
         toast.warn("Error fetching followups by buyerId:", err);
         if (!cancelled) {
           setError(err?.message ?? String(err));
-          setFollowups(mapAndNormalize(buyer?.followups ?? []));
+          const fallback = mapAndNormalize(buyer?.followups ?? []);
+          setFollowups(fallback);
+          if (typeof onCountChange === 'function') {
+            onCountChange(fallback.length);
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -1748,8 +1796,14 @@ const FollowupsTab: React.FC<FollowupsTabProps> = ({ buyer, onAddFollowup, onEdi
                         });
                         if (!result.isConfirmed) return;
                         try {
-                          await buyerFollowupAPI.remove(followup.id);
-                          setFollowups((prev) => prev.filter((x) => String(x.id) !== String(followup.id)));
+                          await followupAPI.delete(followup.id);
+                          setFollowups((prev) => {
+                            const next = prev.filter((x) => String(x.id) !== String(followup.id));
+                            if (typeof onCountChange === 'function') {
+                              onCountChange(next.length);
+                            }
+                            return next;
+                          });
                           toast.success("Follow-up deleted successfully");
                         } catch (e: any) {
                           toast.error(e?.message || "Failed to delete follow-up");
