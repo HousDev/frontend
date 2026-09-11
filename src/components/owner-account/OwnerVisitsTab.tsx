@@ -3,7 +3,7 @@ import {
   Calendar, Clock, MapPin, Phone, Building2, User,
   CheckCircle2, AlertCircle, XCircle, ChevronRight, ExternalLink,
   Check, X, Loader2, Bell, Star, MessageSquare, PhoneCall, Copy, Shield,
-  ArrowRight, Sparkles, CheckCheck, Trash2, CheckSquare, Square, RefreshCw, Eye, History,
+  ArrowRight, CheckCheck, Trash2, CheckSquare, Square, RefreshCw, Eye, History,
   Filter, Search
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
@@ -83,6 +83,33 @@ export function formatVisitTime(timeStr: string | null | undefined): string {
     return `${hours}:${minutes} ${ampm}`;
   }
   return clean;
+}
+
+// Helper: Slot label + color from a time string
+export function getSlotMeta(timeStr: string | null | undefined): { label: string; icon: string; color: string; bg: string; border: string } {
+  const t = String(timeStr || '').toLowerCase();
+  if (t.includes('morning') || /^(0?[6-9]|10|11):(\d{2})/.test(t)) {
+    return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
+  }
+  if (t.includes('afternoon') || /^(1[2-6]):(\d{2})/.test(t)) {
+    return { label: 'Afternoon', icon: '☀️', color: 'text-orange-800', bg: 'bg-orange-50', border: 'border-orange-200' };
+  }
+  if (t.includes('evening') || /^(1[7-9]|20):(\d{2})/.test(t)) {
+    return { label: 'Evening', icon: '🌆', color: 'text-indigo-800', bg: 'bg-indigo-50', border: 'border-indigo-200' };
+  }
+  if (t.includes('weekend')) {
+    return { label: 'Weekend', icon: '📅', color: 'text-purple-800', bg: 'bg-purple-50', border: 'border-purple-200' };
+  }
+  return { label: 'Slot', icon: '🕐', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' };
+}
+
+// Helper: Extract time range from "Afternoon (02:00 PM - 05:00 PM)"
+export function getSlotTimeRange(timeStr: string | null | undefined): string {
+  if (!timeStr) return '';
+  const s = String(timeStr).trim();
+  const rangeMatch = s.match(/\(([^)]+)\)/);
+  if (rangeMatch) return rangeMatch[1];
+  return formatVisitTime(s);
 }
 
 // Helper to safely format time to 24h HH:MM:SS for MySQL
@@ -786,6 +813,8 @@ export const OwnerVisitsTab: React.FC<OwnerVisitsTabProps> = ({
             const isSelected = selectedIds.has(v.id);
             const { dateObj, dateStr, dayName, dayNum, monthShort } = parseVisitDate(v.visit_date);
             const formattedTime = formatVisitTime(v.visit_time);
+            const slotMeta = getSlotMeta(v.visit_time);
+            const slotRange = getSlotTimeRange(v.visit_time);
 
             const status = v.status || 'Scheduled';
             const isConfirmed = status === 'Confirmed' || status === 'Approved';
@@ -905,9 +934,11 @@ export const OwnerVisitsTab: React.FC<OwnerVisitsTabProps> = ({
                           RENT-{v.rental_property_id}
                         </span>
                       )}
-                      <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 font-bold text-[8.5px] flex items-center gap-0.5">
-                        <Clock size={9} />
-                        <span>{formattedTime}</span>
+                      {/* Slot chip inline with title row */}
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full border font-bold text-[8.5px] ${slotMeta.bg} ${slotMeta.color} ${slotMeta.border}`}>
+                        <Clock size={8} />
+                        <span>{slotMeta.icon} {slotMeta.label}</span>
+                        {slotRange && <span className="font-normal opacity-70">· {slotRange}</span>}
                       </span>
                     </div>
 

@@ -203,7 +203,6 @@ const LoginPage: React.FC = () => {
         toast.success(`Welcome ${res.data.user.first_name || 'back'}! Logged in with Google.`);
 
         const isNewUser = Boolean(res.is_new_user || res.data?.is_new_user);
-        const role = (res.data.user.role ?? '').toString().trim().toLowerCase();
         const params = new URLSearchParams(location.search);
         const redirect = params.get('redirect');
 
@@ -212,48 +211,60 @@ const LoginPage: React.FC = () => {
           return;
         }
 
-        // New user on first registration -> redirect to properties
         if (isNewUser) {
           navigate('/properties', { replace: true });
           return;
         }
 
-        // Existing user -> route to role-specific dashboard
-        const uid = res.data.user.id || 1;
-        if (role === 'buyer') {
-          navigate(`/buyer-dashboard/${res.data.user.buyer_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'seller') {
-          navigate(`/seller-dashboard/${res.data.user.seller_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'tenant') {
-          navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'owner') {
-          navigate(`/owner-dashboard/${res.data.user.owner_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'broker') {
-          navigate('/properties', { replace: true });
-          return;
-        }
-
-        const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
-        if (generalRoles.includes(role)) {
-          navigate(from || '/dashboard', { replace: true });
-          return;
-        }
-
-        navigate(from || '/dashboard', { replace: true });
+        const targetPath = getRoleRedirectPath(res.data.user, from);
+        navigate(targetPath, { replace: true });
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to compute safe role-based redirect path
+  const getRoleRedirectPath = (userData: any, fallbackFrom?: string) => {
+    const role = (userData?.role ?? '').toString().trim().toLowerCase();
+    const uid = userData?.id || 1;
+
+    if (role === 'buyer') {
+      return `/buyer-dashboard/${userData?.buyer_id || uid}`;
+    }
+    if (role === 'seller') {
+      return `/seller-dashboard/${userData?.seller_id || uid}`;
+    }
+    if (role === 'tenant') {
+      return `/tenant-dashboard/${userData?.tenant_id || uid}`;
+    }
+    if (role === 'owner') {
+      return `/owner-dashboard/${userData?.owner_id || uid}`;
+    }
+    if (role === 'broker') {
+      return '/properties';
+    }
+
+    const isCustomerPortalPath = (path: string) => {
+      return (
+        path.startsWith('/tenant-dashboard') ||
+        path.startsWith('/buyer-dashboard') ||
+        path.startsWith('/seller-dashboard') ||
+        path.startsWith('/owner-dashboard') ||
+        path.includes('tenants-account') ||
+        path.includes('buyers-account') ||
+        path.includes('sellers-account') ||
+        path.includes('owners-account')
+      );
+    };
+
+    if (fallbackFrom && !isCustomerPortalPath(fallbackFrom) && fallbackFrom !== '/login') {
+      return fallbackFrom;
+    }
+
+    return '/dashboard';
   };
 
   // OTP Countdown timer
@@ -328,7 +339,6 @@ const LoginPage: React.FC = () => {
         toast.success(`Welcome back ${res.data.user.first_name || ''}! Logged in successfully.`);
 
         const isNewUser = Boolean(res.is_new_user || res.data?.is_new_user);
-        const role = (res.data.user.role ?? '').toString().trim().toLowerCase();
         const params = new URLSearchParams(location.search);
         const redirect = params.get('redirect');
 
@@ -342,35 +352,8 @@ const LoginPage: React.FC = () => {
           return;
         }
 
-        const uid = res.data.user.id || 1;
-        if (role === 'buyer') {
-          navigate(`/buyer-dashboard/${res.data.user.buyer_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'seller') {
-          navigate(`/seller-dashboard/${res.data.user.seller_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'tenant') {
-          navigate(`/tenant-dashboard/${res.data.user.tenant_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'owner') {
-          navigate(`/owner-dashboard/${res.data.user.owner_id || uid}`, { replace: true });
-          return;
-        }
-        if (role === 'broker') {
-          navigate('/properties', { replace: true });
-          return;
-        }
-
-        const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
-        if (generalRoles.includes(role)) {
-          navigate(from || '/dashboard', { replace: true });
-          return;
-        }
-
-        navigate(from || '/dashboard', { replace: true });
+        const targetPath = getRoleRedirectPath(res.data.user, from);
+        navigate(targetPath, { replace: true });
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'OTP verification failed.';
@@ -430,7 +413,6 @@ const LoginPage: React.FC = () => {
       const user = response;
       if (!user) { toast.error('Invalid login response'); return; }
       
-      const role = (user.role ?? '').toString().trim().toLowerCase();
       const params = new URLSearchParams(location.search);
       const redirect = params.get('redirect');
 
@@ -439,31 +421,8 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      const uid = (user as any)?.id || 1;
-      if (role === 'buyer') {
-        navigate(`/buyer-dashboard/${user.buyer_id || uid}`, { replace: true });
-        return;
-      }
-      if (role === 'seller') {
-        navigate(`/seller-dashboard/${user.seller_id || uid}`, { replace: true });
-        return;
-      }
-      if (role === 'tenant') {
-        navigate(`/tenant-dashboard/${(user as any)?.tenant_id || uid}`, { replace: true });
-        return;
-      }
-      if (role === 'owner') {
-        navigate(`/owner-dashboard/${(user as any)?.owner_id || uid}`, { replace: true });
-        return;
-      }
-      if (role === 'broker') {
-        navigate('/properties', { replace: true });
-        return;
-      }
-
-      const generalRoles = ['marketing executive', 'sales executive', 'presales executive'];
-      if (generalRoles.includes(role)) { navigate(from || '/dashboard', { replace: true }); return; }
-      navigate(from || '/dashboard', { replace: true });
+      const targetPath = getRoleRedirectPath(user, from);
+      navigate(targetPath, { replace: true });
     } catch (err: any) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('location')) {

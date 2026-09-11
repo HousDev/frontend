@@ -70,6 +70,13 @@ const statusConfig: Record<
   },
 };
 
+function getTenantInitials(name?: string) {
+  if (!name || !name.trim()) return 'T';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function TenantAccountPage({
   tenant: initialTenant,
   onBack,
@@ -196,15 +203,41 @@ export default function TenantAccountPage({
       ]);
     };
 
+    const handleInterestConfirmed = (data: any) => {
+      const isForTenant = !data.tenant_id || Number(data.tenant_id) === Number(tenant.id);
+      if (isForTenant) {
+        toast.success(`🎉 Owner accepted your tenancy interest request!`);
+        setLiveNotifications((prev) => [
+          {
+            id: `interest_conf_${Date.now()}`,
+            badge: 'Owner Approved',
+            badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+            title: `Owner Approved Your Interest Request!`,
+            desc: data.message || `Owner approved your application. You can now accept to link lease and reserve token.`,
+            time: 'Just now',
+            priority: 1,
+            type: 'interest_confirmed',
+            tab: 'enquiries',
+          },
+          ...prev,
+        ]);
+        setEnquiryRefreshKey((k) => k + 1);
+      }
+    };
+
     socket?.on('visit_rescheduled', handleVisitRescheduled);
     socket?.on('visit_confirmed', handleVisitConfirmed);
     socket?.on('visit_created', handleVisitCreated);
+    socket?.on('tenant_interest_confirmed', handleInterestConfirmed);
+    socket?.on('refresh_interests', () => setEnquiryRefreshKey((k) => k + 1));
     socket?.on('notification', handleGenericNotification);
 
     return () => {
       socket?.off('visit_rescheduled', handleVisitRescheduled);
       socket?.off('visit_confirmed', handleVisitConfirmed);
       socket?.off('visit_created', handleVisitCreated);
+      socket?.off('tenant_interest_confirmed', handleInterestConfirmed);
+      socket?.off('refresh_interests');
       socket?.off('notification', handleGenericNotification);
     };
   }, [tenant?.id]);
@@ -360,14 +393,20 @@ export default function TenantAccountPage({
     loadTimelineData();
   }, [tenant.id]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('verified_tenant');
     localStorage.removeItem('prompt_tenant_preferences');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    if (logout) logout();
+    if (logout) {
+      try {
+        await logout();
+      } catch (e) {
+        console.error('Logout error:', e);
+      }
+    }
     toast.info('Logged out of tenant account');
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const fmtINR = (val: number | string) => {
@@ -837,19 +876,23 @@ export default function TenantAccountPage({
 
   const handleUpdateTenant = async (formData: any) => {
     try {
-      const { profile_image, ...tenantData } = formData;
+      const { profile_image, profile_photo, ...tenantData } = formData;
+      const photo = profile_photo || profile_image;
       await tenantAPI.update(tenant.id, tenantData);
       const updatedTenant = {
         ...tenant,
         ...formData,
+        profile_photo: photo || tenant.profile_photo || tenant.profile_image,
+        profile_image: photo || tenant.profile_image || tenant.profile_photo,
         name:
           formData.name ||
-          `${formData.first_name || ''} ${formData.last_name || ''}`.trim(),
+          `${formData.first_name || ''} ${formData.last_name || ''}`.trim() ||
+          tenant.name,
       };
-      if (profile_image) {
+      if (photo) {
         localStorage.setItem(
           `tenant_profile_image_${tenant.id}`,
-          profile_image
+          photo
         );
       }
       setTenant(updatedTenant);
@@ -1034,14 +1077,14 @@ export default function TenantAccountPage({
                 className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-gray-200"
               >
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-500 to-rose-600 text-white flex items-center justify-center font-black text-xs shadow-2xs overflow-hidden">
-                  {tenant.profile_image ? (
+                  {tenant.profile_photo || tenant.profile_image ? (
                     <img
-                      src={tenant.profile_image}
+                      src={tenant.profile_photo || tenant.profile_image}
                       alt="Tenant profile"
                       className="h-full w-full rounded-xl object-cover"
                     />
                   ) : (
-                    tenant.name?.charAt(0)?.toUpperCase() || 'T'
+                    getTenantInitials(tenant.name || 'Tenant')
                   )}
                 </div>
                 <div className="hidden sm:flex flex-col text-left leading-tight">
@@ -1227,6 +1270,7 @@ export default function TenantAccountPage({
               visits={visits}
               onScheduleVisit={() => handleOpenScheduleVisit()}
               onRefresh={loadTimelineData}
+              tenant={tenant}
             />
           )}
 

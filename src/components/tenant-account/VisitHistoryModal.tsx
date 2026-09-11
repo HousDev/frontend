@@ -2,7 +2,7 @@ import React from 'react';
 import {
   X, Calendar, Clock, MapPin, CheckCircle2, AlertCircle, Building2,
   Users, MessageSquare, ExternalLink, XCircle, ArrowRight, Star,
-  Phone, Sparkles, ShieldCheck, ChevronRight, RefreshCw, Eye
+  Phone, History, ShieldCheck, ChevronRight, RefreshCw, Eye, HeartHandshake
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { parseVisitDate, formatVisitTime } from './TenantSiteVisitsTab';
@@ -68,6 +68,38 @@ export default function VisitHistoryModal({
       'Requested Slot': formattedTime,
     },
   });
+
+  // 1.5 Tenancy Interest Request Event (if present)
+  const interestStatus = visit.interest_status || visit.interestStatus || (visit.has_interest ? 'PENDING' : null);
+  if (interestStatus || visit.has_interest) {
+    const isOwnerConfirmed = interestStatus === 'OWNER_CONFIRMED' || interestStatus === 'PROPERTY_SELECTED';
+    const isAccepted = interestStatus === 'TENANT_ACCEPTED';
+    const isDeclinedReq = interestStatus === 'TENANT_DECLINED' || interestStatus === 'OWNER_REJECTED';
+
+    timelineEvents.push({
+      title: isAccepted
+        ? 'Lease Agreement Initiated'
+        : isOwnerConfirmed
+        ? 'Owner Approved Tenancy'
+        : isDeclinedReq
+        ? 'Tenancy Request Closed'
+        : 'Tenancy Interest Expressed',
+      description: isAccepted
+        ? 'Tenant accepted owner confirmation. Property moved to Active Lease.'
+        : isOwnerConfirmed
+        ? 'Owner confirmed tenant application! Ready for token advance & lease agreement.'
+        : isDeclinedReq
+        ? 'Interest request concluded.'
+        : 'Tenant expressed interest and submitted tenancy application for this property.',
+      timestamp: visit.interest_date || (visit.created_at ? new Date(visit.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Interest Logged'),
+      type: isAccepted || isOwnerConfirmed ? 'success' : isDeclinedReq ? 'error' : 'info',
+      icon: HeartHandshake,
+      details: {
+        'Application Status': isAccepted ? 'Tenant Accepted & Linked' : isOwnerConfirmed ? 'Owner Confirmed' : 'Interest Pending',
+        'Match Score': visit.match_score ? `${visit.match_score}% Match` : 'Calculated',
+      },
+    });
+  }
 
   // 2. Reschedule History Logs (if present)
   let parsedReschedules: any[] = [];
@@ -202,7 +234,7 @@ export default function VisitHistoryModal({
 
           <div className="flex items-center gap-1.5 mb-1">
             <span className="px-2 py-0.2 rounded-full bg-white/15 backdrop-blur-md text-orange-300 font-bold text-[9.5px] border border-white/20 flex items-center gap-1">
-              <Sparkles size={9} className="text-orange-400" />
+              <History size={9} className="text-orange-400" />
               <span>Visit History Audit</span>
             </span>
             {visit.rental_property_id && (

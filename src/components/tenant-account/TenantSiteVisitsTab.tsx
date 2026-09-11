@@ -7,6 +7,7 @@ import {
 import { SiWhatsapp } from 'react-icons/si';
 import { toast } from 'react-toastify';
 import { tenantVisitAPI } from '@/lib/tenantVisitAPI';
+import { tenantAPI } from '@/lib/tenantAPI';
 import VisitHistoryModal from './VisitHistoryModal';
 
 // Helper for exact date parsing in local timezone (IST) without 1-day UTC drift
@@ -83,6 +84,35 @@ export function formatVisitTime(timeStr: string | null | undefined): string {
   return clean;
 }
 
+// Helper: Derive slot label + color from a time string
+export function getSlotMeta(timeStr: string | null | undefined): { label: string; icon: string; color: string; bg: string; border: string } {
+  const t = String(timeStr || '').toLowerCase();
+  if (t.includes('morning') || /^(0?[6-9]|10|11):(\d{2})/.test(t)) {
+    return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
+  }
+  if (t.includes('afternoon') || /^(1[2-6]):(\d{2})/.test(t)) {
+    return { label: 'Afternoon', icon: '☀️', color: 'text-orange-800', bg: 'bg-orange-50', border: 'border-orange-200' };
+  }
+  if (t.includes('evening') || /^(1[7-9]|20):(\d{2})/.test(t)) {
+    return { label: 'Evening', icon: '🌆', color: 'text-indigo-800', bg: 'bg-indigo-50', border: 'border-indigo-200' };
+  }
+  if (t.includes('weekend')) {
+    return { label: 'Weekend', icon: '📅', color: 'text-purple-800', bg: 'bg-purple-50', border: 'border-purple-200' };
+  }
+  return { label: 'Slot', icon: '🕐', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' };
+}
+
+// Helper: Extract time range display from slot string like "Afternoon (02:00 PM - 05:00 PM)"
+export function getSlotTimeRange(timeStr: string | null | undefined): string {
+  if (!timeStr) return '';
+  const s = String(timeStr).trim();
+  // Extract range if present e.g. "(02:00 PM - 05:00 PM)"
+  const rangeMatch = s.match(/\(([^)]+)\)/);
+  if (rangeMatch) return rangeMatch[1];
+  // Just return formatted time if no range
+  return formatVisitTime(s);
+}
+
 // Helper to accurately parse visit date and time into a Date object in local timezone
 export function parseVisitDateTime(dateInput: any, timeInput: any): Date | null {
   if (!dateInput) return null;
@@ -157,9 +187,10 @@ interface TenantSiteVisitsTabProps {
   visits: any[];
   onScheduleVisit: () => void;
   onRefresh?: () => void;
+  tenant?: any; // Tenant object with id, profile fields etc.
 }
 
-export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleVisit, onRefresh }: TenantSiteVisitsTabProps) {
+export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleVisit, onRefresh, tenant }: TenantSiteVisitsTabProps) {
   const [localVisits, setLocalVisits] = useState<any[]>(initialVisits || []);
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed'>('all');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
@@ -462,9 +493,28 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
           prev.map((v) => (v.id === activeFeedbackVisit.id ? { ...v, ...payload } : v))
         );
 
+        if (completionStatus === 'Completed' && interestedStatus === 'interested' && tenant?.id && (activeFeedbackVisit.rental_property_id || activeFeedbackVisit.property_id)) {
+          try {
+            const propId = activeFeedbackVisit.rental_property_id || activeFeedbackVisit.property_id;
+            await tenantAPI.sendInterest({
+              tenant_id: tenant.id,
+              rental_property_id: propId,
+              owner_id: activeFeedbackVisit.owner_id || null,
+              message: visitFeedbackText.trim() || 'Liked the flat after site visit, interested in proceeding!',
+            });
+            toast.success('🎉 Application & Interest request sent to property owner!');
+          } catch (intErr: any) {
+            if (intErr?.response?.data?.requiresProfileCompletion) {
+              toast.warning('⚠️ Please complete your profile before sending your interest request to the landlord!');
+            } else {
+              console.warn('Auto send interest note:', intErr?.message);
+            }
+          }
+        }
+
         toast.success(
           completionStatus === 'Completed'
-            ? (interestedStatus === 'interested' ? '🏠 Visit Completed! Interest noted — we\'ll help you reserve.' : 'Visit marked as Completed!')
+            ? (interestedStatus === 'interested' ? '🏠 Visit Completed! Interest recorded & landlord notified.' : 'Visit marked as Completed!')
             : 'Visit marked as Missed.'
         );
       }
@@ -996,6 +1046,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
           {filteredVisits.map((v: any, idx: number) => {
             const { dateStr, dayName, dayNum, monthShort } = parseVisitDate(v.visit_date);
             const formattedTime = formatVisitTime(v.visit_time);
+            const slotMeta = getSlotMeta(v.visit_time);
+            const slotRange = getSlotTimeRange(v.visit_time);
             const isSelected = selectedVisitIds.includes(v.id);
 
             const status = v.status || 'Scheduled';
@@ -1082,9 +1134,11 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                       </div>
 
                       <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
-                        <span className="flex items-center gap-1 font-semibold text-slate-800">
-                          <Clock size={11} className="text-emerald-600" />
-                          <span>{formattedTime}</span>
+                        {/* Slot chip */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-bold text-[10px] ${slotMeta.bg} ${slotMeta.color} ${slotMeta.border}`}>
+                          <Clock size={9} />
+                          <span>{slotMeta.icon} {slotMeta.label}</span>
+                          {slotRange && <span className="font-normal opacity-80">· {slotRange}</span>}
                         </span>
                         <span>•</span>
                         <span className="font-medium text-slate-600">{dayName}, {dateStr}</span>

@@ -5,6 +5,7 @@ export interface Tenant {
   first_name?: string;
   last_name?: string;
   profile_image?: string;
+  profile_photo?: string;
   email: string;
   phone: string;
   whatsapp?: string;
@@ -22,6 +23,7 @@ export interface Tenant {
   rental_property_id?: number | string | null;
   property_title?: string;
   owner_name?: string;
+  kyc_verified_at?: string;
   assigned_to?: number | string;
   assigned_to_name?: string;
   occupation_type?: string;
@@ -42,6 +44,7 @@ export interface Tenant {
 export type InterestStatus =
   | 'PENDING'
   | 'OWNER_CONFIRMED'
+  | 'OWNER_OFFERED'
   | 'OWNER_REJECTED'
   | 'TENANT_ACCEPTED'
   | 'TENANT_DECLINED'
@@ -130,20 +133,20 @@ export interface MaintenanceTicket {
   ticketNo: string;
   title: string;
   category:
-    | "Plumbing"
-    | "Electrical"
-    | "Appliance"
-    | "Pest Control"
-    | "Painting"
-    | "Carpentry"
-    | "General";
+  | "Plumbing"
+  | "Electrical"
+  | "Appliance"
+  | "Pest Control"
+  | "Painting"
+  | "Carpentry"
+  | "General";
   priority: "Low" | "Medium" | "High" | "Emergency";
   description: string;
   status:
-    | "Pending Approval"
-    | "Technician Assigned"
-    | "In Progress"
-    | "Completed";
+  | "Pending Approval"
+  | "Technician Assigned"
+  | "In Progress"
+  | "Completed";
   createdAt: string;
   technicianName?: string;
   estimatedCost?: number;

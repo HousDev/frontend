@@ -151,6 +151,15 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
       const propId = property?.id || propertyProp?.id;
       if (!propId) return;
 
+      // Check if anyone is actually logged in — no login = no Reschedule button
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('tenantToken');
+      const isLoggedIn = Boolean(activeTenantId || token);
+
+      if (!isLoggedIn) {
+        setExistingScheduledVisit(null);
+        return;
+      }
+
       try {
         if (activeTenantId) {
           const list = await tenantVisitAPI.getByTenantId(activeTenantId).catch(() => []);
@@ -165,12 +174,17 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
       } catch { }
 
       try {
+        // Only use localStorage visits if user is logged in
         const stored = JSON.parse(localStorage.getItem('tenant_scheduled_visits') || '[]');
         const found = stored.find((v: any) => String(v.rental_property_id || v.property_id) === String(propId));
         if (found) {
           setExistingScheduledVisit(found);
+        } else {
+          setExistingScheduledVisit(null);
         }
-      } catch { }
+      } catch {
+        setExistingScheduledVisit(null);
+      }
     };
 
     checkExistingVisit();
