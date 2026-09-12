@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, MessageCircle, Phone, Mail, User, Target, Search, Send, ChevronDown, ChevronUp, Loader2, Flame } from 'lucide-react';
+import { Users, MessageCircle, Phone, Mail, User, Target, Search, Send, ChevronDown, ChevronUp, Loader2, Flame, Building2 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import { api } from '@/lib/api';
@@ -387,7 +387,7 @@ const BuyersTab: React.FC<BuyersTabProps> = ({
                                 </>
                               );
                             })()}
-                            <span>🏢 {buyer.displayBHK}</span>
+                            <span className="inline-flex items-center gap-1"><Building2 size={12} className="text-slate-500" /> {buyer.displayBHK}</span>
                             {(() => {
                               let req = buyer.requirements;
                               if (typeof req === 'string') { try { req = JSON.parse(req); } catch { req = {}; } }

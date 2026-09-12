@@ -31,6 +31,9 @@ import {
   FileCode,
   FileJson,
   AlertTriangle,
+  PhoneCall,
+  Calendar,
+  ArrowRight,
 } from "lucide-react";
 import type {
   Entity,
@@ -45,7 +48,7 @@ import type {
   Stage,
   Status,
 } from "@/lib/types";
-import { upsertMaster, updateMaster, deleteMaster } from "@/lib/engine";
+import { upsertMaster, updateMaster, deleteMaster, autoInferNextActionsFromMasters } from "@/lib/engine";
 import {
   exportTabToExcel,
   exportAllModulesToExcel,
@@ -134,6 +137,37 @@ export const DEFAULT_RULE_FOLLOW_UP_TYPES = [
   { code: "VIDEO_CALL", name: "Video Call" },
   { code: "OTHER", name: "Other" },
 ];
+
+const getSeqChannelConfig = (typeCodeOrName: string = "") => {
+  const t = String(typeCodeOrName).toLowerCase();
+  if (t.includes("phone") || t.includes("call")) {
+    return { icon: PhoneCall, label: "Phone Call", bgClass: "channel-badge-call" };
+  }
+  if (t.includes("whatsapp") || t.includes("wa") || t.includes("chat")) {
+    return { icon: MessageCircle, label: "WhatsApp", bgClass: "channel-badge-wa" };
+  }
+  if (t.includes("email") || t.includes("mail")) {
+    return { icon: Mail, label: "Email", bgClass: "channel-badge-email" };
+  }
+  if (t.includes("meet") || t.includes("visit") || t.includes("site")) {
+    return { icon: Calendar, label: typeCodeOrName || "Meeting", bgClass: "channel-badge-meeting" };
+  }
+  return { icon: Clock, label: typeCodeOrName || "Task", bgClass: "channel-badge-default" };
+};
+
+const getSeqPriorityConfig = (priorityCode: string = "") => {
+  const p = String(priorityCode).toUpperCase();
+  if (p === "URGENT") {
+    return { label: "URGENT", bgClass: "prio-urgent", dotClass: "prio-dot-urgent" };
+  }
+  if (p === "HIGH") {
+    return { label: "HIGH", bgClass: "prio-high", dotClass: "prio-dot-high" };
+  }
+  if (p === "MEDIUM") {
+    return { label: "MEDIUM", bgClass: "prio-medium", dotClass: "prio-dot-medium" };
+  }
+  return { label: p || "LOW", bgClass: "prio-low", dotClass: "prio-dot-low" };
+};
 
 export const DEFAULT_RULE_STAGES = [
   { code: "NEW", name: "New" },
@@ -517,16 +551,20 @@ export function MastersAdmin({ master, onChanged }: Props) {
 
   const filteredNextActions = useMemo(() => {
     let list = master.nextActions;
+    if (entityFilter !== "All") {
+      list = list.filter((a) => (a.entity_code || "").toUpperCase() === entityFilter.toUpperCase());
+    }
     if (query) {
       const q = query.toLowerCase();
       list = list.filter(
         (a) =>
           (a.name || "").toLowerCase().includes(q) ||
-          (a.code || "").toLowerCase().includes(q),
+          (a.code || "").toLowerCase().includes(q) ||
+          (a.entity_code || "").toLowerCase().includes(q),
       );
     }
     return list;
-  }, [master.nextActions, query]);
+  }, [master.nextActions, entityFilter, query]);
 
   const filteredPriorities = useMemo(() => {
     let list = master.priorities;
@@ -1176,7 +1214,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                 flex: 1,
               }}
             >
-              {(tab === "types" || tab === "stages" || tab === "statuses") && (
+              {(tab === "types" || tab === "stages" || tab === "statuses" || tab === "actions") && (
                 <div className="pill-group entity-pill-group">
                   {["All", "LEAD", "BUYER", "SELLER"].map((code) => {
                     const isSelected = entityFilter === code;
@@ -1235,6 +1273,38 @@ export function MastersAdmin({ master, onChanged }: Props) {
               >
                 <Plus size={16} /> Add {singularMap[tab]}
               </button>
+
+              {tab === "actions" && (
+                <button
+                  type="button"
+                  className="btn-white-secondary"
+                  style={{ borderColor: "#3b82f6", color: "#1d4ed8", fontWeight: 600 }}
+                  onClick={async () => {
+                    try {
+                      setModuleBusy(true);
+                      const updatedActions = autoInferNextActionsFromMasters(master);
+                      for (const action of updatedActions) {
+                        await updateMaster("fu_next_actions", action.id, {
+                          entity_code: action.entity_code || null,
+                          visible_from_step: action.visible_from_step ?? 1,
+                          visible_to_step: action.visible_to_step ?? null,
+                        });
+                      }
+                      toast.success("Successfully auto-inferred Next Actions from Sequences & Rules! ⚡");
+                      onChanged();
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("Failed to auto-infer Next Actions.");
+                    } finally {
+                      setModuleBusy(false);
+                    }
+                  }}
+                  disabled={moduleBusy}
+                  title="Scan sequences and rules to automatically populate entity codes and step ranges"
+                >
+                  <Zap size={15} style={{ color: "#2563eb" }} /> Auto-Infer from Sequences
+                </button>
+              )}
             </div>
 
             <div
@@ -1523,142 +1593,192 @@ export function MastersAdmin({ master, onChanged }: Props) {
 
       {/* ==================== TAB 2: SEQUENCES ==================== */}
       {tab === "sequences" && (
-        <div className="sequences-grid">
-          {filteredSequenceNames.map((seqName) => {
-            const steps = master.sequences
-              .filter((s) => s.sequence_name === seqName)
-              .sort((a, b) => a.step - b.step);
-            const activeCount = steps.filter((s) => s.is_active).length;
-            const terminalCount = steps.filter((s) => s.terminal_step).length;
-            const totalSpan = steps.reduce((sum, s) => sum + s.after_days, 0);
+        <div className="sequences-grid-modern">
+          {filteredSequenceNames.length === 0 ? (
+            <div className="sequences-empty-state">
+              <div className="empty-icon-wrap">
+                <Search size={28} />
+              </div>
+              <h4>No Sequences Found</h4>
+              <p>No sequences match your current search "{query}".</p>
+              {query && (
+                <button className="btn-clear-query" onClick={() => setQuery("")}>
+                  Clear search
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredSequenceNames.map((seqName) => {
+              const steps = master.sequences
+                .filter((s) => s.sequence_name === seqName)
+                .sort((a, b) => a.step - b.step);
+              const activeCount = steps.filter((s) => s.is_active).length;
+              const terminalCount = steps.filter((s) => s.terminal_step).length;
+              const totalSpan = steps.reduce((sum, s) => sum + s.after_days, 0);
 
-            return (
-              <div className="seq-card" key={seqName}>
-                <div className="seq-card-header">
-                  <div className="seq-header-left">
-                    <div className="seq-icon-box">
-                      <Zap size={18} />
+              return (
+                <div className="seq-card-modern" key={seqName}>
+                  {/* Card Header */}
+                  <div className="seq-card-header-modern">
+                    <div className="seq-header-left-modern">
+                      <div className="seq-icon-badge">
+                        <Zap size={15} />
+                      </div>
+                      <div className="seq-title-meta">
+                        <div className="seq-title-row">
+                          <h3 className="seq-name-heading">{seqName.replace(/_/g, " ")}</h3>
+                          {terminalCount > 0 && (
+                            <span className="terminal-badge-modern">
+                              <span className="terminal-pulsing-dot" />
+                              {terminalCount} TERMINAL
+                            </span>
+                          )}
+                        </div>
+                        <div className="seq-meta-pills">
+                          <span className="seq-meta-tag">
+                            <span className="meta-val">{steps.length}</span> steps
+                          </span>
+                          <span className="seq-meta-dot">•</span>
+                          <span className="seq-meta-tag">
+                            <span className="meta-val active-green">{activeCount}</span> active
+                          </span>
+                          <span className="seq-meta-dot">•</span>
+                          <span className="seq-meta-tag">
+                            <Clock size={11} className="inline mr-1 text-slate-400" />
+                            <span className="meta-val">{totalSpan}d</span> span
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="seq-title-group">
-                      <strong>{seqName.replace(/_/g, " ")}</strong>
-                      <span>
-                        {steps.length} steps · {activeCount} active ·{" "}
-                        {totalSpan}d total span
-                      </span>
-                    </div>
-                  </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    {terminalCount > 0 && (
-                      <span className="terminal-pill-badge">
-                        {terminalCount} TERMINAL
-                      </span>
-                    )}
-                    <div className="seq-header-actions">
+                    <div className="seq-header-actions-modern">
                       <button
+                        className="seq-btn-action export"
                         onClick={() => void handleExportSequence(seqName)}
                         title="Export Sequence"
                       >
-                        <Download size={14} />
+                        <Download size={13} />
                       </button>
                       <button
+                        className="seq-btn-action delete"
                         onClick={() => void handleDeleteEntireSequence(seqName)}
                         title="Delete Entire Sequence"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
-                </div>
 
-                <div className="seq-timeline-container">
-                  {steps.map((s, idx) => {
-                    const isLast = idx === steps.length - 1;
-                    const delayText =
-                      s.after_days === 0 && s.after_hours === 0
-                        ? "immediate"
-                        : `${s.after_days > 0 ? `${s.after_days}d` : ""}${s.after_hours > 0 ? `${s.after_hours}h` : ""}`;
+                  {/* Stepper Body */}
+                  <div className="seq-stepper-body">
+                    {steps.map((s, idx) => {
+                      const isLast = idx === steps.length - 1;
+                      const delayText =
+                        s.after_days === 0 && s.after_hours === 0
+                          ? "immediate"
+                          : `${s.after_days > 0 ? `${s.after_days}d` : ""}${s.after_hours > 0 ? ` ${s.after_hours}h` : ""}`.trim();
+                      const isImmediate = s.after_days === 0 && s.after_hours === 0;
+                      const channelCfg = getSeqChannelConfig(nameFor.type(s.follow_up_type_code));
+                      const priorityCfg = getSeqPriorityConfig(s.priority_code);
+                      const ChannelIcon = channelCfg.icon;
 
-                    return (
-                      <div className="timeline-step-row" key={s.id}>
-                        <div className="timeline-rail">
-                          <div
-                            className={`timeline-circle ${s.terminal_step ? "terminal" : ""}`}
-                          >
-                            {s.step}
+                      return (
+                        <div className={`stepper-item-row ${s.terminal_step ? "is-terminal" : ""}`} key={s.id}>
+                          {/* Rail & Node */}
+                          <div className="stepper-rail">
+                            <div
+                              className={`stepper-node ${s.terminal_step ? "terminal" : isImmediate ? "immediate" : "standard"}`}
+                            >
+                              {s.step}
+                            </div>
+                            {!isLast && <div className="stepper-connector-line" />}
                           </div>
-                          {!isLast && (
-                            <div className="timeline-vertical-line" />
-                          )}
-                        </div>
 
-                        <div className="timeline-step-body">
-                          <div className="step-delay-badges">
-                            <span className="step-delay-pill">{delayText}</span>
-                            {s.terminal_step && (
-                              <span className="step-terminal-pill">
-                                TERMINAL
-                              </span>
+                          {/* Content */}
+                          <div className="stepper-content-box">
+                            <div className="stepper-main-flex">
+                              {/* Left details: Delay + Action Name */}
+                              <div className="stepper-left-info">
+                                <span className={`delay-chip ${isImmediate ? "immediate" : "scheduled"}`}>
+                                  {isImmediate ? (
+                                    <Zap size={10} className="fill-current" />
+                                  ) : (
+                                    <Clock size={10} />
+                                  )}
+                                  {delayText}
+                                </span>
+
+                                <span className="stepper-action-title">
+                                  {nameFor.action(s.action_code)}
+                                </span>
+
+                                {s.terminal_step && (
+                                  <span className="stepper-terminal-badge">
+                                    TERMINAL
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Right details: Channel + Priority + Edit/Delete */}
+                              <div className="stepper-right-info">
+                                <span className={`stepper-channel-tag ${channelCfg.bgClass}`}>
+                                  <ChannelIcon size={11} />
+                                  <span>{nameFor.type(s.follow_up_type_code)}</span>
+                                </span>
+
+                                <span className={`stepper-priority-tag ${priorityCfg.bgClass}`}>
+                                  <span className={`prio-dot ${priorityCfg.dotClass}`} />
+                                  <span>{s.priority_code}</span>
+                                </span>
+
+                                <div className="stepper-micro-actions">
+                                  <button
+                                    className="micro-btn edit"
+                                    onClick={() => {
+                                      setEditingSequence(s);
+                                      setShowSequenceForm(true);
+                                    }}
+                                    title="Edit Step"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                  <button
+                                    className="micro-btn delete"
+                                    onClick={() => void handleDeleteSequence(s.id)}
+                                    title="Delete Step"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Subnote: Next Status / Reason */}
+                            {(s.next_status_code || s.reason_code) && (
+                              <div className="stepper-subnote-line">
+                                <ArrowRight size={10} className="subnote-icon" />
+                                {s.next_status_code && (
+                                  <span className="subnote-text">
+                                    <strong className="subnote-label">Status:</strong> {nameFor.status(s.next_status_code)}
+                                  </span>
+                                )}
+                                {s.next_status_code && s.reason_code && <span className="subnote-bullet">•</span>}
+                                {s.reason_code && (
+                                  <span className="subnote-text">
+                                    <strong className="subnote-label">Reason:</strong> {nameFor.reason(s.reason_code)}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
-
-                          <div className="step-main-line">
-                            <div className="step-action-title-group">
-                              <span className="step-action-name">
-                                {nameFor.action(s.action_code)}
-                              </span>
-                              <span className="step-type-pill">
-                                {nameFor.type(s.follow_up_type_code)}
-                              </span>
-                              <span
-                                className={`step-priority-pill ${(s.priority_code || "").toLowerCase()}`}
-                              >
-                                {s.priority_code}
-                              </span>
-                            </div>
-
-                            <div className="step-row-actions">
-                              <button
-                                onClick={() => {
-                                  setEditingSequence(s);
-                                  setShowSequenceForm(true);
-                                }}
-                                title="Edit"
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              <button
-                                className="del"
-                                onClick={() => void handleDeleteSequence(s.id)}
-                                title="Delete"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-
-                          {(s.next_status_code || s.reason_code) && (
-                            <div className="step-subnote">
-                              {s.next_status_code &&
-                                `→ ${nameFor.status(s.next_status_code)}`}
-                              {s.reason_code &&
-                                ` · ${nameFor.reason(s.reason_code)}`}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       )}
 
@@ -2303,9 +2423,7 @@ export function MastersAdmin({ master, onChanged }: Props) {
                       title="Select All"
                     >
                       {filteredNextActions.length > 0 &&
-                      filteredNextActions.every((a) =>
-                        selectedIds.has(a.id),
-                      ) ? (
+                      filteredNextActions.every((a) => selectedIds.has(a.id)) ? (
                         <CheckSquare size={16} />
                       ) : (
                         <Square size={16} />
@@ -2315,6 +2433,8 @@ export function MastersAdmin({ master, onChanged }: Props) {
                   <th style={{ width: "44px", textAlign: "center" }}>#</th>
                   <th>NAME</th>
                   <th>CODE</th>
+                  <th>ENTITY</th>
+                  <th>STEP RANGE</th>
                   <th>ORDER</th>
                   <th>ACTIVE</th>
                   <th style={{ width: "80px" }} />
@@ -2323,6 +2443,8 @@ export function MastersAdmin({ master, onChanged }: Props) {
               <tbody>
                 {filteredNextActions.map((a, index) => {
                   const isChecked = selectedIds.has(a.id);
+                  const fromStep = a.visible_from_step ?? 1;
+                  const toStep = a.visible_to_step ?? "∞";
                   return (
                     <tr key={a.id}>
                       <td>
@@ -2343,6 +2465,16 @@ export function MastersAdmin({ master, onChanged }: Props) {
                       </td>
                       <td>
                         <span className="code-purple-mono">{a.code}</span>
+                      </td>
+                      <td>
+                        <span className="entity-pill-badge">
+                          {a.entity_code ? nameFor.entity(a.entity_code) : "All Entities"}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "6px", background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" }}>
+                          Step {fromStep} - {toStep}
+                        </span>
                       </td>
                       <td>
                         <span className="order-slate-text">
@@ -4687,6 +4819,23 @@ function MasterItemModal({
                     />
                   </div>
                   <div className="field">
+                    <label>Entity</label>
+                    <div className="select-wrap">
+                      <select
+                        value={(form.entity_code as string) ?? ""}
+                        onChange={(e) => update("entity_code", e.target.value)}
+                      >
+                        <option value="">Generic / All Entities</option>
+                        {distinctEntities.map((ent) => (
+                          <option key={ent.code} value={ent.code}>
+                            {ent.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} />
+                    </div>
+                  </div>
+                  <div className="field">
                     <label>Follow-up type</label>
                     <div className="select-wrap">
                       <select
@@ -4695,7 +4844,7 @@ function MasterItemModal({
                           update("follow_up_type_code", e.target.value)
                         }
                       >
-                        <option value="">Generic / All</option>
+                        <option value="">Generic / All Types</option>
                         {distinctFollowUpTypes.map((t) => (
                           <option key={t.code} value={t.code}>
                             {t.name}
@@ -4704,6 +4853,29 @@ function MasterItemModal({
                       </select>
                       <ChevronDown size={14} />
                     </div>
+                  </div>
+                  <div className="field">
+                    <label>Visible From Step</label>
+                    <input
+                      type="number"
+                      value={(form.visible_from_step as number) ?? 1}
+                      onChange={(e) =>
+                        update("visible_from_step", Number(e.target.value))
+                      }
+                      min={1}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Visible To Step (Optional)</label>
+                    <input
+                      type="number"
+                      value={(form.visible_to_step as number) ?? ""}
+                      onChange={(e) =>
+                        update("visible_to_step", e.target.value ? Number(e.target.value) : null)
+                      }
+                      placeholder="Leave empty for all steps"
+                      min={1}
+                    />
                   </div>
                   <div className="field">
                     <label>Display order</label>

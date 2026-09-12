@@ -49,6 +49,15 @@ import {
   Search,
   X,
   UserCheck,
+  Building2,
+  CalendarClock,
+  CalendarCheck,
+  MessageSquareText,
+  MessageSquareQuote,
+  MailCheck,
+  PencilLine,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 
 import SellerStageUpdateModal from "./SellerStageUpdateModal";
@@ -460,16 +469,20 @@ const getFieldConfig = () => ({
 });
 
 const typeIcon = (t?: string | null) => {
-  switch (t) {
-    case "Phone Call":
-      return <Phone size={12} className="text-blue-600" />;
-    case "WhatsApp":
-      return <MessageCircle size={12} className="text-green-600" />;
-    case "Email":
-      return <Mail size={12} className="text-indigo-600" />;
-    default:
-      return <Tag size={12} className="text-gray-500" />;
+  const norm = (t || '').toLowerCase();
+  if (norm.includes('call') || norm.includes('phone')) {
+    return <PhoneCall size={12} className="text-blue-600" />;
   }
+  if (norm.includes('whatsapp')) {
+    return <MessageSquareText size={12} className="text-emerald-600" />;
+  }
+  if (norm.includes('email') || norm.includes('mail')) {
+    return <MailCheck size={12} className="text-sky-600" />;
+  }
+  if (norm.includes('visit') || norm.includes('meeting')) {
+    return <CalendarCheck size={12} className="text-purple-600" />;
+  }
+  return <Sparkles size={12} className="text-amber-500" />;
 };
 
 const statusBadge = (s?: string | null) => {
@@ -731,7 +744,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
           if (Array.isArray(raw) && raw.length > 0) {
             list = raw;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         if (list.length === 0 && usersAPI.getSalesExecutives) {
           try {
@@ -740,13 +753,13 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
             if (Array.isArray(rawExec) && rawExec.length > 0) {
               list = rawExec;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         if (mounted && list.length > 0) {
           setCrmUsers(list);
         }
-      } catch (err) {}
+      } catch (err) { }
     };
     loadUsers();
     return () => { mounted = false; };
@@ -801,8 +814,8 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
     if (strVal && strVal !== 'System' && !strVal.toLowerCase().includes('system') && strVal.toLowerCase() !== 'admin') {
       const match = crmUsers.find(
         (u) => String(u.id) === strVal ||
-               (u.name && u.name.toLowerCase() === strVal.toLowerCase()) ||
-               (u.username && u.username.toLowerCase() === strVal.toLowerCase())
+          (u.name && u.name.toLowerCase() === strVal.toLowerCase()) ||
+          (u.username && u.username.toLowerCase() === strVal.toLowerCase())
       );
       if (match) {
         const role = String(match.role || '').toLowerCase();
@@ -909,38 +922,66 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1.5">
+      {/* Premium follow-up toolbar */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-2.5 shadow-[0_8px_30px_rgba(15,43,61,0.06)] backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+            <button
+              onClick={() => setActiveTab("sales")}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-semibold transition-all ${activeTab === "sales"
+                  ? "bg-white text-[#0f2b3d] shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-500 hover:bg-white/70 hover:text-slate-700"
+                }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${activeTab === "sales" ? "bg-blue-600" : "bg-slate-300"}`} />
+              Seller Follow-ups
+              {salesCount > 0 && (
+                <span className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[9px] ${activeTab === "sales" ? "bg-[#0f2b3d] text-white" : "bg-slate-200 text-slate-600"}`}>
+                  {salesCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("presales")}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-semibold transition-all ${activeTab === "presales"
+                  ? "bg-white text-[#0f2b3d] shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-500 hover:bg-white/70 hover:text-slate-700"
+                }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${activeTab === "presales" ? "bg-violet-500" : "bg-slate-300"}`} />
+              Pre-Sales History
+              {presalesCount > 0 && (
+                <span className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[9px] ${activeTab === "presales" ? "bg-[#0f2b3d] text-white" : "bg-slate-200 text-slate-600"}`}>
+                  {presalesCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveTab("sales")}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all text-[11px] ${activeTab === "sales" ? "bg-blue-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            onClick={() => {
+              if (!canCreate) {
+                toast.error("No permission to create");
+                return;
+              }
+              onAddFollowup();
+            }}
+            className={`group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[11px] font-semibold transition-all ${canCreate
+                ? "bg-[#0f2b3d] text-white shadow-[0_6px_18px_rgba(15,43,61,0.18)] hover:-translate-y-0.5 hover:bg-[#163b54]"
+                : "cursor-not-allowed bg-slate-100 text-slate-400"
+              }`}
           >
-            Seller Follow-ups {salesCount > 0 && `(${salesCount})`}
-          </button>
-          <button
-            onClick={() => setActiveTab("presales")}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all text-[11px] ${activeTab === "presales" ? "bg-purple-600 text-white shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-          >
-            Pre-Sales History {presalesCount > 0 && `(${presalesCount})`}
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/10">
+              <Plus size={12} />
+            </span>
+            Add Follow-up
           </button>
         </div>
-        <button
-          onClick={() => {
-            if (!canCreate) {
-              toast.error("No permission to create");
-              return;
-            }
-            onAddFollowup();
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${canCreate ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
-        >
-          <Plus size={12} />
-          <span>Add Follow-up</span>
-        </button>
       </div>
 
       {filteredFollowups.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        /* 3 cards per row on large/XL desktop screens */
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredFollowups.map((f, i) => {
             const idKey = (f.id ?? `f-${i}`).toString();
             const fAny = f as any;
@@ -967,7 +1008,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
             const stageVal = rawStage ? String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
             const rawStatus = f.buyerLeadStatus || (f as any).seller_lead_status || (f as any).status || null;
             const statusVal = rawStatus ? String(rawStatus).replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : null;
-            
+
             const rawCustom = f.customRemark || (f as any).custom_remark || '';
             const rawRemark = (f as any).remark || (f as any).outcome || f.notes || '';
             const outcomeVal = (rawCustom && rawCustom.trim().length > 0) ? rawCustom : (rawRemark && rawRemark.trim().length > 0 ? rawRemark : null);
@@ -999,148 +1040,248 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
             const rawAssignedByName = resolveAdminOrAssignerFullName(fAny, seller);
             const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
+            const followupType = f.followupType || f.followup_type || f.type || 'Phone Call';
+            const priorityLabel = f.priority ? String(f.priority) : 'Normal';
+            const prioritySlug = toSlug(f.priority);
+            const priorityDot =
+              prioritySlug === 'urgent' || prioritySlug === 'high' ? 'bg-red-500' :
+                prioritySlug === 'medium' ? 'bg-amber-500' :
+                  prioritySlug === 'low' ? 'bg-emerald-500' : 'bg-slate-400';
+
             return (
-              <div key={idKey} className="h-full">
-                <div
-                  className={`h-full bg-white rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all border-l-4 ${cardBorder(f.priority ?? undefined)}`}
-                >
-                  {/* Top Bar: Channel Badge, Stage, Status, Priority, Action Buttons */}
-                  <div className="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-gray-100 flex-wrap">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-orange-100 text-orange-800 flex items-center gap-1">
-                        {typeIcon(f.followupType || f.followup_type || f.type || undefined)}
-                        <span>{f.followupType || f.followup_type || f.type || 'Phone Call'}</span>
-                      </span>
+              <article
+                key={idKey}
+                className="group relative flex h-full min-h-[250px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_6px_24px_rgba(15,43,61,0.055)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_34px_rgba(15,43,61,0.10)]"
+              >
+                {/* subtle premium top accent — no colored side bars */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent opacity-80" />
 
-                      {stageVal && (
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          Stage: {stageVal}
-                        </span>
-                      )}
-
-                      {statusVal && (
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-                          Status: {statusVal}
-                        </span>
-                      )}
-
-                      {priorityBadge(f.priority ?? undefined)}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => {
-                          if (!canUpdate) {
-                            toast.error("No permission to edit");
-                            return;
-                          }
-                          onEditFollowup(f);
-                        }}
-                        disabled={!canUpdate || f.category === "presales"}
-                        className="p-1.5 rounded-lg hover:bg-orange-50 text-gray-500 hover:text-orange-600 transition-colors disabled:opacity-40"
-                        title={f.category === "presales" ? "Cannot edit pre-sales" : "Edit Follow-up"}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!canDelete) {
-                            toast.error("No permission to delete");
-                            return;
-                          }
-                          onDeleteFollowup(f);
-                        }}
-                        disabled={!canDelete || f.category === "presales"}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-40"
-                        title={f.category === "presales" ? "Cannot delete pre-sales" : "Delete Follow-up"}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="inline-flex h-7 min-w-[42px] items-center justify-center rounded-lg bg-[#0f2b3d] px-2 text-[9px] font-bold tracking-wide text-white shadow-sm">
+                      FU {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-700">
+                      {typeIcon(followupType)}
+                      <span className="truncate">{followupType}</span>
+                    </span>
                   </div>
 
-                  {/* Body Content */}
-                  <div className="space-y-1.5 text-xs">
-                    {/* Outcome & Custom Remark */}
-                    {outcomeVal && (
-                      <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2 text-gray-800">
-                        <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
-                          Outcome / Remarks:
-                        </span>
-                        <p className="text-[11px] leading-relaxed text-gray-700 font-medium whitespace-pre-wrap">
-                          {outcomeVal}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Next Action */}
-                    {f.nextAction && (
-                      <div className="flex items-center gap-2 bg-orange-50/80 border border-orange-200/80 rounded-lg px-2.5 py-1.5 text-xs">
-                        <span className="font-bold text-orange-900 whitespace-nowrap flex items-center gap-1">
-                          ⚡ Next Action:
-                        </span>
-                        <span className="font-semibold text-orange-700 truncate">
-                          {f.nextAction}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Scheduled Date & Time */}
-                    {schedFormatted && (
-                      <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 text-xs text-emerald-900">
-                        <CalendarIcon size={13} className="text-emerald-600 flex-shrink-0" />
-                        <span className="font-medium text-[11px]">Scheduled:</span>
-                        <span className="font-bold text-[11px] text-emerald-700">
-                          {schedFormatted}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Footer Audit Metadata: Created By, Assigned To, Assigned By, Created At, Updated At */}
-                    <div className="pt-2 mt-2 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <UserIcon size={11} className="text-gray-400" />
-                          <span>Created by:</span>
-                          <strong className="text-gray-700 font-semibold">{createdByName}</strong>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span>🎯 Assigned to:</span>
-                          <strong className="text-gray-700 font-semibold">{assignedToName}</strong>
-                        </span>
-                        {assignedByName && (
-                          <span className="flex items-center gap-1">
-                            <span>📌 Assigned by:</span>
-                            <strong className="text-gray-700 font-semibold">{assignedByName}</strong>
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {f.createdAt && (
-                          <span>Created: {fmtDateTimeHuman(f.createdAt)}</span>
-                        )}
-                        {f.updatedAt && f.updatedAt !== f.createdAt && (
-                          <span>Updated: {fmtDateTimeHuman(f.updatedAt)}</span>
-                        )}
-                      </div>
-                    </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (!canUpdate) {
+                          toast.error("No permission to edit");
+                          return;
+                        }
+                        onEditFollowup(f);
+                      }}
+                      disabled={!canUpdate || f.category === "presales"}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 transition-all hover:border-slate-200 hover:bg-slate-50 hover:text-[#0f2b3d] disabled:cursor-not-allowed disabled:opacity-35"
+                      title={f.category === "presales" ? "Cannot edit pre-sales" : "Edit Follow-up"}
+                    >
+                      <PencilLine size={13} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!canDelete) {
+                          toast.error("No permission to delete");
+                          return;
+                        }
+                        onDeleteFollowup(f);
+                      }}
+                      disabled={!canDelete || f.category === "presales"}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 transition-all hover:border-red-100 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-35"
+                      title={f.category === "presales" ? "Cannot delete pre-sales" : "Delete Follow-up"}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
-              </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {stageVal && (
+                    <span className="inline-flex items-center rounded-md border border-indigo-100 bg-indigo-50/80 px-2 py-1 text-[9px] font-semibold text-indigo-700">
+                      Stage · {stageVal}
+                    </span>
+                  )}
+                  {statusVal && (
+                    <span className="inline-flex items-center rounded-md border border-blue-100 bg-blue-50/80 px-2 py-1 text-[9px] font-semibold text-blue-700">
+                      Status · {statusVal}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-semibold text-slate-600">
+                    <span className={`h-1.5 w-1.5 rounded-full ${priorityDot}`} />
+                    {priorityLabel}
+                  </span>
+                </div>
+
+                <div className="my-3 h-px bg-slate-100" />
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  {f.nextAction ? (
+                    <div className="min-w-0 rounded-xl border border-indigo-100 bg-indigo-50/45 p-2.5">
+                      <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-indigo-500">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-indigo-600 shadow-2xs border border-indigo-100">
+                          <Zap size={10} className="text-indigo-600 fill-indigo-600" />
+                        </span>
+                        Next Action
+                      </div>
+                      <p className="truncate text-[11px] font-bold text-slate-800" title={String(f.nextAction)}>
+                        {f.nextAction}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
+                      <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white border border-slate-100">
+                          <Zap size={10} className="text-slate-400" />
+                        </span>
+                        Next Action
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-400">Not set</p>
+                    </div>
+                  )}
+
+                  {schedFormatted ? (
+                    <div className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/45 p-2.5">
+                      <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-emerald-600">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-emerald-600 shadow-2xs border border-emerald-100">
+                          <CalendarClock size={11} className="text-emerald-600" />
+                        </span>
+                        Scheduled
+                      </div>
+                      <p className="truncate text-[11px] font-bold text-slate-800" title={schedFormatted}>
+                        {schedFormatted}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
+                      <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white border border-slate-100">
+                          <CalendarClock size={11} className="text-slate-400" />
+                        </span>
+                        Scheduled
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-400">Not scheduled</p>
+                    </div>
+                  )}
+                </div>
+
+                {outcomeVal && (
+                  <div className="mt-2.5 rounded-xl border border-amber-100 bg-amber-50/45 px-2.5 py-2">
+                    <div className="mb-1 flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                      <span className="flex h-4 w-4 items-center justify-center rounded bg-amber-100/80 text-amber-700">
+                        <MessageSquareQuote size={10} />
+                      </span>
+                      Outcome / Remarks
+                    </div>
+                    <p className="line-clamp-2 text-[10px] font-medium leading-relaxed text-slate-700" title={outcomeVal}>
+                      {outcomeVal}
+                    </p>
+                  </div>
+                )}
+
+                {/* Shortlisted / Attached Properties */}
+                {Boolean((f as any).project || (f as any).siteLocation || (f as any).site_location || fAny.project || fAny.site_location) && (
+                  <div className="mt-2.5 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 to-emerald-50/20 p-2.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-emerald-800">
+                        <Building2 size={12} className="text-emerald-600 shrink-0" />
+                        Shared / Shortlisted Properties
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const sellerName = (seller?.name || "Sir/Madam").trim();
+                          const phone = seller?.phone || (fAny as any).entity_phone || (fAny as any).entityPhone || "";
+                          const cleanPhone = phone.replace(/[^0-9]/g, "");
+                          const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                          const fProj = (f as any).project || fAny.project || "";
+                          const fLoc = (f as any).siteLocation || (f as any).site_location || fAny.site_location || "";
+                          const text = `Hello ${sellerName},\n\nHere are the property details from Resale Expert:\n🏢 *Project:* ${fProj}${fLoc ? `\n📍 *Location:* ${fLoc}` : ""}\n\nPlease let us know if you need any further information.\n\nThank you!`;
+                          const waUrl = finalPhone
+                            ? `https://wa.me/${finalPhone}?text=${encodeURIComponent(text)}`
+                            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+                          window.open(waUrl, "_blank");
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-0.5 text-[8.5px] font-bold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow"
+                        title="Share on WhatsApp"
+                      >
+                        <MessageSquare size={10} />
+                        Share WhatsApp
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      {String((f as any).project || fAny.project || '').split(',').map((pName: string, pIdx: number) => {
+                        const cleanName = pName.trim();
+                        if (!cleanName) return null;
+                        const locParts = String((f as any).siteLocation || (f as any).site_location || fAny.site_location || '').split(',').map((l: string) => l.trim()).filter(Boolean);
+                        const assignedLoc = locParts[pIdx] || locParts[0] || '';
+                        return (
+                          <div
+                            key={pIdx}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2 py-0.5 shadow-xs"
+                          >
+                            <span className="flex items-center gap-1 font-semibold text-slate-800 text-[9.5px]">
+                              <Building2 size={11} className="text-emerald-600 shrink-0" /> {cleanName}
+                            </span>
+                            {assignedLoc && (
+                              <span className="flex items-center gap-0.5 text-emerald-700 font-medium text-[8.5px] bg-emerald-50 px-1 py-0.2 rounded">
+                                <MapPin size={8} className="text-emerald-500" /> {assignedLoc}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-auto pt-3">
+                  <div className="border-t border-dashed border-slate-200 pt-2.5">
+                    <div className="grid grid-cols-1 gap-1.5 text-[9px] text-slate-400">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <UserIcon size={10} className="shrink-0 text-slate-400" />
+                        <span>Created by</span>
+                        <strong className="truncate font-semibold text-slate-600" title={createdByName}>{createdByName}</strong>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <UserCheck size={10} className="shrink-0 text-slate-400" />
+                        <span>Assigned to</span>
+                        <strong className="truncate font-semibold text-slate-600" title={assignedToName}>{assignedToName}</strong>
+                      </div>
+                      {assignedByName && (
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <Share size={10} className="shrink-0 text-slate-400" />
+                          <span>Assigned by</span>
+                          <strong className="truncate font-semibold text-slate-600" title={assignedByName}>{assignedByName}</strong>
+                        </div>
+                      )}
+                    </div>
+                    {(f.createdAt || f.updatedAt) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] text-slate-400">
+                        {f.createdAt && <span>Created {fmtDateTimeHuman(f.createdAt)}</span>}
+                        {f.updatedAt && f.updatedAt !== f.createdAt && <span>Updated {fmtDateTimeHuman(f.updatedAt)}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
             );
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <CalendarIcon size={36} className="mx-auto mb-3 text-gray-300" />
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <CalendarIcon size={22} />
+          </div>
+          <h3 className="mb-1 text-sm font-semibold text-slate-900">
             No {activeTab === "sales" ? "Seller" : "Pre-Sales"} follow-ups yet
           </h3>
-          <p className="text-[11px] text-gray-500 mb-3">
-            {activeTab === "sales"
-              ? "Plan your first seller follow-up"
-              : "Transferred follow-ups appear here"}
+          <p className="mb-4 text-[11px] text-slate-500">
+            {activeTab === "sales" ? "Plan your first seller follow-up" : "Transferred follow-ups appear here"}
           </p>
           {activeTab === "sales" && (
             <button
@@ -1151,7 +1292,7 @@ const SellerFollowupsTab: React.FC<SellerFollowupsTabProps> = ({
                 }
                 onAddFollowup();
               }}
-              className="px-3 py-1.5 text-[11px] rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className="rounded-xl bg-[#0f2b3d] px-4 py-2 text-[11px] font-semibold text-white shadow-sm transition-all hover:bg-[#163b54]"
             >
               Add Follow-up
             </button>
@@ -1218,7 +1359,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const [selectedPropIds, setSelectedPropIds] = useState<string[]>([]);
   const { properties: availableProperties = [], loadingProps } = useProperties({ autoLog: false });
   const sellerRef = React.useRef(seller);
-  useEffect(() => { 
+  useEffect(() => {
     sellerRef.current = seller;
     if (seller) setCurrentSeller((prev: any) => ({ ...prev, ...seller }));
     if (Array.isArray((seller as any)?.followups) && (seller as any).followups.length > 0) {
@@ -1234,7 +1375,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         if (d && typeof d === 'object') {
           setCurrentSeller((prev: any) => ({ ...prev, ...d }));
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [sellerId, (seller as any)?.id]);
 
@@ -1753,7 +1894,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
   const handleLinkProperty = async (property: any) => {
     const propertiesToLink = Array.isArray(property) ? property : [property];
     const currentProps = (seller as any).properties || [];
-    
+
     const updatedProps = [...currentProps];
     let newlyLinkedCount = 0;
 
@@ -2039,29 +2180,61 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
       toast.error("No permission to delete");
       return;
     }
+    const deleteType = f.followupType || f.followup_type || f.type || "Follow-up";
+    const deleteDate = f.scheduleDate || f.followup_date || f.date || null;
+    const deleteTime = f.scheduleTime || f.followup_time || f.time || null;
+    const deleteSchedule = deleteDate
+      ? `${fmtDateDDMMYYYY(parseSqlish(String(deleteDate)) || new Date(String(deleteDate)))}${deleteTime ? ` at ${fmtTime12h(String(deleteTime))}` : ""}`
+      : "No schedule set";
+    const deletePriority = f.priority ? String(f.priority) : "Normal";
+
     const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You are about to delete this follow-up. This action cannot be undone!",
-      icon: "warning",
+      title: "",
+      html: `
+        <div style="font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:left">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+            <div style="width:46px;height:46px;border-radius:14px;background:#fff1f2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid #ffe4e6">⌫</div>
+            <div>
+              <div style="font-size:18px;font-weight:800;color:#0f2b3d;line-height:1.2">Delete follow-up?</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:4px">This action cannot be undone.</div>
+            </div>
+          </div>
+          <div style="border:1px solid #e2e8f0;border-radius:14px;padding:13px;background:#f8fafc;margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+              <span style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.08em">Follow-up</span>
+              <span style="font-size:10px;font-weight:700;color:#0f2b3d;background:#fff;border:1px solid #e2e8f0;padding:5px 8px;border-radius:8px">${deleteType}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:9px">
+                <div style="font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Scheduled</div>
+                <div style="font-size:10px;font-weight:700;color:#334155">${deleteSchedule}</div>
+              </div>
+              <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:9px">
+                <div style="font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">Priority</div>
+                <div style="font-size:10px;font-weight:700;color:#334155">${deletePriority}</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:11px;line-height:1.5;color:#64748b;background:#fff7ed;border:1px solid #fed7aa;border-radius:11px;padding:10px 11px">
+            <strong style="color:#9a3412">Please confirm:</strong> the selected follow-up will be permanently removed from this seller's history.
+          </div>
+        </div>
+      `,
       showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel",
-      background: "#fff",
-      backdrop: `rgba(15, 43, 61, 0.45)`,
-      width: "400px",
-      padding: "1.5rem",
+      confirmButtonText: "Delete Follow-up",
+      cancelButtonText: "Keep Follow-up",
+      background: "#ffffff",
+      backdrop: `rgba(15, 43, 61, 0.55)`,
+      width: "470px",
+      padding: "24px",
       customClass: {
-        popup: "rounded-xl shadow-2xl",
-        title: "text-lg font-bold text-gray-800",
-        htmlContainer: "text-sm text-gray-600 my-2",
-        confirmButton:
-          "px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1",
-        cancelButton:
-          "px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1",
+        popup: "rounded-2xl shadow-2xl border border-slate-200",
+        confirmButton: "!rounded-xl !bg-red-600 !px-4 !py-2.5 !text-[11px] !font-bold !text-white hover:!bg-red-700 !shadow-sm",
+        cancelButton: "!rounded-xl !bg-slate-100 !px-4 !py-2.5 !text-[11px] !font-bold !text-slate-700 hover:!bg-slate-200 !shadow-none",
+        actions: "!gap-2 !mt-4",
       },
       buttonsStyling: false,
+      focusCancel: true,
     });
     if (!result.isConfirmed) return;
     try {
@@ -2082,425 +2255,667 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
 
   const renderOverviewTab = () => {
     const sellerProps = ((seller as any).properties || []) as AnyObj[];
+    const sellerActivities = ((seller as any).activities || []) as AnyObj[];
+    const sellerFollowups = ((seller as any).followups || []) as AnyObj[];
+    const pendingFollowups = sellerFollowups.filter((f: any) => f.status === 'pending' || !f.status);
+
+    const fullAddress = [
+      (seller as any).location,
+      (seller as any).city,
+      (seller as any).state,
+    ]
+      .filter((x) => x && x !== '-' && x !== '—')
+      .join(', ');
+
+    const priorityNormalized = ((seller as any).priority || 'low').toLowerCase().trim();
+    const priorityColor =
+      priorityNormalized === 'high'
+        ? 'bg-rose-50 text-rose-700 border-rose-200'
+        : priorityNormalized === 'medium'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+    const stageProgressVal = (seller as any).stageProgress ?? 0;
 
     return (
-      <div className="space-y-4">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-medium text-gray-500 uppercase">
-                  Visits
-                </p>
-                <p className="text-lg font-bold text-gray-900">
+      <div className="space-y-3 max-w-[1600px] mx-auto text-slate-800">
+        {/* 1. TOP METRICS STRIP (Compact & Premium KPI Grid) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-blue-300 hover:shadow-sm transition-all flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                Total Visits
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl font-black text-slate-900 leading-none">
                   {(seller as any).visits ?? 0}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Eye size={14} className="text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-medium text-gray-500 uppercase">
-                  Buyers
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {(seller as any).interestedBuyers ?? 0}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Users size={14} className="text-purple-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-medium text-gray-500 uppercase">
-                  Properties
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {sellerProps.length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <Building size={14} className="text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-medium text-gray-500 uppercase">
-                  Activities
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {((seller as any).activities || []).length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Activity size={14} className="text-orange-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stage Progress */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-500">
-              Stage Progress
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
-                {currentStage.label}
-              </span>
-              <span className="text-xs font-bold text-blue-600">
-                {(seller as any).stageProgress ?? 0}%
-              </span>
-            </div>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all bg-blue-600"
-              style={{ width: `${(seller as any).stageProgress ?? 0}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Personal & Contact Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3 border-b pb-2">
-            <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-              <UserIcon size={13} className="text-orange-500" />
-              <span>Seller Personal & Contact Information</span>
-            </h3>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${(seller as any).isActive
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-100 text-gray-600"
-                }`}
-            >
-              {(seller as any).status ?? ((seller as any).isActive ? "Active" : "Inactive")}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Full Name</p>
-                <p className="text-xs font-semibold text-gray-900">
-                  {(seller as any).salutation ? `${(seller as any).salutation} ` : ""}
-                  {(seller as any).name || "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Phone Number</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-900">
-                    {(seller as any).phone || "—"}
-                  </span>
-                  {(seller as any).phone && (seller as any).phone !== "-" && (
-                    <a
-                      href={`tel:${String((seller as any).phone).replace(/\D/g, "")}`}
-                      className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-                      title="Call"
-                    >
-                      <Phone size={10} />
-                    </a>
-                  )}
-                </div>
-              </div>
-              {(seller as any).whatsapp && (
-                <div>
-                  <p className="text-[10px] font-medium text-gray-500">WhatsApp</p>
-                  <p className="text-xs font-semibold text-gray-900">
-                    {(seller as any).whatsapp}
-                  </p>
-                </div>
-              )}
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Email Address</p>
-                <p className="text-xs font-semibold text-gray-900 truncate">
-                  {(seller as any).email || "—"}
-                </p>
-              </div>
-              {(seller as any).seller_dob && (
-                <div>
-                  <p className="text-[10px] font-medium text-gray-500">Date of Birth</p>
-                  <p className="text-xs font-semibold text-gray-900">
-                    {fmtDateDDMMYYYY(parseSqlish((seller as any).seller_dob) as Date) || (seller as any).seller_dob}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Location / Address</p>
-                <p className="text-xs font-semibold text-gray-900">
-                  {[
-                    (seller as any).location,
-                    (seller as any).city,
-                    (seller as any).state,
-                  ]
-                    .filter((x) => x && x !== "-")
-                    .join(", ") || "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Lead Source</p>
-                <p className="text-xs font-semibold text-gray-900">
-                  {(seller as any).source || "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Priority</p>
-                <span
-                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${priorityBadge((seller as any).priority)
-                    }`}
-                >
-                  {(seller as any).priority || "—"}
                 </span>
+                <span className="text-[10px] font-medium text-slate-400">visits done</span>
               </div>
-              <div>
-                <p className="text-[10px] font-medium text-gray-500">Assigned Executive</p>
-                <p className="text-xs font-semibold text-gray-900">
-                  {(seller as any).assigned_to_name || (seller as any).assigned || "Unassigned"}
-                </p>
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 border border-blue-100">
+              <Eye size={16} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-purple-300 hover:shadow-sm transition-all flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                Interested Buyers
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl font-black text-slate-900 leading-none">
+                  {(seller as any).interestedBuyers ?? 0}
+                </span>
+                <span className="text-[10px] font-medium text-purple-600 font-semibold">matched</span>
               </div>
-              {(seller as any).notes && (
-                <div>
-                  <p className="text-[10px] font-medium text-gray-500">Notes</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap">
-                    {(seller as any).notes}
-                  </p>
-                </div>
-              )}
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 border border-purple-100">
+              <Users size={16} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-emerald-300 hover:shadow-sm transition-all flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                Properties Listed
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl font-black text-slate-900 leading-none">
+                  {sellerProps.length}
+                </span>
+                <span className="text-[10px] font-medium text-slate-400">in portfolio</span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-100">
+              <Building size={16} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-amber-300 hover:shadow-sm transition-all flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block truncate">
+                Activities Done
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl font-black text-slate-900 leading-none">
+                  {sellerActivities.length}
+                </span>
+                <span className="text-[10px] font-medium text-emerald-600">Logged</span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 border border-amber-100">
+              <Activity size={16} />
             </div>
           </div>
         </div>
 
-        {/* Properties Portfolio with 2 Options (Link Property & Add Property) */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                <Building size={13} className="text-blue-600" />
-                <span>Properties Portfolio</span>
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
-                {sellerProps.length}
-              </span>
-            </div>
-
-            {/* TWO OPTIONS: LINK PROPERTY & ADD PROPERTY */}
-            <div className="flex items-center gap-2">
-              {selectedPropIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleBulkUnlinkProperties(selectedPropIds)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors shadow-sm animate-pulse"
-                >
-                  Unlink Selected ({selectedPropIds.length})
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setLinkPropertySearch("");
-                  setShowLinkPropertyModal(true);
-                }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-sm"
-              >
-                <Link2 size={12} />
-                <span>Link Property</span>
-              </button>
-              <button
-                onClick={openPropertyFormForCreate}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                <Plus size={12} />
-                <span>Add Property</span>
-              </button>
-            </div>
-          </div>
-
-          {sellerProps.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {sellerProps.map((property: AnyObj, index: number) => {
-                const propType = property.property_type_name || property.property_type || "";
-                const unitType = property.unit_type || property.bhk || property.configuration || "";
-                const subtype = property.property_subtype_name || property.property_sub_type || property.property_subtype || property.subtype || "";
-                const titleParts = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
-                const title = titleParts || property.title || "Untitled Property";
-
-                const address =
-                  property.address ??
-                  property.location ??
-                  ([property.location_name, property.city_name || property.city]
-                    .filter(Boolean)
-                    .join(", ") ||
-                    "—");
-                const rawPhoto =
-                  property.photos?.[0]?.url ||
-                  property.photos?.[0] ||
-                  property.image ||
-                  property.photo;
-                const photo = getImageUrl(rawPhoto) || null;
-                const price =
-                  property.price ?? property.budget ?? property.expected_price;
-
-                return (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-2.5 hover:shadow-sm transition-shadow bg-white flex gap-2.5 items-center justify-between"
+        {/* 2. MAIN 2-COLUMN HIGH-DENSITY DASHBOARD LAYOUT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          {/* ================= LEFT COLUMN: Profile, Portfolio, Photos (7 Cols) ================= */}
+          <div className="lg:col-span-7 space-y-3">
+            {/* Card A: Seller Profile & Contact Information */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-orange-100 text-orange-600">
+                    <UserIcon size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Seller Profile & Contact Information
+                  </h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${priorityColor} capitalize`}
                   >
-                    <div className="flex gap-2.5 items-center min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedPropIds.includes(String(property.id || property.property_id || property._id))}
-                        onChange={(e) => {
-                          const idStr = String(property.id || property.property_id || property._id);
-                          if (e.target.checked) {
-                            setSelectedPropIds(prev => [...prev, idStr]);
-                          } else {
-                            setSelectedPropIds(prev => prev.filter(id => id !== idStr));
-                          }
-                        }}
-                        className="accent-orange-500 h-3.5 w-3.5 mr-1 cursor-pointer"
-                      />
-                      <div className="flex gap-2.5 items-center min-w-0 flex-1">
-                      {photo ? (
-                        <img
-                          src={photo}
-                          alt={title}
-                          className="w-14 h-12 object-cover rounded-md flex-shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
-                        />
-                      ) : null}
-                      <div className={`w-14 h-12 rounded-md bg-gray-100 flex items-center justify-center text-[8px] text-gray-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
-                        No Pic
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[11px] font-semibold truncate text-gray-900">
-                          {title}
-                        </h4>
-                        <p className="text-[10px] truncate text-gray-500">
-                          {address}
-                        </p>
-                        {price && (
-                          <span className="text-[10px] font-bold text-emerald-600">
-                            {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : `₹${price}`}
-                          </span>
-                        )}
-                      </div>
+                    {(seller as any).priority || 'Low'} Priority
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                      (seller as any).isActive === false || (seller as any).status === 'Inactive'
+                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                  >
+                    {(seller as any).status ?? ((seller as any).isActive ? 'ACTIVE' : 'INACTIVE')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 space-y-3">
+                {/* Quick Communication Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2 bg-slate-50/90 rounded-lg border border-slate-100 text-xs">
+                  {/* Phone */}
+                  <div className="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-md border border-slate-200/70 shadow-2xs">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold text-slate-400 uppercase">Phone</p>
+                      <p className="font-bold text-slate-800 text-[11px] truncate">
+                        {(seller as any).phone || '—'}
+                      </p>
                     </div>
+                    {(seller as any).phone && (seller as any).phone !== '-' && (
+                      <a
+                        href={`tel:${String((seller as any).phone).replace(/\D/g, '')}`}
+                        className="p-1.5 rounded-md bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors flex-shrink-0"
+                        title="Call Seller"
+                      >
+                        <Phone size={12} />
+                      </a>
+                    )}
                   </div>
 
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => openPropertyFormForEdit(property)}
-                        className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-orange-600 transition-colors"
-                        title="Edit Property"
+                  {/* WhatsApp */}
+                  <div className="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-md border border-slate-200/70 shadow-2xs">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold text-slate-400 uppercase">WhatsApp</p>
+                      <p className="font-bold text-slate-800 text-[11px] truncate">
+                        {(seller as any).whatsapp || (seller as any).phone || '—'}
+                      </p>
+                    </div>
+                    {((seller as any).whatsapp || (seller as any).phone) && (
+                      <a
+                        href={`https://wa.me/${String((seller as any).whatsapp || (seller as any).phone).replace(/\D/g, '')}?text=${encodeURIComponent(
+                          `Hi ${(seller as any).name || ''}, regarding your listed property...`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-md bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors flex-shrink-0"
+                        title="Send WhatsApp Message"
                       >
-                        <Edit size={12} />
+                        <MessageCircle size={12} />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex items-center justify-between gap-1.5 bg-white px-2.5 py-1.5 rounded-md border border-slate-200/70 shadow-2xs">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold text-slate-400 uppercase">Email</p>
+                      <p className="font-bold text-slate-800 text-[11px] truncate">
+                        {(seller as any).email || '—'}
+                      </p>
+                    </div>
+                    {(seller as any).email && (seller as any).email !== '-' && (
+                      <a
+                        href={`mailto:${(seller as any).email}`}
+                        className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors flex-shrink-0"
+                        title="Send Email"
+                      >
+                        <Mail size={12} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Structured Key Details Table Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Full Name</span>
+                    <p className="font-bold text-slate-900 mt-0.5 truncate">
+                      {(seller as any).salutation ? `${(seller as any).salutation} ` : ''}
+                      {(seller as any).name || '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Location / Address</span>
+                    <p className="font-semibold text-slate-800 mt-0.5 truncate flex items-center gap-1">
+                      <MapPin size={11} className="text-slate-400 flex-shrink-0" />
+                      <span className="truncate">{fullAddress || '—'}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Lead Source</span>
+                    <p className="font-semibold text-slate-800 mt-0.5 truncate">
+                      {(seller as any).source || 'WhatsApp'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Assigned Executive</span>
+                    <p className="font-bold text-slate-800 mt-0.5 truncate flex items-center gap-1">
+                      <UserIcon size={12} className="text-blue-600 flex-shrink-0" />
+                      <span>{(seller as any).assigned_to_name || (seller as any).assigned || 'Unassigned'}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Date of Birth</span>
+                    <p className="font-semibold text-slate-800 mt-0.5">
+                      {(seller as any).seller_dob
+                        ? (fmtDateDDMMYYYY(parseSqlish((seller as any).seller_dob) as Date) || (seller as any).seller_dob)
+                        : '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Interested Buyers</span>
+                    <p className="font-semibold text-purple-600 mt-0.5">
+                      {(seller as any).interestedBuyers ?? 0} Matched Leads
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card B: Properties Portfolio */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-blue-100 text-blue-600">
+                    <Building size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Properties Portfolio
+                  </h3>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                    {sellerProps.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {selectedPropIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUnlinkProperties(selectedPropIds)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
+                    >
+                      Unlink ({selectedPropIds.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setLinkPropertySearch("");
+                      setShowLinkPropertyModal(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                  >
+                    <Link2 size={11} />
+                    <span>Link Property</span>
+                  </button>
+                  <button
+                    onClick={openPropertyFormForCreate}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-2xs"
+                  >
+                    <Plus size={11} />
+                    <span>Add Property</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3">
+                {sellerProps.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {sellerProps.map((property: AnyObj, index: number) => {
+                      const propType = property.property_type_name || property.property_type || "";
+                      const unitType = property.unit_type || property.bhk || property.configuration || "";
+                      const subtype = property.property_subtype_name || property.property_sub_type || property.property_subtype || property.subtype || "";
+                      const titleParts = [propType, unitType, subtype].map(s => String(s).trim()).filter(Boolean).join(" ");
+                      const title = titleParts || property.title || "Untitled Property";
+
+                      const address =
+                        property.address ??
+                        property.location ??
+                        ([property.location_name, property.city_name || property.city]
+                          .filter(Boolean)
+                          .join(", ") ||
+                          "—");
+                      const rawPhoto =
+                        property.photos?.[0]?.url ||
+                        property.photos?.[0] ||
+                        property.image ||
+                        property.photo;
+                      const photo = getImageUrl(rawPhoto) || null;
+                      const price =
+                        property.price ?? property.budget ?? property.expected_price;
+
+                      return (
+                        <div
+                          key={index}
+                          className="border border-slate-200 rounded-lg p-2 hover:border-blue-300 hover:shadow-sm transition-all bg-white flex gap-2 items-center justify-between"
+                        >
+                          <div className="flex gap-2 items-center min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedPropIds.includes(String(property.id || property.property_id || property._id))}
+                              onChange={(e) => {
+                                const idStr = String(property.id || property.property_id || property._id);
+                                if (e.target.checked) {
+                                  setSelectedPropIds(prev => [...prev, idStr]);
+                                } else {
+                                  setSelectedPropIds(prev => prev.filter(id => id !== idStr));
+                                }
+                              }}
+                              className="accent-blue-600 h-3.5 w-3.5 mr-0.5 cursor-pointer"
+                            />
+                            {photo ? (
+                              <img
+                                src={photo}
+                                alt={title}
+                                className="w-12 h-11 object-cover rounded-md flex-shrink-0 border border-slate-100"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling && ((e.target as HTMLImageElement).nextElementSibling as HTMLElement)?.classList?.remove('hidden'); }}
+                              />
+                            ) : null}
+                            <div className={`w-12 h-11 rounded-md bg-slate-100 flex items-center justify-center text-[8px] text-slate-400 flex-shrink-0 ${photo ? 'hidden' : ''}`}>
+                              No Pic
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[11px] font-bold truncate text-slate-900 leading-tight">
+                                {title}
+                              </h4>
+                              <p className="text-[10px] truncate text-slate-500 mt-0.5">
+                                {address}
+                              </p>
+                              {price && (
+                                <span className="text-[10px] font-black text-emerald-600 block mt-0.5">
+                                  {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : `₹${price}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => openPropertyFormForEdit(property)}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Edit Property"
+                            >
+                              <Edit size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleUnlinkProperty(index)}
+                              className="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Unlink Property"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-5 border border-dashed border-slate-200 rounded-xl bg-slate-50/60">
+                    <Building size={24} className="mx-auto mb-1.5 text-slate-300" />
+                    <p className="text-xs text-slate-700 font-bold mb-0.5">
+                      No Properties Linked Yet
+                    </p>
+                    <p className="text-[10px] text-slate-400 mb-2.5 max-w-sm mx-auto">
+                      Link an existing property or create a fresh property listing for this seller.
+                    </p>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => {
+                          setLinkPropertySearch("");
+                          setShowLinkPropertyModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                      >
+                        <Link2 size={11} />
+                        <span>Link Property</span>
                       </button>
                       <button
-                        onClick={() => handleUnlinkProperty(index)}
-                        className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Unlink Property"
+                        onClick={openPropertyFormForCreate}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-2xs"
                       >
-                        <Trash2 size={12} />
+                        <Plus size={11} />
+                        <span>Add Property</span>
                       </button>
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-              <Building size={32} className="mx-auto mb-2 text-gray-300" />
-              <p className="text-xs text-gray-500 font-medium mb-1">
-                No properties linked yet
-              </p>
-              <p className="text-[10px] text-gray-400 mb-3 max-w-sm mx-auto">
-                You can link an existing property from your catalog or create a fresh new property for this seller.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={() => {
-                    setLinkPropertySearch("");
-                    setShowLinkPropertyModal(true);
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg font-medium bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors"
-                >
-                  <Link2 size={12} />
-                  <span>Link Existing Property</span>
-                </button>
+
+            {/* Card C: Property Photos Gallery */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-purple-100 text-purple-600">
+                    <Camera size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Property Photos Gallery
+                  </h3>
+                </div>
                 <button
                   onClick={openPropertyFormForCreate}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-1 text-[11px] font-bold text-purple-600 hover:text-purple-800 transition-colors"
                 >
-                  <Plus size={12} />
-                  <span>Add New Property</span>
+                  <Camera size={12} />
+                  <span>Add Photo</span>
                 </button>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Property Photos Gallery */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-              <Camera size={13} className="text-purple-600" />
-              <span>Property Photos</span>
-            </h3>
-            <button
-              onClick={openPropertyFormForCreate}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            >
-              <Camera size={12} />
-              <span>Add Photos</span>
-            </button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {(((seller as any).properties?.[0]?.photos ?? []) as any[])
-              .slice(0, 3)
-              .map((photo: any, index: number) => {
-                const src = typeof photo === "string" ? photo : photo?.url || photo?.path;
-                return (
+              <div className="p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(((seller as any).properties?.[0]?.photos ?? []) as any[])
+                    .slice(0, 3)
+                    .map((photo: any, index: number) => {
+                      const src = typeof photo === "string" ? photo : photo?.url || photo?.path;
+                      return (
+                        <div
+                          key={index}
+                          className="relative group aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200/70"
+                        >
+                          <img
+                            src={src}
+                            alt={`Property ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                            <Eye
+                              size={16}
+                              className="text-white opacity-0 group-hover:opacity-100"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   <div
-                    key={index}
-                    className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden"
+                    onClick={openPropertyFormForCreate}
+                    className="border border-dashed border-slate-300 rounded-lg aspect-video flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-colors"
                   >
-                    <img
-                      src={src}
-                      alt={`Property ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                      <Eye
-                        size={16}
-                        className="text-white opacity-0 group-hover:opacity-100"
-                      />
+                    <div className="text-center">
+                      <Camera size={16} className="mx-auto mb-0.5 text-slate-400" />
+                      <span className="text-[9px] font-semibold text-slate-500">Add Photo</span>
                     </div>
                   </div>
-                );
-              })}
-            <div
-              onClick={openPropertyFormForCreate}
-              className="border-2 border-dashed border-gray-300 rounded-lg aspect-video flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors"
-            >
-              <div className="text-center">
-                <Camera size={20} className="mx-auto mb-1 text-gray-400" />
-                <span className="text-[10px] text-gray-500">Add Photo</span>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* ================= RIGHT COLUMN: Journey, Follow-ups, Activities, Remarks (5 Cols) ================= */}
+          <div className="lg:col-span-5 space-y-3">
+            {/* Card 1: Stage Progress & Seller Journey */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-purple-100 text-purple-600">
+                    <TrendingUp size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Stage Progress & Journey
+                  </h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">
+                    {currentStage.label}
+                  </span>
+                  <span className="text-xs font-black text-blue-600">
+                    {stageProgressVal}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 space-y-3">
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-blue-600 to-indigo-600"
+                    style={{ width: `${Math.max(stageProgressVal, 5)}%` }}
+                  />
+                </div>
+
+                {/* 4 Mini Stat Blocks */}
+                <div className="grid grid-cols-4 gap-1.5 text-center pt-1 border-t border-slate-100">
+                  <div className="p-1.5 rounded-lg bg-slate-50">
+                    <p className="text-xs font-black text-slate-800">{sellerActivities.length}</p>
+                    <p className="text-[9px] font-medium text-slate-400 mt-0.5">Activities</p>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-slate-50">
+                    <p className="text-xs font-black text-blue-600">{(seller as any).visits ?? 0}</p>
+                    <p className="text-[9px] font-medium text-slate-400 mt-0.5">Visits</p>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-slate-50">
+                    <p className="text-xs font-black text-purple-600">{(seller as any).interestedBuyers ?? 0}</p>
+                    <p className="text-[9px] font-medium text-slate-400 mt-0.5">Buyers</p>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-slate-50">
+                    <p className="text-xs font-black text-emerald-600">{sellerProps.length}</p>
+                    <p className="text-[9px] font-medium text-slate-400 mt-0.5">Properties</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Upcoming Follow-ups & Next Actions */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-amber-100 text-amber-600">
+                    <Calendar size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Upcoming Follow-ups ({pendingFollowups.length})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setActiveTab('followups')}
+                  className="text-[11px] font-bold text-amber-700 hover:text-amber-800 transition-colors"
+                >
+                  View All
+                </button>
+              </div>
+
+              <div className="p-3">
+                {pendingFollowups.length > 0 ? (
+                  <div className="space-y-2">
+                    {pendingFollowups.slice(0, 3).map((fu: any, index: number) => (
+                      <div
+                        key={fu.id || index}
+                        className="p-2 rounded-lg border border-amber-200/80 bg-amber-50/40 hover:bg-amber-50 transition-colors flex items-start justify-between gap-2"
+                      >
+                        <div className="flex items-start gap-2 min-w-0">
+                          <div className="p-1 bg-amber-100 rounded text-amber-700 mt-0.5 flex-shrink-0">
+                            <Clock size={11} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">
+                              {fu.description || fu.remark || fu.notes || fu.title || 'Follow-up Scheduled'}
+                            </p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {fu.scheduleDate || fu.date || fu.schedule_date || ''} {fu.scheduleTime || fu.time || '' ? `• ${fu.scheduleTime || fu.time}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase flex-shrink-0 ${
+                            fu.priority === 'high'
+                              ? 'bg-rose-100 text-rose-700'
+                              : fu.priority === 'medium'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}
+                        >
+                          {fu.priority || 'Normal'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-xs">
+                    <Calendar size={20} className="mx-auto text-slate-300 mb-1" />
+                    <p className="text-[11px] font-bold text-slate-600">No Pending Follow-ups</p>
+                    <p className="text-[10px] text-slate-400">All scheduled follow-ups are up to date.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Card 3: Recent Activities Timeline */}
+            <div className="bg-white rounded-xl border border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-md bg-blue-100 text-blue-600">
+                    <Activity size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Recent Activities
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setActiveTab('activities')}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  View Timeline
+                </button>
+              </div>
+
+              <div className="p-3">
+                {sellerActivities.length > 0 ? (
+                  <div className="space-y-2">
+                    {sellerActivities.slice(0, 3).map((act: any, index: number) => (
+                      <div
+                        key={act.id || index}
+                        className="p-2 rounded-lg border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-start gap-2"
+                      >
+                        <div className="p-1 bg-blue-100 rounded text-blue-600 mt-0.5 flex-shrink-0">
+                          <Activity size={11} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">
+                              {act.description || act.title || 'Activity Logged'}
+                            </p>
+                            <span className="text-[9px] text-slate-400 flex-shrink-0">
+                              {act.date || act.createdAt ? `${act.date || ''}` : ''}
+                            </span>
+                          </div>
+                          {act.outcome && (
+                            <p className="text-[10px] text-slate-600 mt-0.5 truncate">
+                              Outcome: <span className="font-medium text-slate-800">{act.outcome}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-xs">
+                    <Activity size={20} className="mx-auto text-slate-300 mb-1" />
+                    <p className="text-[11px] font-bold text-slate-600">No Activities Logged</p>
+                    <p className="text-[10px] text-slate-400">Interaction logs will appear here.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Card 4: Remarks / Notes Box */}
+            {(seller as any).notes && (
+              <div className="bg-amber-50/50 rounded-xl border border-amber-200/70 p-3 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[11px] mb-1">
+                  <FileText size={12} className="text-amber-600" />
+                  <span>Executive Notes & Remarks</span>
+                </div>
+                <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {(seller as any).notes}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2960,8 +3375,8 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-all rounded-lg border ${isActive
-                        ? getActiveStyles(tab.id)
-                        : `text-gray-500 border-transparent ${getInactiveStyles(tab.id)}`
+                      ? getActiveStyles(tab.id)
+                      : `text-gray-500 border-transparent ${getInactiveStyles(tab.id)}`
                       }`}
                   >
                     <Icon size={14} />
@@ -3239,6 +3654,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         open={showFollowupModal}
         mode={editingFollowup ? "edit" : "add"}
         currentFollowUp={editingFollowup ? (editingFollowup.raw ?? editingFollowup) : null}
+        entityData={seller}
         initialEntityCode="SELLER"
         initialEntityId={(seller as any)?.id}
         initialEntityName={(seller as any)?.name}
@@ -3246,6 +3662,7 @@ const SellerViewPage: React.FC<SellerViewPageProps> = ({
         initialStageCode={(seller as any)?.stage}
         initialStatusCode={(seller as any)?.status}
         initialAssignedTo={(seller as any)?.assigned_to_name || (seller as any)?.assigned_to || (seller as any)?.assigned_executive_name || (seller as any)?.assigned_executive}
+        initialAttemptNo={editingFollowup ? (editingFollowup.attempt_no || 1) : (((seller as any)?.followups?.length || 0) + 1)}
         onClose={() => {
           setShowFollowupModal(false);
           setEditingFollowup(null);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Users, Target, Search, Star, Phone, MessageCircle, Mail, MapPin, DollarSign, Calendar, Eye, Send, UserPlus, ChevronDown, ChevronUp, IndianRupeeIcon, Loader2 } from 'lucide-react';
+import { X, Users, Target, Search, Star, Phone, MessageCircle, Mail, MapPin, DollarSign, Calendar, Eye, Send, UserPlus, ChevronDown, ChevronUp, IndianRupeeIcon, Loader2, Building2 } from 'lucide-react';
 import { buyerAPI } from '@/lib/buyerAPI';
 import { toast } from 'react-toastify';
 import { FaWhatsapp } from 'react-icons/fa6';
@@ -409,7 +409,7 @@ const BuyerMatchingModal = ({ isOpen, onClose, property }: any) => {
                                   </>
                                 );
                               })()}
-                              <span>🏢 {buyer.displayBHK}</span>
+                              <span className="inline-flex items-center gap-1"><Building2 size={12} className="text-slate-500" /> {buyer.displayBHK}</span>
                               {(() => {
                                 let req = buyer.requirements;
                                 if (typeof req === 'string') { try { req = JSON.parse(req); } catch { req = {}; } }

@@ -2727,6 +2727,7 @@ table tbody td {
         <FollowUpModal
           open={showSellerFollowupModal}
           mode="add"
+          entityData={selectedSellerForFollowup}
           initialEntityCode="SELLER"
           initialEntityId={selectedSellerForFollowup?.id}
           initialEntityName={selectedSellerForFollowup?.name}
@@ -2734,6 +2735,7 @@ table tbody td {
           initialStageCode={selectedSellerForFollowup?.stage}
           initialStatusCode={selectedSellerForFollowup?.status}
           initialAssignedTo={selectedSellerForFollowup?.assigned_to_name || selectedSellerForFollowup?.assigned_to || (selectedSellerForFollowup as any)?.assigned_executive_name || (selectedSellerForFollowup as any)?.assigned_executive}
+          initialAttemptNo={((selectedSellerForFollowup as any)?.followups?.length || (selectedSellerForFollowup as any)?.followup_count || 0) + 1}
           onClose={() => {
             setShowSellerFollowupModal(false);
             setSelectedSellerForFollowup(null);

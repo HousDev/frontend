@@ -66,6 +66,14 @@ export type NextAction = {
   id: string;
   code: string;
   name: string;
+  /** Entity this action belongs to: 'BUYER' | 'SELLER' | 'LEAD' | '' (global) */
+  entity_code?: string;
+  /** Follow-up type restriction (e.g. 'CALL', 'VISIT') — null means applies to all types */
+  follow_up_type_code?: string | null;
+  /** Minimum follow-up attempt number at which this action is shown. NULL = step 1 */
+  visible_from_step?: number | null;
+  /** Maximum follow-up attempt number at which this action is shown. NULL = no upper limit */
+  visible_to_step?: number | null;
   display_order: number;
   is_active: boolean;
 };
@@ -126,6 +134,8 @@ export type SequenceStep = {
   next_status_code: string | null;
   reason_code: string | null;
   is_active: boolean;
+  channel?: string;
+  delay_days?: number;
 };
 
 export type FollowUp = {

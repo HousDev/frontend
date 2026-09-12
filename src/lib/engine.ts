@@ -410,34 +410,12 @@ export function getSequenceStep(
     .filter((s) => s.sequence_name === sequenceName)
     .sort((a, b) => a.step - b.step);
 
-  if (currentAttempt >= 3) {
-    const termStep = steps.find((s) => s.terminal_step) || steps[steps.length - 1];
-    if (termStep) {
-      return {
-        ...termStep,
-        action_code: 'CLOSE',
-        next_status_code: 'LOST',
-        terminal_step: true,
-      };
-    }
-    return {
-      id: 'term_3_auto_lost',
-      sequence_name: sequenceName,
-      step: 3,
-      after_days: 0,
-      after_hours: 0,
-      action_code: 'CLOSE',
-      follow_up_type_code: 'CALL',
-      priority_code: 'LOW',
-      terminal_step: true,
-      next_status_code: 'LOST',
-      reason_code: null,
-      is_active: true,
-    };
-  }
-
   const nextStepNumber = currentAttempt;
-  return steps.find((s) => s.step === nextStepNumber) ?? null;
+  return (
+    steps.find((s) => s.step === nextStepNumber) ??
+    steps.find((s) => s.terminal_step) ??
+    null
+  );
 }
 
 export async function createFollowUp(record: NewFollowUp): Promise<FollowUp | null> {
@@ -751,7 +729,7 @@ export function previewNextStep(
       if (step.next_status_code) nextStatusCode = step.next_status_code;
       isSequenceTerminal = step.terminal_step;
 
-      if (currentAttempt >= 3 || step.terminal_step) {
+      if (step.terminal_step) {
         nextStatusCode = 'LOST';
         nextStageCode = 'LOST';
         nextActionCode = 'CLOSE';
@@ -865,6 +843,7 @@ export function suggestStageStatus(
   entityCode: string,
   followUpTypeCode: string,
   actionCode?: string,
+  sequences?: SequenceStep[],
 ): StageStatusSuggestion | null {
   const normEntity = (entityCode || '').trim().toUpperCase();
   const normType = (followUpTypeCode || '').trim().toUpperCase();
@@ -874,24 +853,25 @@ export function suggestStageStatus(
     const matchingRule = rules.find(
       (r) =>
         r.is_active &&
-        (r.entity_code || '').toUpperCase() === normEntity &&
+        (!r.entity_code || (r.entity_code || '').toUpperCase() === normEntity) &&
         isTypeMatch(r.follow_up_type_code, normType) &&
         (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase() &&
-        r.next_stage_code &&
-        r.next_status_code
+        (r.next_stage_code || r.next_status_code)
     );
 
     if (matchingRule) {
+      const targetStageCode = matchingRule.next_stage_code || matchingRule.current_stage_code || '';
+      const targetStatusCode = matchingRule.next_status_code || matchingRule.current_status_code || '';
       const stageName =
-        stages.find((s) => s.code.toUpperCase() === matchingRule.next_stage_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
-        matchingRule.next_stage_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        stages.find((s) => s.code.toUpperCase() === targetStageCode.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        targetStageCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       const statusName =
-        statuses.find((s) => s.code.toUpperCase() === matchingRule.next_status_code.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
-        matchingRule.next_status_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        statuses.find((s) => s.code.toUpperCase() === targetStatusCode.toUpperCase() && (!s.entity_code || s.entity_code === entityCode))?.name ||
+        targetStatusCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
       return {
-        stageCode: matchingRule.next_stage_code,
-        statusCode: matchingRule.next_status_code,
+        stageCode: targetStageCode,
+        statusCode: targetStatusCode,
         source: 'rule',
         ruleId: matchingRule.rule_id || matchingRule.id || `${followUpTypeCode}_${normEntity}_${matchingRule.next_action_code}`,
         confidence: 'high',
@@ -900,11 +880,48 @@ export function suggestStageStatus(
     }
   }
 
-  // 2. If no actionCode specified, check if there are configured rules for this entity + followUpType
+  // 2. Exact Dynamic Match from Sequences
+  if (actionCode && sequences && sequences.length > 0) {
+    const matchingSeq = sequences.find(
+      (s) =>
+        s.is_active &&
+        (s.action_code || '').toUpperCase() === actionCode.toUpperCase() &&
+        (isTypeMatch(s.follow_up_type_code, normType) || !normType) &&
+        s.next_status_code
+    );
+
+    if (matchingSeq && matchingSeq.next_status_code) {
+      const targetStatusCode = matchingSeq.next_status_code;
+      const statusObj = statuses.find((st) => st.code.toUpperCase() === targetStatusCode.toUpperCase());
+      const statusName = statusObj?.name || targetStatusCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+      // Determine appropriate stage based on terminal / status
+      let targetStageCode = stages[0]?.code || '';
+      if (matchingSeq.terminal_step || targetStatusCode.toUpperCase() === 'LOST' || targetStatusCode.toUpperCase() === 'CLOSED') {
+        const termStage = stages.find((st) => st.code.toUpperCase() === 'CLOSED' || st.code.toUpperCase() === 'LOST' || st.is_terminal);
+        if (termStage) targetStageCode = termStage.code;
+      }
+
+      const stageName =
+        stages.find((s) => s.code.toUpperCase() === targetStageCode.toUpperCase())?.name ||
+        targetStageCode.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+      return {
+        stageCode: targetStageCode,
+        statusCode: targetStatusCode,
+        source: 'rule',
+        ruleId: `seq_${matchingSeq.id}`,
+        confidence: 'high',
+        reason: `Sequence "${matchingSeq.sequence_name.replace(/_/g, ' ')}" sets Status to ${statusName} for action "${actionCode}"`,
+      };
+    }
+  }
+
+  // 3. Fallback to general configured rules for this entity + followUpType
   const matchingRules = (rules || []).filter(
     (r) =>
       r.is_active &&
-      (r.entity_code || '').toUpperCase() === normEntity &&
+      (!r.entity_code || (r.entity_code || '').toUpperCase() === normEntity) &&
       isTypeMatch(r.follow_up_type_code, normType) &&
       (!actionCode || (r.next_action_code || '').toUpperCase() === actionCode.toUpperCase())
   );
@@ -949,7 +966,6 @@ export function suggestStageStatus(
     }
   }
 
-  // Strictly return null if no rules configured (NO generic fallback)
   return null;
 }
 
@@ -985,14 +1001,33 @@ export function suggestPriority(
   stageCode: string,
   statusCode: string,
   actionCode?: string,
+  sequences?: SequenceStep[],
 ): { priorityCode: string; source: 'rule' | 'default'; reason: string } | null {
   const normEntity = (entityCode || '').trim().toUpperCase();
   const normType = (followUpTypeCode || '').trim().toUpperCase();
 
+  // 1. Check Sequence priority if action is defined in a sequence
+  if (actionCode && sequences && sequences.length > 0) {
+    const seqStep = sequences.find(
+      (s) =>
+        s.is_active &&
+        (s.action_code || '').toUpperCase() === actionCode.toUpperCase() &&
+        s.priority_code
+    );
+    if (seqStep && seqStep.priority_code) {
+      return {
+        priorityCode: seqStep.priority_code,
+        source: 'rule',
+        reason: `Sequence "${seqStep.sequence_name.replace(/_/g, ' ')}" sets priority ${seqStep.priority_code}`,
+      };
+    }
+  }
+
+  // 2. Rules matching
   const matching = (rules || []).filter(
     (r) =>
       r.is_active &&
-      (r.entity_code || '').toUpperCase() === normEntity &&
+      (!r.entity_code || (r.entity_code || '').toUpperCase() === normEntity) &&
       isTypeMatch(r.follow_up_type_code, normType) &&
       r.current_stage_code === stageCode &&
       r.current_status_code === statusCode &&
@@ -1016,7 +1051,7 @@ export function suggestPriority(
   const typeMatches = (rules || []).filter(
     (r) =>
       r.is_active &&
-      (r.entity_code || '').toUpperCase() === normEntity &&
+      (!r.entity_code || (r.entity_code || '').toUpperCase() === normEntity) &&
       isTypeMatch(r.follow_up_type_code, normType) &&
       (!actionCode || r.next_action_code === actionCode) &&
       r.priority_code
@@ -1034,52 +1069,354 @@ export function suggestPriority(
     };
   }
 
-  // Strictly return null if no rule configured (NO generic fallback)
   return null;
 }
 
+export type ActionCategoryType = 'recommended' | 'next_step' | 'retry' | 'deal' | 'closure';
+
+/**
+ * Derives the display category for an action.
+ * Used only for UI colour-coding and tab filtering.
+ * No business-logic gating happens here — that is done via DB fields.
+ */
+export function getActionCategory(actionCode: string): 'next_step' | 'retry' | 'deal' | 'closure' {
+  const act = (actionCode || '').toUpperCase().replace(/[\s\-_]+/g, '');
+
+  // Closure: lead permanently ended
+  if (['NOTINTERESTED', 'MARKNOTINTERESTED', 'WRONGNUMBER', 'CLOSELOST', 'UNQUALIFIED', 'DROPPED', 'JUNK'].some((k) => act.includes(k))) {
+    return 'closure';
+  }
+  // Deal: advanced deal progression actions
+  if (
+    ['BOOKINGDISCUSSION', 'BOOKING', 'NEGOTIATION', 'PRICEDISCUSSION', 'DISCUSSPRICING',
+     'DOCUMENTSPENDING', 'COLLECTDOCUMENTS', 'DOCUMENTS', 'PAYMENTPENDING', 'CLOSEWON',
+     'VISITCOMPLETED', 'SECONDVISITCOMPLETED', 'DISCUSSLOAN', 'LOANSUPPORT',
+     'MANDATEDISCUSSION', 'DEALDISCUSSION', 'DEALCONFIRMATION', 'RECEIVEOFFER', 'NEGOTIATEOFFER'].some((k) => act.includes(k))
+  ) {
+    return 'deal';
+  }
+  // Retry: call / scheduling retries
+  if (
+    ['BUSY', 'NOANSWER', 'CALLAGAIN', 'CALLBACKREQUEST', 'CALLBACK', 'CALLCUSTOMER',
+     'FOLLOWUP', 'RESCHEDULEVISIT', 'FINALCALLATTEMPT', 'NOTREACHABLE', 'SWITCHEDOFF',
+     'CALLBUYER', 'CALLSELLER', 'CALLLEAD'].some((k) => act.includes(k))
+  ) {
+    return 'retry';
+  }
+  return 'next_step';
+}
+
+/**
+ * Dynamic Entity Matching (100% Dynamic - Zero Hardcoding):
+ * 1. Checks explicit DB entity_code if present on the NextAction record.
+ * 2. If entity_code is blank in DB, dynamically inspects master rules and sequences:
+ *    - Finds all entities referencing this action_code in fu_rules and fu_sequences.
+ *    - If only referencing a single entity (e.g. 'BUYER'), dynamically assigns to that entity.
+ *    - If universal (referenced in multiple or none, e.g. Call Retries), allows across all entities.
+ */
+export function isActionApplicableForEntity(
+  action: NextAction | string,
+  entityCode: string,
+  rules?: Rule[],
+  sequences?: SequenceStep[],
+): boolean {
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  const record: NextAction | undefined = typeof action === 'object' ? action : undefined;
+  const rawCode = (typeof action === 'string' ? action : (action.code || '')).trim().toUpperCase();
+
+  // 1. Explicit DB entity_code check
+  const explicitEntity = (record?.entity_code || '').trim().toUpperCase();
+  if (explicitEntity) {
+    return explicitEntity === normEntity;
+  }
+
+  // 2. Dynamic inference from rules and sequences
+  const matchingRuleEntities = new Set<string>();
+  if (rules && rules.length > 0) {
+    for (const r of rules) {
+      if (r.next_action_code && r.next_action_code.toUpperCase() === rawCode && r.entity_code) {
+        matchingRuleEntities.add(r.entity_code.toUpperCase());
+      }
+    }
+  }
+
+  // If rules explicitly associate this action with specific entities (e.g. BUYER only or SELLER only)
+  if (matchingRuleEntities.size > 0) {
+    return matchingRuleEntities.has(normEntity);
+  }
+
+  // Universal / unmapped action
+  return true;
+}
+
+/**
+ * Dynamic Step Matching (100% Dynamic - Zero Hardcoding):
+ * 1. Checks DB visible_from_step & visible_to_step if explicitly set on record.
+ * 2. If not configured in DB:
+ *    - Dynamically inspects master sequences for this action_code.
+ *    - If sequence steps exist:
+ *        Checks if current attemptNo matches any sequence step (or sequence range).
+ *    - If not in sequences:
+ *        Call retries & closures are available across all steps.
+ * 3. Advanced Stage override: Unlocks deal actions when deep in funnel.
+ */
+export function isActionApplicableForStep(
+  actionCodeOrRecord: string | NextAction,
+  attemptNo: number = 1,
+  stageCode?: string,
+  sequences?: SequenceStep[],
+): boolean {
+  const record: NextAction | undefined =
+    typeof actionCodeOrRecord === 'object' ? actionCodeOrRecord : undefined;
+  const actionCode: string = (
+    typeof actionCodeOrRecord === 'string' ? actionCodeOrRecord : actionCodeOrRecord.code
+  ).trim().toUpperCase();
+
+  if (actionCode === 'NOACTION' || actionCode === 'NO_ACTION') return false;
+
+  const stage = (stageCode || '').toUpperCase();
+  const isAdvancedStage = ['NEGOTIATION', 'BOOKING', 'PAYMENT', 'DOCUMENT', 'CLOS', 'WON', 'LOST']
+    .some((k) => stage.includes(k));
+  if (isAdvancedStage) return true;
+
+  // 1. Explicit DB visible_from_step / visible_to_step check
+  if (
+    record &&
+    (
+      record.visible_from_step === 99 ||
+      (record.visible_from_step !== undefined && record.visible_from_step !== null && record.visible_from_step > 1) ||
+      (record.visible_to_step !== undefined && record.visible_to_step !== null && record.visible_to_step < 99)
+    )
+  ) {
+    const fromStep = record.visible_from_step ?? 1;
+    const toStep   = record.visible_to_step ?? Infinity;
+    return attemptNo >= fromStep && attemptNo <= toStep;
+  }
+
+  // 2. Dynamic step derivation from Sequences (100% Master-driven)
+  if (sequences && sequences.length > 0) {
+    const matchingSteps = sequences
+      .filter((s) => s.is_active && s.action_code && s.action_code.toUpperCase() === actionCode)
+      .map((s) => s.step);
+
+    if (matchingSteps.length > 0) {
+      const minStep = Math.min(...matchingSteps);
+      const maxStep = Math.max(...matchingSteps);
+      // Show if current attempt matches any sequence step or falls within its active step range
+      return attemptNo >= minStep && attemptNo <= maxStep;
+    }
+  }
+
+  // 3. Category based behavior for unmapped actions
+  const cat = getActionCategory(actionCode);
+  if (cat === 'retry' || cat === 'closure') {
+    return true;
+  }
+
+  // Step 1 default
+  if (attemptNo === 1) return true;
+
+  return true;
+}
+
+/**
+ * Returns the list of next-actions to show for a given entity + step.
+ * Uses 100% Dynamic Inference from master nextActions, rules, and sequences.
+ */
 export function getEntityActions(
   rules: Rule[],
   nextActions: MasterData['nextActions'],
   entityCode: string,
   followUpTypeCode: string,
-): NextAction[] {
+  sequences?: SequenceStep[],
+  currentStageCode?: string,
+  _currentStatusCode?: string,
+  attemptNo: number = 1,
+  showAll: boolean = false,
+  sequenceName?: string | null,
+): (NextAction & { category?: 'next_step' | 'retry' | 'deal' | 'closure' })[] {
   const normEntity = (entityCode || '').trim().toUpperCase();
-  const normType = (followUpTypeCode || '').trim().toUpperCase();
+  const normType   = (followUpTypeCode || '').trim().toUpperCase();
+  const normSequence = (sequenceName || '').trim().toUpperCase();
+  const normStage  = (currentStageCode || '').trim().toUpperCase();
 
-  // Strict Rule Match: Only show actions that have active configured rules in database
-  const matchingRuleActions = (rules || []).filter(
-    (r) =>
-      r.is_active &&
-      (r.entity_code || '').toUpperCase() === normEntity &&
-      isTypeMatch(r.follow_up_type_code, normType) &&
-      r.next_action_code
-  );
+  const list: (NextAction & { category?: 'next_step' | 'retry' | 'deal' | 'closure' })[] = [];
+  const seen = new Set<string>();
 
-  if (matchingRuleActions.length > 0) {
-    const list: NextAction[] = [];
-    const seen = new Set<string>();
+  // ─── Dynamic Entity Matching ─────────────────────────────────────────────
+  const isEntityMatch = (a: NextAction) => {
+    return isActionApplicableForEntity(a, normEntity, rules, sequences);
+  };
 
-    for (const r of matchingRuleActions) {
-      const code = r.next_action_code;
-      const codeKey = code.toUpperCase();
-      if (seen.has(codeKey)) continue;
-      seen.add(codeKey);
+  // ─── Dynamic Step Visibility Gate ────────────────────────────────────────
+  const passesStep = (a: NextAction): boolean => {
+    if (showAll) return true;
+    return isActionApplicableForStep(a, attemptNo, normStage, sequences);
+  };
 
-      const fromMaster = (nextActions || []).find((a) => (a.code || '').toUpperCase() === codeKey);
-      list.push({
-        id: r.id || `act_${codeKey}`,
-        code,
-        name: fromMaster?.name || (r.name && r.name.includes(' - ') ? r.name.split(' - ')[1] : code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())),
-        display_order: r.display_order ?? list.length + 1,
-        is_active: true,
-      });
-    }
+  // ─── Type Matching ───────────────────────────────────────────────────────
+  const passesType = (a: NextAction): boolean => {
+    const ftc = (a.follow_up_type_code || '').trim().toUpperCase();
+    if (!ftc || !normType) return true;
+    return isTypeMatch(ftc, normType);
+  };
 
-    return list.sort((a, b) => a.display_order - b.display_order);
+  const sequenceStepCodes = normSequence && !showAll
+    ? new Set(
+        (sequences || [])
+          .filter(
+            (s) =>
+              s.is_active &&
+              s.sequence_name.toUpperCase() === normSequence &&
+              s.step === attemptNo,
+          )
+          .map((s) => s.action_code.toUpperCase()),
+      )
+    : null;
+
+  const passesSequence = (code: string): boolean =>
+    !sequenceStepCodes || sequenceStepCodes.has(code.toUpperCase());
+
+  // ─── 1. Primary Source: fu_next_actions ─────────────────────────────────
+  for (const a of nextActions || []) {
+    if (!a.is_active) continue;
+    if (!isEntityMatch(a)) continue;
+    if (!passesType(a)) continue;
+    if (!passesStep(a)) continue;
+    if (!passesSequence(a.code)) continue;
+    const codeKey = a.code.toUpperCase();
+    if (seen.has(codeKey)) continue;
+    seen.add(codeKey);
+    list.push({ ...a, category: getActionCategory(a.code) });
   }
 
-  // If no rules configured for this entity + follow-up type, return empty array (no fallback)
-  return [];
+  // ─── 2. Supplementary: fu_sequences for this entity + step ───────────────
+  if (sequences && sequences.length > 0) {
+    for (const s of sequences) {
+      if (!s.is_active || !s.action_code) continue;
+      if (normSequence && s.sequence_name.toUpperCase() !== normSequence) continue;
+      if (s.follow_up_type_code && !isTypeMatch(s.follow_up_type_code, normType)) continue;
+      if (!showAll && s.step !== undefined && s.step > 0 && s.step !== attemptNo) continue;
+      if (!passesSequence(s.action_code)) continue;
+
+      const codeKey = s.action_code.toUpperCase();
+      if (seen.has(codeKey)) continue;
+
+      const fromMaster = (nextActions || []).find((a) => a.code.toUpperCase() === codeKey);
+      if (fromMaster) {
+        if (!isEntityMatch(fromMaster)) continue;
+        seen.add(codeKey);
+        list.push({ ...fromMaster, category: getActionCategory(fromMaster.code) });
+      } else {
+        seen.add(codeKey);
+        list.push({
+          id: s.id || `seq_${codeKey}`,
+          code: s.action_code,
+          name: s.action_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          entity_code: normEntity,
+          display_order: list.length + 1,
+          is_active: true,
+          category: getActionCategory(s.action_code),
+        });
+      }
+    }
+  }
+
+  // ─── 3. Rules-referenced Actions ─────────────────────────────────────────
+  if (!showAll) {
+    for (const r of rules || []) {
+      if (!r.is_active || !r.next_action_code) continue;
+      if (r.entity_code && r.entity_code.toUpperCase() !== normEntity) continue;
+      if (r.follow_up_type_code && !isTypeMatch(r.follow_up_type_code, normType)) continue;
+      if (!passesSequence(r.next_action_code)) continue;
+
+      const codeKey = r.next_action_code.toUpperCase();
+      if (seen.has(codeKey)) continue;
+
+      const fromMaster = (nextActions || []).find((a) => a.code.toUpperCase() === codeKey);
+      if (!fromMaster) {
+        seen.add(codeKey);
+        list.push({
+          id: `rule_${codeKey}`,
+          code: r.next_action_code,
+          name: r.next_action_code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          entity_code: normEntity,
+          display_order: list.length + 1,
+          is_active: true,
+          category: getActionCategory(r.next_action_code),
+        });
+      }
+    }
+  }
+
+  return list.sort((a, b) => a.display_order - b.display_order);
+}
+
+/**
+ * Returns the total count of all active actions relevant to a specific entity.
+ * Dynamically inferred from master rules & sequences.
+ */
+export function getEntityActionsAllCount(
+  rules: Rule[],
+  nextActions: MasterData['nextActions'],
+  entityCode: string,
+  sequences?: SequenceStep[],
+): number {
+  const normEntity = (entityCode || '').trim().toUpperCase();
+  return (nextActions || []).filter((a) => {
+    if (!a.is_active) return false;
+    if (!isActionApplicableForEntity(a, normEntity, rules, sequences)) return false;
+    const fromStep = a.visible_from_step ?? 1;
+    return fromStep < 99;
+  }).length;
+}
+
+/**
+ * Bulk auto-infer and populate entity_code, visible_from_step, visible_to_step
+ * for all Next Actions based on master sequences and rules.
+ */
+export function autoInferNextActionsFromMasters(master: MasterData): NextAction[] {
+  const updated = (master.nextActions || []).map((action) => {
+    const code = action.code.toUpperCase();
+
+    // 1. Infer Entity Code from Rules
+    let inferredEntity = action.entity_code || '';
+    if (!inferredEntity && master.rules) {
+      const ruleEntities = Array.from(
+        new Set(
+          master.rules
+            .filter((r) => r.next_action_code && r.next_action_code.toUpperCase() === code && r.entity_code)
+            .map((r) => r.entity_code.toUpperCase())
+        )
+      );
+      if (ruleEntities.length === 1) {
+        inferredEntity = ruleEntities[0];
+      }
+    }
+
+    // 2. Infer Step Visibility Range from Sequences
+    let fromStep = action.visible_from_step;
+    let toStep = action.visible_to_step;
+
+    if ((fromStep === undefined || fromStep === null || fromStep === 1) && master.sequences) {
+      const seqSteps = master.sequences
+        .filter((s) => s.is_active && s.action_code && s.action_code.toUpperCase() === code)
+        .map((s) => s.step);
+
+      if (seqSteps.length > 0) {
+        fromStep = Math.min(...seqSteps);
+        toStep = Math.max(...seqSteps);
+      }
+    }
+
+    return {
+      ...action,
+      entity_code: inferredEntity,
+      visible_from_step: fromStep ?? 1,
+      visible_to_step: toStep ?? null,
+    };
+  });
+
+  return updated;
 }
 

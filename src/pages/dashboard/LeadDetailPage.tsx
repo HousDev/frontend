@@ -1,13 +1,47 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
-  Phone, Mail, MapPin, User as UserIcon, ChevronDown, Calendar, Clock,
-  Users, UserPlus, ArrowLeftToLine, ArrowRightToLine, MessageSquare,
-  User, Pencil, Trash2, NotebookPen,
-  Tag, Activity
+  Phone,
+  Mail,
+  MapPin,
+  User as UserIcon,
+  ChevronDown,
+  Calendar,
+  Clock,
+  Users,
+  UserPlus,
+  UserCheck,
+  MessageSquare,
+  MessageCircle,
+  Pencil,
+  Trash2,
+  Tag,
+  Activity,
+  Building2,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Copy,
+  Check,
+  Zap,
+  Play,
+  History,
+  PhoneCall,
+  ArrowRightLeft,
+  Send,
+  Share2,
+  Layers,
+  Sparkles,
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle2,
+  CalendarClock,
+  CalendarCheck,
+  MessageSquareText,
+  MessageSquareQuote,
+  MailCheck,
+  PencilLine,
 } from "lucide-react";
-import { FiArrowLeft, FiEdit, FiTrash2 } from "react-icons/fi";
-import { FaWhatsapp } from "react-icons/fa";
-import { HiArrowsRightLeft } from "react-icons/hi2";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -22,18 +56,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import SellerFormModal from "./components/SellerFormModel";
 import LeadActivityTimelineModal from "@/components/leads/LeadActivityTimelineModal";
 import { FollowUpModal } from "../settings/master/FollowUpModal";
-
 import { can } from "@/utils/permission";
 
-// ESALE Light Theme Colors
+// Design System Tokens
 const PRIMARY_NAVY = "#0f2b3d";
 const PRIMARY_ORANGE = "#e67e22";
-const BG_WHITE = "#ffffff";
-const BG_GRAY = "#f5f7fa";
-const BORDER = "#e4e7eb";
-const TEXT_PRIMARY = "#1a2c3e";
-const TEXT_SECONDARY = "#5a7184";
-const TEXT_MUTED = "#8ba0b5";
+const BG_PAGE = "#f8fafc";
+const BORDER_COLOR = "#e2e8f0";
 
 export interface FollowupForm {
   followupType?: string;
@@ -50,10 +79,10 @@ export interface FollowupForm {
 
 export const FOLLOWUP_TYPES = [
   { value: "Call", label: "Call", Icon: Phone, color: "blue" },
-  { value: "WhatsApp", label: "WhatsApp", Icon: FaWhatsapp, color: "green" },
+  { value: "WhatsApp", label: "WhatsApp", Icon: MessageCircle, color: "emerald" },
   { value: "Email", label: "Email", Icon: Mail, color: "purple" },
   { value: "Meeting", label: "Meeting", Icon: Calendar, color: "orange" },
-  { value: "Site Visit", label: "Site Visit", Icon: MapPin, color: "emerald" },
+  { value: "Site Visit", label: "Site Visit", Icon: MapPin, color: "teal" },
 ];
 
 /* ===================== Types ===================== */
@@ -160,19 +189,6 @@ interface NotificationData {
 
 const getLatestFollowup = (arr?: Followup[] | null): Followup | null => (arr && arr.length ? arr[0] : null);
 
-const FOLLOWUP_COLOR_MAP: Record<
-  string,
-  { container: string; icon: string; leftBar: string; badge: string }
-> = {
-  blue: { container: "bg-blue-50 border-blue-200", icon: "text-blue-600", leftBar: "border-blue-400", badge: "bg-blue-100 text-blue-800 border-blue-200" },
-  green: { container: "bg-green-50 border-green-200", icon: "text-green-600", leftBar: "border-green-400", badge: "bg-green-100 text-green-800 border-green-200" },
-  indigo: { container: "bg-indigo-50 border-indigo-200", icon: "text-indigo-600", leftBar: "border-indigo-400", badge: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-  orange: { container: "bg-orange-50 border-orange-200", icon: "text-orange-600", leftBar: "border-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-200" },
-  purple: { container: "bg-purple-50 border-purple-200", icon: "text-purple-600", leftBar: "border-purple-400", badge: "bg-purple-100 text-purple-800 border-purple-200" },
-  emerald: { container: "bg-emerald-50 border-emerald-200", icon: "text-emerald-600", leftBar: "border-emerald-400", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  gray: { container: "bg-gray-50 border-gray-200", icon: "text-gray-600", leftBar: "border-gray-400", badge: "bg-gray-100 text-gray-800 border-gray-200" },
-};
-
 const normalizeString = (str: any): string => {
   return (str ?? "").toString().trim().toLowerCase().replace(/[\s-_/]+/g, "");
 };
@@ -190,7 +206,6 @@ const getFilteredLeads = (allLeads: Lead[], user: AuthUser | null): Lead[] => {
 
 const fetchUsersSafely = async (user: AuthUser | null): Promise<any[]> => {
   const userRole = normalizeString(user?.role);
-  const userDept = normalizeString(user?.department);
   if (userRole.includes("admin") || userRole.includes("manager")) {
     try {
       const resp = await usersAPI.getAllUsers?.();
@@ -219,7 +234,6 @@ const LeadDetailPage: React.FC = () => {
   const canUpdateFollowups = can(user, "followup.update");
   const canDeleteFollowups = can(user, "followup.delete");
 
-  const [isFollowupModalOpen, setIsFollowupModalOpen] = useState(false);
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -245,6 +259,16 @@ const LeadDetailPage: React.FC = () => {
   const [followupToDelete, setFollowupToDelete] = useState<string | number | null>(null);
   const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false);
   const [showDeleteLeadModal, setShowDeleteLeadModal] = useState<boolean>(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (text: string, fieldName: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    toast.info(`Copied ${fieldName} to clipboard`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   useEffect(() => {
     if (!canReadLeads) setLoading(false);
   }, [canReadLeads]);
@@ -321,7 +345,6 @@ const LeadDetailPage: React.FC = () => {
   }, []);
 
   const resolveAdminOrAssignerFullName = useCallback((fAny: any, leadObj: any): string => {
-    // 1. Explicit assigned_by on lead
     if (leadObj?.assigned_by_name && leadObj.assigned_by_name.toLowerCase() !== 'admin') {
       return leadObj.assigned_by_name;
     }
@@ -334,7 +357,6 @@ const LeadDetailPage: React.FC = () => {
       if (isNaN(Number(leadObj.assigned_by))) return String(leadObj.assigned_by);
     }
 
-    // 2. Creator of the lead (Admin who created/assigned profile)
     if (leadObj?.created_by_user?.name && leadObj.created_by_user.name.toLowerCase() !== 'admin') {
       return leadObj.created_by_user.name;
     }
@@ -353,7 +375,6 @@ const LeadDetailPage: React.FC = () => {
       }
     }
 
-    // 3. Explicit assigned_by on followup row (only if an admin/manager)
     const rawVal =
       fAny?.assigned_by_name ||
       fAny?.assignedByName ||
@@ -379,7 +400,6 @@ const LeadDetailPage: React.FC = () => {
       }
     }
 
-    // 4. Current logged-in user if Admin/Manager
     if (user) {
       const role = String(user.role || '').toLowerCase();
       if (role.includes('admin') || role.includes('super') || role.includes('manager')) {
@@ -388,7 +408,6 @@ const LeadDetailPage: React.FC = () => {
       }
     }
 
-    // 5. Any Admin or Manager in crmUsers
     const adminUser = crmUsers.find(
       (u) => {
         const role = String(u.role || '').toLowerCase();
@@ -405,7 +424,6 @@ const LeadDetailPage: React.FC = () => {
   }, [crmUsers, user]);
 
   const resolveAssignedToName = useCallback((fAny: any, leadObj: any): string => {
-    // 1. Direct explicit assigned executive name from followup row
     const directFollowupName =
       fAny?.raw?.assigned_to_name ||
       fAny?.raw?.assignedToName ||
@@ -417,7 +435,6 @@ const LeadDetailPage: React.FC = () => {
       return directFollowupName;
     }
 
-    // 2. Lookup explicit assigned_to ID from followup DB row
     const fAsgnId =
       fAny?.raw?.assigned_to ??
       fAny?.raw?.assigned_executive ??
@@ -433,7 +450,6 @@ const LeadDetailPage: React.FC = () => {
       if (isNaN(Number(fAsgnId))) return String(fAsgnId);
     }
 
-    // 3. Lead's currently assigned executive name
     const lName =
       leadObj?.assigned_executive_name ||
       leadObj?.assigned_to_name ||
@@ -445,7 +461,6 @@ const LeadDetailPage: React.FC = () => {
       return lName;
     }
 
-    // 4. Lookup lead's assigned_executive / assigned_to ID in crmUsers
     const lExecId =
       leadObj?.assigned_executive ??
       leadObj?.assigned_to ??
@@ -464,7 +479,6 @@ const LeadDetailPage: React.FC = () => {
       if (isNaN(Number(lExecId))) return String(lExecId);
     }
 
-    // 5. Fallback to fAny.assignedTo if string and not "Unassigned"
     if (fAny?.assignedTo && fAny.assignedTo !== "Unassigned" && fAny.assignedTo !== "You" && isNaN(Number(fAny.assignedTo))) {
       return fAny.assignedTo;
     }
@@ -631,7 +645,7 @@ const LeadDetailPage: React.FC = () => {
             assigned_executive_name: execName || "Unassigned",
             created_at: data.created_at || new Date().toISOString(),
             updated_at: data.updated_at || new Date().toISOString(),
-            priority: data.priority || " -",
+            priority: data.priority || "-",
             stage: data.stage || "-",
             created_by: data.created_by || data.createdBy || "System",
             last_contact: data.last_contact || data.lastContact || "",
@@ -692,7 +706,7 @@ const LeadDetailPage: React.FC = () => {
     }
   }, [presalesUsers, lead?.assigned_executive]);
 
- const handleDelete = () => {
+  const handleDelete = () => {
     if (!id) return;
     if (!canDeleteLeads) { toast.error("You do not have permission to delete leads"); return; }
     setShowDeleteLeadModal(true);
@@ -703,9 +717,16 @@ const LeadDetailPage: React.FC = () => {
     setShowDeleteLeadModal(false);
     try {
       const response = await leadsAPI.deleteLead(id);
-      if (response.success) { toast.success("Lead deleted ✅"); navigate("/dashboard/leads"); }
-      else toast.error("Failed to delete lead ❌");
-    } catch (err) { console.error("Error deleting lead:", err); toast.error("Error deleting lead"); }
+      if (response.success) {
+        toast.success("Lead deleted successfully");
+        navigate("/dashboard/leads");
+      } else {
+        toast.error("Failed to delete lead");
+      }
+    } catch (err) {
+      console.error("Error deleting lead:", err);
+      toast.error("Error deleting lead");
+    }
   };
 
   const handleExecAssign = async (execId: string, execName: string) => {
@@ -717,11 +738,25 @@ const LeadDetailPage: React.FC = () => {
       setShowExecDropdown(false);
       await leadsAPI.assignToExecutive(lead.id, { assigned_executive: execId });
       if (execId && execId !== prevExec) {
-        try { await notificationAPI.createNotification({ leadId: String(lead.id), userId: String(execId), message: `Lead assigned to ${execName}`, type: "lead_assign", link: `/dashboard/leads/${lead.id}` } as NotificationData); }
-        catch (notifErr) { console.error("Notification error:", notifErr); toast.warn("Lead assigned but notification failed"); }
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(lead.id),
+            userId: String(execId),
+            message: `Lead assigned to ${execName}`,
+            type: "lead_assign",
+            link: `/dashboard/leads/${lead.id}`
+          } as NotificationData);
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
+          toast.warn("Lead assigned but notification failed");
+        }
       }
       toast.success(`Lead assigned to ${execName}`);
-    } catch (err) { console.error("Error assigning executive:", err); setLead((prev) => prev ? { ...prev, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name } : prev); toast.error("Failed to assign. Please try again."); }
+    } catch (err) {
+      console.error("Error assigning executive:", err);
+      setLead((prev) => prev ? { ...prev, assigned_executive: lead.assigned_executive, assigned_executive_name: lead.assigned_executive_name } : prev);
+      toast.error("Failed to assign. Please try again.");
+    }
   };
 
   const handleSaveLead = async (updatedLead: Lead | null) => {
@@ -730,7 +765,7 @@ const LeadDetailPage: React.FC = () => {
     try {
       const prevExec = lead?.assigned_executive || "";
       const newExec = updatedLead.assigned_executive || "";
-      const { lead_number: _ln, ...updatePayload } = updatedLead as any; // 🔒 strip system field
+      const { lead_number: _ln, ...updatePayload } = updatedLead as any;
       const response = await leadsAPI.updateLead(updatedLead.id!, updatePayload);
       const savedLead = response?.data || response;
       setLead((prev) => ({ ...(prev || {} as Lead), ...savedLead }));
@@ -738,64 +773,30 @@ const LeadDetailPage: React.FC = () => {
       if (newExec && newExec !== prevExec) {
         const exec = presalesUsers.find((u) => String(u.id) === String(newExec));
         const execName = exec?.name || savedLead.assigned_executive_name || "Executive";
-        try { await notificationAPI.createNotification({ leadId: String(updatedLead.id), userId: String(newExec), message: `Lead updated and assigned to ${execName}`, type: "lead_update", link: `/dashboard/leads/${updatedLead.id}` } as NotificationData); }
-        catch (notifErr) { console.error("Notification error:", notifErr); }
+        try {
+          await notificationAPI.createNotification({
+            leadId: String(updatedLead.id),
+            userId: String(newExec),
+            message: `Lead updated and assigned to ${execName}`,
+            type: "lead_update",
+            link: `/dashboard/leads/${updatedLead.id}`
+          } as NotificationData);
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
+        }
       }
       setIsEditModalOpen(false);
-      toast.success("Lead details updated successfully!");
-    } catch (err) { console.error("Error saving lead:", err); toast.error("Failed to save lead. Please try again."); }
-  };
-
-  const handleFollowupSave = async (data: FollowupForm & { lead_id?: string }) => {
-    if (!lead?.id) { toast.error("Lead not loaded."); return; }
-    if (editingFollowup && !canUpdateFollowups) { toast.error("You do not have permission to update follow-ups"); return; }
-    if (!editingFollowup && !canCreateFollowups) { toast.error("You do not have permission to create follow-ups"); return; }
-    let saved: any = null;
-    const scheduledISO = data.scheduleDate ? `${data.scheduleDate}T${(data.scheduleTime || "00:00")}:00` : null;
-    const followupPayload = { 
-      leadId: data.lead_id ?? lead.id, 
-      type: data.followupType, 
-      stage: data.leadStage, 
-      status: data.leadStatus, 
-      remark: data.remark, 
-      customRemark: data.customRemark, 
-      nextAction: data.nextAction, 
-      scheduledDate: scheduledISO, 
-      priority: data.priority, 
-      createdBy: Number((user as AuthUser)?.id ?? (user as AuthUser)?.user_id),
-      updatedBy: Number((user as AuthUser)?.id ?? (user as AuthUser)?.user_id)
-    };
-    try {
-      if (editingFollowup) {
-        await followupAPI.updateFollowup(String(editingFollowup.id), followupPayload);
-        saved = { ...editingFollowup, ...followupPayload, updatedAt: new Date().toISOString() };
-        setEditingFollowup(null);
-        setFollowups((prev) => prev.map((f) => (f.id === editingFollowup.id ? saved : f)));
-        toast.success("Follow-up updated successfully!");
-      } else {
-        const resp = await followupAPI.createFollowup(followupPayload);
-        const newId = resp?.data?.id || resp?.id || `temp-${Date.now()}`;
-        saved = { id: newId, leadId: followupPayload.leadId, type: followupPayload.type, stage: followupPayload.stage, status: followupPayload.status, remark: followupPayload.remark, customRemark: followupPayload.customRemark, nextAction: followupPayload.nextAction, scheduledDate: scheduledISO, createdAt: new Date().toISOString(), priority: followupPayload.priority, createdByFirstName: user?.first_name || "", createdByLastName: user?.last_name || "" };
-        setFollowups((prev) => [saved, ...prev]);
-        toast.success("Follow-up saved successfully!");
-      }
-    } catch (err) { console.error("Error saving followup:", err); toast.error(`Failed to ${editingFollowup ? "update" : "save"} follow-up. Please try again.`); return; }
-    try {
-      await leadsAPI.updateLead(lead.id, { stage: data.leadStage, status: data.leadStatus, priority: data.priority, updated_by: (user as AuthUser)?.id ?? (user as AuthUser)?.user_id });
-      setLead((prev) => prev ? { ...prev, stage: data.leadStage || prev.stage, status: data.leadStatus || prev.status, priority: data.priority } : prev);
-    } catch (err) { console.error("Error updating lead:", err); }
-    if (lead.assigned_executive && String(lead.assigned_executive).trim() !== "") {
-      try { await notificationAPI.createNotification({ leadId: String(lead.id), userId: String(lead.assigned_executive), message: `New follow-up added for lead "${lead.name}" by ${user?.first_name || "User"}`, type: "followup_add", link: `/dashboard/leads/${lead.id}` } as NotificationData); }
-      catch (notifErr) { console.error("Notification error:", notifErr); }
+      toast.success("Lead details updated successfully");
+    } catch (err) {
+      console.error("Error saving lead:", err);
+      toast.error("Failed to save lead. Please try again.");
     }
-    setIsFollowupModalOpen(false);
-    try { await fetchFollowups(); } catch { }
   };
 
   const handleEditFollowup = (followup: Followup) => {
     if (!canUpdateFollowups) { toast.error("You do not have permission to edit follow-ups"); return; }
     setEditingFollowup(followup);
-    setIsFollowupModalOpen(true);
+    setShowFollowUpModal(true);
   };
 
   const handleDeleteFollowup = (followupId: string | number) => {
@@ -839,8 +840,13 @@ const LeadDetailPage: React.FC = () => {
     if (!dateString) return { date: "-", time: "-" };
     try {
       const date = new Date(dateString);
-      return { date: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }), time: date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) };
-    } catch { return { date: "-", time: "-" }; }
+      return {
+        date: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        time: date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+      };
+    } catch {
+      return { date: "-", time: "-" };
+    }
   };
 
   const formatScheduleDisplay = (dateStr?: string | null, timeStr?: string | null) => {
@@ -867,7 +873,7 @@ const LeadDetailPage: React.FC = () => {
           const parts = timeClean.split(":");
           const hours = parseInt(parts[0], 10);
           const minutes = parseInt(parts[1], 10);
-          const period = hours >= 12 ? "pm" : "am";
+          const period = hours >= 12 ? "PM" : "AM";
           const h12 = hours % 12 || 12;
           timeFormatted = `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
         } else {
@@ -893,47 +899,47 @@ const LeadDetailPage: React.FC = () => {
 
   const getStatusColor = (status: string): string => {
     switch (status?.toLowerCase()) {
-      case "contacted": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "new": return "bg-purple-100 text-purple-700 border-purple-200";
-      case "qualified": return "bg-teal-100 text-teal-700 border-teal-200";
-      case "unqualified": return "bg-red-100 text-red-700 border-red-200";
-      case "cold": return "bg-gray-100 text-gray-700 border-gray-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
+      case "contacted": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "new": return "bg-violet-50 text-violet-700 border-violet-200";
+      case "qualified": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "unqualified": return "bg-rose-50 text-rose-700 border-rose-200";
+      case "cold": return "bg-slate-50 text-slate-700 border-slate-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
   const getLeadTypeColor = (type: string): string => {
     switch (type?.toLowerCase()) {
-      case "buyer-self": return "bg-green-100 text-green-700 border-green-200";
-      case "buyer investor": return "bg-indigo-100 text-indigo-700 border-indigo-200";
-      case "seller self": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "seller investor": return "bg-red-100 text-red-700 border-red-200";
-      case "seller builder": return "bg-orange-100 text-orange-700 border-orange-200";
-      case "walk-in lead": return "bg-emerald-100 text-emerald-700 border-emerald-200";
-      case "referral lead": return "bg-sky-100 text-sky-700 border-sky-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
+      case "buyer-self": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "buyer investor": return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "seller self": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "seller investor": return "bg-rose-50 text-rose-700 border-rose-200";
+      case "seller builder": return "bg-orange-50 text-orange-700 border-orange-200";
+      case "walk-in lead": return "bg-teal-50 text-teal-700 border-teal-200";
+      case "referral lead": return "bg-sky-50 text-sky-700 border-sky-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
   const getPriorityColor = (priority: string): string => {
     switch (priority?.toLowerCase()) {
-      case "high": return "bg-red-100 text-red-700 border-red-200";
-      case "medium": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "low": return "bg-green-100 text-green-700 border-green-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
+      case "high": return "bg-rose-50 text-rose-700 border-rose-200 font-semibold";
+      case "medium": return "bg-amber-50 text-amber-700 border-amber-200 font-medium";
+      case "low": return "bg-slate-50 text-slate-700 border-slate-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
   const getStageColor = (stage: string): string => {
     switch (stage?.toLowerCase()) {
-      case "attempting contact": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "contacted": return "bg-purple-100 text-purple-700 border-purple-200";
-      case "converted to opportunity": return "bg-green-100 text-green-700 border-green-200";
-      case "disqualified": return "bg-red-100 text-red-700 border-red-200";
-      case "new": return "bg-gray-100 text-gray-700 border-gray-200";
-      case "nurturing": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "qualified": return "bg-teal-100 text-teal-700 border-teal-200";
-      default: return "bg-gray-100 text-gray-700 border-gray-200";
+      case "attempting contact": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "contacted": return "bg-purple-50 text-purple-700 border-purple-200";
+      case "converted to opportunity": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "disqualified": return "bg-rose-50 text-rose-700 border-rose-200";
+      case "new": return "bg-slate-50 text-slate-700 border-slate-200";
+      case "nurturing": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "qualified": return "bg-teal-50 text-teal-700 border-teal-200";
+      default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
@@ -947,21 +953,23 @@ const LeadDetailPage: React.FC = () => {
   const handleCall = () => lead?.phone && window.open(`tel:${lead.phone}`, "_self");
   const handleWhatsApp = () => lead?.whatsapp_number && window.open(`https://wa.me/${lead.whatsapp_number.replace(/\D/g, "")}`, "_blank");
   const handleEmail = () => lead?.email && window.open(`mailto:${lead.email}`, "_self");
-  const handleScheduleMeeting = () => lead && window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=Meeting+with+${encodeURIComponent(lead.name || "")}&details=${encodeURIComponent(`Discuss lead ${lead.id}`)}&location=Online&dates=20240101T100000Z/20240101T110000Z`, "_blank");
+  const handleScheduleMeeting = () => lead && window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=Meeting+with+${encodeURIComponent(lead.name || "")}&details=${encodeURIComponent(`Discuss lead #${lead.lead_number || lead.id}`)}&location=Online`, "_blank");
 
-  const typeIcon = (t: string) => { const found = FOLLOWUP_TYPES.find((ft) => ft.value === t); return found ? found.Icon : MessageSquare; };
-  const followupCardClasses = (t: string) => { const color = FOLLOWUP_TYPES.find((ft) => ft.value === t)?.color || "gray"; return FOLLOWUP_COLOR_MAP[color] || FOLLOWUP_COLOR_MAP.gray; };
-  const formatDateShort = (iso?: string | null): string => { if (!iso) return "-"; const d = new Date(iso); if (isNaN(d.getTime())) return iso; const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }); const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }); return `${date} at ${time}`; };
-
-  const tabId = "lead";
-  const leadId = id || "";
+  const formatDateShort = (iso?: string | null): string => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return `${date} at ${time}`;
+  };
 
   if (!canReadLeads) {
     return (
-      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_GRAY }}>
-        <div className="text-center p-6 bg-white rounded-xl shadow-lg border" style={{ borderColor: BORDER }}>
-          <div className="text-red-600 text-lg font-semibold mb-2">Access Denied</div>
-          <div className="text-gray-600 text-sm">You do not have permission to view leads.</div>
+      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_PAGE }}>
+        <div className="text-center p-6 bg-white rounded-xl shadow-xs border border-slate-200">
+          <div className="text-rose-600 text-sm font-semibold mb-1">Access Denied</div>
+          <div className="text-slate-500 text-xs">You do not have permission to view leads.</div>
         </div>
       </div>
     );
@@ -969,10 +977,12 @@ const LeadDetailPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_GRAY }}>
-        <div className="text-center bg-white rounded-xl p-6 shadow-lg border" style={{ borderColor: BORDER }}>
-          <p className="text-red-600 mb-4">{error}</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg text-white transition-all hover:opacity-90" style={{ background: PRIMARY_ORANGE }}>Retry</button>
+      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_PAGE }}>
+        <div className="text-center bg-white rounded-xl p-6 shadow-xs border border-slate-200 max-w-sm">
+          <p className="text-rose-600 text-sm mb-3">{error}</p>
+          <button onClick={() => window.location.reload()} className="px-3.5 py-1.5 rounded-lg text-white text-xs font-medium transition-all hover:opacity-90" style={{ background: PRIMARY_ORANGE }}>
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -980,77 +990,150 @@ const LeadDetailPage: React.FC = () => {
 
   if (loading || !lead) {
     return (
-      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_GRAY }}>
+      <div className="min-h-screen p-4 flex items-center justify-center" style={{ background: BG_PAGE }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: PRIMARY_ORANGE }}></div>
-          <p className="text-gray-600">Loading lead details...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-3" style={{ borderColor: PRIMARY_ORANGE }}></div>
+          <p className="text-xs text-slate-500 font-medium">Loading lead details...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-3 md:p-4 lg:p-5" style={{ background: BG_GRAY }}>
-      <div className="max-w-[1600px] mx-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-5">
-          {/* Main Lead Profile Card */}
-          <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border" style={{ borderColor: BORDER }}>
-            {/* Action Buttons Bar - Compact */}
-            <div className="p-3 md:p-4 border-b flex flex-wrap items-center justify-between gap-2" style={{ borderColor: BORDER, background: BG_WHITE }}>
-              <button onClick={handleBack} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-medium border hover:bg-gray-50" style={{ borderColor: BORDER, color: TEXT_PRIMARY }}>
-                <FiArrowLeft size={13} />
-                Back
-              </button>
+    <div className="min-h-screen p-2.5 sm:p-3 md:p-4" style={{ background: BG_PAGE }}>
+      <div className="max-w-[1600px] mx-auto space-y-2.5">
+        
+        {/* Top Minimal Toolbar */}
+        <div className="bg-white rounded-lg border border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+            >
+              <ArrowLeft size={13} className="text-slate-600" />
+              Back
+            </button>
+            <div className="h-4 w-[1px] bg-slate-200 hidden sm:block"></div>
+            <span className="text-xs font-semibold text-slate-800">
+              Lead #{lead.lead_number ?? String(lead.id).slice(0, 6)}
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+              ({currentLeadIndex + 1} of {filteredLeads.length})
+            </span>
+          </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setIsTimelineOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-semibold border bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 shadow-xs"
-                  title="View full pre-lead and post-lead browsing history"
-                >
-                  <Activity size={13} className="text-indigo-600" />
-                  360 Journey
-                </button>
-                <button onClick={handleEdit} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-medium text-white ${canUpdateLeads ? "hover:opacity-90" : "opacity-50 cursor-not-allowed"}`} style={{ background: PRIMARY_ORANGE }} disabled={!canUpdateLeads}>
-                  <FiEdit size={13} /> Edit
-                </button>
-                <button onClick={handleDelete} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm font-medium border ${canDeleteLeads ? "hover:bg-red-50" : "opacity-50 cursor-not-allowed"}`} style={{ borderColor: "#ef4444", color: "#ef4444", background: BG_WHITE }} disabled={!canDeleteLeads}>
-                  <FiTrash2 size={13} /> Delete
-                </button>
-                <button onClick={handlePreviousLead} disabled={currentLeadIndex <= 0} className="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm border disabled:opacity-40 hover:bg-gray-50" style={{ background: BG_WHITE, borderColor: BORDER, color: TEXT_PRIMARY }}>
-                  <ArrowLeftToLine size={13} /> Prev
-                </button>
-                <button onClick={handleNextLead} disabled={currentLeadIndex >= filteredLeads.length - 1} className="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all text-xs md:text-sm border disabled:opacity-40 hover:bg-gray-50" style={{ background: BG_WHITE, borderColor: BORDER, color: TEXT_PRIMARY }}>
-                  Next <ArrowRightToLine size={13} />
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center gap-1.5">
+            {/* 360 Journey */}
+            <button
+              onClick={() => setIsTimelineOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-all shadow-xs"
+              title="View complete customer browsing & activity timeline"
+            >
+              <Activity size={13} className="text-indigo-600" />
+              <span>360 Journey</span>
+            </button>
 
-            {/* Lead Header - Compact with Gradient */}
-            <div className="p-4 md:p-5 border-b" style={{ borderColor: BORDER, background: `linear-gradient(135deg, ${PRIMARY_NAVY}08 0%, ${PRIMARY_ORANGE}08 100%)` }}>
+            {/* Edit */}
+            <button
+              onClick={handleEdit}
+              disabled={!canUpdateLeads}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-white transition-all shadow-xs ${
+                canUpdateLeads ? "hover:opacity-90 active:scale-[0.98]" : "opacity-50 cursor-not-allowed"
+              }`}
+              style={{ background: PRIMARY_ORANGE }}
+            >
+              <Pencil size={12} />
+              <span>Edit</span>
+            </button>
+
+            {/* Delete */}
+            <button
+              onClick={handleDelete}
+              disabled={!canDeleteLeads}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 transition-colors ${
+                !canDeleteLeads ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              <Trash2 size={12} />
+              <span>Delete</span>
+            </button>
+
+            <div className="h-4 w-[1px] bg-slate-200 mx-0.5"></div>
+
+            {/* Pagination Prev / Next */}
+            <button
+              onClick={handlePreviousLead}
+              disabled={currentLeadIndex <= 0}
+              className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+              title="Previous Lead"
+            >
+              <ChevronLeft size={13} />
+              <span className="hidden sm:inline">Prev</span>
+            </button>
+            <button
+              onClick={handleNextLead}
+              disabled={currentLeadIndex >= filteredLeads.length - 1}
+              className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+              title="Next Lead"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* 2-Column Main Layout: Left = Lead Details, Right = Timeline */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+          
+          {/* Main Lead Details Card (2 Cols) */}
+          <div className="xl:col-span-2 space-y-3">
+            
+            {/* Header Identity Card */}
+            <div className="bg-white rounded-lg border border-slate-200 p-3 md:p-3.5 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-3">
+                
+                {/* Lead Name & Tags */}
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl" style={{ background: `${PRIMARY_ORANGE}15` }}>
-                    <UserIcon size={20} style={{ color: PRIMARY_ORANGE }} />
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm text-white shrink-0 shadow-xs"
+                    style={{ background: PRIMARY_NAVY }}
+                  >
+                    {lead.name ? lead.name.charAt(0).toUpperCase() : "L"}
                   </div>
                   <div>
-                    <h2 className="text-lg md:text-xl font-bold" style={{ color: PRIMARY_NAVY }}>
-                      {lead.salutation} {lead.name}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                      <span className="text-[11px]" style={{ color: TEXT_MUTED }}>ID: {lead.lead_number ?? String(lead.id).slice(0, 6)}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getLeadTypeColor(lead.lead_type || "")}`}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-base md:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+                        {lead.salutation ? `${lead.salutation} ` : ""}{lead.name}
+                      </h1>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getLeadTypeColor(lead.lead_type || "")}`}>
                         {lead.lead_type || "Lead"}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                        📅 Follow-ups: {followups.length || lead.followups_count || 0}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                        <History size={11} className="text-amber-600" />
+                        <span>Follow-ups: {followups.length || lead.followups_count || 0}</span>
                       </span>
-                      <span className="text-[11px]" style={{ color: TEXT_MUTED }}>({currentLeadIndex + 1} of {filteredLeads.length})</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 flex-wrap">
+                      <span className="font-mono text-slate-600">ID #{lead.lead_number ?? lead.id}</span>
+                      <span>•</span>
+                      <span>Source: <strong className="text-slate-700 font-semibold">{lead.lead_source || "Direct"}</strong></span>
+                      {lead.location && (
+                        <>
+                          <span>•</span>
+                          <span className="inline-flex items-center gap-0.5 text-slate-600">
+                            <MapPin size={11} className="text-slate-400" />
+                            {lead.location}{lead.city ? `, ${lead.city}` : ""}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
+                {/* Primary Action Buttons */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Follow-up button */}
                   <button
                     onClick={() => {
                       if (!canCreateFollowups) {
@@ -1060,158 +1143,400 @@ const LeadDetailPage: React.FC = () => {
                       setEditingFollowup(null);
                       setShowFollowUpModal(true);
                     }}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white transition-all text-xs md:text-sm font-medium ${
-                      !canCreateFollowups ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white transition-all shadow-xs ${
+                      !canCreateFollowups ? "opacity-60 cursor-not-allowed" : "hover:opacity-90 active:scale-[0.98]"
                     }`}
                     style={{ background: PRIMARY_ORANGE }}
                   >
-                    <NotebookPen size={13} /> Follow Up
+                    <Plus size={13} strokeWidth={2.5} />
+                    <span>Follow Up</span>
                   </button>
 
+                  {/* Assign Dropdown */}
                   <div className="relative">
-                    <button onClick={() => { if (!canAssignLeads) { toast.error("Permission denied"); return; } if (!execsLoading) setShowExecDropdown((s) => !s); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white transition-all text-xs md:text-sm font-medium ${(!canAssignLeads || assignableExecs.length === 0) ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"}`} style={{ background: PRIMARY_NAVY }} disabled={!canAssignLeads || execsLoading || assignableExecs.length === 0}>
-                      <UserPlus size={13} /> Assign <ChevronDown size={11} />
+                    <button
+                      onClick={() => {
+                        if (!canAssignLeads) { toast.error("Permission denied"); return; }
+                        if (!execsLoading) setShowExecDropdown((s) => !s);
+                      }}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white transition-all shadow-xs ${
+                        (!canAssignLeads || assignableExecs.length === 0) ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"
+                      }`}
+                      style={{ background: PRIMARY_NAVY }}
+                      disabled={!canAssignLeads || execsLoading || assignableExecs.length === 0}
+                    >
+                      <UserPlus size={12} />
+                      <span>Assign</span>
+                      <ChevronDown size={11} />
                     </button>
                     {showExecDropdown && canAssignLeads && (
-                      <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border z-10 overflow-hidden" style={{ borderColor: BORDER }}>
-                        <div className="p-2 border-b" style={{ borderColor: BORDER, background: BG_GRAY }}>
-                          <p className="text-xs font-semibold" style={{ color: PRIMARY_NAVY }}>Assign to Executive</p>
+                      <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-30 overflow-hidden">
+                        <div className="px-3 py-1.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-slate-700">Assign Executive</span>
                         </div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {assignableExecs.length === 0 ? <div className="px-3 py-2 text-xs text-gray-500">No executives available</div> : assignableExecs.map((exec: PresalesUser) => (
-                            <button key={exec.id} onClick={() => handleExecAssign(String(exec.id), exec.name)} className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${String(lead.assigned_executive) === String(exec.id) ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-gray-50 text-gray-700"}`}>
-                              {exec.name?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim()}
-                            </button>
-                          ))}
+                        <div className="max-h-56 overflow-y-auto p-1">
+                          {assignableExecs.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-slate-400">No executives found</div>
+                          ) : (
+                            assignableExecs.map((exec: PresalesUser) => (
+                              <button
+                                key={exec.id}
+                                onClick={() => handleExecAssign(String(exec.id), exec.name)}
+                                className={`w-full text-left px-2.5 py-1.5 text-xs rounded-md transition-colors flex items-center justify-between ${
+                                  String(lead.assigned_executive) === String(exec.id)
+                                    ? "bg-orange-50 text-orange-700 font-semibold"
+                                    : "hover:bg-slate-50 text-slate-700"
+                                }`}
+                              >
+                                <span>{exec.name?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "").trim()}</span>
+                                {String(lead.assigned_executive) === String(exec.id) && (
+                                  <Check size={12} className="text-orange-600" />
+                                )}
+                              </button>
+                            ))
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex gap-1">
-                    <button onClick={handleCall} className="p-1.5 rounded-lg text-white transition-all hover:opacity-90" style={{ background: "#25D366" }} title="Call"><Phone size={13} /></button>
-                    <button onClick={handleWhatsApp} className="p-1.5 rounded-lg text-white transition-all hover:opacity-90" style={{ background: "#128C7E" }} title="WhatsApp"><FaWhatsapp size={13} /></button>
-                    <button onClick={handleEmail} className="p-1.5 rounded-lg text-white transition-all hover:opacity-90" style={{ background: "#3b82f6" }} title="Email"><Mail size={13} /></button>
-                    <button onClick={handleScheduleMeeting} className="p-1.5 rounded-lg text-white transition-all hover:opacity-90" style={{ background: "#8b5cf6" }} title="Schedule Meeting"><Calendar size={13} /></button>
+                  {/* Fast Comms Buttons */}
+                  <div className="flex items-center gap-1 border-l border-slate-200 pl-1.5 ml-0.5">
+                    <button
+                      onClick={handleCall}
+                      className="p-1.5 rounded-md text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      title="Call Lead"
+                    >
+                      <Phone size={13} />
+                    </button>
+                    <button
+                      onClick={handleWhatsApp}
+                      className="p-1.5 rounded-md text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 border border-emerald-300 transition-colors"
+                      title="WhatsApp Chat"
+                    >
+                      <MessageCircle size={13} />
+                    </button>
+                    <button
+                      onClick={handleEmail}
+                      className="p-1.5 rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
+                      title="Send Email"
+                    >
+                      <Mail size={13} />
+                    </button>
+                    <button
+                      onClick={handleScheduleMeeting}
+                      className="p-1.5 rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors"
+                      title="Schedule Google Calendar Meeting"
+                    >
+                      <Calendar size={13} />
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Main Content - Compact */}
-            <div className="p-4 md:p-5 space-y-4">
-              {/* Contact & Location Section - Two Columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Contact Details */}
-                <div className="rounded-lg p-3" style={{ background: BG_GRAY, border: `1px solid ${BORDER}` }}>
-                  <h3 className="text-xs font-semibold mb-2.5 flex items-center gap-1.5" style={{ color: PRIMARY_NAVY }}>
-                    <Phone size={12} style={{ color: PRIMARY_ORANGE }} />
-                    Contact Details
-                  </h3>
-                  <div className="space-y-2">
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>PHONE</p><p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{lead.phone || "-"}</p></div>
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>EMAIL</p><p className="text-sm font-medium break-all" style={{ color: TEXT_PRIMARY }}>{lead.email || "-"}</p></div>
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>WHATSAPP</p><p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{lead.whatsapp_number || "-"}</p></div>
-                  </div>
+            {/* Structured Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              
+              {/* Contact Information */}
+              <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs">
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Phone size={12} className="text-slate-500" />
+                    Contact Information
+                  </span>
                 </div>
 
-                {/* Location Details */}
-                <div className="rounded-lg p-3" style={{ background: BG_GRAY, border: `1px solid ${BORDER}` }}>
-                  <h3 className="text-xs font-semibold mb-2.5 flex items-center gap-1.5" style={{ color: PRIMARY_NAVY }}>
-                    <MapPin size={12} style={{ color: PRIMARY_ORANGE }} />
-                    Location Details
-                  </h3>
-                  <div className="space-y-2">
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>STATE</p><p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{lead.state || "-"}</p></div>
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>CITY</p><p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{lead.city || "-"}</p></div>
-                    <div><p className="text-[9px] uppercase tracking-wide" style={{ color: TEXT_MUTED }}>LOCATION</p><p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{lead.location || "-"}</p></div>
+                <div className="space-y-2 text-xs">
+                  {/* Phone */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase w-16">PHONE</span>
+                      <span className="font-semibold text-slate-800">{lead.phone || "-"}</span>
+                    </div>
+                    {lead.phone && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleCopy(lead.phone || "", "Phone")}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                          title="Copy phone"
+                        >
+                          {copiedField === "Phone" ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                        </button>
+                        <button
+                          onClick={handleCall}
+                          className="p-1 text-emerald-600 hover:text-emerald-700 rounded transition-colors"
+                          title="Call"
+                        >
+                          <Phone size={11} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase w-16 shrink-0">EMAIL</span>
+                      <span className="font-medium text-slate-800 truncate">{lead.email || "-"}</span>
+                    </div>
+                    {lead.email && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleCopy(lead.email || "", "Email")}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                          title="Copy email"
+                        >
+                          {copiedField === "Email" ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                        </button>
+                        <button
+                          onClick={handleEmail}
+                          className="p-1 text-blue-600 hover:text-blue-700 rounded transition-colors"
+                          title="Send mail"
+                        >
+                          <Mail size={11} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* WhatsApp */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase w-16">WHATSAPP</span>
+                      <span className="font-medium text-slate-800">{lead.whatsapp_number || lead.phone || "-"}</span>
+                    </div>
+                    {(lead.whatsapp_number || lead.phone) && (
+                      <button
+                        onClick={handleWhatsApp}
+                        className="p-1 text-emerald-600 hover:text-emerald-700 rounded transition-colors"
+                        title="Open WhatsApp"
+                      >
+                        <MessageCircle size={11} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Lead Classification - Compact */}
-              <div className="rounded-lg p-3" style={{ background: BG_GRAY, border: `1px solid ${BORDER}` }}>
-                <h3 className="text-xs font-semibold mb-2.5 flex items-center gap-1.5" style={{ color: PRIMARY_NAVY }}>
-                  <Tag size={12} style={{ color: PRIMARY_ORANGE }} />
-                  Lead Classification
-                </h3>
-                
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <div className="flex items-center gap-1"><span className="text-[10px]" style={{ color: TEXT_MUTED }}>Source:</span><span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">{lead.lead_source || "-"}</span></div>
-                  <div className="flex items-center gap-1"><span className="text-[10px]" style={{ color: TEXT_MUTED }}>Priority:</span><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPriorityColor(lead.priority || "")}`}>{lead.priority || "-"}</span></div>
-                  <div className="flex items-center gap-1"><span className="text-[10px]" style={{ color: TEXT_MUTED }}>Stage:</span><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStageColor(lead.stage || "")}`}>{lead.stage || "-"}</span></div>
-                  <div className="flex items-center gap-1"><span className="text-[10px]" style={{ color: TEXT_MUTED }}>Status:</span><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(lead.status)}`}>{lead.status}</span></div>
+              {/* Location Details */}
+              <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs">
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <MapPin size={12} className="text-slate-500" />
+                    Location & Geography
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-white border" style={{ borderColor: BORDER }}>
-                    <Clock size={13} style={{ color: TEXT_MUTED }} />
-                    <div><p className="text-[9px] uppercase" style={{ color: TEXT_MUTED }}>CREATED</p><p className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{createdDate}</p><p className="text-[10px]" style={{ color: TEXT_MUTED }}>{createdTime}</p><p className="text-[10px] mt-0.5 truncate max-w-[130px]" style={{ color: TEXT_MUTED }}>By: {lead.created_by_name || "System"}</p></div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase w-16">STATE</span>
+                    <span className="font-medium text-slate-800">{lead.state || "-"}</span>
                   </div>
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-white border" style={{ borderColor: BORDER }}>
-                    <Clock size={13} style={{ color: TEXT_MUTED }} />
-                    <div><p className="text-[9px] uppercase" style={{ color: TEXT_MUTED }}>UPDATED</p><p className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{updatedDate}</p><p className="text-[10px]" style={{ color: TEXT_MUTED }}>{updatedTime}</p><p className="text-[10px] mt-0.5 truncate max-w-[130px]" style={{ color: TEXT_MUTED }}>By: {lead.updated_by_name || "System"}</p></div>
+
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase w-16">CITY</span>
+                    <span className="font-medium text-slate-800">{lead.city || "-"}</span>
                   </div>
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-white border" style={{ borderColor: BORDER }}>
-                    <Clock size={13} style={{ color: TEXT_MUTED }} />
-                    <div><p className="text-[9px] uppercase" style={{ color: TEXT_MUTED }}>LAST CONTACT</p><p className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{lastContactDate}</p><p className="text-[10px]" style={{ color: TEXT_MUTED }}>{lastContactTime}</p><p className="text-[10px] mt-0.5 truncate max-w-[130px]" style={{ color: TEXT_MUTED }}>By: {lead.last_contacted_by_name || lead.last_contacted_by || "-"}</p></div>
+
+                  <div className="flex items-center justify-between py-1 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase w-16">LOCATION</span>
+                    <span className="font-semibold text-slate-800">{lead.location || "-"}</span>
                   </div>
-                  <div className="flex items-start gap-2 p-2 rounded-lg col-span-1 sm:col-span-2 lg:col-span-1" style={{ background: `${PRIMARY_ORANGE}08`, border: `1px solid ${PRIMARY_ORANGE}20` }}>
-                    <Users size={13} style={{ color: PRIMARY_ORANGE }} />
-                    <div><p className="text-[9px] uppercase" style={{ color: PRIMARY_ORANGE }}>ASSIGNED EXECUTIVE</p><p className="text-xs font-semibold" style={{ color: PRIMARY_NAVY }}>{getAssignedExecName()}</p></div>
-                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lead Status & Classification Details */}
+            <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs">
+              <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Tag size={12} className="text-slate-500" />
+                  Classification & Lifecycle
+                </span>
+                
+                {/* Transfer Action if Qualified */}
+                {shouldShowTransfer(lead, latestFollowup) && (
                   <div className="relative" ref={dropdownRef}>
-                    {shouldShowTransfer(lead, latestFollowup) && (
-                      <button onClick={() => setShowTransferOptions(!showTransferOptions)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white transition-all hover:opacity-90" style={{ background: PRIMARY_ORANGE }}>
-                        <HiArrowsRightLeft size={12} /> Transfer Lead
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowTransferOptions(!showTransferOptions)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-white transition-all shadow-xs hover:opacity-90"
+                      style={{ background: PRIMARY_ORANGE }}
+                    >
+                      <ArrowRightLeft size={12} />
+                      <span>Transfer Lead</span>
+                      <ChevronDown size={11} />
+                    </button>
                     {showTransferOptions && (
-                      <div className="absolute top-full left-0 mt-2 w-44 rounded-xl shadow-lg border z-20 overflow-hidden bg-white" style={{ borderColor: BORDER }}>
-                        <button className="w-full px-3 py-1.5 text-left text-xs text-green-600 hover:bg-green-50" onClick={() => { setShowTransferOptions(false); setShowBuyerComponent(true); }}>Transfer to Buyer</button>
-                        <button className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50" onClick={() => { setShowTransferOptions(false); setShowSellerComponent(true); }}>Transfer to Seller</button>
+                      <div className="absolute right-0 mt-1 w-44 rounded-lg shadow-lg border border-slate-200 z-20 overflow-hidden bg-white p-1">
+                        <button
+                          className="w-full px-2.5 py-1.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded transition-colors flex items-center gap-1.5"
+                          onClick={() => { setShowTransferOptions(false); setShowBuyerComponent(true); }}
+                        >
+                          <Building2 size={12} />
+                          <span>Transfer to Buyer</span>
+                        </button>
+                        <button
+                          className="w-full px-2.5 py-1.5 text-left text-xs font-medium text-indigo-700 hover:bg-indigo-50 rounded transition-colors flex items-center gap-1.5"
+                          onClick={() => { setShowTransferOptions(false); setShowSellerComponent(true); }}
+                        >
+                          <Building2 size={12} />
+                          <span>Transfer to Seller</span>
+                        </button>
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Status Pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium">Source:</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    {lead.lead_source || "Direct"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium">Priority:</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] border ${getPriorityColor(lead.priority || "")}`}>
+                    {lead.priority || "Medium"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium">Stage:</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${getStageColor(lead.stage || "")}`}>
+                    {lead.stage || "New"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium">Status:</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${getStatusColor(lead.status)}`}>
+                    {lead.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Audit & Timestamp Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                {/* Created */}
+                <div className="p-2 rounded-md bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1 text-slate-500 mb-1">
+                    <Clock size={11} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">CREATED</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">{createdDate}</p>
+                  <p className="text-[10px] text-slate-400">{createdTime}</p>
+                  <p className="text-[10px] text-slate-600 mt-1 truncate">By: {lead.created_by_name || "System"}</p>
+                </div>
+
+                {/* Updated */}
+                <div className="p-2 rounded-md bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1 text-slate-500 mb-1">
+                    <History size={11} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">UPDATED</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">{updatedDate}</p>
+                  <p className="text-[10px] text-slate-400">{updatedTime}</p>
+                  <p className="text-[10px] text-slate-600 mt-1 truncate">By: {lead.updated_by_name || "System"}</p>
+                </div>
+
+                {/* Last Contact */}
+                <div className="p-2 rounded-md bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1 text-slate-500 mb-1">
+                    <PhoneCall size={11} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">LAST CONTACT</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">{lastContactDate || "-"}</p>
+                  <p className="text-[10px] text-slate-400">{lastContactTime || "-"}</p>
+                  <p className="text-[10px] text-slate-600 mt-1 truncate">By: {lead.last_contacted_by_name || lead.last_contacted_by || "-"}</p>
+                </div>
+
+                {/* Assigned Executive */}
+                <div className="p-2 rounded-md bg-orange-50/50 border border-orange-200/70">
+                  <div className="flex items-center gap-1 text-orange-600 mb-1">
+                    <UserCheck size={11} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-orange-800">ASSIGNED EXECUTIVE</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 truncate">{getAssignedExecName()}</p>
+                  <p className="text-[10px] text-orange-700/80 mt-1">Active Presales</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Sidebar - Follow-ups Timeline - Compact */}
-          <div className="bg-white rounded-xl shadow-sm border" style={{ borderColor: BORDER }}>
-            <div className="p-3 md:p-4 border-b flex items-center justify-between" style={{ borderColor: BORDER, background: BG_GRAY }}>
-              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: PRIMARY_NAVY }}>
-                <MessageSquare size={14} style={{ color: PRIMARY_ORANGE }} />
-                <span>Follow-ups Timeline</span>
+          {/* Right Column: Follow-ups Timeline */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-xs flex flex-col h-full">
+            {/* Timeline Header */}
+            <div className="px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 rounded-t-lg">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare size={13} className="text-slate-600" />
+                <h2 className="text-xs font-bold text-slate-800">Follow-ups Timeline</h2>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
                   {followups.length}
                 </span>
-              </h3>
+              </div>
               <button
-                onClick={() => setShowFollowUpModal(true)}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-all hover:opacity-90"
+                onClick={() => {
+                  if (!canCreateFollowups) {
+                    toast.error("Permission denied");
+                    return;
+                  }
+                  setEditingFollowup(null);
+                  setShowFollowUpModal(true);
+                }}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white transition-all shadow-xs ${
+                  !canCreateFollowups ? "opacity-60 cursor-not-allowed" : "hover:opacity-90"
+                }`}
                 style={{ background: PRIMARY_ORANGE }}
                 title="Add Follow-up"
               >
-                <Calendar size={11} /> Add Follow-up
+                <Plus size={12} />
+                <span>Add Follow-up</span>
               </button>
             </div>
-            <div className="p-3 md:p-4">
-              {followupsLoading && (<div className="flex justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: PRIMARY_ORANGE }}></div></div>)}
-              {!followupsLoading && id && followupsError && (<div className="text-center py-6 text-red-500 text-xs">{followupsError}</div>)}
-              {!followupsLoading && id && !followupsError && followups.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-8 px-4 rounded-xl text-center" style={{ background: BG_GRAY, border: `1px dashed ${BORDER}` }}>
-                  <MessageSquare size={32} style={{ color: TEXT_MUTED }} />
-                  <p className="text-xs font-medium mt-2" style={{ color: TEXT_MUTED }}>No follow-ups yet</p>
-                  <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED }}>Click "Follow Up" to add one</p>
+
+            {/* Timeline List */}
+            <div className="p-3 flex-1 overflow-y-auto max-h-[calc(100vh-220px)]">
+              {followupsLoading && (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: PRIMARY_ORANGE }}></div>
                 </div>
               )}
+
+              {!followupsLoading && id && followupsError && (
+                <div className="text-center py-6 text-rose-500 text-xs">{followupsError}</div>
+              )}
+
+              {!followupsLoading && !followupsError && followups.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 px-4 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                  <MessageSquare size={28} className="text-slate-300 mb-2" />
+                  <p className="text-xs font-semibold text-slate-600">No follow-ups recorded yet</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Keep track of client calls, meetings & remarks</p>
+                  <button
+                    onClick={() => {
+                      if (!canCreateFollowups) {
+                        toast.error("Permission denied");
+                        return;
+                      }
+                      setEditingFollowup(null);
+                      setShowFollowUpModal(true);
+                    }}
+                    className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-xs hover:opacity-90"
+                    style={{ background: PRIMARY_ORANGE }}
+                  >
+                    <Plus size={12} />
+                    <span>Add First Follow-up</span>
+                  </button>
+                </div>
+              )}
+
               {!followupsLoading && !followupsError && followups.length > 0 && (
-                <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
-                  {followups.map((f) => {
-                    const Ico = typeIcon(f.type);
-                    const color = followupCardClasses(f.type);
+                <div className="space-y-3">
+                  {followups.map((f, idx) => {
                     const sched = formatScheduleDisplay(
                       f.scheduledDate || f.scheduled_date,
                       f.scheduledTime || f.scheduled_time
@@ -1249,115 +1574,212 @@ const LeadDetailPage: React.FC = () => {
                     const rawAssignedByName = resolveAdminOrAssignerFullName(fAny, lead);
                     const assignedByName = stripSalutation(rawAssignedByName) || rawAssignedByName;
 
+                    const prioritySlug = (f.priority || "").toLowerCase().trim();
+                    const priorityDotColor =
+                      prioritySlug === "high" || prioritySlug === "urgent"
+                        ? "bg-rose-500"
+                        : prioritySlug === "medium"
+                        ? "bg-amber-500"
+                        : prioritySlug === "low"
+                        ? "bg-emerald-500"
+                        : "bg-slate-400";
+                    const priorityLabel = (f.priority || "NORMAL").toUpperCase();
+                    const fuNumberStr = `FU ${String(idx + 1).padStart(2, "0")}`;
+
                     return (
-                      <div key={f.id} className={`border rounded-lg p-2.5 transition-all bg-white shadow-xs hover:shadow-sm border-l-4 ${color.leftBar}`}>
-                        {/* Header Row */}
-                        <div className="flex items-center justify-between gap-1.5 pb-1.5 mb-1.5 border-b border-gray-100">
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center gap-1 ${color.badge}`}>
-                              <Ico size={10} className={color.icon} />
-                              <span>{f.type || 'Follow-up'}</span>
+                      <div
+                        key={f.id}
+                        className="group relative rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                      >
+                        {/* Top Header Row */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {/* Dark Navy Pill Badge (FU 01, FU 02) */}
+                            <span className="inline-flex h-6 min-w-[42px] items-center justify-center rounded-lg bg-[#0f2b3d] px-2 text-[9.5px] font-bold tracking-wide text-white shadow-xs">
+                              {fuNumberStr}
                             </span>
-
-                            {f.stage && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                Stage: {f.stage}
-                              </span>
-                            )}
-
-                            {f.status && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                Status: {f.status}
-                              </span>
-                            )}
-
-                            {f.priority && (
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${getPriorityColor(f.priority)}`}>
-                                {f.priority}
-                              </span>
-                            )}
+                            {/* Follow-up Type Tag */}
+                            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-700 shadow-2xs">
+                              {(() => {
+                                const norm = (f.type || '').toLowerCase();
+                                if (norm.includes('call') || norm.includes('phone')) return <PhoneCall size={11} className="text-blue-600 shrink-0" />;
+                                if (norm.includes('whatsapp')) return <MessageSquareText size={11} className="text-emerald-600 shrink-0" />;
+                                if (norm.includes('email') || norm.includes('mail')) return <MailCheck size={11} className="text-sky-600 shrink-0" />;
+                                if (norm.includes('meeting') || norm.includes('visit')) return <CalendarCheck size={11} className="text-purple-600 shrink-0" />;
+                                return <Sparkles size={11} className="text-amber-500 shrink-0" />;
+                              })()}
+                              <span className="truncate">{f.type || "CALL"}</span>
+                            </span>
                           </div>
 
-                          {/* Action Edit / Delete */}
-                          <div className="flex items-center gap-1">
+                          {/* Edit / Delete Action Icons */}
+                          <div className="flex shrink-0 items-center gap-1">
                             {canUpdateFollowups && (
-                              <button onClick={() => handleEditFollowup(f)} className="p-0.5 rounded hover:bg-orange-50 text-gray-500 hover:text-orange-600 transition-colors" title="Edit Follow-up">
-                                <Pencil size={11} />
+                              <button
+                                onClick={() => handleEditFollowup(f)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 transition-all hover:border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+                                title="Edit Follow-up"
+                              >
+                                <PencilLine size={13} />
                               </button>
                             )}
                             {canDeleteFollowups && (
-                              <button onClick={() => handleDeleteFollowup(f.id)} className="p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="Delete Follow-up">
-                                <Trash2 size={11} />
+                              <button
+                                onClick={() => handleDeleteFollowup(f.id)}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 transition-all hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
+                                title="Delete Follow-up"
+                              >
+                                <Trash2 size={13} />
                               </button>
                             )}
                           </div>
                         </div>
 
-                        {/* Body Details */}
-                        <div className="space-y-1.5 text-[11px]">
-                          {/* Outcome / Remarks */}
-                          {(f.customRemark || f.remark) && (
-                            <div className="bg-amber-50/70 border border-amber-200/70 rounded-lg p-2 text-gray-800">
-                              <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wider mb-0.5">
-                                Outcome / Remarks:
-                              </span>
-                              <p className="text-[11px] leading-relaxed text-gray-700 font-medium whitespace-pre-wrap">
-                                {f.customRemark || f.remark}
-                              </p>
-                            </div>
+                        {/* Stage, Status & Priority Row */}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                          {f.stage && (
+                            <span className="inline-flex items-center rounded-md border border-indigo-100 bg-indigo-50/80 px-2 py-0.5 text-[9.5px] font-semibold text-indigo-700">
+                              Stage · {f.stage}
+                            </span>
                           )}
+                          {f.status && (
+                            <span className="inline-flex items-center rounded-md border border-blue-100 bg-blue-50/80 px-2 py-0.5 text-[9.5px] font-semibold text-blue-700">
+                              Status · {f.status}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[9.5px] font-semibold text-slate-700">
+                            <span className={`h-1.5 w-1.5 rounded-full ${priorityDotColor}`} />
+                            {priorityLabel}
+                          </span>
+                        </div>
 
+                        {/* Next Action & Scheduled 2-Column Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2.5">
                           {/* Next Action */}
-                          {f.nextAction && (
-                            <div className="flex items-center gap-2 bg-orange-50/80 border border-orange-200/80 rounded-lg px-2.5 py-1.5 text-xs">
-                              <span className="font-bold text-orange-900 whitespace-nowrap flex items-center gap-1">
-                                ⚡ Next Action:
+                          <div className="min-w-0 rounded-xl border border-indigo-100 bg-indigo-50/40 p-2.5">
+                            <div className="mb-1 flex items-center gap-1.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-indigo-600">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-indigo-600 shadow-2xs border border-indigo-100">
+                                <Zap size={10} className="text-indigo-600 fill-indigo-600" />
                               </span>
-                              <span className="font-semibold text-orange-700 truncate">
-                                {f.nextAction}
-                              </span>
+                              <span>NEXT ACTION</span>
                             </div>
-                          )}
+                            <p className="truncate text-xs font-bold text-slate-900 uppercase tracking-tight" title={String(f.nextAction || "Not set")}>
+                              {f.nextAction || "Not set"}
+                            </p>
+                          </div>
 
-                          {/* Scheduled Date & Time */}
-                          {sched && (
-                            <div className="flex items-center gap-2 bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 text-xs text-emerald-900">
-                              <Calendar size={12} className="text-emerald-600 flex-shrink-0" />
-                              <span className="font-medium text-[11px]">Scheduled:</span>
-                              <span className="font-bold text-[11px] text-emerald-700">
-                                {sched.date} {sched.time ? `at ${sched.time}` : ''}
+                          {/* Scheduled */}
+                          <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5">
+                            <div className="mb-1 flex items-center gap-1.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white text-slate-600 shadow-2xs border border-slate-200">
+                                <CalendarClock size={11} className="text-slate-600" />
                               </span>
+                              <span>SCHEDULED</span>
                             </div>
-                          )}
+                            <p className="truncate text-xs font-semibold text-slate-700" title={sched ? `${sched.date} ${sched.time ? `at ${sched.time}` : ''}` : "Not scheduled"}>
+                              {sched ? `${sched.date} ${sched.time ? `at ${sched.time}` : ''}` : "Not scheduled"}
+                            </p>
+                          </div>
+                        </div>
 
-                          {/* Footer Audit Metadata */}
-                          <div className="pt-1.5 mt-1.5 border-t border-dashed border-gray-200 flex flex-wrap items-center justify-between text-[10px] text-gray-500 gap-2">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="flex items-center gap-1">
-                                <User size={10} className="text-gray-400" />
-                                <span>Created by:</span>
-                                <strong className="text-gray-700 font-semibold">{createdByName}</strong>
+                        {/* Outcome / Remarks */}
+                        {(f.customRemark || f.remark) && (
+                          <div className="mt-2.5 rounded-xl border border-amber-200/80 bg-amber-50/40 p-2.5">
+                            <div className="mb-1 flex items-center gap-1.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                              <span className="flex h-4 w-4 items-center justify-center rounded bg-amber-100/80 text-amber-700">
+                                <MessageSquareQuote size={10} />
                               </span>
-                              <span className="flex items-center gap-1">
-                                <span>Assigned to:</span>
-                                <strong className="text-gray-700 font-semibold">{assignedToName}</strong>
-                              </span>
-                              {assignedByName && (
-                                <span className="flex items-center gap-1">
-                                  <span>📌 Assigned by:</span>
-                                  <strong className="text-gray-700 font-semibold">{assignedByName}</strong>
-                                </span>
-                              )}
+                              OUTCOME / REMARKS
                             </div>
-                            <div className="flex flex-wrap items-center gap-3 text-gray-400">
-                              {f.createdAt && (
-                                <span>Created: {formatDateShort(f.createdAt)}</span>
-                              )}
-                              {(f as any).updatedAt && (f as any).updatedAt !== f.createdAt && (
-                                <span>Updated: {formatDateShort((f as any).updatedAt)}</span>
-                              )}
+                            <p className="text-[11px] font-medium leading-relaxed text-slate-700 whitespace-pre-wrap">
+                              {f.customRemark || f.remark}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Shortlisted / Attached Properties */}
+                        {Boolean((f as any).project || (f as any).siteLocation || (f as any).site_location || fAny.project || fAny.site_location) && (
+                          <div className="mt-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-2.5">
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <span className="font-bold text-emerald-900 flex items-center gap-1 text-[8.5px] uppercase tracking-wider">
+                                <Building2 size={11} className="text-emerald-600 shrink-0" />
+                                Shared Properties
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const leadName = (lead?.name || "Sir/Madam").trim();
+                                  const phone = lead?.phone || (fAny as any).entity_phone || (fAny as any).entityPhone || "";
+                                  const cleanPhone = phone.replace(/[^0-9]/g, "");
+                                  const finalPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                                  const fProj = (f as any).project || fAny.project || "";
+                                  const fLoc = (f as any).siteLocation || (f as any).site_location || fAny.site_location || "";
+                                  const text = `Hello ${leadName},\n\nHere are the shortlisted property details from Resale Expert:\nProject: ${fProj}${fLoc ? `\nLocation: ${fLoc}` : ""}\n\nPlease let us know if you need more details.\n\nThank you!`;
+                                  const waUrl = finalPhone
+                                    ? `https://wa.me/${finalPhone}?text=${encodeURIComponent(text)}`
+                                    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+                                  window.open(waUrl, "_blank");
+                                }}
+                                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-0.5 text-[9px] font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                                title="Share on WhatsApp"
+                              >
+                                <Send size={8} />
+                                Share WA
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {String((f as any).project || fAny.project || '').split(',').map((pName: string, pIdx: number) => {
+                                const cleanName = pName.trim();
+                                if (!cleanName) return null;
+                                const locParts = String((f as any).siteLocation || (f as any).site_location || fAny.site_location || '').split(',').map((l: string) => l.trim()).filter(Boolean);
+                                const assignedLoc = locParts[pIdx] || locParts[0] || '';
+                                return (
+                                  <div
+                                    key={pIdx}
+                                    className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-white px-1.5 py-0.5 text-[10px]"
+                                  >
+                                    <span className="flex items-center gap-1 font-semibold text-slate-800">
+                                      <Building2 size={10} className="text-emerald-600 shrink-0" /> {cleanName}
+                                    </span>
+                                    {assignedLoc && (
+                                      <span className="flex items-center gap-0.5 text-emerald-700 font-medium text-[9px] bg-emerald-50 px-1 py-0.2 rounded">
+                                        <MapPin size={8} className="text-emerald-500" /> {assignedLoc}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
+                        )}
+
+                        {/* Footer Audit Metadata */}
+                        <div className="mt-3 border-t border-dashed border-slate-200 pt-2.5">
+                          <div className="space-y-1 text-[9.5px] text-slate-400">
+                            <div className="flex items-center gap-1.5">
+                              <UserIcon size={10} className="shrink-0 text-slate-400" />
+                              <span>Created by</span>
+                              <strong className="font-semibold text-slate-700">{createdByName}</strong>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <UserCheck size={10} className="shrink-0 text-slate-400" />
+                              <span>Assigned to</span>
+                              <strong className="font-semibold text-slate-700">{assignedToName}</strong>
+                            </div>
+                            {assignedByName && (
+                              <div className="flex items-center gap-1.5">
+                                <Share2 size={10} className="shrink-0 text-slate-400" />
+                                <span>Assigned by</span>
+                                <strong className="font-semibold text-slate-700">{assignedByName}</strong>
+                              </div>
+                            )}
+                          </div>
+                          {f.createdAt && (
+                            <div className="mt-1.5 text-[8.5px] text-slate-400">
+                              Created {formatDateShort(f.createdAt)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -1369,11 +1791,12 @@ const LeadDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* FollowUp Modal */}
       <FollowUpModal
-        open={showFollowUpModal || isFollowupModalOpen}
+        open={showFollowUpModal}
         mode={editingFollowup ? "edit" : "add"}
         currentFollowUp={editingFollowup as any}
+        entityData={lead}
         initialEntityCode="LEAD"
         initialEntityId={lead?.lead_number || lead?.id}
         initialEntityName={lead?.name}
@@ -1381,46 +1804,48 @@ const LeadDetailPage: React.FC = () => {
         initialStageCode={lead?.stage}
         initialStatusCode={lead?.status}
         initialAssignedTo={getAssignedExecName() !== 'Unassigned' ? getAssignedExecName() : (lead?.assigned_executive_name || lead?.assigned_executive)}
+        initialAttemptNo={editingFollowup ? ((editingFollowup as any)?.attempt_no || 1) : ((followups?.length || 0) + 1)}
         onClose={() => {
           setShowFollowUpModal(false);
-          setIsFollowupModalOpen(false);
           setEditingFollowup(null);
         }}
         onSaved={() => {
           setShowFollowUpModal(false);
-          setIsFollowupModalOpen(false);
           setEditingFollowup(null);
           fetchFollowups();
         }}
       />
+
+      {/* Buyer / Seller Transfer Modals */}
       {showBuyerComponent && lead && <BuyerFormModal lead={lead} followups={followups} onClose={() => setShowBuyerComponent(false)} />}
       {showSellerComponent && lead && <SellerFormModal lead={lead} followups={followups} onClose={() => setShowSellerComponent(false)} />}
+      
+      {/* Edit Lead Modal */}
       <AddLeadModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveLead} lead={lead || undefined} />
 
       {/* Delete Followup Confirmation Modal */}
-    {/* Delete Followup Confirmation Modal */}
       {followupToDelete !== null && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFollowupToDelete(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setFollowupToDelete(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 m-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center">
-              <div className="p-3 rounded-full bg-red-50 text-red-500 mb-4">
-                <Trash2 size={28} />
+              <div className="p-2.5 rounded-full bg-rose-50 text-rose-600 mb-3 border border-rose-100">
+                <Trash2 size={22} />
               </div>
-              <h3 className="text-base font-bold text-gray-900">Delete Follow-up</h3>
-              <p className="text-xs text-gray-500 mt-2">
-                Are you sure you want to delete this follow-up? This action cannot be undone.
+              <h3 className="text-sm font-bold text-slate-900">Delete Follow-up</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to delete this follow-up record? This action cannot be undone.
               </p>
-              <div className="flex gap-3 w-full mt-6">
+              <div className="flex gap-2 w-full mt-4">
                 <button
                   onClick={() => setFollowupToDelete(null)}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDeleteFollowup}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                  className="flex-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all"
                 >
                   Delete
                 </button>
@@ -1433,26 +1858,26 @@ const LeadDetailPage: React.FC = () => {
       {/* Delete Lead Confirmation Modal */}
       {showDeleteLeadModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteLeadModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowDeleteLeadModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 m-4 border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center">
-              <div className="p-3 rounded-full bg-red-50 text-red-500 mb-4">
-                <Trash2 size={28} />
+              <div className="p-2.5 rounded-full bg-rose-50 text-rose-600 mb-3 border border-rose-100">
+                <Trash2 size={22} />
               </div>
-              <h3 className="text-base font-bold text-gray-900">Delete Lead</h3>
-              <p className="text-xs text-gray-500 mt-2">
-                Are you sure you want to delete <span className="font-semibold">{lead?.salutation} {lead?.name}</span>? This action cannot be undone.
+              <h3 className="text-sm font-bold text-slate-900">Delete Lead</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to delete <strong className="text-slate-800">{lead?.salutation} {lead?.name}</strong>? All associated data will be removed.
               </p>
-              <div className="flex gap-3 w-full mt-6">
+              <div className="flex gap-2 w-full mt-4">
                 <button
                   onClick={() => setShowDeleteLeadModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmDeleteLead}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                  className="flex-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all"
                 >
                   Delete
                 </button>
@@ -1477,6 +1902,5 @@ const LeadDetailPage: React.FC = () => {
     </div>
   );
 };
-    
 
 export default LeadDetailPage;

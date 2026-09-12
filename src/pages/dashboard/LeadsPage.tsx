@@ -2119,6 +2119,7 @@ const LeadsPage: React.FC = () => {
         <FollowUpModal
           open={showLeadFollowupModal}
           mode="add"
+          entityData={selectedLeadForFollowup}
           initialEntityCode="LEAD"
           initialEntityId={selectedLeadForFollowup?.lead_number || selectedLeadForFollowup?.id}
           initialEntityName={selectedLeadForFollowup?.name}
@@ -2126,6 +2127,7 @@ const LeadsPage: React.FC = () => {
           initialStatusCode={selectedLeadForFollowup?.status}
           initialStageCode={selectedLeadForFollowup?.stage}
           initialAssignedTo={selectedLeadForFollowup?.assigned_executive_name || selectedLeadForFollowup?.assigned_executive}
+          initialAttemptNo={((selectedLeadForFollowup as any)?.followups?.length || (selectedLeadForFollowup as any)?.followup_count || 0) + 1}
           onClose={() => {
             setShowLeadFollowupModal(false);
             setSelectedLeadForFollowup(null);

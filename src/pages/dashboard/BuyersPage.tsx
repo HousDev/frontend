@@ -949,6 +949,9 @@ const BuyersPage = () => {
       const normalizedBuyer = normalizeBuyerForUI({ ...response, assigned_executive: response.assigned_executive ?? user?.id ?? null });
       if (editingBuyer) {
         setAllBuyers(prev => (prev || []).filter(Boolean).map(b => (b && editingBuyer && b.id === editingBuyer.id) ? normalizedBuyer : b));
+        if (currentBuyerView && editingBuyer && (String(currentBuyerView.id) === String(editingBuyer.id) || String(currentBuyerView.id) === String(response.id))) {
+          setCurrentBuyerView(normalizedBuyer);
+        }
         toast.success('Buyer updated successfully');
       } else {
         setAllBuyers(prev => [normalizedBuyer, ...prev]);
@@ -2559,6 +2562,7 @@ const BuyersPage = () => {
       <FollowUpModal
         open={showBuyerFollowupModal}
         mode="add"
+        entityData={selectedBuyerForFollowup}
         initialEntityCode="BUYER"
         initialEntityId={selectedBuyerForFollowup?.id}
         initialEntityName={selectedBuyerForFollowup?.name}
@@ -2566,6 +2570,7 @@ const BuyersPage = () => {
         initialStageCode={selectedBuyerForFollowup?.stage}
         initialStatusCode={selectedBuyerForFollowup?.status}
         initialAssignedTo={selectedBuyerForFollowup?.assigned_executive_name || selectedBuyerForFollowup?.assigned_executive || (selectedBuyerForFollowup as any)?.assigned_to_name || (selectedBuyerForFollowup as any)?.assigned_to}
+        initialAttemptNo={((selectedBuyerForFollowup as any)?.followups?.length || (selectedBuyerForFollowup as any)?.followup_count || 0) + 1}
         onClose={() => {
           setShowBuyerFollowupModal(false);
           setSelectedBuyerForFollowup(null);

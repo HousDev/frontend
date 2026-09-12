@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Phone, Mail, Target, Search, Send, ChevronDown, ChevronUp, Loader2, CheckCircle, MapPin, IndianRupee } from 'lucide-react';
+import { Users, Phone, Mail, Target, Search, Send, ChevronDown, ChevronUp, Loader2, CheckCircle, MapPin, IndianRupee, Building2 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import { api } from '@/lib/api';
@@ -447,7 +447,7 @@ const TenantsTab: React.FC<TenantsTabProps> = ({
                               </>
                             );
                           })()}
-                          <span>🏢 BHK: {tenant.displayBHK}</span>
+                          <span className="inline-flex items-center gap-1"><Building2 size={12} className="text-slate-500" /> BHK: {tenant.displayBHK}</span>
                           <span>•</span>
                           <span>💰 Rent Budget: {formatCurrency(Number(tenant.budget_min || 0))} – {formatCurrency(Number(tenant.budget_max || 0))}</span>
                         </div>
