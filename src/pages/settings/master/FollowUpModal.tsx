@@ -3632,102 +3632,203 @@ export function FollowUpModal({
                 {/* Step 1: Who & What */}
                 {addWizardStep === 1 && (
                   <div className="wizard-panel">
-                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
-                      {/* Entity (Read-only / Locked) */}
-                      <label className="field" style={{ display: 'block' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={11} color="#94a3b8" /> Entity
-                        </span>
+                    {/* Entity / Name / Phone Summary Context Strip */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '12px',
+                        padding: '10px 16px',
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        marginBottom: '16px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {/* Entity Badge */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                        }}
+                      >
                         <div
                           style={{
-                            width: '100%',
-                            minHeight: '44px',
-                            height: '44px',
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            border: '1.5px solid #e2e8f0',
-                            background: '#f8fafc',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '9px',
+                            background:
+                              form.entityCode === 'SELLER'
+                                ? '#ffedd5'
+                                : form.entityCode === 'BUYER'
+                                ? '#eff6ff'
+                                : '#f0fdf4',
+                            border: `1px solid ${
+                              form.entityCode === 'SELLER'
+                                ? '#fed7aa'
+                                : form.entityCode === 'BUYER'
+                                ? '#bfdbfe'
+                                : '#bbf7d0'
+                            }`,
                             display: 'flex',
                             alignItems: 'center',
-                            boxSizing: 'border-box',
-                            cursor: 'not-allowed',
-                            userSelect: 'none',
+                            justifyContent: 'center',
+                            color:
+                              form.entityCode === 'SELLER'
+                                ? '#ea580c'
+                                : form.entityCode === 'BUYER'
+                                ? '#2563eb'
+                                : '#16a34a',
+                            flexShrink: 0,
                           }}
                         >
-                          <span style={{ padding: '3px 9px', borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', fontSize: '12px', fontWeight: 700 }}>
+                          <Building2 size={16} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#64748b',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'block',
+                            }}
+                          >
+                            Entity
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color:
+                                form.entityCode === 'SELLER'
+                                  ? '#c2410c'
+                                  : form.entityCode === 'BUYER'
+                                  ? '#1d4ed8'
+                                  : '#15803d',
+                            }}
+                          >
                             {entityLabel.toUpperCase()}
                           </span>
                         </div>
-                      </label>
+                      </div>
 
-                      {/* Name (Read-only / Locked) */}
-                      <label className="field" style={{ display: 'block' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={11} color="#94a3b8" /> {entityNameLabel}
-                        </span>
+                      {/* Name */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          minWidth: 0,
+                        }}
+                      >
                         <div
                           style={{
-                            width: '100%',
-                            minHeight: '44px',
-                            height: '44px',
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            border: '1.5px solid #e2e8f0',
-                            background: '#f8fafc',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '9px',
+                            background: '#eff6ff',
+                            border: '1px solid #dbeafe',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            boxSizing: 'border-box',
-                            cursor: 'not-allowed',
-                            fontSize: '13.5px',
-                            fontWeight: 700,
-                            color: '#0f172a',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            justifyContent: 'center',
+                            color: '#3b82f6',
+                            flexShrink: 0,
                           }}
                         >
-                          <User size={14} color="#64748b" style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {form.entityName || (form.entityRef ? form.entityRef.replace(/\s*\([^)]*\)\s*$/, '') : '—')}
-                          </span>
+                          <User size={16} />
                         </div>
-                      </label>
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#64748b',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'block',
+                            }}
+                          >
+                            {entityNameLabel}
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {form.entityName ||
+                              (form.entityRef
+                                ? form.entityRef.replace(/\s*\([^)]*\)\s*$/, '')
+                                : '—')}
+                          </strong>
+                        </div>
+                      </div>
 
-                      {/* Phone Number (Read-only / Locked) */}
-                      <label className="field" style={{ display: 'block' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={11} color="#94a3b8" /> Phone Number
-                        </span>
+                      {/* Phone */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          minWidth: 0,
+                        }}
+                      >
                         <div
                           style={{
-                            width: '100%',
-                            minHeight: '44px',
-                            height: '44px',
-                            padding: '10px 14px',
-                            borderRadius: '10px',
-                            border: '1.5px solid #e2e8f0',
-                            background: '#f8fafc',
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '9px',
+                            background: '#f0fdf4',
+                            border: '1px solid #dcfce7',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            boxSizing: 'border-box',
-                            cursor: 'not-allowed',
-                            fontSize: '13.5px',
-                            fontWeight: 600,
-                            color: '#334155',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            justifyContent: 'center',
+                            color: '#16a34a',
+                            flexShrink: 0,
                           }}
                         >
-                          <PhoneCall size={14} color="#64748b" style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <PhoneCall size={15} />
+                        </div>
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#64748b',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'block',
+                            }}
+                          >
+                            Phone Number
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: '#1e293b',
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
                             {form.entityPhone || '—'}
                           </span>
                         </div>
-                      </label>
+                      </div>
                     </div>
+
 
                     <label className="field wide" style={{ marginTop: '20px', display: 'block' }}>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>Follow-up type</span>
