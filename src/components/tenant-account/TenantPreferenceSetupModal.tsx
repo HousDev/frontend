@@ -6,7 +6,7 @@ import {
 import { toast } from 'react-toastify';
 import { tenantAPI } from '@/lib/tenantAPI';
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
-import { fetchReverseGeocode, fetchIpLocation } from '@/utils/deviceInfo';
+import { fetchReverseGeocode, fetchIpLocation, requestMandatoryPreLoginLocation } from '@/utils/deviceInfo';
 
 interface TenantPreferenceSetupModalProps {
   isOpen: boolean;
@@ -181,6 +181,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                     if (main) {
                       setDetectedLocality(main);
                       localStorage.setItem('user_detected_locality', main);
+                      setSelectedLocations((prev) => (prev.includes(main) ? prev : [main, ...prev]));
                     }
                   }
                 } catch (_) {
@@ -214,6 +215,7 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
           if (main) {
             setDetectedLocality(main);
             localStorage.setItem('user_detected_locality', main);
+            setSelectedLocations((prev) => (prev.includes(main) ? prev : [main, ...prev]));
           }
         }
       } catch (_) { } finally {
@@ -224,19 +226,55 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
     detectLoc();
   }, [isOpen, detectedLocality, detectedAddress]);
 
-  // Pre-fill selected location with detected locality if tenant has none set
+  // Auto-select detectedLocality into selectedLocations on open if available
   useEffect(() => {
-    if (selectedLocations.length === 0 && (detectedLocality || detectedAddress)) {
-      const locToUse = detectedLocality || (detectedAddress ? detectedAddress.split(',')[0].trim() : '');
-      if (locToUse) {
-        // Find matching master location or use raw locality
-        const matched = masterLocations.find((loc) =>
-          locToUse.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(locToUse.toLowerCase())
-        );
-        setSelectedLocations([matched || locToUse]);
+    if (isOpen && detectedLocality) {
+      setSelectedLocations((prev) => {
+        if (prev.length === 0 || (!prev.includes(detectedLocality) && !tenant?.preferred_location)) {
+          return [detectedLocality, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [isOpen, detectedLocality, tenant?.preferred_location]);
+
+  const handleDetectCurrentGpsLocation = async () => {
+    setDetectingLoc(true);
+    try {
+      const res = await requestMandatoryPreLoginLocation();
+      if (res.address && !res.error) {
+        setDetectedAddress(res.address);
+        localStorage.setItem('user_detected_location', res.address);
+        const parts = res.address.split(',').map((p) => p.trim()).filter(Boolean);
+        const main = parts[1] || parts[0] || '';
+        if (main) {
+          setDetectedLocality(main);
+          localStorage.setItem('user_detected_locality', main);
+          if (!selectedLocations.includes(main)) {
+            setSelectedLocations((prev) => [main, ...prev]);
+          }
+        }
+        toast.success(`📍 Current GPS Location detected and selected: ${main || res.address}`);
+      } else {
+        toast.error(res.error || 'Could not fetch GPS location. Please check browser permission.');
+      }
+    } catch (e: any) {
+      toast.error('Location detection failed');
+    } finally {
+      setDetectingLoc(false);
+    }
+  };
+
+  // Sync tenant preferred_location prop into state if available
+  useEffect(() => {
+    if (tenant?.preferred_location) {
+      const raw = tenant.preferred_location || '';
+      const list = raw.split(/[;,]+/).map((s) => s.trim()).filter(Boolean);
+      if (list.length > 0) {
+        setSelectedLocations(list);
       }
     }
-  }, [detectedLocality, detectedAddress, masterLocations]);
+  }, [tenant?.preferred_location]);
 
   // Click outside listener for all dropdowns
   useEffect(() => {
@@ -255,76 +293,42 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Proximity cluster mapping for intelligent nearby suggestions (Pune / PCMC & nearby hubs)
-  const nearbyLocalityClusters: Record<string, string[]> = useMemo(() => ({
-    'pimple saudagar': ['Rahatani', 'Wakad', 'Kalewadi', 'Pimple Gurav', 'Pimple Nilakh', 'Jagtap Dairy', 'Thergaon', 'Ravet', 'Sangvi', 'Baner', 'Hinjawadi'],
-    'kalewadi': ['Pimple Saudagar', 'Rahatani', 'Thergaon', 'Pimpri', 'Chinchwad', 'Wakad', 'Pimple Gurav'],
-    'rahatani': ['Pimple Saudagar', 'Kalewadi', 'Wakad', 'Thergaon', 'Pimple Nilakh', 'Jagtap Dairy', 'Ravet'],
-    'wakad': ['Pimple Saudagar', 'Hinjawadi Phase 1', 'Hinjawadi', 'Tathawade', 'Punawale', 'Baner', 'Balewadi', 'Rahatani', 'Ravet', 'Bhumkar Chowk'],
-    'hinjawadi': ['Wakad', 'Maan', 'Marunji', 'Tathawade', 'Punawale', 'Baner', 'Balewadi', 'Mahalunge', 'Bavdhan'],
-    'baner': ['Balewadi', 'Aundh', 'Pashan', 'Mahalunge', 'Sus', 'Bavdhan', 'Wakad', 'Hinjawadi', 'Someshwarwadi'],
-    'balewadi': ['Baner', 'Mahalunge', 'Wakad', 'Hinjawadi', 'Aundh', 'Pashan', 'Sus', 'Tathawade'],
-    'aundh': ['Baner', 'Pashan', 'Pimple Nilakh', 'Pimple Gurav', 'Khadki', 'Shivajinagar', 'Bopodi', 'Sangvi'],
-    'ravet': ['Punawale', 'Tathawade', 'Kiwale', 'Akurdi', 'Nigdi', 'Dehu Road', 'Wakad', 'Chinchwad', 'Pradhikaran'],
-    'punawale': ['Ravet', 'Tathawade', 'Wakad', 'Marunji', 'Kiwale', 'Hinjawadi', 'Dehu Road'],
-    'tathawade': ['Wakad', 'Punawale', 'Ravet', 'Hinjawadi', 'Thergaon', 'Chinchwad'],
-    'kharadi': ['Viman Nagar', 'Wagholi', 'Kalyani Nagar', 'Wadgaon Sheri', 'Chandan Nagar', 'Magarpatta', 'Keshav Nagar', 'Mundhwa'],
-    'viman nagar': ['Kharadi', 'Kalyani Nagar', 'Wadgaon Sheri', 'Tingre Nagar', 'Dhanori', 'Lohegaon', 'Koregaon Park'],
-    'hadapsar': ['Magarpatta', 'Amanora', 'Handewadi', 'Manjri', 'Fatima Nagar', 'Wanowrie', 'Fursungi', 'Kharadi'],
-    'magarpatta': ['Hadapsar', 'Amanora', 'Kharadi', 'Mundhwa', 'Keshav Nagar', 'Fatima Nagar', 'Kalyani Nagar'],
-    'kothrud': ['Bavdhan', 'Karve Nagar', 'Warje', 'Paud Road', 'Deccan', 'Erandwane', 'Shivajinagar'],
-    'bavdhan': ['Kothrud', 'Baner', 'Pashan', 'Warje', 'Sus', 'Hinjawadi', 'Paud Road'],
-    'pashan': ['Baner', 'Aundh', 'Bavdhan', 'Sus', 'Pashan Sus Road', 'Kothrud'],
-    'chinchwad': ['Pimpri', 'Akurdi', 'Nigdi', 'Thergaon', 'Kalewadi', 'Ravet', 'Pimple Saudagar', 'Bhosari'],
-    'dhanori': ['Vishrantwadi', 'Lohegaon', 'Viman Nagar', 'Tingre Nagar', 'Yerwada', 'Kharadi', 'Dighi'],
-    'wagholi': ['Kharadi', 'Bakori', 'Lohegaon', 'Keshav Nagar', 'Chandan Nagar', 'Viman Nagar'],
-  }), []);
-
-  // Compute smart suggested nearby localities based on user selected locations or detected locality
+  // Dynamically compute suggested nearby localities from Master Locations & Detected GPS Locality / Selected Locations
   const suggestedNearbyLocations = useMemo(() => {
-    const candidateKeywords = new Set<string>();
+    if (masterLocations.length === 0) return [];
 
-    // 1. Collect keywords from currently selected locations
-    selectedLocations.forEach((loc) => {
-      candidateKeywords.add(loc.toLowerCase());
-      loc.split(/[-–,]+/).forEach((part) => {
-        const clean = part.trim().toLowerCase();
-        if (clean.length > 2) candidateKeywords.add(clean);
-      });
-    });
+    const activeTerms = [
+      detectedLocality,
+      ...selectedLocations,
+    ].filter(Boolean).map((s) => s.toLowerCase().trim());
 
-    // 2. Add detected locality keywords
-    if (detectedLocality) {
-      candidateKeywords.add(detectedLocality.toLowerCase());
-      detectedLocality.split(/[-–,]+/).forEach((part) => {
-        const clean = part.trim().toLowerCase();
-        if (clean.length > 2) candidateKeywords.add(clean);
-      });
-    }
+    const suggestions = new Set<string>();
 
-    const nearbySuggestions = new Set<string>();
-
-    candidateKeywords.forEach((kw) => {
-      for (const [clusterKey, places] of Object.entries(nearbyLocalityClusters)) {
-        if (kw.includes(clusterKey) || clusterKey.includes(kw)) {
-          places.forEach((p) => {
-            // Find closest match in masterLocations if available, otherwise use place name
-            const masterMatch = masterLocations.find(
-              (m) => m.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(m.toLowerCase())
-            );
-            nearbySuggestions.add(masterMatch || p);
-          });
+    if (activeTerms.length > 0) {
+      // Find master locations that share common city/area words
+      masterLocations.forEach((mLoc) => {
+        const mLower = mLoc.toLowerCase();
+        const matches = activeTerms.some((term) => {
+          const parts = term.split(/[-–,\s]+/).filter((p) => p.length > 2);
+          return parts.some((part) => mLower.includes(part));
+        });
+        if (matches && !selectedLocations.includes(mLoc)) {
+          suggestions.add(mLoc);
         }
-      }
-    });
-
-    // Fallback if no cluster match found: suggest top popular master locations
-    if (nearbySuggestions.size === 0 && masterLocations.length > 0) {
-      masterLocations.slice(0, 8).forEach((loc) => nearbySuggestions.add(loc));
+      });
     }
 
-    return Array.from(nearbySuggestions).slice(0, 10);
-  }, [selectedLocations, detectedLocality, masterLocations, nearbyLocalityClusters]);
+    // Fallback: Fill up to 8 top master locations dynamically
+    if (suggestions.size < 6) {
+      masterLocations.forEach((mLoc) => {
+        if (!selectedLocations.includes(mLoc) && suggestions.size < 8) {
+          suggestions.add(mLoc);
+        }
+      });
+    }
+
+    return Array.from(suggestions).slice(0, 10);
+  }, [selectedLocations, detectedLocality, masterLocations]);
 
   // Filtered lists
   const filteredLocationOptions = useMemo(() => {
@@ -402,6 +406,9 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
       }
 
       localStorage.removeItem('prompt_tenant_preferences');
+      if (tenant?.id) {
+        try { localStorage.setItem(`tenant_preferences_configured_${tenant.id}`, 'true'); } catch {}
+      }
       toast.success('Rental preferences saved! Showing best matched rental properties.');
       onSaveSuccess(payload as any);
     } catch (err: any) {
@@ -464,9 +471,15 @@ export const TenantPreferenceSetupModal: React.FC<TenantPreferenceSetupModalProp
                 <MapPin size={12} className="text-orange-500" />
                 <span>Preferred Locations <span className="text-rose-500">*</span></span>
               </span>
-              <span className="text-[9px] font-bold text-orange-600">
-                {selectedLocations.length > 0 && `${selectedLocations.length} Selected`}
-              </span>
+              <button
+                type="button"
+                disabled={detectingLoc}
+                onClick={handleDetectCurrentGpsLocation}
+                className="text-[9.5px] font-extrabold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition disabled:opacity-50"
+              >
+                {detectingLoc ? <Loader2 size={10} className="animate-spin" /> : <Navigation size={10} />}
+                <span>{detectingLoc ? 'Detecting...' : 'Detect Live Location'}</span>
+              </button>
             </label>
 
             {/* Dropdown Trigger Button */}

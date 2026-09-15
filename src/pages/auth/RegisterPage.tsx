@@ -386,10 +386,13 @@ const RegisterPage: React.FC = () => {
           localStorage.setItem('token', res.data.accessToken);
           localStorage.setItem('user', JSON.stringify(res.data.user));
         }
+        if (formData.role === 'tenant' || res.data?.user?.role === 'tenant') {
+          localStorage.setItem('prompt_tenant_preferences', 'true');
+        }
         toast.success('Registration and email verification successful!');
         
         const params = new URLSearchParams(location.search);
-        const redirect = params.get('redirect') || '/properties';
+        const redirect = params.get('redirect') || (formData.role === 'tenant' ? `/tenant-dashboard/${res.data.user?.tenant_id || res.data.user?.id || '1'}` : '/properties');
         navigate(redirect, { replace: true });
       }
     } catch (err: any) {

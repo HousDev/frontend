@@ -23,7 +23,9 @@ export default function TenantBookingPaymentModal({
 
     if (!isOpen || !booking) return null;
 
-    const tokenAmount = Number(booking.token_amount) || 0;
+    const rawToken = Number(booking.token_amount);
+    const rentAmount = Number(booking.monthly_rent || booking.prop_monthly_rent || booking.price || 0);
+    const tokenAmount = rawToken > 0 ? rawToken : (rentAmount > 0 ? Math.min(rentAmount, 5000) : 5000);
 
     const handleSubmitClaim = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,7 +42,16 @@ export default function TenantBookingPaymentModal({
             if (res?.success) {
                 toast.success('Payment submitted! Owner will verify it shortly.');
                 setStep('done');
-                onPaymentClaimed?.(res.data);
+                const updated = {
+                    ...booking,
+                    payment_status: 'CLAIMED',
+                    payment_reference: paymentRef.trim(),
+                    payment_notes: notes.trim() || null,
+                    ...(res.data || {}),
+                };
+                onPaymentClaimed?.(updated);
+                window.dispatchEvent(new CustomEvent('tenant_property_booked', { detail: updated }));
+                window.dispatchEvent(new Event('tenant_booking_updated'));
             } else {
                 toast.error(res?.message || 'Failed to submit payment');
             }

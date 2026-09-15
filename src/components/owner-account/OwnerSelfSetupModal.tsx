@@ -179,6 +179,9 @@ export const OwnerSelfSetupModal: React.FC<OwnerSelfSetupModalProps> = ({
 
       localStorage.removeItem(`prompt_owner_setup_${owner?.id}`);
       localStorage.removeItem('prompt_owner_setup');
+      if (owner?.id) {
+        try { localStorage.setItem(`owner_setup_dismissed_${owner.id}`, 'true'); } catch {}
+      }
 
       toast.success('Account preferences & password saved successfully! Welcome to your Owner Portal.');
       if (onSaveSuccess) onSaveSuccess({ ...owner, ...updatedProfile, preferred_visit_slots: selectedSlots });

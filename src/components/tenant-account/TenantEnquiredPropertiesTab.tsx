@@ -11,6 +11,7 @@ import { MatchedProperty, TenantOwnerInterest } from './types';
 import { tenantAPI } from '@/lib/tenantAPI';
 import TenantBookingPaymentModal from './TenantBookingPaymentModal';
 import { tenantBookingAPI } from '@/lib/tenantBookingAPI';
+
 interface TenantEnquiredPropertiesTabProps {
   enquiredProperties: MatchedProperty[];
   linkingId: number | string | null;
@@ -40,6 +41,7 @@ export default function TenantEnquiredPropertiesTab({
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [activeBookingModal, setActiveBookingModal] = useState<any | null>(null);
   const [creatingBookingId, setCreatingBookingId] = useState<number | null>(null);
+
 
   const fetchInterests = async () => {
     if (!tenantId) return;
@@ -71,6 +73,28 @@ export default function TenantEnquiredPropertiesTab({
   useEffect(() => {
     fetchInterests();
     fetchBookings();
+
+    const handleUpdate = (e?: any) => {
+      fetchInterests();
+      fetchBookings();
+      if (e?.detail) {
+        setTenantBookings((prev) => {
+          const detail = e.detail;
+          const filtered = prev.filter((b) => b.booking_id !== detail.booking_id && b.id !== detail.id);
+          return [detail, ...filtered];
+        });
+      }
+    };
+
+    window.addEventListener('tenant_booking_updated', handleUpdate);
+    window.addEventListener('tenant_property_booked', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('tenant_booking_updated', handleUpdate);
+      window.removeEventListener('tenant_property_booked', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
   }, [tenantId]);
 
   const handleTenantResponse = async (item: TenantOwnerInterest, action: 'accept' | 'decline') => {
@@ -123,37 +147,46 @@ export default function TenantEnquiredPropertiesTab({
     return enquiredList.filter((p: any) => String(p.id) === selectedPropertyFilter);
   }, [enquiredList, selectedPropertyFilter]);
 
+  const [confirmDeleteState, setConfirmDeleteState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   // Handle single enquiry delete
   const handleDeleteSingle = (propId: number | string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('Remove this property enquiry from your list?')) return;
-
-    setEnquiredList((prev) => prev.filter((p) => String(p.id) !== String(propId)));
-    setSelectedIds((prev) => prev.filter((id) => String(id) !== String(propId)));
-
-    // Clean up from local storage keys if stored
-    try {
-      const keysToClean = [
-        'enquired_properties',
-        'unlocked_properties',
-        `tenant_enquiries_${tenantId}`,
-        `unlocked_owner_${tenantId}`,
-      ];
-      keysToClean.forEach((k) => {
-        const raw = localStorage.getItem(k);
-        if (raw) {
-          try {
-            const arr = JSON.parse(raw);
-            if (Array.isArray(arr)) {
-              const updated = arr.filter((item: any) => (item?.id || item) !== propId && (item?.id || item) !== Number(propId));
-              localStorage.setItem(k, JSON.stringify(updated));
+    setConfirmDeleteState({
+      isOpen: true,
+      title: 'Remove Enquiry',
+      message: 'Are you sure you want to remove this property enquiry from your list?',
+      onConfirm: () => {
+        setEnquiredList((prev) => prev.filter((p) => String(p.id) !== String(propId)));
+        setSelectedIds((prev) => prev.filter((id) => String(id) !== String(propId)));
+        try {
+          const keysToClean = [
+            'enquired_properties',
+            'unlocked_properties',
+            `tenant_enquiries_${tenantId}`,
+            `unlocked_owner_${tenantId}`,
+          ];
+          keysToClean.forEach((k) => {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                  const updated = arr.filter((item: any) => (item?.id || item) !== propId && (item?.id || item) !== Number(propId));
+                  localStorage.setItem(k, JSON.stringify(updated));
+                }
+              } catch { }
             }
-          } catch { }
-        }
-      });
-    } catch { }
-
-    toast.success('Property enquiry removed');
+          });
+        } catch { }
+        toast.success('Property enquiry removed');
+      },
+    });
   };
 
   const handleReserveAndPay = async (item: TenantOwnerInterest) => {
@@ -167,11 +200,18 @@ export default function TenantEnquiredPropertiesTab({
         interest_id: item.id,
         owner_id: (item as any).owner_id,
         monthly_rent: Number(item.monthly_rent) || 0,
-        token_amount: 5000, // ya jo bhi default token amount aapka hai
+        token_amount: 5000,
         move_in_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       });
       if (res?.success) {
-        setActiveBookingModal(res.data);
+        const bkData = res.data;
+        setActiveBookingModal(bkData);
+        setTenantBookings((prev) => {
+          const filtered = prev.filter((b) => b.booking_id !== bkData.booking_id && b.id !== bkData.id);
+          return [bkData, ...filtered];
+        });
+        fetchBookings();
+        fetchInterests();
       } else {
         toast.error(res?.message || 'Failed to reserve property');
       }
@@ -181,38 +221,41 @@ export default function TenantEnquiredPropertiesTab({
       setCreatingBookingId(null);
     }
   };
+
   // Handle bulk delete
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Remove ${selectedIds.length} selected enquiry(s)?`)) return;
-
-    const idsSet = new Set(selectedIds.map(String));
-    setEnquiredList((prev) => prev.filter((p) => !idsSet.has(String(p.id))));
-    setSelectedIds([]);
-
-    // Clean up local storage
-    try {
-      const keysToClean = [
-        'enquired_properties',
-        'unlocked_properties',
-        `tenant_enquiries_${tenantId}`,
-        `unlocked_owner_${tenantId}`,
-      ];
-      keysToClean.forEach((k) => {
-        const raw = localStorage.getItem(k);
-        if (raw) {
-          try {
-            const arr = JSON.parse(raw);
-            if (Array.isArray(arr)) {
-              const updated = arr.filter((item: any) => !idsSet.has(String(item?.id || item)));
-              localStorage.setItem(k, JSON.stringify(updated));
+    setConfirmDeleteState({
+      isOpen: true,
+      title: 'Bulk Remove Enquiries',
+      message: `Are you sure you want to remove ${selectedIds.length} selected enquiry(s)?`,
+      onConfirm: () => {
+        const idsSet = new Set(selectedIds.map(String));
+        setEnquiredList((prev) => prev.filter((p) => !idsSet.has(String(p.id))));
+        setSelectedIds([]);
+        try {
+          const keysToClean = [
+            'enquired_properties',
+            'unlocked_properties',
+            `tenant_enquiries_${tenantId}`,
+            `unlocked_owner_${tenantId}`,
+          ];
+          keysToClean.forEach((k) => {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                  const updated = arr.filter((item: any) => !idsSet.has(String(item?.id || item)));
+                  localStorage.setItem(k, JSON.stringify(updated));
+                }
+              } catch { }
             }
-          } catch { }
-        }
-      });
-    } catch { }
-
-    toast.success(`${idsSet.size} enquiries removed successfully`);
+          });
+        } catch { }
+        toast.success(`${idsSet.size} enquiries removed successfully`);
+      },
+    });
   };
 
   const toggleSelect = (id: number | string) => {
@@ -309,7 +352,8 @@ export default function TenantEnquiredPropertiesTab({
 
           <div className="grid grid-cols-1 gap-3">
             {interestsList.map((item) => {
-              const isConfirmed = item.status === 'OWNER_CONFIRMED';
+              const isOwnerInitiated = item.sender_type === 'owner';
+              const isConfirmed = item.status === 'OWNER_CONFIRMED' || (isOwnerInitiated && item.status === 'PENDING');
               const isOffered = item.status === 'OWNER_OFFERED';
               const isSelectedOthers = item.status === 'PROPERTY_SELECTED';
               const isAccepted = item.status === 'TENANT_ACCEPTED' || item.status === 'BOOKING_PENDING';
@@ -358,29 +402,14 @@ export default function TenantEnquiredPropertiesTab({
                           </span>
                         )}
                         <span className="text-[10px] text-slate-400">
-                          Requested: {new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          {isOwnerInitiated ? 'Owner Invited:' : 'Requested:'} {new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                         </span>
                       </div>
                     </div>
 
                     {/* Status Pill */}
                     <div className="shrink-0">
-                      {isConfirmed ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-xs animate-pulse">
-                          <CheckCircle size={14} />
-                          <span>Owner Selected You!</span>
-                        </span>
-                      ) : isOffered ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-600 text-white shadow-xs animate-pulse">
-                          <Sparkles size={14} />
-                          <span>Owner Sent Direct Offer!</span>
-                        </span>
-                      ) : isSelectedOthers ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                          <Clock size={13} />
-                          <span>Under Owner Review (Reserve Queue)</span>
-                        </span>
-                      ) : isAccepted ? (() => {
+                      {(() => {
                         const matchingBooking = tenantBookings.find(
                           (b) => String(b.property_id) === String(item.rental_property_id) || String(b.interest_id) === String(item.id)
                         );
@@ -390,10 +419,11 @@ export default function TenantEnquiredPropertiesTab({
                               <button
                                 type="button"
                                 onClick={() => setActiveBookingModal(matchingBooking)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition cursor-pointer"
+                                title="Click to view submitted payment details"
                               >
                                 <Clock size={13} />
-                                <span>🟡 Payment Claimed — Awaiting Verification</span>
+                                <span>🟡 Payment Submitted — Pending Owner Confirmation</span>
                               </button>
                             );
                           }
@@ -405,7 +435,7 @@ export default function TenantEnquiredPropertiesTab({
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition cursor-pointer"
                               >
                                 <CheckCircle size={13} />
-                                <span>✓ Verified — View Linked Lease</span>
+                                <span>✓ Payment Verified — View Linked Lease</span>
                               </button>
                             );
                           }
@@ -420,36 +450,97 @@ export default function TenantEnquiredPropertiesTab({
                             </button>
                           );
                         }
+
+                        if (isConfirmed) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-600 text-white shadow-xs animate-pulse">
+                              <CheckCircle size={14} />
+                              <span>{isOwnerInitiated ? 'Owner Showed Interest!' : 'Owner Selected You!'}</span>
+                            </span>
+                          );
+                        }
+                        if (isOffered) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-600 text-white shadow-xs animate-pulse">
+                              <Sparkles size={14} />
+                              <span>Owner Sent Direct Offer!</span>
+                            </span>
+                          );
+                        }
+                        if (isSelectedOthers) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              <Clock size={13} />
+                              <span>Under Owner Review (Reserve Queue)</span>
+                            </span>
+                          );
+                        }
+                        if (isAccepted) {
+                          return (
+                            <button
+                              type="button"
+                              disabled={creatingBookingId === item.id}
+                              onClick={() => handleReserveAndPay(item)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+                            >
+                              {creatingBookingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              <span>Reserve & Pay Token</span>
+                            </button>
+                          );
+                        }
+                        if (isRejected) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">
+                              <X size={13} />
+                              <span>{item.status.replace(/_/g, ' ')}</span>
+                            </span>
+                          );
+                        }
                         return (
-                          <button
-                            type="button"
-                            disabled={creatingBookingId === item.id}
-                            onClick={() => handleReserveAndPay(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer disabled:opacity-50"
-                          >
-                            {creatingBookingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                            <span>Reserve & Pay Token</span>
-                          </button>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            <Clock size={13} />
+                            <span>Pending Owner Review</span>
+                          </span>
                         );
-                      })() : isRejected ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">
-                          <X size={13} />
-                          <span>{item.status.replace(/_/g, ' ')}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                          <Clock size={13} />
-                          <span>Pending Owner Review</span>
-                        </span>
-                      )}
+                      })()}
                     </div>
                   </div>
 
+                  {/* Payment Claimed Info Banner for Tenant */}
+                  {(() => {
+                    const matchingBooking = tenantBookings.find(
+                      (b) => String(b.property_id) === String(item.rental_property_id) || String(b.interest_id) === String(item.id)
+                    );
+                    if (matchingBooking && matchingBooking.payment_status === 'CLAIMED') {
+                      return (
+                        <div className="mt-3 pt-3 border-t border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-amber-50/80 p-3 rounded-xl">
+                          <div className="text-xs text-amber-950 space-y-0.5">
+                            <div className="flex items-center gap-1.5 font-extrabold text-amber-900">
+                              <Clock size={14} className="text-amber-600" />
+                              <span>Token Payment Submitted (Pending Owner Confirmation)</span>
+                            </div>
+                            <p className="text-[11px] text-amber-800">
+                              Submitted Reference: <strong className="font-mono bg-white px-1.5 py-0.5 rounded border border-amber-300">{matchingBooking.payment_reference || 'N/A'}</strong>. Landlord has been notified to verify in their dashboard.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveBookingModal(matchingBooking)}
+                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition cursor-pointer shrink-0"
+                          >
+                            View / Update Ref
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {/* Confirmed Action Box */}
-                  {isConfirmed && (
+                  {isConfirmed && !tenantBookings.some((b) => String(b.property_id) === String(item.rental_property_id) || String(b.interest_id) === String(item.id)) && (
                     <div className="mt-3 pt-3 border-t border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 p-3 rounded-xl">
                       <div className="text-xs text-emerald-950 font-medium">
-                        🎉 <strong>Great news!</strong> The landlord has reviewed your profile and confirmed selection. Please accept to proceed to token reservation.
+                        🎉 <strong>Great news!</strong> {isOwnerInitiated ? 'The landlord viewed your profile and expressed interest in linking lease.' : 'The landlord has reviewed your profile and confirmed selection.'} Please accept to proceed to token reservation.
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button
@@ -561,8 +652,25 @@ export default function TenantEnquiredPropertiesTab({
             const furnishing = p.furnishing_status || p.furnishing || 'Semi-Furnished';
             const ownerName = p.owner_name || p.owner?.name || p.seller_name || 'Landlord / Owner';
 
-            const statusLabel = idx === 0 ? "Owner Contact Unlocked" : (idx % 2 === 0 ? "Callback Scheduled" : "Enquiry Active");
-            const statusColor = idx === 0 ? "bg-emerald-50 text-emerald-800 border-emerald-200" : (idx % 2 === 0 ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-blue-50 text-blue-800 border-blue-200");
+            const cardBooking = tenantBookings.find((b) => String(b.property_id) === String(p.id));
+            const matchingInterest = interestsList.find((i) => String(i.rental_property_id) === String(p.id));
+            let statusLabel = idx === 0 ? "Owner Contact Unlocked" : (idx % 2 === 0 ? "Callback Scheduled" : "Enquiry Active");
+            let statusColor = idx === 0 ? "bg-emerald-50 text-emerald-800 border-emerald-200" : (idx % 2 === 0 ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-blue-50 text-blue-800 border-blue-200");
+
+            if (cardBooking?.payment_status === 'CLAIMED') {
+              statusLabel = "Pending Owner Confirmation";
+              statusColor = "bg-amber-500 text-white border-amber-600 font-extrabold shadow-xs";
+            } else if (cardBooking?.payment_status === 'VERIFIED') {
+              statusLabel = "Payment Verified (Reserved)";
+              statusColor = "bg-emerald-600 text-white border-emerald-700 font-extrabold shadow-xs";
+            } else if (matchingInterest?.status === 'OWNER_CONFIRMED' || (matchingInterest?.sender_type === 'owner' && matchingInterest?.status === 'PENDING')) {
+              statusLabel = "Owner Confirmed — Accept & Reserve";
+              statusColor = "bg-emerald-600 text-white border-emerald-700 font-black shadow-xs animate-pulse";
+            } else if (matchingInterest?.status === 'OWNER_OFFERED') {
+              statusLabel = "Direct Offer Received";
+              statusColor = "bg-purple-600 text-white border-purple-700 font-black shadow-xs animate-pulse";
+            }
+
             const isSelected = selectedIds.includes(p.id);
 
             return (
@@ -728,18 +836,61 @@ export default function TenantEnquiredPropertiesTab({
         </div>
       )}
 
-      {/* 👇 YE BLOCK ADD KARO — Payment Popup */}
+      {/* 👇 Payment Popup */}
       {activeBookingModal && (
         <TenantBookingPaymentModal
           isOpen={!!activeBookingModal}
-          onClose={() => setActiveBookingModal(null)}
+          onClose={() => {
+            setActiveBookingModal(null);
+            fetchBookings();
+            fetchInterests();
+          }}
           booking={activeBookingModal}
           onPaymentClaimed={(updated) => {
             setActiveBookingModal(updated);
+            setTenantBookings((prev) => {
+              const filtered = prev.filter((b) => b.booking_id !== updated.booking_id && b.id !== updated.id);
+              return [updated, ...filtered];
+            });
+            fetchBookings();
+            fetchInterests();
           }}
         />
       )}
-    </div>
 
+      {/* 🗑️ Custom Delete Confirmation Modal */}
+      {confirmDeleteState.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 rounded-xl bg-rose-100">
+                <Trash2 size={20} />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900">{confirmDeleteState.title}</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">{confirmDeleteState.message}</p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteState((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmDeleteState.onConfirm();
+                  setConfirmDeleteState((prev) => ({ ...prev, isOpen: false }));
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition shadow-sm cursor-pointer"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

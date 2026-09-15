@@ -67,13 +67,21 @@ export function parseVisitDate(val: any): { dateObj: Date; dateStr: string; dayN
   return { dateObj: d, dateStr, dayName, dayNum, monthShort, ymd };
 }
 
-// Helper to format visit time (e.g. 19:00:00 -> 7:00 PM, 11:00:00 -> 11:00 AM)
+// Helper to format visit time (e.g. 19:00:00 -> 7:00 PM, 11:00:00 -> 11:00 AM, 10:00 AM - 1:00 PM -> 10:00 AM - 1:00 PM)
 export function formatVisitTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '11:00 AM';
   const clean = String(timeStr).trim();
-  if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM')) {
+
+  // If it's a slot range like "Morning (10:00 AM - 1:00 PM)"
+  if (clean.includes('(') && clean.includes(')')) {
+    const rangeMatch = clean.match(/\(([^)]+)\)/);
+    if (rangeMatch) return rangeMatch[1];
+  }
+
+  if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM') || clean.includes('-') || clean.toLowerCase().includes('to')) {
     return clean;
   }
+
   const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (match) {
     let hours = parseInt(match[1], 10);
@@ -87,28 +95,47 @@ export function formatVisitTime(timeStr: string | null | undefined): string {
 
 // Helper: Slot label + color from a time string
 export function getSlotMeta(timeStr: string | null | undefined): { label: string; icon: string; color: string; bg: string; border: string } {
-  const t = String(timeStr || '').toLowerCase();
-  if (t.includes('morning') || /^(0?[6-9]|10|11):(\d{2})/.test(t)) {
+  if (!timeStr) return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
+  const s = String(timeStr).trim();
+  const t = s.toLowerCase();
+  if (t.includes('morning') || t === '10:00:00' || t === '10:00 am' || t === '10:00') {
     return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
   }
-  if (t.includes('afternoon') || /^(1[2-6]):(\d{2})/.test(t)) {
+  if (t.includes('afternoon') || t === '13:00:00' || t === '01:00 pm' || t === '1:00 pm') {
     return { label: 'Afternoon', icon: '☀️', color: 'text-orange-800', bg: 'bg-orange-50', border: 'border-orange-200' };
   }
-  if (t.includes('evening') || /^(1[7-9]|20):(\d{2})/.test(t)) {
+  if (t.includes('evening') || t === '17:00:00' || t === '05:00 pm' || t === '5:00 pm') {
     return { label: 'Evening', icon: '🌆', color: 'text-indigo-800', bg: 'bg-indigo-50', border: 'border-indigo-200' };
   }
   if (t.includes('weekend')) {
     return { label: 'Weekend', icon: '📅', color: 'text-purple-800', bg: 'bg-purple-50', border: 'border-purple-200' };
   }
-  return { label: 'Slot', icon: '🕐', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' };
+  return { label: 'Custom Time', icon: '⏰', color: 'text-emerald-800', bg: 'bg-emerald-50', border: 'border-emerald-200' };
 }
 
-// Helper: Extract time range from "Afternoon (02:00 PM - 05:00 PM)"
+// Helper: Extract time range display from slot string (preserves custom times like 11:53 AM)
 export function getSlotTimeRange(timeStr: string | null | undefined): string {
-  if (!timeStr) return '';
+  if (!timeStr) return '10:00 AM - 1:00 PM';
   const s = String(timeStr).trim();
   const rangeMatch = s.match(/\(([^)]+)\)/);
   if (rangeMatch) return rangeMatch[1];
+  if (s.includes('-') || s.toLowerCase().includes('to')) return s;
+
+  const t = s.toLowerCase();
+  if (t === 'morning' || t.startsWith('morning') || t === '10:00:00' || t === '10:00 am' || t === '10:00') {
+    return '10:00 AM - 1:00 PM';
+  }
+  if (t === 'afternoon' || t.startsWith('afternoon') || t === '13:00:00' || t === '01:00 pm' || t === '1:00 pm') {
+    return '1:00 PM - 4:00 PM';
+  }
+  if (t === 'evening' || t.startsWith('evening') || t === '17:00:00' || t === '05:00 pm' || t === '5:00 pm') {
+    return '5:00 PM - 8:00 PM';
+  }
+  if (t === 'weekend' || t.startsWith('weekend')) {
+    return '11:00 AM - 6:00 PM';
+  }
+
+  // Exact custom time specified by user (e.g. 11:53 or 11:53 AM)
   return formatVisitTime(s);
 }
 
@@ -132,7 +159,7 @@ export function formatTo24h(timeStr: string): string {
 }
 
 // Helper to accurately parse visit date and time into a Date object in local timezone
-export function parseVisitDateTime(dateInput: any, timeInput: any): Date | null {
+export function parseVisitDateTime(dateInput: any, timeInput: any, useEndTime = false): Date | null {
   if (!dateInput) return null;
   try {
     const parsed = parseVisitDate(dateInput);
@@ -147,19 +174,58 @@ export function parseVisitDateTime(dateInput: any, timeInput: any): Date | null 
     let hours = 11;
     let mins = 0;
     const timeStr = String(timeInput || '11:00 AM').trim();
+    const lowerTimeStr = timeStr.toLowerCase();
 
-    // Match first time pattern (supports 12h/24h, dots/colons, ranges like "04:10 PM - 04:30 PM")
-    const timeMatch = timeStr.match(/(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+    // Find all time matches e.g. "10:00 AM - 01:00 PM"
+    const allMatches = Array.from(timeStr.matchAll(/(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?/gi));
 
-    if (timeMatch) {
-      let h = parseInt(timeMatch[1], 10);
-      const m = parseInt(timeMatch[2], 10);
-      const ampm = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+    if (allMatches.length > 1) {
+      const targetMatch = useEndTime ? allMatches[allMatches.length - 1] : allMatches[0];
+      let h = parseInt(targetMatch[1], 10);
+      const m = parseInt(targetMatch[2], 10);
+      const ampm = targetMatch[3] ? targetMatch[3].toUpperCase() : null;
 
       if (ampm === 'PM' && h < 12) h += 12;
       if (ampm === 'AM' && h === 12) h = 0;
+      if (!ampm && h < 7 && useEndTime) h += 12;
+
       hours = h;
       mins = m;
+    } else if (lowerTimeStr === 'morning' || lowerTimeStr.startsWith('morning')) {
+      hours = useEndTime ? 13 : 10;
+      mins = 0;
+    } else if (lowerTimeStr === 'afternoon' || lowerTimeStr.startsWith('afternoon')) {
+      hours = useEndTime ? 17 : 13;
+      mins = 0;
+    } else if (lowerTimeStr === 'evening' || lowerTimeStr.startsWith('evening')) {
+      hours = useEndTime ? 20 : 17;
+      mins = 0;
+    } else if (lowerTimeStr === 'weekend' || lowerTimeStr.startsWith('weekend')) {
+      hours = useEndTime ? 18 : 11;
+      mins = 0;
+    } else if (allMatches.length === 1) {
+      let h = parseInt(allMatches[0][1], 10);
+      const m = parseInt(allMatches[0][2], 10);
+      const ampm = allMatches[0][3] ? allMatches[0][3].toUpperCase() : null;
+
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+
+      hours = h;
+      mins = m;
+    } else {
+      if (useEndTime) {
+        if (lowerTimeStr.includes('morning')) hours = 13;
+        else if (lowerTimeStr.includes('afternoon')) hours = 17;
+        else if (lowerTimeStr.includes('evening')) hours = 20;
+        else if (lowerTimeStr.includes('weekend')) hours = 18;
+        else hours = 18;
+      } else {
+        if (lowerTimeStr.includes('morning')) hours = 10;
+        else if (lowerTimeStr.includes('afternoon')) hours = 14;
+        else if (lowerTimeStr.includes('evening')) hours = 17;
+        else if (lowerTimeStr.includes('weekend')) hours = 11;
+      }
     }
 
     return new Date(year, month, day, hours, mins, 0, 0);
@@ -186,7 +252,7 @@ export function checkPastPendingVisit(visits: any[], bufferMinutes = 0): any | n
     if (!v.visit_date) continue;
 
     try {
-      const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time);
+      const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time, true);
       if (!visitDateObj) continue;
 
       const triggerTimestamp = visitDateObj.getTime() + (bufferMinutes * 60 * 1000);
@@ -835,24 +901,9 @@ export const OwnerVisitsTab: React.FC<OwnerVisitsTabProps> = ({
             const isPastVisit = (() => {
               if (!v.visit_date) return false;
               try {
-                const now = new Date();
-                const timeStr = String(v.visit_time || '11:00 AM').trim();
-                let hours = 11, mins = 0;
-                const m12 = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-                const m24 = timeStr.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-                if (m12 && m12[3]) {
-                  let h = parseInt(m12[1], 10);
-                  const ampm = m12[3].toUpperCase();
-                  if (ampm === 'PM' && h < 12) h += 12;
-                  if (ampm === 'AM' && h === 12) h = 0;
-                  hours = h;
-                  mins = parseInt(m12[2], 10);
-                } else if (m24) {
-                  hours = parseInt(m24[1], 10);
-                  mins = parseInt(m24[2], 10);
-                }
-                const visitDateTime = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), hours, mins);
-                return now.getTime() > visitDateTime.getTime();
+                const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time, true);
+                if (!visitDateObj) return false;
+                return new Date().getTime() > visitDateObj.getTime();
               } catch {
                 return false;
               }

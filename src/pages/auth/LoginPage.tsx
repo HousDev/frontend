@@ -238,7 +238,12 @@ const LoginPage: React.FC = () => {
       return `/seller-dashboard/${userData?.seller_id || uid}`;
     }
     if (role === 'tenant') {
-      return `/tenant-dashboard/${userData?.tenant_id || uid}`;
+      const tenantId = userData?.tenant_id || uid;
+      const isConfigured = localStorage.getItem(`tenant_preferences_configured_${tenantId}`) === 'true';
+      if (!isConfigured) {
+        localStorage.setItem('prompt_tenant_preferences', 'true');
+      }
+      return `/tenant-dashboard/${tenantId}`;
     }
     if (role === 'owner') {
       return `/owner-dashboard/${userData?.owner_id || uid}`;

@@ -447,20 +447,20 @@ export default function TenantVisitModal({
                     </div>
                   ) : filteredProperties.length > 0 ? (
                     filteredProperties.map((p: any) => {
-                      const title = p.title || p.property_type_name || p.unit_type || `Rental Unit #${p.id}`;
-                      const loc = p.location_name || p.society_name || 'Pune';
+                      const fullTitle = formatFullPropertyTitle(p);
+                      const loc = [p.society_name || p.building_name, p.location_name || p.locality || p.location, p.city_name || p.city].filter(Boolean).join(', ');
                       return (
                         <button
                           key={p.id}
                           type="button"
                           onClick={() => handleSelectProperty(p)}
-                          className="w-full text-left px-3 py-2 hover:bg-emerald-50 border-b border-gray-50 last:border-b-0 flex flex-col gap-0.5 cursor-pointer transition-colors"
+                          className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 flex flex-col gap-1 cursor-pointer transition-colors"
                         >
-                          <div className="font-bold text-slate-800 text-xs flex items-center justify-between">
-                            <span>RENT-{p.id} - {title}</span>
-                            <span className="text-[10px] text-emerald-600 font-extrabold">₹{Number(p.monthly_rent || p.expected_rent || 0).toLocaleString('en-IN')}/mo</span>
+                          <div className="font-extrabold text-slate-900 text-xs flex items-center justify-between gap-2">
+                            <span className="truncate">RENT-{p.id} • {fullTitle}</span>
+                            <span className="text-[10.5px] text-emerald-700 font-black shrink-0">₹{Number(p.monthly_rent || p.expected_rent || 0).toLocaleString('en-IN')}/mo</span>
                           </div>
-                          <div className="text-[10px] text-gray-400">{loc}</div>
+                          {loc && <div className="text-[10px] text-gray-500 font-medium truncate flex items-center gap-1"><MapPin size={9} className="text-orange-500 shrink-0" /><span>{loc}</span></div>}
                         </button>
                       );
                     })
