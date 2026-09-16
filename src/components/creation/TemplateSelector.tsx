@@ -275,7 +275,7 @@ const TemplateSelector: React.FC<Props> = ({
     try {
       // 1) Call API to bump usage count
       const bump = await documentsTemplateAPI.useTemplate(id);
-     
+
       const apiTemplate = bump?.data || bump?.template || bump || null;
 
       // Merge API response with template
@@ -355,7 +355,7 @@ const TemplateSelector: React.FC<Props> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter size={12} className="text-gray-500" />
+            {/* <Filter size={12} className="text-gray-500" /> */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -369,7 +369,7 @@ const TemplateSelector: React.FC<Props> = ({
 
           {mode === "manage" && (
             <div className="flex items-center gap-2">
-              <Filter size={12} className="text-gray-500" />
+              {/* <Filter size={12} className="text-gray-500" /> */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -394,8 +394,8 @@ const TemplateSelector: React.FC<Props> = ({
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${selectedCategory === category.id
-                    ? "bg-blue-100 text-blue-700 border border-blue-200"
-                    : "text-gray-600 hover:bg-gray-50 border border-transparent"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:bg-gray-50 border border-transparent"
                   } text-xs`}
               >
                 <Icon size={12} />

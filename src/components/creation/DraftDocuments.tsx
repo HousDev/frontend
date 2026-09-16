@@ -5,6 +5,8 @@ import {
   Cloud,
   RefreshCw,
   CheckCircle2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { documentsGeneratedAPI } from "@/lib/documentsGeneratedAPI";
 import { saveResumeLocal } from "@/lib/documentResume";
@@ -69,6 +71,111 @@ const SkeletonCard = () => (
   </div>
 );
 
+/* =================== Delete Confirmation Modal =================== */
+const DeleteConfirmModal: React.FC<{
+  open: boolean;
+  draftTitle?: string;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}> = ({ open, draftTitle, loading = false, onCancel, onConfirm }) => {
+  // Close on Escape
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, loading, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-draft-title"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={() => !loading && onCancel()}
+      />
+
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 animate-in fade-in zoom-in-95">
+        {/* Close */}
+        <button
+          onClick={onCancel}
+          disabled={loading}
+          className="absolute right-3 top-3 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 ring-1 ring-red-100">
+              <AlertTriangle size={18} className="text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h3
+                id="delete-draft-title"
+                className="text-sm font-semibold text-gray-900"
+              >
+                Delete this draft?
+              </h3>
+              <p className="mt-1 text-xs text-gray-600 leading-5">
+                {draftTitle ? (
+                  <>
+                    <span className="font-medium text-gray-800">
+                      "{draftTitle}"
+                    </span>{" "}
+                    will be permanently removed.
+                  </>
+                ) : (
+                  "This draft will be permanently removed."
+                )}{" "}
+                This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              onClick={onCancel}
+              disabled={loading}
+              className="inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 size={14} />
+                  Delete
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* =================== Utils =================== */
 function parseVars(v: any): Record<string, any> {
   if (!v) return {};
@@ -113,6 +220,10 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
   const [items, setItems] = React.useState<Draft[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = React.useState<Draft | null>(null);
+  const [deleting, setDeleting] = React.useState<boolean>(false);
 
   const mapRowToDraft = React.useCallback((r: any): Draft => {
     const savedAt = r?.updated_at || r?.created_at || r?.last_used_at || new Date().toISOString();
@@ -160,10 +271,23 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
     fetchDrafts();
   }, [fetchDrafts]);
 
-  const deleteDraft = async (draftId: string) => {
-    if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+  // Open modal instead of window.confirm
+  const requestDeleteDraft = (draft: Draft) => {
+    setDeleteTarget(draft);
+  };
+
+  const cancelDelete = () => {
+    if (deleting) return;
+    setDeleteTarget(null);
+  };
+
+  const confirmDeleteDraft = async () => {
+    if (!deleteTarget) return;
+    const draftId = String(deleteTarget.id);
     try {
-      setLoading(true);
+      setDeleting(true);
+      setError(null);
+
       if ((documentsGeneratedAPI as any).softDelete) {
         await (documentsGeneratedAPI as any).softDelete(draftId);
       } else if ((documentsGeneratedAPI as any).remove) {
@@ -173,11 +297,13 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
       } else {
         throw new Error("Delete method not found on documentsGeneratedAPI");
       }
+
+      setDeleteTarget(null);
       await fetchDrafts();
     } catch (e: any) {
       setError(e?.message || "Failed to delete draft");
     } finally {
-      setLoading(false);
+      setDeleting(false);
     }
   };
 
@@ -345,7 +471,7 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
                   </button>
 
                   <button
-                    onClick={() => deleteDraft(String(draft.id))}
+                    onClick={() => requestDeleteDraft(draft)}
                     className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                     title="Delete draft"
                   >
@@ -358,6 +484,15 @@ const DraftDocuments: React.FC<Props> = ({ onContinue }) => {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        open={!!deleteTarget}
+        draftTitle={deleteTarget?.title}
+        loading={deleting}
+        onCancel={cancelDelete}
+        onConfirm={confirmDeleteDraft}
+      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { FileText, Building, Files, Trash2 } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { FileText, Building, Files } from "lucide-react";
 import DocumentCreation from "../creation/DocumentCreation";
 import TemplateCreation from "../creation/TemplateCreation";
 import DraftDocuments from "../creation/DraftDocuments";
@@ -7,9 +7,19 @@ import CreatedDocuments from "../creation/CreatedDocuments";
 
 type TabId = "documents" | "templates" | "drafts" | "created";
 
-const CreationTab = () => {
-  const [activeTab, setActiveTab] = useState<TabId>("documents");
+interface CreationTabProps {
+  initialSubTab?: TabId;
+}
+
+const CreationTab: React.FC<CreationTabProps> = ({ initialSubTab = "documents" }) => {
+  const [activeTab, setActiveTab] = useState<TabId>(initialSubTab);
   const [draftToResume, setDraftToResume] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const tabs: { id: TabId; label: string; icon: any }[] = [
     { id: "documents", label: "Document Creation", icon: FileText },
@@ -21,12 +31,11 @@ const CreationTab = () => {
   const handleResumeDraft = useCallback((draft: any) => {
     setDraftToResume(draft);
     setActiveTab("documents");
-    // Optional: fire a custom event for DocumentCreation to pick up
     window.dispatchEvent(new CustomEvent("resumeDraft", { detail: draft }));
   }, []);
 
   return (
-    <div className="p-6 pt-0">
+    <div className="p-6 pt-4">
       {/* Tab Navigation */}
       <div className="mb-4">
         <div className="border-b border-gray-200">
@@ -40,7 +49,7 @@ const CreationTab = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                     isActive
-                      ? "border-blue-500 text-blue-600"
+                      ? "border-blue-500 text-blue-600 font-semibold"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
@@ -55,19 +64,11 @@ const CreationTab = () => {
 
       {/* Tab Content */}
       <div>
-        {activeTab === "documents" && (
-          <DocumentCreation
-            // If your DocumentCreation supports initial values, pass them:
-            // initialDraft={draftToResume}
-          />
-        )}
-
+        {activeTab === "documents" && <DocumentCreation />}
         {activeTab === "templates" && <TemplateCreation />}
-
         {activeTab === "drafts" && (
           <DraftDocuments onContinue={handleResumeDraft} />
         )}
-
         {activeTab === "created" && <CreatedDocuments />}
       </div>
     </div>

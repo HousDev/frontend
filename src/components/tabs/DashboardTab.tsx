@@ -25,7 +25,12 @@ type UIDoc = {
   priority: "high" | "medium" | "low";
 };
 
-const DashboardTab = ({ onNavigateToTracking }: { onNavigateToTracking?: () => void }) => {
+interface DashboardTabProps {
+  onNavigateToTracking?: () => void;
+  onNavigateToCreation?: (subTab?: 'documents' | 'templates' | 'drafts' | 'created') => void;
+}
+
+const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigateToTracking, onNavigateToCreation }) => {
   const [recentDocuments, setRecentDocuments] = useState<UIDoc[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [err, setErr] = useState<string | null>(null);
@@ -525,14 +530,23 @@ const DashboardTab = ({ onNavigateToTracking }: { onNavigateToTracking?: () => v
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Quick Actions</h3>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
-            <button className="w-full sm:w-auto bg-blue-600 text-white py-1.5 px-4 rounded-lg hover:bg-blue-700 transition-colors text-xs">
-              Generate New Document
+            <button
+              onClick={() => onNavigateToCreation?.('documents')}
+              className="w-full sm:w-auto bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-xs font-semibold shadow-sm"
+            >
+              + Generate New Document
             </button>
-            <button className="w-full sm:w-auto bg-gray-100 text-gray-700 py-1.5 px-4 rounded-lg hover:bg-gray-200 transition-colors text-xs">
-              Create Template
+            <button
+              onClick={() => onNavigateToCreation?.('templates')}
+              className="w-full sm:w-auto bg-slate-800 text-white py-2 px-4 rounded-lg hover:bg-slate-900 transition-colors text-xs font-semibold shadow-sm"
+            >
+              + Create Template
             </button>
-            <button className="w-full sm:w-auto bg-gray-100 text-gray-700 py-1.5 px-4 rounded-lg hover:bg-gray-200 transition-colors text-xs">
-              Add New Client
+            <button
+              onClick={onNavigateToTracking}
+              className="w-full sm:w-auto bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-xs font-semibold border border-gray-300"
+            >
+              Track & E-Sign Status
             </button>
           </div>
         </div>

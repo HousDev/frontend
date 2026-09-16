@@ -3,10 +3,11 @@ import {
   Save, X, Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered,
   Image as ImageIcon, Table as TableIcon,
-  Code, Undo2, Redo2, Printer, Maximize2, Minimize2, Download, Upload, FileText
+  Code, Undo2, Redo2, Printer, Maximize2, Minimize2, Download, Upload, FileText, Bookmark
 } from 'lucide-react';
 import systemSettingsAPI from '@/lib/systemSettingsAPI';
 import VariablePanel, { MappedVariable } from './VariablePanel';
+import ClauseLibraryModal from './ClauseLibraryModal';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -25,8 +26,8 @@ type Template = {
   created_at?: string;
   updated_at?: string;
   usage_count?: number;
-  created_by?: string | number;   // <- keep type flexible
-  updated_by?: string | number;   // <- NEW
+  created_by?: string | number;
+  updated_by?: string | number;
   lastUsed?: string;
 };
 
@@ -79,8 +80,11 @@ function injectIntoTemplate(templateHTML: string, inner: string) {
   if (!openTagMatch) return wrapInBlankA4(inner);
   const openTag = openTagMatch[0];
   const start = templateHTML.indexOf(openTag) + openTag.length;
-  const end = templateHTML.indexOf("</div>", start);
-  if (end === -1) return wrapInBlankA4(inner);
+
+  const closingMatch = templateHTML.slice(start).match(/<\/div>\s*<\/div>\s*<\/body>/i) || templateHTML.slice(start).match(/<\/div>\s*<\/div>/i);
+  if (!closingMatch || closingMatch.index === undefined) return wrapInBlankA4(inner);
+
+  const end = start + closingMatch.index;
   return templateHTML.slice(0, start) + inner + templateHTML.slice(end);
 }
 
@@ -158,6 +162,7 @@ const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("blank-a4");
   const [headerLogo, setHeaderLogo] = useState<string>('');
   const [footerLogo, setFooterLogo] = useState<string>('');
+  const [isClauseModalOpen, setIsClauseModalOpen] = useState(false);
 
   // REFS
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -191,22 +196,22 @@ const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) => {
   }, []);
 
   const currentUserId = useMemo(
-  () => (user?.id  ?? null),
-  [user]
-);
+    () => (user?.id ?? null),
+    [user]
+  );
 
-useEffect(() => {
-  (async () => {
-    try {
-      const res = await systemSettingsAPI.getSettings();
-      const s = res?.data ?? res;
-      if (s?.company_logo) setHeaderLogo(toAbsolute(s.company_logo));
-      if (s?.footer_logo)  setFooterLogo(toAbsolute(s.footer_logo));
-    } catch (e) {
-      console.error('Error fetching settings:', e);
-    }
-  })();
-}, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await systemSettingsAPI.getSettings();
+        const s = res?.data ?? res;
+        if (s?.company_logo) setHeaderLogo(toAbsolute(s.company_logo));
+        if (s?.footer_logo) setFooterLogo(toAbsolute(s.footer_logo));
+      } catch (e) {
+        console.error('Error fetching settings:', e);
+      }
+    })();
+  }, []);
   // Initialize template data
   useEffect(() => {
     setVariables(template?.variables || []);
@@ -281,26 +286,25 @@ useEffect(() => {
     setContent(editorRef.current.innerHTML);
   };
 
-  // const handleVariableDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
-  //   const variableName = e.target.value;
-  //   if (!variableName) return;
-  //   const styledTag = `<span style="color:#007bff;padding:2px 4px;border-radius:4px;font-weight:500;">{{${variableName}}}</span>`;
-  //   insertInRichEditor(styledTag);
-  //   setVariables(prev => Array.from(new Set([...prev, variableName])));
-  //   e.target.selectedIndex = 0;
-  // };
+  // --- FIX START: Updated handleInsertClause to insert at cursor position ---
+  const handleInsertClause = (clauseHtml: string) => {
+    // Use the existing helper function that inserts HTML at the current cursor position
+    insertInRichEditor(clauseHtml);
+    toast.success('Legal clause inserted at cursor position!');
+  };
+  // --- FIX END ---
 
   const handleVariableDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
-  const variableName = e.target.value;
-  if (!variableName) return;
-  
-  // COLOR CHANGE: #007bff (blue) से #000000 (black) करें
-  const styledTag = `<span style="color:#000000;padding:2px 4px;border-radius:4px;font-weight:500;">{{${variableName}}}</span>`;
-  
-  insertInRichEditor(styledTag);
-  setVariables(prev => Array.from(new Set([...prev, variableName])));
-  e.target.selectedIndex = 0;
-};
+    const variableName = e.target.value;
+    if (!variableName) return;
+
+    // COLOR CHANGE: #007bff (blue) से #000000 (black) करें
+    const styledTag = `<span style="color:#000000;padding:2px 4px;border-radius:4px;font-weight:500;">{{${variableName}}}</span>`;
+
+    insertInRichEditor(styledTag);
+    setVariables(prev => Array.from(new Set([...prev, variableName])));
+    e.target.selectedIndex = 0;
+  };
   const applyTemplate = (id: string) => {
     const t = TEMPLATES.find((x) => x.id === id);
     if (!t) return;
@@ -418,13 +422,13 @@ useEffect(() => {
       variables: finalVariables,
       updated_at: new Date().toISOString(),
       id: template?.id || Date.now(),
-       created_by: template?.created_by ?? currentUserId,  // keep existing owner if editing; else set current
-    updated_by: currentUserId,       
+      created_by: template?.created_by ?? currentUserId,  // keep existing owner if editing; else set current
+      updated_by: currentUserId,
     };
 
     onSave(templateToSave);
-   
-    
+
+
   };
 
   const onHeaderLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -677,6 +681,16 @@ useEffect(() => {
                   <Download size={16} />
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setIsClauseModalOpen(true)}
+                  title="Open Standard Clause Library & e-Stamp Headers"
+                  className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <Bookmark size={14} />
+                  <span>Clause Library</span>
+                </button>
+
                 <div className="w-px h-6 bg-gray-300 mx-1" />
 
                 {/* Formatting Buttons */}
@@ -859,6 +873,13 @@ useEffect(() => {
           </button>
         </div>
       </div>
+
+      {/* Standard Clause Library Modal */}
+      <ClauseLibraryModal
+        isOpen={isClauseModalOpen}
+        onClose={() => setIsClauseModalOpen(false)}
+        onInsertClause={handleInsertClause}
+      />
     </div>
   );
 };
