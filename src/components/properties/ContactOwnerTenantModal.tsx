@@ -51,18 +51,18 @@ interface ContactOwnerTenantModalProps {
 export function formatToAmPm(timeInput: string): string {
   if (!timeInput) return '11:00 AM';
   const clean = String(timeInput).trim();
-  if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM')) {
-    return clean;
-  }
-  const match = clean.match(/^(\d{1,2}):(\d{2})/);
+  const match = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/i);
   if (match) {
     let h = parseInt(match[1], 10);
     const m = match[2];
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
+    let ampm = match[3] ? match[3].toUpperCase() : '';
+    if (!ampm) {
+      ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+    }
     return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
   }
-  return '11:00 AM';
+  return clean;
 }
 
 export function parseSlotMinutes(timeStr: string): number {
@@ -178,6 +178,22 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
   const [moveInDate, setMoveInDate] = useState<string>('Immediately');
   const [message, setMessage] = useState<string>('');
 
+  const handleTenantTypeChange = (selectedType: string) => {
+    setTenantType(selectedType);
+    const pref = property?.preferred_tenants || property?.preferred_tenant || property?.preferredTenants || '';
+    if (pref) {
+      const prefLower = pref.toLowerCase();
+      const selLower = selectedType.toLowerCase();
+      if (prefLower.includes('family') && !selLower.includes('family')) {
+        toast.error(`❌ Landlord prefers Family tenants for this property.`, { toastId: 'pref-notice' });
+      } else if (prefLower.includes('bachelor') && !selLower.includes('bachelor') && !selLower.includes('professional') && !selLower.includes('student')) {
+        toast.error(`❌ Landlord prefers Bachelor / Professional tenants`, { toastId: 'pref-notice' });
+      } else {
+        toast.success(`✅ Great fit! Property accepts ${selectedType} tenants.`, { toastId: 'pref-notice' });
+      }
+    }
+  };
+
   // Visit Scheduling State
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
@@ -290,7 +306,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
         setVisitDate(initialVisitDate);
       }
       if (initialVisitTime) {
-        setVisitTime(initialVisitTime);
+        setVisitTime(formatToAmPm(initialVisitTime));
       }
 
       // ✅ Check if logged in as Admin, Staff, Agent, or Tenant → Skip OTP, directly unlock owner details
@@ -543,6 +559,21 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
     if (!phone || phone.trim().length < 10) {
       toast.error('Please enter a valid 10-digit Mobile Number');
       return;
+    }
+
+    // Validate Tenant Type against Landlord Preference
+    const pref = property?.preferred_tenants || property?.preferred_tenant || property?.preferredTenants || '';
+    if (pref) {
+      const prefLower = pref.toLowerCase();
+      const selLower = tenantType.toLowerCase();
+      if (prefLower.includes('family') && !selLower.includes('family')) {
+        toast.error(`❌ Cannot submit: Landlord has specified "Family Only" preference for this property.`);
+        return;
+      }
+      if (prefLower.includes('bachelor') && !selLower.includes('bachelor') && !selLower.includes('professional') && !selLower.includes('student')) {
+        toast.error(`❌ Cannot submit: Landlord has specified "Bachelor / Professional Only" preference for this property.`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -960,6 +991,8 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
                 </p>
               </div>
 
+
+
               {/* Name */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1010,7 +1043,7 @@ export const ContactOwnerTenantModal: React.FC<ContactOwnerTenantModalProps> = (
                   </label>
                   <select
                     value={tenantType}
-                    onChange={(e) => setTenantType(e.target.value)}
+                    onChange={(e) => handleTenantTypeChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#f59e0b] bg-white font-medium"
                   >
                     <option value="Family">Family</option>

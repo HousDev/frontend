@@ -86,7 +86,7 @@ export default function TenantBookingModal({
       const res = await tenantBookingAPI.create(payload);
 
       if (res && res.success) {
-        const bookingData = res.data || {
+        let bookingData = res.data || {
           booking_id: `BKG-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
           ...payload,
           booking_status: 'RESERVED',
@@ -94,6 +94,21 @@ export default function TenantBookingModal({
           booking_date: new Date().toISOString(),
         };
 
+
+         // ✅ FIX: booking create hote hi turant claim-payment bhi call karo
+  // taaki owner side turant "Payment Claimed - Awaiting Verification" dikhe
+  const bookingIdForClaim = bookingData.booking_id || bookingData.id;
+  try {
+    const claimRes = await tenantBookingAPI.claimPayment(bookingIdForClaim, {
+      payment_reference: `${paymentMethod}-${Date.now()}`, // better: UTR/Ref number ka input field lo form mein
+      payment_notes: `Paid ₹${effectiveToken} via ${paymentMethod}`,
+    });
+    if (claimRes?.success && claimRes.data) {
+      bookingData = { ...bookingData, ...claimRes.data }; // ab payment_status = 'CLAIMED'
+    }
+  } catch (claimErr) {
+    console.warn('Auto claim-payment failed:', claimErr);
+  }
         // Cache for instant local synchronization
         localStorage.setItem(`tenant_booking_${tenant.id}`, JSON.stringify(bookingData));
         localStorage.setItem(`property_reserved_${property.id}`, JSON.stringify(bookingData));
@@ -344,7 +359,13 @@ export default function TenantBookingModal({
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px] block font-semibold uppercase">Target Move-in Date</span>
-                  <strong className="text-slate-900">{bookingResult?.move_in_date}</strong>
+                  <strong className="text-slate-900">
+                    {bookingResult?.move_in_date
+                      ? (String(bookingResult.move_in_date).includes('T') || String(bookingResult.move_in_date).includes('-')
+                          ? new Date(bookingResult.move_in_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : bookingResult.move_in_date)
+                      : 'N/A'}
+                  </strong>
                 </div>
               </div>
 
