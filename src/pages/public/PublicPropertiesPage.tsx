@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import { recordAndCheckGuestPropertyLimit } from '@/utils/guestViewTracker';
 import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
+import { AnimatedCountBadge } from '@/components/common/AnimatedCountBadge';
 
 /* ==============================
    Types
@@ -45,6 +46,7 @@ interface Property {
   type?: string;
   furnishing?: string;
   possession?: string;
+  available_from?: string;
   amenities?: string[];
   rating?: number;
   reviews?: number;
@@ -72,6 +74,16 @@ interface Property {
   expected_rent?: number;
   purpose?: string;
 }
+
+export const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Resale Expert Rank' },
+  { value: 'posted_newest', label: 'Posted On (Newest First)' },
+  { value: 'posted_oldest', label: 'Posted On (Oldest First)' },
+  { value: 'price_low', label: 'Price(Low to High)' },
+  { value: 'price_high', label: 'Price(High to Low)' },
+  { value: 'available_earliest', label: 'Available From (Earliest First)' },
+  { value: 'available_oldest', label: 'Available From (Oldest First)' },
+];
 
 /* ==============================
    Default Images Constants
@@ -469,6 +481,34 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   // HomePage-style header states
   const [transactionType, setTransactionType] = useState<'buy' | 'rent'>('buy');
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('');
+  const [buyCount, setBuyCount] = useState<number>(0);
+  const [rentCount, setRentCount] = useState<number>(0);
+
+  // Pre-fetch buy/rent counts for tab buttons
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCounts = async () => {
+      try {
+        const [buyRes, rentRes] = await Promise.allSettled([
+          propertiesAPI.PublicgetProperties({ status: 'Available', isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1 }),
+          rentalPropertiesAPI.PublicgetProperties({ status: 'Available', isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1 })
+        ]);
+        if (!isMounted) return;
+        if (buyRes.status === 'fulfilled') {
+          const raw = Array.isArray(buyRes.value?.data) ? buyRes.value.data : (Array.isArray(buyRes.value) ? buyRes.value : []);
+          setBuyCount(raw.filter(isPublicProp).length);
+        }
+        if (rentRes.status === 'fulfilled') {
+          const raw = Array.isArray(rentRes.value?.data) ? rentRes.value.data : (Array.isArray(rentRes.value) ? rentRes.value : []);
+          setRentCount(raw.filter(isPublicProp).length);
+        }
+      } catch (e) {
+        console.warn('Failed to load buy/rent counts in PublicPropertiesPage:', e);
+      }
+    };
+    fetchCounts();
+    return () => { isMounted = false; };
+  }, []);
 
   // token passthrough (kept)
   const queryParams = new URLSearchParams(location.search);
@@ -560,6 +600,68 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   const propertyTypesMaster: any[] = useMemo(() => findMasterOptions(['property type', 'property_type', 'type', 'place type', 'category']), [findMasterOptions]);
   const propertyTypeOptions = useMemo(() => propertyTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })), [propertyTypesMaster]);
+
+  // ✅ Compute dynamic property types based on actual loaded properties
+  const dynamicPropertyTypeOptions = useMemo(() => {
+    if (!allProperties || allProperties.length === 0) {
+      return propertyTypeOptions;
+    }
+
+    const existingTypesSet = new Set<string>();
+    allProperties.forEach((p: any) => {
+      const t = (p?.property_type || p?.type || (p as any)?._raw?.property_type_name || '').toString().trim();
+      if (t) {
+        existingTypesSet.add(t.toLowerCase());
+      }
+    });
+
+    if (existingTypesSet.size === 0) {
+      return propertyTypeOptions;
+    }
+
+    const result: any[] = [];
+    const addedValues = new Set<string>();
+
+    if (Array.isArray(propertyTypeOptions)) {
+      propertyTypeOptions.forEach((opt) => {
+        const optValLower = (opt.value || '').toString().trim().toLowerCase();
+        const optLabelLower = (opt.label || '').toString().trim().toLowerCase();
+
+        for (const t of existingTypesSet) {
+          if (optValLower === t || optLabelLower === t) {
+            if (!addedValues.has(optValLower)) {
+              addedValues.add(optValLower);
+              addedValues.add(optLabelLower);
+              result.push(opt);
+            }
+            break;
+          }
+        }
+      });
+    }
+
+    allProperties.forEach((p: any) => {
+      const rawType = (p?.property_type || p?.type || (p as any)?._raw?.property_type_name || '').toString().trim();
+      if (rawType && !addedValues.has(rawType.toLowerCase())) {
+        addedValues.add(rawType.toLowerCase());
+        result.push({
+          value: rawType,
+          label: rawType,
+        });
+      }
+    });
+
+    return result.length > 0 ? result : propertyTypeOptions;
+  }, [allProperties, propertyTypeOptions]);
+
+  const getTypeCount = (typeVal: string) => {
+    if (!typeVal) return allProperties.length;
+    const valLower = typeVal.trim().toLowerCase();
+    return allProperties.filter((p: any) => {
+      const t = (p?.property_type || p?.type || (p as any)?._raw?.property_type_name || '').toString().trim().toLowerCase();
+      return t === valLower;
+    }).length;
+  };
 
   const propertySubtypesMaster: any[] = useMemo(() => findMasterOptions(['property subtype', 'property_subtype', 'subtype', 'unit subtype']), [findMasterOptions]);
   const propertySubtypeOptions = useMemo(() => propertySubtypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })), [propertySubtypesMaster]);
@@ -904,6 +1006,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
             furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
             possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
+            available_from: p.available_from || p.available_date || p.possession_date || p.possession_status || '',
             amenities: p.amenities
               ? (Array.isArray(p.amenities) ? p.amenities :
                 typeof p.amenities === 'string' ? p.amenities.split(',').map((a: string) => a.trim()) :
@@ -1123,19 +1226,62 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     return true;
   });
 
-  // sort/paginate
+  // sort/paginate helpers
+  const getPropertyPrice = (p: Property) => {
+    const pr = p.price || p.monthly_rent || p.expected_rent || (p as any)._raw?.monthly_rent || (p as any)._raw?.expected_rent || (p as any)._raw?.price || (p as any)._raw?.budget || 0;
+    return Number(pr) || 0;
+  };
+
+  const getPostedTimestamp = (p: Property) => {
+    const val = p.postedDate || (p as any)._raw?.created_at || (p as any).created_at;
+    if (!val) return 0;
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const getAvailableTimestamp = (p: Property) => {
+    const val = p.available_from || (p as any).availableFrom || (p as any)._raw?.available_from || (p as any)._raw?.availableFrom || p.possession || (p as any)._raw?.possession_status;
+    if (!val) return getPostedTimestamp(p);
+    const str = String(val).trim().toLowerCase();
+    if (str.includes('ready') || str.includes('immediate')) {
+      return Date.now();
+    }
+    const parsed = new Date(val).getTime();
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+    return getPostedTimestamp(p);
+  };
+
   const sortedProperties = [...filteredProperties].sort((a, b) => {
     switch (sortBy) {
-      case 'price_low': return a.price - b.price;
-      case 'price_high': return b.price - a.price;
-      case 'newest': return new Date(b.postedDate || '').getTime() - new Date(a.postedDate || '').getTime();
-      case 'area_large': return (b.area || b.square_feet || 0) - (a.area || a.square_feet || 0);
-      case 'rating': return (b.rating || 0) - (a.rating || 0);
-      case 'ai_score': return (b.aiScore || 0) - (a.aiScore || 0);
+      case 'price_low':
+        return getPropertyPrice(a) - getPropertyPrice(b);
+      case 'price_high':
+        return getPropertyPrice(b) - getPropertyPrice(a);
+      case 'posted_newest':
+      case 'newest':
+        return getPostedTimestamp(b) - getPostedTimestamp(a);
+      case 'posted_oldest':
+        return getPostedTimestamp(a) - getPostedTimestamp(b);
+      case 'available_earliest':
+        return getAvailableTimestamp(a) - getAvailableTimestamp(b);
+      case 'available_oldest':
+        return getAvailableTimestamp(b) - getAvailableTimestamp(a);
+      case 'area_large':
+        return (b.area || b.square_feet || 0) - (a.area || a.square_feet || 0);
+      case 'rating':
+        return (b.rating || 0) - (a.rating || 0);
+      case 'ai_score':
+        return (b.aiScore || 0) - (a.aiScore || 0);
       case 'price_growth':
-        return parseFloat((b.priceGrowth || '0').replace('+', '').replace('%', '')) -
-          parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''));
-      default: return 0;
+        return (
+          parseFloat((b.priceGrowth || '0').replace('+', '').replace('%', '')) -
+          parseFloat((a.priceGrowth || '0').replace('+', '').replace('%', ''))
+        );
+      case 'relevance':
+      default:
+        return 0;
     }
   });
 
@@ -1337,24 +1483,25 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             {/* Buy/Rent + Type row */}
             <div className="grid grid-cols-1 gap-1 md:gap-2 mb-4 items-center justify-center text-center">
               {/* Buy / Rent */}
-              <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-2">
                 <button
                   type="button"
                   onClick={() => {
                     setTransactionType("buy");
                     const q = new URLSearchParams(location.search);
                     q.set("transaction", "buy");
-                    q.delete("tab");
+                    q.set("tab", "buy");
                     navigate(`/properties?${q.toString()}`, { replace: true });
                   }}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
+                  className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                     ${transactionType === "buy"
-                      ? "bg-[#E6761D] text-white font-bold shadow-sm"
+                      ? "bg-[#E6761D] text-white shadow-md"
                       : "bg-white/20 text-white hover:bg-white/30"
                     }`}
                   aria-pressed={transactionType === "buy"}
                 >
-                  Buy
+                  <span>Buy</span>
+                  <AnimatedCountBadge count={buyCount} />
                 </button>
 
                 <button
@@ -1366,14 +1513,15 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                     q.set("tab", "rent");
                     navigate(`/properties?${q.toString()}`, { replace: true });
                   }}
-                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
+                  className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                     ${transactionType === "rent"
-                      ? "bg-[#E6761D] text-white font-bold shadow-sm"
+                      ? "bg-[#E6761D] text-white shadow-md"
                       : "bg-white/20 text-white hover:bg-white/30"
                     }`}
                   aria-pressed={transactionType === "rent"}
                 >
-                  Rent
+                  <span>Rent</span>
+                  <AnimatedCountBadge count={rentCount} />
                 </button>
               </div>
 
@@ -1387,21 +1535,21 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         type="button"
                         onClick={() => handlePropertyTypeButton("")}
                         aria-pressed={selectedPropertyType === ""}
-                        className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                          ${selectedPropertyType === "" ? "bg-white text-black" : "bg-white/30 text-white hover:bg-white/40"}`}
+                        className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
+                          ${selectedPropertyType === "" ? "bg-white text-black font-semibold shadow-sm" : "bg-white/30 text-white hover:bg-white/40"}`}
                       >
                         All
                       </button>
 
-                      {propertyTypeOptions.map((opt) => (
+                      {dynamicPropertyTypeOptions.map((opt) => (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => handlePropertyTypeButton(opt.value)}
                           aria-pressed={selectedPropertyType === opt.value}
                           title={opt.label}
-                          className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                            ${selectedPropertyType === opt.value ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"}`}
+                          className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
+                            ${selectedPropertyType === opt.value ? "bg-white text-black font-semibold shadow-sm" : "bg-white/20 text-white hover:bg-white/30"}`}
                         >
                           {opt.label}
                         </button>
@@ -1588,23 +1736,46 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 )}
               </div>
 
-              {/* RIGHT SECTION */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center ${viewMode === "grid" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
-                    }`}
-                >
-                  <Grid size={16} />
-                </button>
+              {/* RIGHT SECTION: Sort By + View Mode */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap">Sort By:</span>
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => {
+                        setSortBy(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none bg-white border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 text-xs sm:text-sm font-medium text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E6761D] focus:border-[#E6761D] cursor-pointer hover:border-gray-400 transition"
+                    >
+                      {SORT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  </div>
+                </div>
 
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center ${viewMode === "list" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
-                    }`}
-                >
-                  <List size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center transition ${viewMode === "grid" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                  >
+                    <Grid size={16} />
+                  </button>
+
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`p-2 rounded-lg w-9 h-9 flex items-center justify-center transition ${viewMode === "list" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                  >
+                    <List size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1712,19 +1883,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                       <label className="block text-xs font-medium text-gray-700 mb-1">Sort By</label>
                       <select
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
+                        onChange={(e) => {
+                          setSortBy(e.target.value);
+                          setCurrentPage(1);
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
                       >
-                        {[
-                          { value: 'relevance', label: 'Most Relevant' },
-                          { value: 'price_low', label: 'Price: Low to High' },
-                          { value: 'price_high', label: 'Price: High to Low' },
-                          { value: 'newest', label: 'Newest First' },
-                          { value: 'area_large', label: 'Largest First' },
-                          { value: 'rating', label: 'Highest Rated' },
-                          { value: 'ai_score', label: 'AI Score High' },
-                          { value: 'price_growth', label: 'Best Growth' },
-                        ].map((opt) => (
+                        {SORT_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                       </select>

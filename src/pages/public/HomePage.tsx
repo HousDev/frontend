@@ -28,6 +28,7 @@ import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
 import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
+import { AnimatedCountBadge } from '@/components/common/AnimatedCountBadge';
 
 import { propertiesAPI } from '@/lib/propertiesAPI';
 import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
@@ -193,6 +194,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedPropertyType, setSelectedPropertyType] = useState('');
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+  const [rawProperties, setRawProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [isSubOpen, setIsSubOpen] = useState(false);
@@ -203,6 +205,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const [masterLoading, setMasterLoading] = useState(true);
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
+  const [buyCount, setBuyCount] = useState<number>(0);
+  const [rentCount, setRentCount] = useState<number>(0);
 
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -211,6 +215,33 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [open, setOpen] = useState(false);
 
   const [isValuationOpen, setIsValuationOpen] = useState(false);
+
+  // ✅ Pre-fetch total public counts for both Buy and Rent
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCounts = async () => {
+      try {
+        const [buyRes, rentRes] = await Promise.allSettled([
+          propertiesAPI.PublicgetProperties({ status: 'Available', isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1 }),
+          rentalPropertiesAPI.PublicgetProperties({ status: 'Available', isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1 })
+        ]);
+
+        if (!isMounted) return;
+        if (buyRes.status === 'fulfilled') {
+          const raw = Array.isArray(buyRes.value?.data) ? buyRes.value.data : (Array.isArray(buyRes.value) ? buyRes.value : []);
+          setBuyCount(raw.filter(isPublicProp).length);
+        }
+        if (rentRes.status === 'fulfilled') {
+          const raw = Array.isArray(rentRes.value?.data) ? rentRes.value.data : (Array.isArray(rentRes.value) ? rentRes.value : []);
+          setRentCount(raw.filter(isPublicProp).length);
+        }
+      } catch (e) {
+        console.warn('Failed to load initial buy/rent counts:', e);
+      }
+    };
+    fetchCounts();
+    return () => { isMounted = false; };
+  }, []);
 
   // ✅ NEW: hero state with instant cache to prevent refresh flashing
   const [heroBlocks, setHeroBlocks] = useState<HeroBlock[]>(() => {
@@ -372,6 +403,14 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           rawList = fb.filter(isPublicProp);
         }
 
+        // ✅ Store all active public properties to compute dynamic property types
+        setRawProperties(rawList);
+        if (transactionType === 'rent') {
+          setRentCount(rawList.length);
+        } else {
+          setBuyCount(rawList.length);
+        }
+
         // ⬇️ Bulk fetch tags for all raw properties BEFORE filtering
         const allTagsBulk = await propertyTagsAPI.getBulk(rawList.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
 
@@ -402,7 +441,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             if (typeof rawPhotos === 'string' && rawPhotos.trim().startsWith('[')) {
               try {
                 rawPhotos = JSON.parse(rawPhotos);
-              } catch (e) {}
+              } catch (e) { }
             }
 
             let images: string[] = [];
@@ -529,7 +568,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         try {
           sessionStorage.setItem('cached_hero_blocks', JSON.stringify(activeBlocks));
           sessionStorage.setItem('cached_hero_slides', JSON.stringify(slides));
-        } catch {}
+        } catch { }
         setHeroIndex(0);
       } catch (e) {
         console.warn('[HomePage] homeHeroAPI.list() failed, will fallback to featured images', e);
@@ -589,6 +628,85 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
     () => findMasterOptions(['property type', 'property_type', 'propertytype', 'type', 'property']),
     [masters]
   );
+
+  // ✅ Compute dynamic property types available from active properties
+  const dynamicPropertyTypeOptions: MasterOption[] = useMemo(() => {
+    if (!rawProperties || rawProperties.length === 0) {
+      return [];
+    }
+
+    // Extract all unique normalized property types present in currently available properties
+    const existingTypesSet = new Set<string>();
+    rawProperties.forEach((p: any) => {
+      const t = (p?.property_type_name || p?.property_type || p?.type || p?._raw?.property_type_name || '').toString().trim();
+      if (t) {
+        existingTypesSet.add(t.toLowerCase());
+      }
+    });
+
+    if (existingTypesSet.size === 0) {
+      return [];
+    }
+
+    const result: MasterOption[] = [];
+    const addedValues = new Set<string>();
+
+    // 1. First add matching master options to preserve proper order and standard labels
+    if (Array.isArray(propertyTypeOptions)) {
+      propertyTypeOptions.forEach((opt) => {
+        const optValLower = (opt.value || '').toString().trim().toLowerCase();
+        const optLabelLower = (opt.label || '').toString().trim().toLowerCase();
+
+        for (const t of existingTypesSet) {
+          if (optValLower === t || optLabelLower === t) {
+            if (!addedValues.has(optValLower)) {
+              addedValues.add(optValLower);
+              addedValues.add(optLabelLower);
+              result.push(opt);
+            }
+            break;
+          }
+        }
+      });
+    }
+
+    // 2. Also add any property type found in data that wasn't in master options
+    rawProperties.forEach((p: any) => {
+      const rawType = (p?.property_type_name || p?.property_type || p?.type || p?._raw?.property_type_name || '').toString().trim();
+      if (rawType && !addedValues.has(rawType.toLowerCase())) {
+        addedValues.add(rawType.toLowerCase());
+        result.push({
+          value: rawType,
+          label: rawType,
+        });
+      }
+    });
+
+    return result;
+  }, [rawProperties, propertyTypeOptions]);
+
+  // ✅ Reset selectedPropertyType if it's no longer available in the active tab's types
+  useEffect(() => {
+    if (selectedPropertyType && dynamicPropertyTypeOptions.length > 0) {
+      const exists = dynamicPropertyTypeOptions.some(
+        (opt) =>
+          (opt.value || '').toString().trim().toLowerCase() === selectedPropertyType.trim().toLowerCase() ||
+          (opt.label || '').toString().trim().toLowerCase() === selectedPropertyType.trim().toLowerCase()
+      );
+      if (!exists) {
+        setSelectedPropertyType('');
+      }
+    }
+  }, [dynamicPropertyTypeOptions, selectedPropertyType]);
+
+  const getTypeCount = (typeVal: string) => {
+    if (!typeVal) return rawProperties.length;
+    const valLower = typeVal.trim().toLowerCase();
+    return rawProperties.filter((p: any) => {
+      const t = (p?.property_type_name || p?.property_type || p?.type || p?._raw?.property_type_name || '').toString().trim().toLowerCase();
+      return t === valLower;
+    }).length;
+  };
 
   const masterLocation: MasterOption[] = useMemo(
     () => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']),
@@ -823,10 +941,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const resolvedUrl = rawHeroUrl ? getImageUrl(rawHeroUrl, '') : '';
   const activeHeroUrl =
     resolvedUrl &&
-    !resolvedUrl.includes('property.png') &&
-    resolvedUrl !== '/' &&
-    resolvedUrl !== 'null' &&
-    resolvedUrl !== 'undefined'
+      !resolvedUrl.includes('property.png') &&
+      resolvedUrl !== '/' &&
+      resolvedUrl !== 'null' &&
+      resolvedUrl !== 'undefined'
       ? resolvedUrl
       : null;
 
@@ -887,37 +1005,45 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               {/* Row: Buy/Rent + PropertyType */}
               <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
                 {/* Buy / Rent */}
-                <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-2">
                   <button
                     type="button"
-                    onClick={() => setTransactionType("buy")}
-                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                    onClick={() => {
+                      setTransactionType("buy");
+                      setSelectedPropertyType("");
+                    }}
+                    className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                       ${transactionType === "buy"
-                        ? "bg-[#E6761D] text-white"
+                        ? "bg-[#E6761D] text-white shadow-md"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     aria-pressed={transactionType === "buy"}
                   >
-                    Buy
+                    <span>Buy</span>
+                    <AnimatedCountBadge count={buyCount} />
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setTransactionType("rent")}
-                    className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+                    onClick={() => {
+                      setTransactionType("rent");
+                      setSelectedPropertyType("");
+                    }}
+                    className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                       ${transactionType === "rent"
-                        ? "bg-[#E6761D] text-white"
+                        ? "bg-[#E6761D] text-white shadow-md"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     aria-pressed={transactionType === "rent"}
                   >
-                    Rent
+                    <span>Rent</span>
+                    <AnimatedCountBadge count={rentCount} />
                   </button>
                 </div>
 
                 {/* Property-type chips */}
                 <div className="w-full grid justify-center md:w-auto">
-                  {masterLoading ? (
+                  {loading && dynamicPropertyTypeOptions.length === 0 ? (
                     <div className="text-sm text-white/80 px-3 py-1">Loading types...</div>
                   ) : (
                     <div
@@ -939,16 +1065,16 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                           className={`
               shrink-0 snap-start whitespace-nowrap
               px-3 sm:px-4 py-1.5 rounded-full text-sm
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
               ${selectedPropertyType === ""
-                              ? "bg-white text-black"
+                              ? "bg-white text-black font-semibold shadow-sm"
                               : "bg-white/30 text-white hover:bg-white/40"
                             }`}
                         >
                           All
                         </button>
 
-                        {propertyTypeOptions.map((opt) => (
+                        {dynamicPropertyTypeOptions.map((opt) => (
                           <button
                             key={opt.value}
                             type="button"
@@ -956,11 +1082,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                             aria-pressed={selectedPropertyType === opt.value}
                             title={opt.label}
                             className={`
-                shrink-0 snap-start whitespace-nowrap
-                px-3 sm:px-4 py-1.5 rounded-full text-sm
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition
-                ${selectedPropertyType === opt.value
-                                ? "bg-white text-black"
+                  shrink-0 snap-start whitespace-nowrap
+                  px-3 sm:px-4 py-1.5 rounded-full text-sm
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
+                  ${selectedPropertyType === opt.value
+                                ? "bg-white text-black font-semibold shadow-sm"
                                 : "bg-white/20 text-white hover:bg-white/30"
                               }`}
                           >

@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import 'react-phone-input-2/lib/style.css';
 import PhoneInput from 'react-phone-input-2';
-import { X, Upload, Plus, FileText, Trash2, Edit, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, User, Mail, Phone, Building2, MapPin, DollarSign, Camera, FileCheck, Clock, Star } from 'lucide-react';
+import { X, Upload, Plus, FileText, Trash2, Edit, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, User, Mail, Phone, Building2, MapPin, DollarSign, Camera, FileCheck, Clock, Star, Key } from 'lucide-react';
 
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Dropdown from '@/components/ui/Dropdown';
 import { propertiesAPI } from '@/lib/propertiesAPI';
+import { rentalPropertiesAPI } from '@/lib/rentalPropertiesAPI';
 import { toast } from 'react-toastify';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createPortal } from 'react-dom';
 import { sellerAPI } from '@/lib/sellersAPI';
+import { ownerAPI } from '@/lib/ownerAPI';
 import PriceRangeSelector from '@/components/ui/PriceRangeSelector';
 
 /* ─────────────────────────────────────────────────────────────
@@ -78,6 +80,9 @@ interface PropertyFormData {
   facing?: string;
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
+  listingType?: 'sell' | 'rent';
+  deposit?: string;
+  preferredTenant?: string;
 }
 
 interface InitialDataFromParent {
@@ -90,7 +95,8 @@ interface InitialDataFromParent {
   ownerEmail?: string;
   ownerType?: string;
   seller?: string;
-  sellerId?: string;
+  sellerId?: string | number;
+  ownerId?: string | number;
   propertyType?: string;
   propertySubtype?: string;
   unitType?: string;
@@ -128,6 +134,9 @@ interface InitialDataFromParent {
   facing?: string;
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
+  listingType?: 'sell' | 'rent';
+  deposit?: string;
+  preferredTenant?: string;
 }
 
 interface PublicSellPropertyFormProps {
@@ -140,6 +149,7 @@ interface PublicSellPropertyFormProps {
   seller?: string | null;
   /** NEW: Start directly at step 2 with pre-filled step 1 data */
   startAtStep2?: boolean;
+  listingType?: 'sell' | 'rent';
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -200,13 +210,13 @@ function getScrollParents(node: Element | null): Element[] {
 }
 
 const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
-  const sortNumericOptions = (options: MasterOption[] = []) => {
-    return [...options].sort((a, b) => {
-      const numA = parseInt(a.label || a.value || '0', 10);
-      const numB = parseInt(b.label || b.value || '0', 10);
-      return numA - numB;
-    });
-  };
+const sortNumericOptions = (options: MasterOption[] = []) => {
+  return [...options].sort((a, b) => {
+    const numA = parseInt(a.label || a.value || '0', 10);
+    const numB = parseInt(b.label || b.value || '0', 10);
+    return numA - numB;
+  });
+};
 /* ─────────────────────────────────────────────────────────────
    MULTI-SELECT DROPDOWN
 ───────────────────────────────────────────────────────────── */
@@ -286,7 +296,7 @@ const MultiSelectDropdown: React.FC<{
   const isModalPortal = typeof document !== 'undefined' && !!document.getElementById('modal-portal');
   const Z = isModalPortal ? 1050 : 9999999;
 
-  const popupStyle:any= rect
+  const popupStyle: any = rect
     ? { position: 'fixed', zIndex: Z, top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, minWidth: rect.width, maxHeight: '40vh', overflow: 'hidden', pointerEvents: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }
     : { position: 'fixed', zIndex: Z, top: 0, left: 0, minWidth: 200, pointerEvents: 'auto' };
 
@@ -490,11 +500,20 @@ const SectionHeader: React.FC<{ children: React.ReactNode; icon?: React.ReactNod
    MAIN COMPONENT
 ───────────────────────────────────────────────────────────── */
 const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
-  isOpen, onClose, onSubmit, mode = 'create', propertyId, initialData, seller, startAtStep2 = false,
+  isOpen, onClose, onSubmit, mode = 'create', propertyId, initialData, seller, startAtStep2 = false, listingType = 'sell',
 }) => {
   const now = new Date();
   const CURRENT_YEAR = now.getFullYear();
   const CURRENT_MONTH = now.getMonth() + 1;
+
+  const [currentListingType, setCurrentListingType] = useState<'sell' | 'rent'>(initialData?.listingType || listingType);
+
+  useEffect(() => {
+    if (listingType) {
+      setCurrentListingType(listingType);
+      setFormData(prev => ({ ...prev, listingType }));
+    }
+  }, [listingType]);
 
   // If startAtStep2 is true, we begin at step 2 (property details)
   const [step, setStep] = useState<1 | 2>(startAtStep2 ? 2 : 1);
@@ -544,6 +563,9 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     facing: initialData?.facing || '',
     priceType: initialData?.priceType as 'Fixed' | 'Negotiable' || '',
     finalPrice: initialData?.finalPrice || '',
+    listingType: initialData?.listingType || listingType,
+    deposit: initialData?.deposit || '',
+    preferredTenant: initialData?.preferredTenant || 'Any',
   }));
 
   const [ownershipDocPreview, setOwnershipDocPreview] = useState<FilePreview | null>(() => {
@@ -837,9 +859,17 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       'floor', 'totalFloors', 'carpetArea', 'builtupArea', 'budget', 'address',
       'status', 'leadSource', 'possessionMonth', 'possessionYear',
       'purchaseMonth', 'purchaseYear', 'sellingRights', 'description',
-      'bedrooms', 'bathrooms', 'facing', 'priceType', 'finalPrice',
+      'bedrooms', 'bathrooms', 'facing', 'priceType', 'finalPrice', 'deposit', 'preferredTenant'
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? '')));
+    fd.append('listing_type', currentListingType);
+    fd.append('transaction_type', currentListingType);
+    if (currentListingType === 'rent') {
+      fd.append('monthly_rent', formData.budget);
+      fd.append('expected_rent', formData.budget);
+      if (formData.deposit) fd.append('security_deposit', formData.deposit);
+      if (formData.preferredTenant) fd.append('preferred_tenants', formData.preferredTenant);
+    }
     const societyLabel = getLabelFromValue(masterOptions['society'] || [], formData.society);
     fd.append('society_name', societyLabel || formData.society || '');
     fd.append('sameAsPhone', String(formData.sameAsPhone ?? true));
@@ -856,78 +886,98 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
   };
 
   const handleSubmit = async () => {
-  if (!validateForm()) return;
-  if (!validatePhoneFields()) { setStep(1); return; }
-  try {
-    setLoading(true);
-    setErrorBanner(null);
-    let result: any;
-    if (mode === 'edit' && propertyId) {
-      result = await propertiesAPI.updateProperty(String(propertyId), buildPayload());
-      toast.success('Property updated successfully');
-    } else {
-      // ✅ CHANGE 1: Pehle initialData se sellerId check karo
-      let sellerId: string | null = initialData?.sellerId || null;
-      let sellerName = '';
-      
-      // ✅ CHANGE 2: Sirf tabhi naya seller create karo jab sellerId NAHI hai
-      if (!sellerId && formData.ownerName?.trim() && (formData.ownerEmail || formData.ownerPhone)) {
-        try {
-          const sellerRes = await createSellerSafe({ 
-            salutation: formData.salutation, 
-            name: formData.ownerName, 
-            email: formData.ownerEmail, 
-            phone: formData.ownerPhone, 
-            whatsapp: formData.ownerWhatsapp,
-            status: 'uncontacted',
-            source: 'Website',
-          });
-          sellerId = extractIdFromResponse(sellerRes);
-          sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
-        } catch (sellerErr: any) { 
-          toast.error('Failed to create seller: ' + (sellerErr.message || 'unknown')); 
-          setLoading(false); 
-          return; 
+    if (!validateForm()) return;
+    if (!validatePhoneFields()) { setStep(1); return; }
+    try {
+      setLoading(true);
+      setErrorBanner(null);
+      let result: any;
+      if (mode === 'edit' && propertyId) {
+        if (currentListingType === 'rent') {
+          result = await rentalPropertiesAPI.updateProperty(String(propertyId), buildPayload());
+        } else {
+          result = await propertiesAPI.updateProperty(String(propertyId), buildPayload());
         }
-      } else if (sellerId) {
-        // ✅ CHANGE 3: Agar sellerId already hai, toh bas name banao, naya mat banao
-        sellerName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim();
-        console.log('Using existing seller ID:', sellerId);
+        toast.success(currentListingType === 'rent' ? 'Rental property updated successfully' : 'Property updated successfully');
+      } else {
+        let createdEntityId: string | null = initialData?.ownerId ? String(initialData.ownerId) : initialData?.sellerId ? String(initialData.sellerId) : null;
+        let entityName = `${formData.salutation ? formData.salutation + ' ' : ''}${formData.ownerName}`.trim() || formData.ownerName;
+
+        // If no ID passed from Step 1, create Owner or Seller now with status 'uncontacted'
+        if (!createdEntityId && formData.ownerName?.trim() && (formData.ownerEmail || formData.ownerPhone)) {
+          try {
+            if (currentListingType === 'rent') {
+              const ownerRes = await ownerAPI.create({
+                salutation: formData.salutation,
+                name: formData.ownerName,
+                email: formData.ownerEmail,
+                phone: formData.ownerPhone,
+                whatsapp: formData.ownerWhatsapp,
+                status: 'uncontacted',
+                source: 'Website',
+                leadType: 'rental_owner',
+              });
+              createdEntityId = extractIdFromResponse(ownerRes);
+            } else {
+              const sellerRes = await createSellerSafe({
+                salutation: formData.salutation,
+                name: formData.ownerName,
+                email: formData.ownerEmail,
+                phone: formData.ownerPhone,
+                whatsapp: formData.ownerWhatsapp,
+                status: 'uncontacted',
+                source: 'Website',
+              });
+              createdEntityId = extractIdFromResponse(sellerRes);
+            }
+          } catch (entityErr: any) {
+            toast.error(`Failed to create ${currentListingType === 'rent' ? 'owner' : 'seller'}: ` + (entityErr.message || 'unknown'));
+            setLoading(false);
+            return;
+          }
+        }
+
+        const payload = buildPayload();
+        if (createdEntityId) {
+          payload.append('seller_id', String(createdEntityId));
+          payload.append('seller_name', entityName);
+          payload.append('owner_id', String(createdEntityId));
+          payload.append('owner_name', entityName);
+        }
+        payload.append('leadSource', 'seller_portal');
+        try {
+          if (currentListingType === 'rent') {
+            result = await rentalPropertiesAPI.createProperty(payload);
+          } else {
+            result = await propertiesAPI.createProperty(payload);
+          }
+          if (createdEntityId) {
+            result = { ...result, seller_id: createdEntityId, owner_id: createdEntityId, seller_name: entityName, owner_name: entityName };
+          }
+        } catch (propertyErr: any) {
+          const msg = propertyErr?.response?.data?.message || propertyErr?.message || 'Failed to create property';
+          setErrorBanner(msg);
+          toast.error(msg);
+          return;
+        }
       }
-      
-      const payload = buildPayload();
-      if (sellerId) { 
-        payload.append('seller_id', String(sellerId)); 
-        payload.append('seller_name', sellerName || formData.ownerName);
+      setShowThankYou(true);
+      // ✅ auto close after 2 sec
+      setTimeout(() => {
+        setShowThankYou(false);
+        onClose(); // modal close
+      }, 2000);
+      if (typeof onSubmit === 'function') {
+        try { onSubmit(result); } catch (err) { console.error('onSubmit handler threw:', err); }
       }
-payload.append('leadSource', 'seller_portal');      
-      try {
-        result = await propertiesAPI.createProperty(payload);
-        if (sellerId) result = { ...result, seller_id: sellerId, seller_name: sellerName || formData.ownerName };
-      } catch (propertyErr: any) {
-        const msg = propertyErr?.response?.data?.message || propertyErr?.message || 'Failed to create property';
-        setErrorBanner(msg); 
-        toast.error(msg); 
-        return;
-      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
+      setErrorBanner(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-    setShowThankYou(true);
-    // ✅ auto close after 2 sec
-    setTimeout(() => {
-      setShowThankYou(false);
-      onClose(); // modal close
-    }, 2000);
-    if (typeof onSubmit === 'function') { 
-      try { onSubmit(result); } catch (err) { console.error('onSubmit handler threw:', err); } 
-    }
-  } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || `Failed to ${mode === 'edit' ? 'update' : 'create'} property`;
-    setErrorBanner(msg); 
-    toast.error(msg);
-  } finally { 
-    setLoading(false); 
-  }
-};
+  };
 
   const getOptions = (key: string): MasterOption[] => {
     if (!key) return [];
@@ -1047,56 +1097,90 @@ payload.append('leadSource', 'seller_portal');
   ───────────────────────────────────────────────────────────── */
   const PropertyStep = (
     <div className="space-y-4">
+      {/* Listing Type Switcher */}
+      <div className="flex bg-gray-100 p-1 rounded-xl max-w-xs mx-auto mb-3">
+        <button
+          type="button"
+          onClick={() => {
+            setCurrentListingType('sell');
+            setFormData(prev => ({ ...prev, listingType: 'sell' }));
+          }}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${currentListingType === 'sell'
+              ? 'bg-[#E6761D] text-white shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+            }`}
+        >
+          <Building2 size={13} />
+          <span>For Sale</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCurrentListingType('rent');
+            setFormData(prev => ({ ...prev, listingType: 'rent' }));
+          }}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${currentListingType === 'rent'
+              ? 'bg-[#0b3856] text-white shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+            }`}
+        >
+          <Key size={13} />
+          <span>For Rent</span>
+        </button>
+      </div>
+
       {/* Owner Summary Card */}
       <OwnerSummaryCard formData={formData} onEdit={() => setStep(1)} />
 
       {/* Property Type Section */}
-      <SectionHeader icon={<Building2 size={12} />}>Property Details</SectionHeader>
-     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-  <div>
-    <label className={LBL}>Property Type <span className="text-red-400">*</span></label>
-    <SafeDropdown placeholder="Select type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
-    {errors.propertyType && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertyType}</p>}
-  </div>
-  <div>
-    <label className={LBL}>Subtype <span className="text-red-400">*</span></label>
-    <SafeDropdown placeholder="Select subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
-    {errors.propertySubtype && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertySubtype}</p>}
-  </div>
-  <div>
-    <label className={LBL}>Bedrooms</label>
-    <SafeDropdown placeholder="BHK" options={getOptions('bedrooms')} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Bathrooms</label>
-    <SafeDropdown placeholder="Baths" options={getOptions('bathrooms')} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Furnishing</label>
-    <SafeDropdown placeholder="Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Facing</label>
-    <SafeDropdown placeholder="Facing" options={getOptions('facing')} value={formData.facing || ''} onChange={handleDropdownChange('facing')} className="w-full" />
-  </div>
-  {/* PARKING FIELDS - YAHAN ADD KAREIN */}
-  <div>
-    <label className={LBL}>Parking Type</label>
-    <SafeDropdown placeholder="Parking type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Parking Qty</label>
+      <SectionHeader icon={<Building2 size={12} />}>
+        {currentListingType === 'rent' ? 'Rental Property Details' : 'Sale Property Details'}
+      </SectionHeader>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div>
+          <label className={LBL}>Property Type <span className="text-red-400">*</span></label>
+          <SafeDropdown placeholder="Select type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
+          {errors.propertyType && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertyType}</p>}
+        </div>
+        <div>
+          <label className={LBL}>Subtype <span className="text-red-400">*</span></label>
+          <SafeDropdown placeholder="Select subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
+          {errors.propertySubtype && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertySubtype}</p>}
+        </div>
+        <div>
+          <label className={LBL}>Bedrooms</label>
+          <SafeDropdown placeholder="BHK" options={getOptions('bedrooms')} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Bathrooms</label>
+          <SafeDropdown placeholder="Baths" options={getOptions('bathrooms')} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Furnishing</label>
+          <SafeDropdown placeholder="Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Facing</label>
+          <SafeDropdown placeholder="Facing" options={getOptions('facing')} value={formData.facing || ''} onChange={handleDropdownChange('facing')} className="w-full" />
+        </div>
+        {/* PARKING FIELDS */}
+        <div>
+          <label className={LBL}>Parking Type</label>
+          <SafeDropdown placeholder="Parking type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Parking Qty</label>
           <SafeDropdown placeholder="Quantity" options={sortNumericOptions(getOptions('parking qty'))} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Unit Type</label>
-    <SafeDropdown placeholder="Unit type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
-  </div>
-  <div>
-    <label className={LBL}>Status</label>
-    <SafeDropdown placeholder="Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
-  </div>
-   <div>
+        </div>
+        <div>
+          <label className={LBL}>Unit Type</label>
+          <SafeDropdown placeholder="Unit type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Status</label>
+          <SafeDropdown placeholder="Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
+        </div>
+        <div>
           <label className={LBL}>Wing</label>
           <input type="text" placeholder="A / B" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
         </div>
@@ -1112,7 +1196,7 @@ payload.append('leadSource', 'seller_portal');
           <label className={LBL}>Floor</label>
           <SafeDropdown placeholder="Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
         </div>
-</div>
+      </div>
 
       {/* Location Section */}
       <SectionHeader icon={<MapPin size={12} />}>Location</SectionHeader>
@@ -1132,7 +1216,7 @@ payload.append('leadSource', 'seller_portal');
           <SafeDropdown placeholder="City" options={getOptions('city')} value={formData.city} onChange={handleDropdownChange('city')} className="w-full" searchable />
           {errors.city && <p className="text-red-400 text-[10px] mt-0.5">{errors.city}</p>}
         </div>
-       
+
         <div className="col-span-3">
           <label className={LBL}>Full Address</label>
           <textarea placeholder="Auto-filled from selections — editable" value={formData.address}
@@ -1142,7 +1226,9 @@ payload.append('leadSource', 'seller_portal');
       </div>
 
       {/* Area & Pricing Section */}
-      <SectionHeader icon={<DollarSign size={12} />}>Area & Pricing</SectionHeader>
+      <SectionHeader icon={<DollarSign size={12} />}>
+        {currentListingType === 'rent' ? 'Area & Rental Pricing' : 'Area & Sale Pricing'}
+      </SectionHeader>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={LBL}>Carpet Area (sq.ft) <span className="text-red-400">*</span></label>
@@ -1159,49 +1245,135 @@ payload.append('leadSource', 'seller_portal');
         </div>
       </div>
 
-      {/* Price Range */}
-      <div>
-        <label className={LBL}>Expected Price (₹) <span className="text-red-400">*</span></label>
-        <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-3">
-          <PriceRangeSelector
-            initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))} max={10}
-            onChange={({ max }) => {
-              const rupeeVal = Math.round(max * 10_000_000);
-              handleInputChange('budget', String(rupeeVal));
-            }}
-            className="p-0" />
-          <div className="flex items-center gap-4">
-            {(['Fixed', 'Negotiable'] as const).map((type) => (
-              <label key={type} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" className="h-3 w-3 rounded accent-orange-500"
-                  checked={formData.priceType === type}
-                  onChange={(e) => handleInputChange('priceType', e.target.checked ? type : '')} />
-                <span className={`text-xs font-medium ${formData.priceType === type ? 'text-gray-800' : 'text-gray-400'}`}>{type} Price</span>
-              </label>
-            ))}
-          </div>
-          {formData.priceType === 'Negotiable' && (
-            <div className="pt-2 border-t border-gray-200">
-              <label className={`${LBL} mb-1`}>Final Negotiated Price</label>
-              <input type="text" inputMode="numeric" className={`${INP} max-w-[200px]`}
-                value={formData.finalPrice || ''}
-                onChange={(e) => handleInputChange('finalPrice', e.target.value)}
-                placeholder="e.g., 45,00,000" />
+      {/* Pricing Input / Range based on Listing Type */}
+      {currentListingType === 'rent' ? (
+        <div className="space-y-3">
+          <div>
+            <label className={LBL}>Expected Monthly Rent (₹/month) <span className="text-red-400">*</span></label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₹</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 25000"
+                value={formData.budget}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  handleInputChange('budget', val);
+                }}
+                className={`${INP} pl-8 ${errors.budget ? 'border-red-400' : ''}`}
+              />
+              {formData.budget && Number(formData.budget) > 0 && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                  ₹{Number(formData.budget).toLocaleString('en-IN')}/mo
+                </span>
+              )}
             </div>
-          )}
-          {errors.budget && <p className="text-red-400 text-[10px]">{errors.budget}</p>}
+            {/* Quick Rent Chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {[10000, 15000, 20000, 25000, 35000, 50000, 75000, 100000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => handleInputChange('budget', String(amt))}
+                  className={`px-2.5 py-1 text-[11px] rounded-md font-semibold border transition cursor-pointer ${formData.budget === String(amt)
+                      ? 'bg-[#0b3856] text-white border-[#0b3856]'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                    }`}
+                >
+                  ₹{(amt >= 100000 ? `${amt / 100000}L` : `${amt / 1000}k`)}/m
+                </button>
+              ))}
+            </div>
+            {errors.budget && <p className="text-red-400 text-[10px] mt-1">{errors.budget}</p>}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={LBL}>Security Deposit (₹)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 50000"
+                value={formData.deposit || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  handleInputChange('deposit', val);
+                }}
+                className={INP}
+              />
+            </div>
+            <div>
+              <label className={LBL}>Preferred Tenant</label>
+              <select
+                value={formData.preferredTenant || 'Any'}
+                onChange={(e) => handleInputChange('preferredTenant', e.target.value)}
+                className={INP}
+              >
+                <option value="Any">Anyone (Family / Bachelors / Company)</option>
+                <option value="Family Only">Family Only</option>
+                <option value="Bachelors Only">Bachelors Only</option>
+                <option value="Company / Corporate Lease">Company / Corporate Lease</option>
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div>
+          <label className={LBL}>Expected Price (₹) <span className="text-red-400">*</span></label>
+          <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-3">
+            <PriceRangeSelector
+              initialMax={rupeesToCrores(parseBudgetToRupees(formData.budget))} max={10}
+              onChange={({ max }) => {
+                const rupeeVal = Math.round(max * 10_000_000);
+                handleInputChange('budget', String(rupeeVal));
+              }}
+              className="p-0" />
+            <div className="flex items-center gap-4">
+              {(['Fixed', 'Negotiable'] as const).map((type) => (
+                <label key={type} className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" className="h-3 w-3 rounded accent-orange-500"
+                    checked={formData.priceType === type}
+                    onChange={(e) => handleInputChange('priceType', e.target.checked ? type : '')} />
+                  <span className={`text-xs font-medium ${formData.priceType === type ? 'text-gray-800' : 'text-gray-400'}`}>{type} Price</span>
+                </label>
+              ))}
+            </div>
+            {formData.priceType === 'Negotiable' && (
+              <div className="pt-2 border-t border-gray-200">
+                <label className={`${LBL} mb-1`}>Final Negotiated Price</label>
+                <input type="text" inputMode="numeric" className={`${INP} max-w-[200px]`}
+                  value={formData.finalPrice || ''}
+                  onChange={(e) => handleInputChange('finalPrice', e.target.value)}
+                  placeholder="e.g., 45,00,000" />
+              </div>
+            )}
+            {errors.budget && <p className="text-red-400 text-[10px]">{errors.budget}</p>}
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
-      <SectionHeader icon={<Clock size={12} />}>Timeline & Rights</SectionHeader>
+      <SectionHeader icon={<Clock size={12} />}>
+        {currentListingType === 'rent' ? 'Availability & Agreement' : 'Timeline & Rights'}
+      </SectionHeader>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <PossessionDropdown title="Purchase Date" possessionMonth={formData.purchaseMonth} possessionYear={formData.purchaseYear}
-          onMonthChange={(m) => handleInputChange('purchaseMonth', m)} onYearChange={(y) => handleInputChange('purchaseYear', y)} />
-        <PossessionDropdown title="Possession Date" possessionMonth={formData.possessionMonth} possessionYear={formData.possessionYear}
-          onMonthChange={(m) => handleInputChange('possessionMonth', m)} onYearChange={(y) => handleInputChange('possessionYear', y)} />
+        <PossessionDropdown
+          title={currentListingType === 'rent' ? 'Available From' : 'Purchase Date'}
+          possessionMonth={formData.purchaseMonth}
+          possessionYear={formData.purchaseYear}
+          onMonthChange={(m) => handleInputChange('purchaseMonth', m)}
+          onYearChange={(y) => handleInputChange('purchaseYear', y)}
+        />
+        <PossessionDropdown
+          title={currentListingType === 'rent' ? 'Possession Date' : 'Possession Date'}
+          possessionMonth={formData.possessionMonth}
+          possessionYear={formData.possessionYear}
+          onMonthChange={(m) => handleInputChange('possessionMonth', m)}
+          onYearChange={(y) => handleInputChange('possessionYear', y)}
+        />
         <div>
-          <label className={LBL}>Selling Rights</label>
+          <label className={LBL}>{currentListingType === 'rent' ? 'Agreement Duration' : 'Selling Rights'}</label>
           <SafeDropdown placeholder="Rights" options={getOptions('selling rights')} value={formData.sellingRights} onChange={handleDropdownChange('sellingRights')} className="w-full" />
         </div>
       </div>
@@ -1213,65 +1385,65 @@ payload.append('leadSource', 'seller_portal');
         <MultiSelectDropdown label="Furnishing Items" options={getOptions('furnishing items')} selectedValues={formData.furnishingItems} onToggle={handleFurnishingItemsToggle} placeholder="Select items…" />
       </div>
       {/* Nearby Places Section */}
-<SectionHeader icon={<MapPin size={12} />}>Nearby Places</SectionHeader>
-<div className="mb-4">
-  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end mb-2">
-    <div>
-      <label className={LBL}>Place Name</label>
-      <SafeDropdown placeholder="Place" options={getOptions('place name')} value={nearbyPlaceForm.name}
-        onChange={(v) => setNearbyPlaceForm((p) => ({ ...p, name: v }))} className="w-full" />
-    </div>
-    <div>
-      <label className={LBL}>Distance</label>
-      <input type="text" className={INP} placeholder="2" value={nearbyPlaceForm.distance}
-        onChange={(e) => setNearbyPlaceForm((p) => ({ ...p, distance: e.target.value }))} />
-    </div>
-    <div>
-      <label className={LBL}>Unit</label>
-      <select className={INP} value={nearbyPlaceForm.unit} onChange={(e) => setNearbyPlaceForm((p) => ({ ...p, unit: e.target.value }))}>
-        <option value="">—</option>
-        <option value="km">km</option>
-        <option value="m">m</option>
-        <option value="min">min</option>
-      </select>
-    </div>
-    <div className="flex items-end gap-1.5 col-span-2 sm:col-span-1">
-      <div className="flex-1">
-        <label className={LBL}>Place Type</label>
-        <SafeDropdown placeholder="Type" options={getOptions('place type')} value={nearbyPlaceForm.type}
-          onChange={(v) => setNearbyPlaceForm((p) => ({ ...p, type: v }))} className="w-full" />
-      </div>
-      <button type="button" onClick={addNearbyPlace}
-        disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type}
-        className="flex-shrink-0 h-8 w-8 rounded-md text-white flex items-center justify-center transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed"
-        style={{ background: '#16A34A' }}>
-        <Plus size={13} />
-      </button>
-    </div>
-  </div>
-  <div className="space-y-1.5">
-    {formData.nearby_places.length === 0 ? (
-      <div className="text-[11px] text-gray-400 italic py-2 px-3 bg-gray-50 rounded-md border border-dashed border-gray-200 text-center">
-        No nearby places added yet
-      </div>
-    ) : (
-      formData.nearby_places.map((place, index) => (
-        <div key={index} className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md">
-          <div className="text-xs">
-            <span className="font-semibold text-blue-600">{place.name}</span>
-            <span className="text-gray-400 mx-1">·</span>
-            <span className="text-gray-500">{place.distance} {place.unit}</span>
-            <span className="text-gray-400 mx-1">·</span>
-            <span className="text-green-600">{place.type}</span>
+      <SectionHeader icon={<MapPin size={12} />}>Nearby Places</SectionHeader>
+      <div className="mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end mb-2">
+          <div>
+            <label className={LBL}>Place Name</label>
+            <SafeDropdown placeholder="Place" options={getOptions('place name')} value={nearbyPlaceForm.name}
+              onChange={(v) => setNearbyPlaceForm((p) => ({ ...p, name: v }))} className="w-full" />
           </div>
-          <button type="button" onClick={() => removeNearbyPlace(index)} className="text-red-400 hover:text-red-600 transition-colors ml-2">
-            <Trash2 size={13} />
-          </button>
+          <div>
+            <label className={LBL}>Distance</label>
+            <input type="text" className={INP} placeholder="2" value={nearbyPlaceForm.distance}
+              onChange={(e) => setNearbyPlaceForm((p) => ({ ...p, distance: e.target.value }))} />
+          </div>
+          <div>
+            <label className={LBL}>Unit</label>
+            <select className={INP} value={nearbyPlaceForm.unit} onChange={(e) => setNearbyPlaceForm((p) => ({ ...p, unit: e.target.value }))}>
+              <option value="">—</option>
+              <option value="km">km</option>
+              <option value="m">m</option>
+              <option value="min">min</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-1.5 col-span-2 sm:col-span-1">
+            <div className="flex-1">
+              <label className={LBL}>Place Type</label>
+              <SafeDropdown placeholder="Type" options={getOptions('place type')} value={nearbyPlaceForm.type}
+                onChange={(v) => setNearbyPlaceForm((p) => ({ ...p, type: v }))} className="w-full" />
+            </div>
+            <button type="button" onClick={addNearbyPlace}
+              disabled={!nearbyPlaceForm.name || !nearbyPlaceForm.distance || !nearbyPlaceForm.unit || !nearbyPlaceForm.type}
+              className="flex-shrink-0 h-8 w-8 rounded-md text-white flex items-center justify-center transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed"
+              style={{ background: '#16A34A' }}>
+              <Plus size={13} />
+            </button>
+          </div>
         </div>
-      ))
-    )}
-  </div>
-</div>
+        <div className="space-y-1.5">
+          {formData.nearby_places.length === 0 ? (
+            <div className="text-[11px] text-gray-400 italic py-2 px-3 bg-gray-50 rounded-md border border-dashed border-gray-200 text-center">
+              No nearby places added yet
+            </div>
+          ) : (
+            formData.nearby_places.map((place, index) => (
+              <div key={index} className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="text-xs">
+                  <span className="font-semibold text-blue-600">{place.name}</span>
+                  <span className="text-gray-400 mx-1">·</span>
+                  <span className="text-gray-500">{place.distance} {place.unit}</span>
+                  <span className="text-gray-400 mx-1">·</span>
+                  <span className="text-green-600">{place.type}</span>
+                </div>
+                <button type="button" onClick={() => removeNearbyPlace(index)} className="text-red-400 hover:text-red-600 transition-colors ml-2">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Documents & Photos */}
       <SectionHeader icon={<Camera size={12} />}>Documents & Photos</SectionHeader>
@@ -1361,10 +1533,18 @@ payload.append('leadSource', 'seller_portal');
           <div className="flex items-center justify-between flex-wrap gap-3 pr-8">
             <div>
               <h2 className="text-base font-bold text-gray-800">
-                {step === 1 ? 'Owner Details' : 'Sell Your Property'}
+                {step === 1
+                  ? 'Owner Details'
+                  : currentListingType === 'rent'
+                    ? 'Rent Out Your Property'
+                    : 'Sell Your Property'}
               </h2>
               <p className="text-[11px] text-gray-500 mt-0.5">
-                {step === 1 ? 'Let us know who you are' : 'Fill in your property details'}
+                {step === 1
+                  ? 'Let us know who you are'
+                  : currentListingType === 'rent'
+                    ? 'Fill in your rental property details'
+                    : 'Fill in your property sale details'}
               </p>
             </div>
             <StepIndicator currentStep={step} />

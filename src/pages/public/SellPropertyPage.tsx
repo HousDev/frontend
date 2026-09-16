@@ -1,16 +1,18 @@
 
 
 // export default SellPropertyPage;
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   CheckCircle, ArrowRight, Users, Eye, TrendingUp, Star, Shield, Zap,
   ChevronDown, ChevronUp, Home, Building2, MapPin, Phone, Mail, User,
   Smartphone, Sparkles, Clock, ThumbsUp, Award, Globe, MessageCircle,
   Camera, FileText, Heart, Target, Rocket, BadgeCheck, Headphones, Plus,
-  Loader2
+  Loader2, Key
 } from 'lucide-react';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
 import { sellerAPI } from '@/lib/sellersAPI';
+import { ownerAPI } from '@/lib/ownerAPI';
 import { toast } from 'react-toastify';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -37,9 +39,10 @@ const GRAY_100     = '#f4f5f7';
    MINI STEP-1 FORM WITH TWO BUTTONS
 ═══════════════════════════════════════════ */
 const MiniStep1Form: React.FC<{
+  listingType?: 'sell' | 'rent';
   onNext: (data: { name: string; email: string; phone: string; whatsapp: string; salutation: string; sameAsPhone: boolean }) => void;
-  onPostPropertyClick: (data: { name: string; email: string; phone: string; whatsapp: string; salutation: string; sameAsPhone: boolean; sellerId?: string }) => void;
-}> = ({ onNext, onPostPropertyClick }) => {
+  onPostPropertyClick: (data: { name: string; email: string; phone: string; whatsapp: string; salutation: string; sameAsPhone: boolean; sellerId?: string; ownerId?: string }) => void;
+}> = ({ listingType = 'sell', onNext, onPostPropertyClick }) => {
   const [form, setForm] = useState({
     salutation: 'Mr',
     name: '',
@@ -94,7 +97,7 @@ const MiniStep1Form: React.FC<{
     sameAsPhone: form.sameAsPhone,
   });
 
-  // Create lead in CRM (status: 'new'), then open property details modal
+  // Create Seller / Owner in CRM (status: 'uncontacted'), then open property details modal
   const handlePostProperty = async () => {
     if (!validate()) return;
     setSubmitting(true);
@@ -102,32 +105,52 @@ const MiniStep1Form: React.FC<{
       const apiPhone = buildApiPhone(form.phone);
       const apiWhatsapp = buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp);
       
-      const leadData = {
-        salutation: form.salutation || 'Mr.',
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: apiPhone,
-        whatsapp_number: apiWhatsapp,
-        whatsapp: apiWhatsapp,
-        lead_type: 'seller',
-        lead_source: 'Website',
-        status: 'new',
-        priority: 'hot',
-      };
-      
-      await leadsAPI.createLead(leadData);
-      console.log('✅ Lead created/updated in CRM with status new');
-      
-      toast.success(`Details saved! Now add your property.`);
+      let createdId: string | undefined = undefined;
+
+      if (listingType === 'rent') {
+        const ownerData = {
+          salutation: form.salutation || 'Mr.',
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: apiPhone,
+          whatsapp: apiWhatsapp,
+          status: 'uncontacted',
+          source: 'Website',
+          leadType: 'rental_owner',
+          priority: 'hot',
+        };
+        const res = await ownerAPI.create(ownerData);
+        createdId = res?.id ? String(res.id) : (res?.data?.id ? String(res.data.id) : undefined);
+        console.log('✅ Owner created in Owner Management with status uncontacted:', createdId);
+        toast.success(`Owner details saved! Now add your rental details.`);
+      } else {
+        const sellerData = {
+          salutation: form.salutation || 'Mr.',
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: apiPhone,
+          whatsapp: apiWhatsapp,
+          status: 'uncontacted',
+          source: 'Website',
+          leadType: 'seller',
+          priority: 'hot',
+        };
+        const res = await sellerAPI.create(sellerData);
+        createdId = res?.id ? String(res.id) : (res?.data?.id ? String(res.data.id) : (res?.sellerId ? String(res.sellerId) : undefined));
+        console.log('✅ Seller created in Seller Management with status uncontacted:', createdId);
+        toast.success(`Seller details saved! Now add your property details.`);
+      }
       
       // Open property details modal
       onPostPropertyClick({
         ...getPayload(),
         phone: apiPhone,
         whatsapp: apiWhatsapp,
+        sellerId: listingType === 'sell' ? createdId : undefined,
+        ownerId: listingType === 'rent' ? createdId : undefined,
       });
     } catch (error: any) {
-      console.error('Error saving lead details:', error);
+      console.error('Error saving details:', error);
       toast.error(error?.response?.data?.message || error?.message || 'Failed to save details');
       // Still open modal so user can proceed
       onPostPropertyClick(getPayload());
@@ -143,23 +166,37 @@ const MiniStep1Form: React.FC<{
       const apiPhone = buildApiPhone(form.phone);
       const apiWhatsapp = buildApiPhone(form.sameAsPhone ? form.phone : form.whatsapp);
 
-      const leadData = {
-        salutation: form.salutation || 'Mr.',
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: apiPhone,
-        whatsapp_number: apiWhatsapp,
-        whatsapp: apiWhatsapp,
-        lead_type: 'seller',
-        lead_source: 'Website',
-        status: 'new',
-        priority: 'hot',
-      };
-      await leadsAPI.createLead(leadData);
+      if (listingType === 'rent') {
+        const ownerData = {
+          salutation: form.salutation || 'Mr.',
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: apiPhone,
+          whatsapp: apiWhatsapp,
+          status: 'uncontacted',
+          source: 'Website',
+          leadType: 'rental_owner',
+          priority: 'hot',
+        };
+        await ownerAPI.create(ownerData);
+      } else {
+        const sellerData = {
+          salutation: form.salutation || 'Mr.',
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: apiPhone,
+          whatsapp: apiWhatsapp,
+          status: 'uncontacted',
+          source: 'Website',
+          leadType: 'seller',
+          priority: 'hot',
+        };
+        await sellerAPI.create(sellerData);
+      }
       toast.success(`Thank you! Our team will contact you shortly.`);
       onNext(getPayload());
     } catch (error: any) {
-      console.error('Error creating lead:', error);
+      console.error('Error submitting details:', error);
       toast.error(error?.response?.data?.message || error?.message || 'Failed to submit details');
     } finally {
       setSubmitting(false);
@@ -313,12 +350,12 @@ const MiniStep1Form: React.FC<{
           onClick={handlePostProperty}
           disabled={submitting}
           className="h-10 rounded-xl text-[13px] font-bold text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60"
-          style={{ background: submitting ? '#94a3b8' : `linear-gradient(135deg,${ORANGE},${ORANGE_DARK})` }}
+          style={{ background: submitting ? '#94a3b8' : listingType === 'rent' ? 'linear-gradient(135deg,#16A34A,#15803d)' : `linear-gradient(135deg,${ORANGE},${ORANGE_DARK})` }}
         >
           {submitting ? (
             <><Loader2 size={13} className="animate-spin" /> Saving details...</>
           ) : (
-            <><Plus size={13} /> Next - Add property details</>
+            <><Plus size={13} /> {listingType === 'rent' ? 'Next - Add rental details' : 'Next - Add property details'}</>
           )}
         </button>
       </div>
@@ -342,10 +379,10 @@ const MiniStep1Form: React.FC<{
 
 /* ─── Static Data ─── */
 const stats = [
-  { icon: Users,     label: 'Active Buyers',  value: '2.5L+' },
-  { icon: Eye,       label: 'Monthly Views',  value: '12L+'  },
-  { icon: Home,      label: 'Listings',       value: '75K+'  },
-  { icon: TrendingUp,label: 'Deals Closed',   value: '18K+'  },
+  { icon: Users,     label: 'Active Buyers & Tenants', value: '2.5L+' },
+  { icon: Eye,       label: 'Monthly Views',            value: '12L+'  },
+  { icon: Home,      label: 'Listings',                 value: '75K+'  },
+  { icon: TrendingUp,label: 'Deals Closed',             value: '18K+'  },
 ];
 
 const steps = [
@@ -405,11 +442,27 @@ const FAQItem: React.FC<{ q: string; a: string }> = ({ q, a }) => {
    MAIN PAGE
 ═══════════════════════════════════════════ */
 const SellPropertyPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialType = searchParams.get('type') === 'rent' ? 'rent' : 'sell';
+  const [listingType, setListingType]   = useState<'sell' | 'rent'>(initialType);
+
+  useEffect(() => {
+    const t = searchParams.get('type');
+    if (t === 'rent' || t === 'sell') {
+      setListingType(t);
+    }
+  }, [searchParams]);
+
+  const handleTypeChange = (type: 'sell' | 'rent') => {
+    setListingType(type);
+    setSearchParams({ type });
+  };
+
   const [isModalOpen,      setIsModalOpen]      = useState(false);
   const [modalInitialData, setModalInitialData] = useState<any>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
-  const handlePostPropertyClick = (data: { name: string; email: string; phone: string; whatsapp: string; salutation: string; sameAsPhone: boolean,sellerId?: string; }) => {
+  const handlePostPropertyClick = (data: { name: string; email: string; phone: string; whatsapp: string; salutation: string; sameAsPhone: boolean; sellerId?: string; ownerId?: string; }) => {
     const onlyDigits = (s = '') => s.replace(/\D/g, '');
     const buildApiPhone = (raw: string) => {
       const d = onlyDigits(raw);
@@ -426,7 +479,9 @@ const SellPropertyPage: React.FC = () => {
       ownerPhone:    buildApiPhone(data.phone),
       ownerWhatsapp: buildApiPhone(data.sameAsPhone ? data.phone : data.whatsapp),
       sameAsPhone:   data.sameAsPhone,
-      sellerId: data.sellerId,
+      sellerId:      data.sellerId,
+      ownerId:       data.ownerId,
+      listingType:   listingType,
     });
     setIsModalOpen(true);
   };
@@ -438,7 +493,7 @@ const SellPropertyPage: React.FC = () => {
   const handleModalSubmit = (result: any) => {
     console.log('Property submitted:', result);
     setIsModalOpen(false);
-    toast.success('Property posted successfully!');
+    toast.success(listingType === 'rent' ? 'Rental property posted successfully!' : 'Property posted successfully!');
   };
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -472,30 +527,35 @@ const SellPropertyPage: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-start lg:gap-16">
 
             {/* ── LEFT: Copy ── */}
-<div className="flex-1 pt-2 sm:pt-19 lg:pt-16 order-2 lg:order-1">
+            <div className="flex-1 pt-2 sm:pt-19 lg:pt-16 order-2 lg:order-1">
               {/* Eyebrow — Navy */}
               <div
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-[12px] font-bold mb-5 sm:mb-7 border mt-9 md:mt-0"
                 style={{ background: NAVY_LIGHT, borderColor: '#cbd5e1', color: NAVY }}
               >
                 <Sparkles size={13} />
-                Post Your Property — 100% Free
+                {listingType === 'rent' ? 'Rent Out Property — 100% Free' : 'Post Your Property — 100% Free'}
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-[3.2rem] font-black leading-[1.2] sm:leading-[1.12] tracking-tight text-gray-900 mb-4 sm:mb-5">
-                Sell or Rent Your<br />
-                <span style={{ color: ORANGE }}>Property Faster</span>
+                {listingType === 'rent' ? 'Rent Out Your' : 'Sell Your'}<br />
+                <span style={{ color: listingType === 'rent' ? '#16A34A' : ORANGE }}>Property Faster</span>
               </h1>
 
               <p className="text-[14px] sm:text-[15.5px] text-gray-500 leading-relaxed max-w-md mb-6 sm:mb-9">
-                Connect with <strong className="font-semibold text-gray-700">2.5 lakh+ genuine buyers</strong> across Maharashtra.
-                List in minutes —  no hidden fees.
+                {listingType === 'rent' ? (
+                  <>Connect with <strong className="font-semibold text-gray-700">10,000+ verified tenants</strong> across Maharashtra. List in minutes — zero brokerage.</>
+                ) : (
+                  <>Connect with <strong className="font-semibold text-gray-700">2.5 lakh+ genuine buyers</strong> across Maharashtra. List in minutes — no hidden fees.</>
+                )}
               </p>
 
               {/* Benefit chips */}
               <div className="flex flex-wrap gap-2 mb-6 sm:mb-10">
                 {[
-                  'Legal documentation support', 'Hassle-free transactions', 'Direct buyer connect',
+                  listingType === 'rent' ? 'Verified tenant matching' : 'Legal documentation support',
+                  'Hassle-free transactions',
+                  listingType === 'rent' ? 'Direct tenant connect' : 'Direct buyer connect',
                   'Verified badge', 'Free expert help', '24/7 support',
                 ].map((item) => (
                   <div
@@ -503,7 +563,7 @@ const SellPropertyPage: React.FC = () => {
                     className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-[12.5px] font-medium border"
                     style={{ background: '#f8fafb', borderColor: '#e4e7ec', color: '#374151' }}
                   >
-                    <CheckCircle size={11} style={{ color: ORANGE }} />
+                    <CheckCircle size={11} style={{ color: listingType === 'rent' ? '#16A34A' : ORANGE }} />
                     {item}
                   </div>
                 ))}
@@ -516,7 +576,7 @@ const SellPropertyPage: React.FC = () => {
               >
                 {stats.map((s, i) => (
                   <div key={i} className="text-center sm:text-left">
-                    <p className="text-xl sm:text-[1.65rem] font-black tracking-tight" style={{ color: ORANGE }}>{s.value}</p>
+                    <p className="text-xl sm:text-[1.65rem] font-black tracking-tight" style={{ color: listingType === 'rent' ? '#16A34A' : ORANGE }}>{s.value}</p>
                     <p className="text-[10px] sm:text-[11.5px] text-gray-500 font-medium mt-0.5 uppercase tracking-wide">{s.label}</p>
                   </div>
                 ))}
@@ -524,24 +584,54 @@ const SellPropertyPage: React.FC = () => {
             </div>
 
             {/* ── RIGHT: Step-1 Form Card ── */}
-<div ref={formRef} className="w-full lg:w-[500px] flex-shrink-0 mt-12 sm:mt-16 lg:mt-14 order-1 lg:order-2">              <div
-                className="bg-white rounded-2xl sm:rounded-3xl"
+            <div ref={formRef} className="w-full lg:w-[500px] flex-shrink-0 mt-12 sm:mt-16 lg:mt-14 order-1 lg:order-2">
+              <div
+                className="bg-white rounded-2xl sm:rounded-3xl overflow-hidden"
                 style={{
                   border: '1.5px solid #e2e8f0',
                   boxShadow: '0 4px 40px rgba(11,56,86,0.10), 0 1px 4px rgba(0,0,0,0.06)',
                   minHeight: 'auto',
                 }}
               >
-                {/* Card top accent bar — Navy */}
-
                 {/* Header */}
                 <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b" style={{ borderColor: '#f3f4f6' }}>
+                  
+                  {/* Sell / Rent Switcher Pills */}
+                  <div className="flex bg-slate-100 p-1 rounded-xl mb-3 border border-slate-200/60">
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('sell')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        listingType === 'sell'
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      <Building2 size={14} />
+                      Sell Property
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('rent')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        listingType === 'rent'
+                          ? 'bg-white text-emerald-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      <Key size={14} />
+                      Rent Out Property
+                    </button>
+                  </div>
+
                   <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-[14px] sm:text-[16px] font-black text-gray-900 leading-tight">Start Your Free Listing</h2>
+                      <h2 className="text-[14px] sm:text-[16px] font-black text-gray-900 leading-tight">
+                        {listingType === 'rent' ? 'Start Your Free Rental Listing' : 'Start Your Free Listing'}
+                      </h2>
                       <p className="text-[11px] sm:text-[12px] text-gray-500 mt-0.5">Enter your details to get started</p>
                     </div>
-                    {/* Free badge — Navy */}
+                    {/* Free badge */}
                     <span
                       className="text-[9px] sm:text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest"
                       style={{ background: NAVY_LIGHT, color: NAVY }}
@@ -552,13 +642,13 @@ const SellPropertyPage: React.FC = () => {
                   <div className="flex items-center gap-2 mt-4">
                     <div className="flex items-center gap-1">
                       <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white"
-                        style={{ background: ORANGE }}>1</div>
-                      <span className="text-[10px] sm:text-[11px] font-semibold" style={{ color: ORANGE }}>You</span>
+                        style={{ background: listingType === 'rent' ? '#16A34A' : ORANGE }}>1</div>
+                      <span className="text-[10px] sm:text-[11px] font-semibold" style={{ color: listingType === 'rent' ? '#16A34A' : ORANGE }}>You</span>
                     </div>
-                    <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg,${ORANGE}66,#e5e7eb)` }} />
+                    <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg,${listingType === 'rent' ? '#16A34A' : ORANGE}66,#e5e7eb)` }} />
                     <div className="flex items-center gap-1">
                       <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold text-gray-400 bg-gray-100">2</div>
-                      <span className="text-[10px] sm:text-[11px] font-medium text-gray-400">Property</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium text-gray-400">{listingType === 'rent' ? 'Rental' : 'Property'}</span>
                     </div>
                     <div className="flex-1 h-px bg-gray-200" />
                     <div className="flex items-center gap-1">
@@ -572,6 +662,7 @@ const SellPropertyPage: React.FC = () => {
                 <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col flex-grow">
                   <div className="flex-grow flex flex-col justify-between">
                     <MiniStep1Form 
+                      listingType={listingType}
                       onNext={handleSubmitOnly}
                       onPostPropertyClick={handlePostPropertyClick}
                     />
@@ -772,6 +863,7 @@ const SellPropertyPage: React.FC = () => {
         mode="create"
         initialData={modalInitialData}
         startAtStep2={true}
+        listingType={listingType}
       />
     </div>
   );

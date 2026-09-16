@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 import PublicFooter from './PublicFooter';
 import PublicSellPropertyForm from './PublicSellPropertyForm';
+import PostPropertyTypeModal from './PostPropertyTypeModal';
 import { fetchReverseGeocode, fetchIpLocation } from '@/utils/deviceInfo';
 
 /* ---------------- Colors ---------------- */
@@ -222,10 +223,15 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   //   if (onAuthAction) onAuthAction('sell');
   //   else setIsSellerModalOpen(true);
   // };
+  const [isPostTypeModalOpen, setIsPostTypeModalOpen] = useState(false);
+
   const handleSellPropertyClick = () => {
     setIsMobileMenuOpen(false);
-    navigate('/sell-property');
+    setIsPostTypeModalOpen(true);
+  };
 
+  const handleSelectPostType = (type: 'sell' | 'rent') => {
+    navigate(`/sell-property?type=${type}`);
   };
 
   // const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
@@ -704,6 +710,12 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
       </main>
 
       <PublicFooter />
+
+      <PostPropertyTypeModal
+        isOpen={isPostTypeModalOpen}
+        onClose={() => setIsPostTypeModalOpen(false)}
+        onSelectType={handleSelectPostType}
+      />
     </>
   );
 };
