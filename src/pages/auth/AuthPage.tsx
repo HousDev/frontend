@@ -707,19 +707,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = "login" }) => 
       <div className="absolute -bottom-32 -left-24 w-[420px] h-[420px] rounded-full bg-radial-gradient from-[rgba(26,58,92,0.50)] to-transparent pointer-events-none" />
 
       {/* ===== BRAND LOGO ===== */}
-      <div className="absolute z-30 top-6 left-6 md:top-8 md:left-10 flex items-center">
+      <div className="absolute z-30 top-4 left-4 sm:top-6 sm:left-6 md:top-8 md:left-10 flex items-center">
         <Link to="/">
           <img
             src={logo}
             alt={companyName}
-            className="h-9 md:h-10 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] cursor-pointer"
+            className="h-8 sm:h-9 md:h-10 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] cursor-pointer"
           />
         </Link>
       </div>
 
       {/* ===== CENTERED DUAL-PANEL AUTH CARD - ULTRA GLASSMORPHISM ===== */}
-      <div className="relative z-20 min-h-screen w-full flex items-center justify-center p-3 sm:p-6 md:p-8">
-        <div className="relative w-full max-w-[900px] min-h-[540px] md:min-h-[560px] rounded-[28px] sm:rounded-[36px] overflow-hidden bg-white/15 backdrop-blur-md border border-white/40 shadow-[0_12px_40px_rgba(0,0,0,0.35)] flex flex-col md:flex-row">
+      <div className="relative z-20 min-h-screen w-full flex items-center justify-center p-3 sm:p-6 md:p-8 pt-16 sm:pt-20 md:pt-8 pb-6 md:pb-8">
+        <div className="relative w-full max-w-[900px] min-h-[500px] md:min-h-[560px] rounded-[24px] sm:rounded-[36px] overflow-hidden bg-white/15 backdrop-blur-md border border-white/40 shadow-[0_12px_40px_rgba(0,0,0,0.35)] flex flex-col md:flex-row">
           {/* Gold accent bar */}
           <div className="absolute top-0 left-10 right-10 h-[3.5px] bg-gradient-to-r from-transparent via-[#c1a378] to-transparent z-40 rounded-b-md" />
 
@@ -1089,7 +1089,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = "login" }) => 
                   <label className="block text-[11px] font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
                     I am a... <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                     {PERSONAS.map((p) => {
                       const Icon = p.icon;
                       const selected = regFormData.role === p.id;
@@ -1366,7 +1366,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = "login" }) => 
                   <label className="block text-[10.5px] font-bold text-gray-700 mb-1 uppercase">
                     I am a... <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                     {PERSONAS.map((p) => {
                       const Icon = p.icon;
                       const selected = regFormData.role === p.id;
