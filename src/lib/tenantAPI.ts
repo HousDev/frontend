@@ -162,6 +162,11 @@ export const tenantAPI = {
     return response.data;
   },
 
+  deleteInterest: async (interestId: number | string) => {
+    const response = await api.delete(`/tenants/interests/${interestId}`);
+    return response.data;
+  },
+
   uploadPhoto: async (tenantId: number | string, file: File) => {
     const fd = new FormData();
     fd.append('profile_photo', file);

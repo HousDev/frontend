@@ -60,5 +60,36 @@ export const tenantBookingAPI = {
     const response = await api.post(`/tenant-bookings/${bookingId}/reject-kyc`, payload);
     return response.data;
   },
+
+  cancelBooking: async (bookingId: string | number) => {
+    const response = await api.post(`/tenant-bookings/${bookingId}/cancel`);
+    return response.data;
+  },
+
+  requestKyc: async (bookingId: string | number) => {
+    const response = await api.post(`/tenant-bookings/${bookingId}/request-kyc`);
+    return response.data;
+  },
+
+  uploadAgreement: async (bookingId: string | number, payload: FormData | { agreement_document?: string } = {}) => {
+    const headers = payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined;
+    const response = await api.post(`/tenant-bookings/${bookingId}/upload-agreement`, payload, { headers });
+    return response.data;
+  },
+
+  updateStatus: async (bookingId: string | number, payload: any) => {
+    const response = await api.put(`/tenant-bookings/${bookingId}/status`, payload);
+    return response.data;
+  },
+
+  signAgreement: async (bookingId: string | number, payload: { tenant_signature_name?: string; signer_name?: string; signature_image?: string } = {}) => {
+    const response = await api.post(`/tenant-bookings/${bookingId}/sign-agreement`, payload);
+    return response.data;
+  },
+
+  finalizeAgreement: async (bookingId: string | number, payload: { rent_due_day?: number; owner_upi_id?: string; owner_qr_code_url?: string } = {}) => {
+    const response = await api.post(`/tenant-bookings/${bookingId}/finalize-agreement`, payload);
+    return response.data;
+  },
 };
 

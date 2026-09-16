@@ -1,123 +1,181 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  FileText, Shield, Download, Eye, Plus, CheckCircle2,
-  AlertCircle, Clock, Upload, Lock, FileCheck
+  FileText, Shield, Download, Eye, Upload, CheckCircle2,
+  ExternalLink, Loader2, FolderCheck, BadgeCheck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { tenantBookingAPI } from '@/lib/tenantBookingAPI';
 
 interface OwnerLeaseVaultTabProps {
   properties: any[];
   ownerName?: string;
+  ownerId?: number | string;
 }
 
 export const OwnerLeaseVaultTab: React.FC<OwnerLeaseVaultTabProps> = ({
   properties,
   ownerName = 'Owner',
+  ownerId,
 }) => {
-  const [docFilter, setDocFilter] = useState('all');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Sample Documents synthesized from real properties or standard owner vault
-  const documents = [
+  const fetchOwnerVaultDocs = async () => {
+    if (!ownerId) return;
+    setLoading(true);
+    try {
+      const res = await tenantBookingAPI.getByOwnerId(ownerId);
+      if (res?.success && Array.isArray(res.data)) {
+        setBookings(res.data);
+      }
+    } catch (err) {
+      console.warn('Could not load owner vault bookings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOwnerVaultDocs();
+  }, [ownerId]);
+
+  // Extract all documents (Agreements & KYC)
+  const realDocuments: any[] = [];
+
+  bookings.forEach((b) => {
+    const tenantName = b.tenant_name || `Tenant #${b.tenant_id}`;
+    const propTitle = b.property_title || b.society_name ? `${b.unit_type || '2 BHK'} at ${b.society_name}` : `Property #${b.property_id}`;
+
+    if (b.agreement_document) {
+      realDocuments.push({
+        id: `agreement-${b.id || b.booking_id}`,
+        title: `Signed Rental Agreement — ${tenantName}`,
+        type: 'Lease Agreement',
+        property: propTitle,
+        date: b.agreement_signed_at ? new Date(b.agreement_signed_at).toLocaleDateString('en-IN') : 'Active Lease',
+        status: b.booking_status === 'BOOKED' ? 'Active Lease' : 'Signed',
+        url: b.agreement_document,
+        icon: 'pdf',
+      });
+    }
+
+    if (b.id_proof_document) {
+      realDocuments.push({
+        id: `kyc-${b.id || b.booking_id}`,
+        title: `Verified Tenant KYC Document (${b.id_proof_type || 'Aadhaar/PAN'}) — ${tenantName}`,
+        type: 'Tenant KYC',
+        property: propTitle,
+        date: 'Verified Record',
+        status: 'Approved KYC',
+        url: b.id_proof_document,
+        icon: 'kyc',
+      });
+    }
+  });
+
+  // Default templates if no active tenancies yet
+  const defaultTemplates = [
     {
-      id: 1,
-      title: 'Standard Registered Rent Agreement Template',
-      type: 'Agreement',
+      id: 'tpl-1',
+      title: 'Standard Registered Rent Agreement Format (Maharashtra 11-Month)',
+      type: 'Legal Template',
       property: properties[0]?.society_name || 'All Properties',
-      date: 'Aug 2026',
-      status: 'Active',
-      fileSize: '1.8 MB',
+      date: 'Standard Form',
+      status: 'Ready Template',
+      url: '/agreements/sample_rental_agreement.pdf',
+      icon: 'pdf',
     },
     {
-      id: 2,
-      title: 'Tenant Police Verification & KYC Format',
-      type: 'Verification',
+      id: 'tpl-2',
+      title: 'Tenant Police Verification Form & Identity Format',
+      type: 'Verification Template',
       property: properties[0]?.society_name || 'All Properties',
-      date: 'Jul 2026',
-      status: 'Verified',
-      fileSize: '620 KB',
-    },
-    {
-      id: 3,
-      title: 'Society Tenant Move-in NOC Letter Format',
-      type: 'Society NOC',
-      property: properties[0]?.society_name || 'All Properties',
-      date: 'Jun 2026',
-      status: 'Ready',
-      fileSize: '410 KB',
+      date: 'Standard Form',
+      status: 'Ready Template',
+      url: '/agreements/sample_rental_agreement.pdf',
+      icon: 'kyc',
     },
   ];
 
-  const handleDownload = (title: string) => {
-    toast.success(`Preparing download for: ${title}`);
-  };
+  const displayDocs = realDocuments.length > 0 ? realDocuments : defaultTemplates;
 
-  const handleUploadNew = () => {
-    toast.info('Document upload feature: Select file to upload to vault');
+  const handleDownload = (doc: any) => {
+    toast.info(`Opening document: ${doc.title}`);
+    if (doc.url) {
+      window.open(doc.url, '_blank');
+    }
   };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
-      {/* 🛡️ Header Banner */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-[#0b3856] via-[#10344d] to-[#184d6e] p-5 rounded-2xl text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-2xl bg-white/10 text-amber-400 flex items-center justify-center font-bold">
             <Shield size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-sm text-slate-900">Lease & Document Vault</h3>
-            <p className="text-xs text-gray-500">Secure storage for rent agreements, KYC records, and property certificates</p>
+            <h3 className="font-extrabold text-base text-white">Lease & Document Vault</h3>
+            <p className="text-xs text-slate-300">Secure digital repository for signed rental agreements, tenant KYC records, and legal contracts.</p>
           </div>
         </div>
 
-        <button
-          onClick={handleUploadNew}
-          className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer self-start md:self-auto"
-        >
-          <Upload size={14} />
-          <span>Upload Document</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1.5 rounded-xl bg-white/10 text-amber-300 font-bold text-xs border border-white/15">
+            {realDocuments.length} Verified Vault Records
+          </span>
+        </div>
       </div>
 
-      {/* 📄 Documents Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {documents.map((doc) => (
-          <div
-            key={doc.id}
-            className="bg-white rounded-2xl border border-gray-200/90 hover:border-emerald-300 hover:shadow-md transition-all p-4 flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-                  <FileText size={18} />
+      {loading && (
+        <div className="flex items-center justify-center py-12 gap-2 text-slate-500">
+          <Loader2 size={18} className="animate-spin text-orange-500" />
+          <span className="text-xs font-semibold">Loading document vault records...</span>
+        </div>
+      )}
+
+      {/* Documents Grid */}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayDocs.map((doc) => (
+            <div
+              key={doc.id}
+              className="bg-white rounded-2xl border border-gray-200 hover:border-emerald-400 hover:shadow-md transition-all p-4 flex flex-col justify-between space-y-3"
+            >
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${doc.type.includes('KYC') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    {doc.type.includes('KYC') ? <BadgeCheck size={18} /> : <FileText size={18} />}
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black uppercase">
+                    {doc.status}
+                  </span>
                 </div>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                  {doc.status}
-                </span>
+
+                <div>
+                  <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
+                    {doc.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {doc.property}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h4 className="font-bold text-xs text-slate-900 leading-snug">
-                  {doc.title}
-                </h4>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  {doc.property} • {doc.fileSize}
-                </p>
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400 font-semibold">{doc.date}</span>
+                <button
+                  onClick={() => handleDownload(doc)}
+                  className="px-3 py-1.5 rounded-xl bg-[#0b3856] hover:bg-[#072438] text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <ExternalLink size={12} />
+                  <span>View / Download</span>
+                </button>
               </div>
             </div>
-
-            <div className="pt-3 mt-3 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 font-medium">Added {doc.date}</span>
-              <button
-                onClick={() => handleDownload(doc.title)}
-                className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-slate-800 text-xs font-bold border border-gray-200 flex items-center gap-1 transition-all cursor-pointer"
-              >
-                <Download size={12} />
-                <span>Download</span>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

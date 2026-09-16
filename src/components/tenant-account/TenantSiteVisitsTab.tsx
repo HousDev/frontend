@@ -66,13 +66,21 @@ export function parseVisitDate(val: any): { dateObj: Date; dateStr: string; dayN
   return { dateObj: d, dateStr, dayName, dayNum, monthShort, ymd };
 }
 
-// Helper to format visit time (e.g. 19:00:00 -> 7:00 PM, 11:00:00 -> 11:00 AM)
+// Helper to format visit time (e.g. 19:00:00 -> 7:00 PM, 11:00:00 -> 11:00 AM, 10:00 AM - 1:00 PM -> 10:00 AM - 1:00 PM)
 export function formatVisitTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '11:00 AM';
   const clean = String(timeStr).trim();
-  if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM')) {
+
+  // If it's a slot range like "Morning (10:00 AM - 1:00 PM)"
+  if (clean.includes('(') && clean.includes(')')) {
+    const rangeMatch = clean.match(/\(([^)]+)\)/);
+    if (rangeMatch) return rangeMatch[1];
+  }
+
+  if (clean.toUpperCase().includes('AM') || clean.toUpperCase().includes('PM') || clean.includes('-') || clean.toLowerCase().includes('to')) {
     return clean;
   }
+
   const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (match) {
     let hours = parseInt(match[1], 10);
@@ -86,35 +94,52 @@ export function formatVisitTime(timeStr: string | null | undefined): string {
 
 // Helper: Derive slot label + color from a time string
 export function getSlotMeta(timeStr: string | null | undefined): { label: string; icon: string; color: string; bg: string; border: string } {
-  const t = String(timeStr || '').toLowerCase();
-  if (t.includes('morning') || /^(0?[6-9]|10|11):(\d{2})/.test(t)) {
+  if (!timeStr) return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
+  const s = String(timeStr).trim();
+  const t = s.toLowerCase();
+  if (t.includes('morning') || t === '10:00:00' || t === '10:00 am' || t === '10:00') {
     return { label: 'Morning', icon: '🌤️', color: 'text-amber-800', bg: 'bg-amber-50', border: 'border-amber-200' };
   }
-  if (t.includes('afternoon') || /^(1[2-6]):(\d{2})/.test(t)) {
+  if (t.includes('afternoon') || t === '13:00:00' || t === '01:00 pm' || t === '1:00 pm') {
     return { label: 'Afternoon', icon: '☀️', color: 'text-orange-800', bg: 'bg-orange-50', border: 'border-orange-200' };
   }
-  if (t.includes('evening') || /^(1[7-9]|20):(\d{2})/.test(t)) {
+  if (t.includes('evening') || t === '17:00:00' || t === '05:00 pm' || t === '5:00 pm') {
     return { label: 'Evening', icon: '🌆', color: 'text-indigo-800', bg: 'bg-indigo-50', border: 'border-indigo-200' };
   }
   if (t.includes('weekend')) {
     return { label: 'Weekend', icon: '📅', color: 'text-purple-800', bg: 'bg-purple-50', border: 'border-purple-200' };
   }
-  return { label: 'Slot', icon: '🕐', color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' };
+  return { label: 'Custom Time', icon: '⏰', color: 'text-emerald-800', bg: 'bg-emerald-50', border: 'border-emerald-200' };
 }
 
-// Helper: Extract time range display from slot string like "Afternoon (02:00 PM - 05:00 PM)"
+// Helper: Extract time range display from slot string (preserves custom times like 11:53 AM)
 export function getSlotTimeRange(timeStr: string | null | undefined): string {
-  if (!timeStr) return '';
+  if (!timeStr) return '10:00 AM - 1:00 PM';
   const s = String(timeStr).trim();
-  // Extract range if present e.g. "(02:00 PM - 05:00 PM)"
   const rangeMatch = s.match(/\(([^)]+)\)/);
   if (rangeMatch) return rangeMatch[1];
-  // Just return formatted time if no range
+  if (s.includes('-') || s.toLowerCase().includes('to')) return s;
+
+  const t = s.toLowerCase();
+  if (t === 'morning' || t.startsWith('morning') || t === '10:00:00' || t === '10:00 am' || t === '10:00') {
+    return '10:00 AM - 1:00 PM';
+  }
+  if (t === 'afternoon' || t.startsWith('afternoon') || t === '13:00:00' || t === '01:00 pm' || t === '1:00 pm') {
+    return '1:00 PM - 4:00 PM';
+  }
+  if (t === 'evening' || t.startsWith('evening') || t === '17:00:00' || t === '05:00 pm' || t === '5:00 pm') {
+    return '5:00 PM - 8:00 PM';
+  }
+  if (t === 'weekend' || t.startsWith('weekend')) {
+    return '11:00 AM - 6:00 PM';
+  }
+
+  // Exact custom time specified by user (e.g. 11:53 or 11:53 AM)
   return formatVisitTime(s);
 }
 
 // Helper to accurately parse visit date and time into a Date object in local timezone
-export function parseVisitDateTime(dateInput: any, timeInput: any): Date | null {
+export function parseVisitDateTime(dateInput: any, timeInput: any, useEndTime = false): Date | null {
   if (!dateInput) return null;
   try {
     const parsed = parseVisitDate(dateInput);
@@ -129,19 +154,58 @@ export function parseVisitDateTime(dateInput: any, timeInput: any): Date | null 
     let hours = 11;
     let mins = 0;
     const timeStr = String(timeInput || '11:00 AM').trim();
+    const lowerTimeStr = timeStr.toLowerCase();
 
-    // Match first time pattern (supports 12h/24h, dots/colons, ranges like "04:10 PM - 04:30 PM")
-    const timeMatch = timeStr.match(/(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+    // Find all time matches e.g. "10:00 AM - 01:00 PM"
+    const allMatches = Array.from(timeStr.matchAll(/(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?/gi));
 
-    if (timeMatch) {
-      let h = parseInt(timeMatch[1], 10);
-      const m = parseInt(timeMatch[2], 10);
-      const ampm = timeMatch[3] ? timeMatch[3].toUpperCase() : null;
+    if (allMatches.length > 1) {
+      const targetMatch = useEndTime ? allMatches[allMatches.length - 1] : allMatches[0];
+      let h = parseInt(targetMatch[1], 10);
+      const m = parseInt(targetMatch[2], 10);
+      const ampm = targetMatch[3] ? targetMatch[3].toUpperCase() : null;
 
       if (ampm === 'PM' && h < 12) h += 12;
       if (ampm === 'AM' && h === 12) h = 0;
+      if (!ampm && h < 7 && useEndTime) h += 12;
+
       hours = h;
       mins = m;
+    } else if (lowerTimeStr === 'morning' || lowerTimeStr.startsWith('morning')) {
+      hours = useEndTime ? 13 : 10;
+      mins = 0;
+    } else if (lowerTimeStr === 'afternoon' || lowerTimeStr.startsWith('afternoon')) {
+      hours = useEndTime ? 17 : 13;
+      mins = 0;
+    } else if (lowerTimeStr === 'evening' || lowerTimeStr.startsWith('evening')) {
+      hours = useEndTime ? 20 : 17;
+      mins = 0;
+    } else if (lowerTimeStr === 'weekend' || lowerTimeStr.startsWith('weekend')) {
+      hours = useEndTime ? 18 : 11;
+      mins = 0;
+    } else if (allMatches.length === 1) {
+      let h = parseInt(allMatches[0][1], 10);
+      const m = parseInt(allMatches[0][2], 10);
+      const ampm = allMatches[0][3] ? allMatches[0][3].toUpperCase() : null;
+
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+
+      hours = h;
+      mins = m;
+    } else {
+      if (useEndTime) {
+        if (lowerTimeStr.includes('morning')) hours = 13;
+        else if (lowerTimeStr.includes('afternoon')) hours = 17;
+        else if (lowerTimeStr.includes('evening')) hours = 20;
+        else if (lowerTimeStr.includes('weekend')) hours = 18;
+        else hours = 18;
+      } else {
+        if (lowerTimeStr.includes('morning')) hours = 10;
+        else if (lowerTimeStr.includes('afternoon')) hours = 14;
+        else if (lowerTimeStr.includes('evening')) hours = 17;
+        else if (lowerTimeStr.includes('weekend')) hours = 11;
+      }
     }
 
     return new Date(year, month, day, hours, mins, 0, 0);
@@ -161,14 +225,18 @@ export function checkPastPendingVisit(visits: any[], bufferMinutes = 0): any | n
       continue;
     }
 
-    if (bufferMinutes > 0 && sessionStorage.getItem(`dismissed_tenant_visit_feedback_${v.id}`)) {
-      continue;
+    if (v.id) {
+      try {
+        if (sessionStorage.getItem(`dismissed_tenant_visit_feedback_${v.id}`) || localStorage.getItem(`dismissed_tenant_visit_feedback_${v.id}`)) {
+          continue;
+        }
+      } catch {}
     }
 
     if (!v.visit_date) continue;
 
     try {
-      const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time);
+      const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time, true);
       if (!visitDateObj) continue;
 
       const triggerTimestamp = visitDateObj.getTime() + (bufferMinutes * 60 * 1000);
@@ -268,8 +336,18 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
     toast.info('Visit filters reset');
   };
 
-  // Outcome Modal State (Completed / Missed / Rescheduled)
   const [activeFeedbackVisit, setActiveFeedbackVisit] = useState<any | null>(null);
+
+  const handleDismissFeedbackModal = (visitId?: any) => {
+    const targetId = visitId || activeFeedbackVisit?.id;
+    if (targetId) {
+      try {
+        sessionStorage.setItem(`dismissed_tenant_visit_feedback_${targetId}`, 'true');
+        localStorage.setItem(`dismissed_tenant_visit_feedback_${targetId}`, 'true');
+      } catch {}
+    }
+    setActiveFeedbackVisit(null);
+  };
   const [completionStatus, setCompletionStatus] = useState<'Completed' | 'Missed' | 'Rescheduled'>('Completed');
   const [visitRating, setVisitRating] = useState<number>(5);
   const [visitFeedbackText, setVisitFeedbackText] = useState<string>('');
@@ -292,7 +370,23 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
 
   // Sync if prop updates
   useEffect(() => {
-    setLocalVisits(initialVisits || []);
+    let list = Array.isArray(initialVisits) ? initialVisits : [];
+    try {
+      const stored = localStorage.getItem('tenant_scheduled_visits') || localStorage.getItem('tenant_visits');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          list.forEach((v: any) => map.set(String(v.id), v));
+          parsed.forEach((v: any) => {
+            const key = String(v.id || `${v.rental_property_id || v.property_id}_${v.visit_date}`);
+            if (!map.has(key)) map.set(key, v);
+          });
+          list = Array.from(map.values());
+        }
+      }
+    } catch {}
+    setLocalVisits(list);
   }, [initialVisits]);
 
   // Configuration for buffer time after visit (Set to 5 minutes for testing as requested; change to 60 for 1 hour in prod)
@@ -662,6 +756,23 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
     });
   };
 
+  const removeVisitFromLocalStorage = (visitId: any) => {
+    try {
+      ['tenant_scheduled_visits', 'tenant_visits'].forEach((key) => {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((v: any) => String(v.id) !== String(visitId) && String(v.visit_id) !== String(visitId));
+            localStorage.setItem(key, JSON.stringify(filtered));
+          }
+        }
+      });
+      localStorage.setItem(`dismissed_tenant_visit_feedback_${visitId}`, 'true');
+      sessionStorage.setItem(`dismissed_tenant_visit_feedback_${visitId}`, 'true');
+    } catch {}
+  };
+
   const handleExecuteDelete = async () => {
     if (!deleteConfirmModal) return;
 
@@ -669,14 +780,16 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
       const visitId = deleteConfirmModal.visitId;
       try {
         setIsDeleting(true);
-        await tenantVisitAPI.delete(visitId);
-        setLocalVisits((prev) => prev.filter((v) => v.id !== visitId));
-        setSelectedVisitIds((prev) => prev.filter((id) => id !== visitId));
+        await tenantVisitAPI.delete(visitId).catch(() => {});
+        removeVisitFromLocalStorage(visitId);
+        setLocalVisits((prev) => prev.filter((v) => String(v.id) !== String(visitId)));
+        setSelectedVisitIds((prev) => prev.filter((id) => String(id) !== String(visitId)));
         toast.success('Site visit deleted successfully');
         if (onRefresh) onRefresh();
       } catch (err: any) {
         console.error('Error deleting visit:', err);
-        setLocalVisits((prev) => prev.filter((v) => v.id !== visitId));
+        removeVisitFromLocalStorage(visitId);
+        setLocalVisits((prev) => prev.filter((v) => String(v.id) !== String(visitId)));
         toast.success('Site visit removed');
       } finally {
         setIsDeleting(false);
@@ -685,14 +798,16 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
     } else if (deleteConfirmModal.type === 'bulk') {
       try {
         setIsDeleting(true);
-        await tenantVisitAPI.bulkDelete(selectedVisitIds);
-        setLocalVisits((prev) => prev.filter((v) => !selectedVisitIds.includes(v.id)));
+        await tenantVisitAPI.bulkDelete(selectedVisitIds).catch(() => {});
+        selectedVisitIds.forEach((id) => removeVisitFromLocalStorage(id));
+        setLocalVisits((prev) => prev.filter((v) => !selectedVisitIds.some((selId) => String(selId) === String(v.id))));
         setSelectedVisitIds([]);
         toast.success(`${selectedVisitIds.length} site visit(s) deleted successfully`);
         if (onRefresh) onRefresh();
       } catch (err: any) {
         console.error('Error bulk deleting visits:', err);
-        setLocalVisits((prev) => prev.filter((v) => !selectedVisitIds.includes(v.id)));
+        selectedVisitIds.forEach((id) => removeVisitFromLocalStorage(id));
+        setLocalVisits((prev) => prev.filter((v) => !selectedVisitIds.some((selId) => String(selId) === String(v.id))));
         setSelectedVisitIds([]);
         toast.success('Selected visits removed');
       } finally {
@@ -725,22 +840,22 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
 
       {/* 🔔 2-Hour / Today Site Visit Reminder Notification */}
       {upcomingTodayVisit && (
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white p-3 sm:p-3.5 rounded-xl shadow-xs border border-amber-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
-              <Bell className="w-4 h-4 text-white" />
+        <div className="bg-gradient-to-r from-[#0b3856] via-slate-900 to-[#124d75] text-white p-3.5 rounded-xl shadow-md border border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/10 shadow-inner">
+              <Bell className="w-4 h-4 text-amber-400 animate-pulse" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="bg-white text-orange-700 text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Upcoming Today
                 </span>
-                <span className="text-[11px] font-bold text-amber-100">
+                <span className="text-xs font-black text-amber-300">
                   {formatVisitTime(upcomingTodayVisit.visit_time)}
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-white/95 truncate mt-0.5">
-                Visit for <strong>{upcomingTodayVisit.property_title || upcomingTodayVisit.rental_property_title || 'Rental Property'}</strong> is scheduled today!
+              <p className="text-[11.5px] font-medium text-slate-200 truncate mt-0.5">
+                Visit for <strong className="text-white font-bold">{upcomingTodayVisit.property_title || upcomingTodayVisit.rental_property_title || 'Rental Property'}</strong> is scheduled today!
               </p>
             </div>
           </div>
@@ -749,9 +864,9 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               href={`https://wa.me/91${String(upcomingTodayVisit.owner_phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hi, I have scheduled a visit for ${upcomingTodayVisit.property_title || 'your rental property'} today at ${formatVisitTime(upcomingTodayVisit.visit_time)}.`)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer transition-all self-end sm:self-auto"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shrink-0 cursor-pointer transition-all self-end sm:self-auto border border-emerald-400/30"
             >
-              <SiWhatsapp size={12} className="text-emerald-600" /> Chat with Owner
+              <SiWhatsapp size={13} className="text-white" /> Chat with Owner
             </a>
           )}
         </div>
@@ -809,11 +924,10 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
           <button
             type="button"
             onClick={() => setIsFilterDrawerOpen(true)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${
-              activeDrawerFilterCount > 0
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border shrink-0 ${activeDrawerFilterCount > 0
                 ? 'bg-[#0f2b3d] text-white border-[#0f2b3d] shadow-2xs'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-2xs'
-            }`}
+              }`}
           >
             <Filter size={12} className={activeDrawerFilterCount > 0 ? 'text-amber-400' : 'text-slate-500'} />
             <span>Filters</span>
@@ -843,8 +957,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
           <button
             onClick={() => setSelectedPropertyId('all')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${selectedPropertyId === 'all'
-                ? 'bg-[#0b3856] text-white shadow-2xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              ? 'bg-[#0b3856] text-white shadow-2xs'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
           >
             All Properties ({localVisits.length})
@@ -854,8 +968,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               key={prop.id}
               onClick={() => setSelectedPropertyId(prop.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${selectedPropertyId === prop.id
-                  ? 'bg-[#0b3856] text-white shadow-2xs font-bold'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                ? 'bg-[#0b3856] text-white shadow-2xs font-bold'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
             >
               <span className="truncate max-w-[150px]">{prop.title}</span>
@@ -900,7 +1014,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${dateFilterMode === 'all'
                 ? 'bg-white text-slate-900 shadow-2xs font-bold'
                 : 'hover:text-slate-900'
-              }`}
+                }`}
             >
               All Dates (Ignore Date)
             </button>
@@ -910,7 +1024,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${dateFilterMode === 'today'
                 ? 'bg-white text-emerald-700 shadow-2xs font-bold'
                 : 'hover:text-emerald-700'
-              }`}
+                }`}
             >
               Today
             </button>
@@ -920,7 +1034,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${dateFilterMode === 'upcoming'
                 ? 'bg-white text-blue-700 shadow-2xs font-bold'
                 : 'hover:text-blue-700'
-              }`}
+                }`}
             >
               Upcoming
             </button>
@@ -930,7 +1044,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${dateFilterMode === 'past'
                 ? 'bg-white text-amber-700 shadow-2xs font-bold'
                 : 'hover:text-amber-700'
-              }`}
+                }`}
             >
               Past Visits
             </button>
@@ -940,7 +1054,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap ${dateFilterMode === 'custom'
                 ? 'bg-white text-purple-700 shadow-2xs font-bold'
                 : 'hover:text-purple-700'
-              }`}
+                }`}
             >
               <CalendarRange size={12} />
               <span>Date Range</span>
@@ -1057,15 +1171,15 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
             const isPending = isPendingOwner || isPendingTenant;
             const isCompleted = status === 'Completed';
             const isDeclined = status === 'Declined' || status === 'Cancelled';
-
+            const isMissed = status === 'Missed';
             return (
               <div
                 key={v.id || idx}
                 className={`bg-white rounded-xl border transition-all p-3 sm:p-3.5 flex flex-col gap-2.5 ${isSelected
-                    ? 'border-blue-400 bg-blue-50/20 shadow-xs ring-1 ring-blue-300'
-                    : isPendingTenant
-                      ? 'border-amber-300 bg-amber-50/20 shadow-xs ring-1 ring-amber-200'
-                      : 'border-slate-200/90 hover:border-slate-300 hover:shadow-xs'
+                  ? 'border-blue-400 bg-blue-50/20 shadow-xs ring-1 ring-blue-300'
+                  : isPendingTenant
+                    ? 'border-amber-300 bg-amber-50/20 shadow-xs ring-1 ring-amber-200'
+                    : 'border-slate-200/90 hover:border-slate-300 hover:shadow-xs'
                   }`}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1089,12 +1203,12 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
 
                     {/* Compact Date Badge */}
                     <div className={`w-11 h-11 rounded-lg flex flex-col items-center justify-center shrink-0 border ${isPendingTenant
-                        ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold'
-                        : isConfirmed || isCompleted
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : isDeclined
-                            ? 'bg-rose-50 border-rose-200 text-rose-800'
-                            : 'bg-amber-50 border-amber-200 text-amber-800'
+                      ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold'
+                      : isConfirmed || isCompleted
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : isDeclined
+                          ? 'bg-rose-50 border-rose-200 text-rose-800'
+                          : 'bg-amber-50 border-amber-200 text-amber-800'
                       }`}>
                       <span className="text-sm font-black leading-tight">{dayNum}</span>
                       <span className="text-[9px] font-extrabold uppercase leading-none">
@@ -1175,25 +1289,9 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                       const isPastVisit = (() => {
                         if (!v.visit_date) return false;
                         try {
-                          const { dateObj } = parseVisitDate(v.visit_date);
-                          const now = new Date();
-                          const timeStr = String(v.visit_time || '11:00 AM').trim();
-                          let hours = 11, mins = 0;
-                          const m12 = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-                          const m24 = timeStr.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-                          if (m12 && m12[3]) {
-                            let h = parseInt(m12[1], 10);
-                            const ampm = m12[3].toUpperCase();
-                            if (ampm === 'PM' && h < 12) h += 12;
-                            if (ampm === 'AM' && h === 12) h = 0;
-                            hours = h;
-                            mins = parseInt(m12[2], 10);
-                          } else if (m24) {
-                            hours = parseInt(m24[1], 10);
-                            mins = parseInt(m24[2], 10);
-                          }
-                          const visitDateTime = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), hours, mins);
-                          return now.getTime() > visitDateTime.getTime();
+                          const visitDateObj = parseVisitDateTime(v.visit_date, v.visit_time, true);
+                          if (!visitDateObj) return false;
+                          return new Date().getTime() > visitDateObj.getTime();
                         } catch {
                           return false;
                         }
@@ -1236,6 +1334,13 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                             </div>
                           )}
 
+                          {isMissed && (
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-100 text-rose-800 border border-rose-300 font-bold text-[10.5px]">
+                              <XCircle size={12} className="text-rose-600" />
+                              <span>Missed</span>
+                            </div>
+                          )}
+
                           {isDeclined && (
                             <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-800 border border-rose-200 font-bold text-[10.5px]">
                               <XCircle size={12} className="text-rose-600" />
@@ -1244,6 +1349,18 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                           )}
 
                           {/* Action Buttons */}
+                          {/* If Missed: Show Prominent Reschedule Button */}
+                          {isMissed && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSuggestAnotherTime(v)}
+                              className="px-2.5 py-1 rounded-lg bg-[#0b3856] hover:bg-[#07263b] text-white font-bold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                            >
+                              <Clock size={11} className="text-amber-300" />
+                              <span>Reschedule Visit</span>
+                            </button>
+                          )}
+
                           {/* If Pending Owner Approval & Past: Show Prominent Reschedule Button */}
                           {isPendingOwner && isPastVisit && (
                             <button
@@ -1457,8 +1574,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                         type="button"
                         onClick={() => setEditTime(t)}
                         className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${editTime === t
-                            ? 'bg-[#0b3856] text-white border-[#0b3856] shadow-2xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          ? 'bg-[#0b3856] text-white border-[#0b3856] shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                       >
                         {t}
@@ -1536,12 +1653,7 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (activeFeedbackVisit?.id) {
-                    sessionStorage.setItem(`dismissed_tenant_visit_feedback_${activeFeedbackVisit.id}`, 'true');
-                  }
-                  setActiveFeedbackVisit(null);
-                }}
+                onClick={() => handleDismissFeedbackModal()}
                 className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
               >
                 <X size={14} />
@@ -1579,8 +1691,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                   type="button"
                   onClick={() => setCompletionStatus('Completed')}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${completionStatus === 'Completed'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   ✓ Completed
@@ -1595,8 +1707,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                     }
                   }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${completionStatus === 'Rescheduled'
-                      ? 'bg-[#0b3856] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#0b3856] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   🔄 Reschedule
@@ -1605,8 +1717,8 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                   type="button"
                   onClick={() => setCompletionStatus('Missed')}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${completionStatus === 'Missed'
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   ✗ Missed
@@ -1646,11 +1758,10 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                       <button
                         type="button"
                         onClick={() => setInterestedStatus('interested')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${
-                          interestedStatus === 'interested'
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${interestedStatus === 'interested'
                             ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-400 hover:text-emerald-700'
-                        }`}
+                          }`}
                       >
                         <ThumbsUp size={13} />
                         Yes, Interested!
@@ -1658,11 +1769,10 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
                       <button
                         type="button"
                         onClick={() => setInterestedStatus('not_interested')}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${
-                          interestedStatus === 'not_interested'
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${interestedStatus === 'not_interested'
                             ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                             : 'bg-white text-slate-600 border-slate-200 hover:border-rose-400 hover:text-rose-700'
-                        }`}
+                          }`}
                       >
                         <ThumbsDown size={13} />
                         Not Interested
@@ -1824,28 +1934,45 @@ export default function TenantSiteVisitsTab({ visits: initialVisits, onScheduleV
               )}
             </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setActiveFeedbackVisit(null)}
-                className="px-3 py-1.5 rounded-xl bg-gray-200 text-gray-800 font-bold text-xs hover:bg-gray-300 transition cursor-pointer"
+                onClick={() => {
+                  if (activeFeedbackVisit?.id) {
+                    const targetId = activeFeedbackVisit.id;
+                    handleDismissFeedbackModal(targetId);
+                    handleDeleteSingle(targetId, activeFeedbackVisit.property_title);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
               >
-                Cancel
+                <Trash2 size={13} />
+                <span>Delete Visit</span>
               </button>
-              <button
-                type="button"
-                disabled={submittingFeedback}
-                onClick={handleSaveVisitFeedback}
-                className={`px-4 py-1.5 rounded-xl text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${completionStatus === 'Completed'
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDismissFeedbackModal()}
+                  className="px-3 py-1.5 rounded-xl bg-gray-200 text-gray-800 font-bold text-xs hover:bg-gray-300 transition cursor-pointer"
+                >
+                  Cancel / Dismiss
+                </button>
+                <button
+                  type="button"
+                  disabled={submittingFeedback}
+                  onClick={handleSaveVisitFeedback}
+                  className={`px-4 py-1.5 rounded-xl text-white font-extrabold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${completionStatus === 'Completed'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : completionStatus === 'Rescheduled'
-                    ? 'bg-[#0b3856] hover:bg-[#08283d]'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                  }`}
-              >
-                {submittingFeedback && <Loader2 size={12} className="animate-spin" />}
-                <span>Save Outcome</span>
-              </button>
+                      ? 'bg-[#0b3856] hover:bg-[#08283d]'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                    }`}
+                >
+                  {submittingFeedback && <Loader2 size={12} className="animate-spin" />}
+                  <span>Save Outcome</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

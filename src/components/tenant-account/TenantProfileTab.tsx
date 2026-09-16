@@ -8,6 +8,7 @@ import {
 import { toast } from "react-toastify";
 import { tenantAPI } from "@/lib/tenantAPI";
 import { Tenant, MatchedProperty } from "./types";
+import { tenantBookingAPI } from "@/lib/tenantBookingAPI";
 
 interface TenantProfileTabProps {
   tenant: Tenant;
@@ -94,6 +95,21 @@ export default function TenantProfileTab({ tenant, matchedProperties, onUpdate }
   const [showMatchInfo, setShowMatchInfo]   = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const idRef    = useRef<HTMLInputElement>(null);
+  const [pendingKycBooking, setPendingKycBooking] = useState<any | null>(null);
+
+useEffect(() => {
+  if (!tenant?.id) return;
+  tenantBookingAPI.getByTenantId(tenant.id)
+    .then((res: any) => {
+      if (res?.success && Array.isArray(res.data)) {
+        const needsKyc = res.data.find(
+          (b: any) => b.booking_status === 'KYC_PENDING' && !b.id_proof_document
+        );
+        setPendingKycBooking(needsKyc || null);
+      }
+    })
+    .catch(() => {});
+}, [tenant?.id]);
 
   const formatDateForInput = (d: any) => {
     if (!d) return "";
@@ -289,6 +305,28 @@ export default function TenantProfileTab({ tenant, matchedProperties, onUpdate }
 
   /* ════════ RENDER ════════ */
   return (
+     <>
+    {pendingKycBooking && (
+  <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-3.5 rounded-xl shadow-md flex items-center justify-between gap-3 mb-2.5">
+    <div className="flex items-center gap-2.5">
+      <FileText size={18} className="shrink-0" />
+      <div>
+        <p className="font-extrabold text-xs">
+          🪪 Owner Requested Your KYC Documents!
+        </p>
+        <p className="text-[11px] text-amber-50">
+          Booking {pendingKycBooking.booking_id} — Please upload your Aadhar/PAN below to proceed further.
+        </p>
+      </div>
+    </div>
+    <button
+      onClick={() => { setIsEditing(true); idRef.current?.scrollIntoView?.({ behavior: 'smooth' }); }}
+      className="px-3 py-1.5 bg-white text-orange-700 rounded-lg text-[11px] font-extrabold shrink-0 cursor-pointer"
+    >
+      Upload Now
+    </button>
+  </div>
+)}
     <div className="space-y-2.5">
 
       {/* ── Completion Banner ── */}
@@ -740,5 +778,6 @@ export default function TenantProfileTab({ tenant, matchedProperties, onUpdate }
         </div>
       </div>
     </div>
+    </>
   );
 }

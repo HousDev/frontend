@@ -1037,8 +1037,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
 
         setSocietyDetails(details);
 
-        if (details.locality) setFormData(prev => ({ 
-          ...prev, 
+        if (details.locality) setFormData(prev => ({
+          ...prev,
           location: details.locality,
           latitude: actualSociety.latitude || null,
           longitude: actualSociety.longitude || null

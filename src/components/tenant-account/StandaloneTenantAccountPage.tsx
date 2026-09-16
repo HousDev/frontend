@@ -69,10 +69,9 @@ const StandaloneTenantAccountPage: React.FC = () => {
       if (targetId) {
         await tenantAPI.update(targetId, updatedTenant);
         setTenant((prev: any) => ({ ...prev, ...updatedTenant }));
-        toast.success('Tenant preferences updated successfully!');
       }
     } catch (err) {
-      toast.error('Failed to update tenant');
+      console.error('Error updating tenant:', err);
     }
   };
 

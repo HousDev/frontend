@@ -1,17 +1,18 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   MessageSquare, Search, Filter, Phone, Mail, User,
   Calendar, CheckCircle2, Clock, Copy, Shield, Building2,
   MapPin, PhoneCall, ExternalLink, CalendarDays,
   Flame, HeartHandshake, CheckCheck, Bookmark, Trash2, CheckSquare, Square,
   Check, X, Loader2, Briefcase, IndianRupee, Utensils, Dog,
-  Eye
+  Eye, FileCheck, Upload, FolderUp, FileText, Paperclip
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { toast } from 'react-toastify';
 import { tenantAPI } from '@/lib/tenantAPI';
 import { tenantBookingAPI } from '@/lib/tenantBookingAPI';
 import { TenantOwnerInterest } from '../tenant-account/types';
+import { getImageUrl } from '@/lib/helpers';
 
 interface OwnerInquiriesTabProps {
   inquiries: any[];
@@ -40,7 +41,122 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
   const [bulkDeleting, setBulkDeleting] = useState<boolean>(false);
   const [selectedTenantForProfile, setSelectedTenantForProfile] = useState<any>(null);
   const [fetchingFullTenant, setFetchingFullTenant] = useState<boolean>(false);
+  const [viewingKycBooking, setViewingKycBooking] = useState<any | null>(null);
+  const [uploadAgreementModalBooking, setUploadAgreementModalBooking] = useState<any | null>(null);
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [agreementCustomUrl, setAgreementCustomUrl] = useState<string>('/agreements/sample_rental_agreement.pdf');
+  const [uploadingAgreement, setUploadingAgreement] = useState<boolean>(false);
+  const agreementFileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+  const formatMoveInDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    try {
+      if (dateStr.includes('T') || dateStr.includes('-')) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const [activateTenancyModalBooking, setActivateTenancyModalBooking] = useState<any | null>(null);
+  const [activateRentDueDay, setActivateRentDueDay] = useState<number>(5);
+  const [activateOwnerUpiId, setActivateOwnerUpiId] = useState<string>('');
+  const [activateUpiConfirmed, setActivateUpiConfirmed] = useState<boolean>(true);
+
+  const handleOpenActivateTenancyModal = (booking: any) => {
+    setActivateTenancyModalBooking(booking);
+    setActivateRentDueDay(5);
+    setActivateOwnerUpiId(booking?.owner_upi_id || '');
+    setActivateUpiConfirmed(true);
+  };
+
+  const handleFinalizeAgreement = async () => {
+    if (!activateTenancyModalBooking) return;
+    const bookingId = activateTenancyModalBooking?.booking_id || activateTenancyModalBooking?.id;
+    if (!bookingId) return;
+
+    if (!activateOwnerUpiId.trim() || !activateOwnerUpiId.includes('@')) {
+      toast.error('Please enter a valid Owner UPI ID (e.g. name@oksbi, phone@paytm)');
+      return;
+    }
+    if (!activateUpiConfirmed) {
+      toast.error('Please confirm that this UPI ID belongs to you for receiving rent credits');
+      return;
+    }
+
+    setActionLoadingId(bookingId as any);
+    try {
+      const res = await tenantBookingAPI.finalizeAgreement(bookingId, {
+        rent_due_day: Number(activateRentDueDay),
+        owner_upi_id: activateOwnerUpiId.trim(),
+      });
+      if (res?.success) {
+        toast.success('🎉 Lease Agreement Finalized & Tenancy Activated with Rent Ledger!');
+        setActivateTenancyModalBooking(null);
+        await fetchBookings();
+        onRefresh?.();
+      } else {
+        toast.error(res?.message || 'Failed to finalize agreement');
+      }
+    } catch (err: any) {
+      console.error('Error finalizing agreement:', err);
+      toast.error(err?.response?.data?.message || 'Failed to finalize agreement');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleOpenAgreementUpload = (booking: any) => {
+    setUploadAgreementModalBooking(booking);
+    setAgreementFile(null);
+    setAgreementCustomUrl(booking?.agreement_document || '/agreements/sample_rental_agreement.pdf');
+  };
+
+  const handleSubmitAgreementUpload = async () => {
+    if (!uploadAgreementModalBooking) return;
+    const bookingId = uploadAgreementModalBooking.booking_id || uploadAgreementModalBooking.id;
+    setUploadingAgreement(true);
+    try {
+      let res;
+      if (agreementFile) {
+        const fd = new FormData();
+        fd.append('agreement_file', agreementFile);
+        if (uploadAgreementModalBooking.property_id) {
+          fd.append('property_id', String(uploadAgreementModalBooking.property_id));
+        }
+        res = await tenantBookingAPI.uploadAgreement(bookingId, fd);
+      } else {
+        res = await tenantBookingAPI.uploadAgreement(bookingId, { agreement_document: agreementCustomUrl.trim() });
+      }
+
+      if (res?.success) {
+        toast.success('📄 Rental Agreement PDF uploaded & sent to Tenant for E-Sign!');
+        setUploadAgreementModalBooking(null);
+        setAgreementFile(null);
+        await fetchBookings();
+        window.dispatchEvent(new Event('tenant_booking_updated'));
+        onRefresh?.();
+      } else {
+        toast.error(res?.message || 'Failed to send agreement PDF');
+      }
+    } catch (err: any) {
+      console.error('Error sending agreement:', err);
+      toast.error(err?.response?.data?.message || 'Failed to send agreement PDF');
+    } finally {
+      setUploadingAgreement(false);
+    }
+  };
   const handleOpenProfile = async (rawTenant: any) => {
     const targetId = rawTenant.tenant_id || rawTenant.id;
     setSelectedTenantForProfile(rawTenant);
@@ -150,6 +266,21 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
   useEffect(() => {
     fetchInterests();
     fetchBookings();
+
+    const handleUpdate = () => {
+      fetchInterests();
+      fetchBookings();
+    };
+
+    window.addEventListener('tenant_booking_updated', handleUpdate);
+    window.addEventListener('tenant_property_booked', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('tenant_booking_updated', handleUpdate);
+      window.removeEventListener('tenant_property_booked', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
   }, [ownerId]);
 
   const handleVerifyPayment = async (bookingId: string | number) => {
@@ -190,12 +321,13 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
   };
 
   const handleVerifyKyc = async (bookingId: string | number) => {
-    setActionLoadingId(Number(bookingId) || 999999);
+    setActionLoadingId(bookingId as any);
     try {
       const res = await tenantBookingAPI.verifyKyc(bookingId);
       if (res?.success) {
         toast.success("KYC approved! Ready for agreement and move-in.");
         await fetchBookings();
+        window.dispatchEvent(new Event('tenant_booking_updated'));
         onRefresh?.();
       } else {
         toast.error(res?.message || "Failed to approve KYC");
@@ -206,6 +338,22 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
       setActionLoadingId(null);
     }
   };
+
+  const handleRequestKyc = async (bookingId: string | number) => {
+  setActionLoadingId(Number(bookingId) || 999999);
+  try {
+    const res = await tenantBookingAPI.requestKyc(bookingId);
+    if (res?.success) {
+      toast.success("KYC request sent to tenant!");
+    } else {
+      toast.error(res?.message || "Failed to send KYC request");
+    }
+  } catch (err: any) {
+    toast.error(err?.response?.data?.message || "Failed to send KYC request");
+  } finally {
+    setActionLoadingId(null);
+  }
+};
 
   const handleRejectKyc = async (bookingId: string | number) => {
     const reason = window.prompt("Enter KYC rejection reason (e.g. Blurred document image):");
@@ -247,23 +395,52 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
   };
 
   const handleRejectCandidate = async (interestId: number) => {
-    if (!window.confirm("Reject this candidate application?")) return;
-    setActionLoadingId(interestId);
-    try {
-      const res = await tenantAPI.ownerRejectTenant(interestId);
-      if (res?.success) {
-        toast.info(res.message || "Candidate rejected.");
-        await fetchInterests();
-        onRefresh?.();
-      } else {
-        toast.error(res?.message || "Failed to reject candidate");
-      }
-    } catch (err: any) {
-      console.error("Error rejecting candidate:", err);
-      toast.error(err?.response?.data?.message || "Failed to reject candidate");
-    } finally {
-      setActionLoadingId(null);
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Reject Candidate Application',
+      message: 'Are you sure you want to reject this candidate application?',
+      onConfirm: async () => {
+        setActionLoadingId(interestId);
+        try {
+          const res = await tenantAPI.ownerRejectTenant(interestId);
+          if (res?.success) {
+            toast.info(res.message || "Candidate rejected.");
+            await fetchInterests();
+            onRefresh?.();
+          } else {
+            toast.error(res?.message || "Failed to reject candidate");
+          }
+        } catch (err: any) {
+          console.error("Error rejecting candidate:", err);
+          toast.error(err?.response?.data?.message || "Failed to reject candidate");
+        } finally {
+          setActionLoadingId(null);
+        }
+      },
+    });
+  };
+
+  const handleDeleteInterest = async (interestId: number) => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Application Request',
+      message: 'Are you sure you want to delete this candidate application permanently?',
+      onConfirm: async () => {
+        setActionLoadingId(interestId);
+        try {
+          await tenantAPI.deleteInterest(interestId);
+          toast.success("Candidate interest request deleted.");
+          setInterestsList((prev) => prev.filter((i) => i.id !== interestId));
+          await fetchInterests();
+          onRefresh?.();
+        } catch (err: any) {
+          console.error("Error deleting interest:", err);
+          toast.error(err?.response?.data?.message || "Failed to delete interest request");
+        } finally {
+          setActionLoadingId(null);
+        }
+      },
+    });
   };
 
   // Sync if prop updates
@@ -336,35 +513,45 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
 
   const handleDeleteSingle = async (inq: any, idx: number) => {
     const key = getInqKey(inq, idx);
-    if (!window.confirm(`Are you sure you want to remove inquiry from ${inq.tenant_name || 'this tenant'}?`)) return;
-
-    setDeletingId(key);
-    try {
-      setInquiriesList((prev) => prev.filter((item, i) => getInqKey(item, i) !== key));
-      toast.success('Inquiry removed');
-      onRefresh?.();
-    } catch (e) {
-      toast.error('Failed to remove inquiry');
-    } finally {
-      setDeletingId(null);
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Remove Inquiry',
+      message: `Are you sure you want to remove inquiry from ${inq.tenant_name || 'this tenant'}?`,
+      onConfirm: async () => {
+        setDeletingId(key);
+        try {
+          setInquiriesList((prev) => prev.filter((item, i) => getInqKey(item, i) !== key));
+          toast.success('Inquiry removed');
+          onRefresh?.();
+        } catch (e) {
+          toast.error('Failed to remove inquiry');
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} selected inquiries?`)) return;
-
-    setBulkDeleting(true);
-    try {
-      setInquiriesList((prev) => prev.filter((item, i) => !selectedIds.has(getInqKey(item, i))));
-      setSelectedIds(new Set());
-      toast.success('Selected inquiries deleted');
-      onRefresh?.();
-    } catch (e) {
-      toast.error('Failed to bulk delete inquiries');
-    } finally {
-      setBulkDeleting(false);
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Selected Inquiries',
+      message: `Are you sure you want to delete ${selectedIds.size} selected inquiries?`,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        try {
+          setInquiriesList((prev) => prev.filter((item, i) => !selectedIds.has(getInqKey(item, i))));
+          setSelectedIds(new Set());
+          toast.success('Selected inquiries deleted');
+          onRefresh?.();
+        } catch (e) {
+          toast.error('Failed to delete inquiries');
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
   };
 
   const handleCopyPhone = (phone: string) => {
@@ -446,368 +633,317 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
         </div>
       )}
 
-      {/* 💳 Property Reservations & Offline Payment Verification */}
-      {bookingsList.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <IndianRupee size={14} className="text-emerald-600" />
-              <span>Property Reservations & Token Payment Claims ({bookingsList.length})</span>
-            </h3>
+
+
+{/* 🚀 Activate Tenancy & Rent Payment Setup Modal */}
+{activateTenancyModalBooking && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+      <div className="px-4 py-3 bg-[#0b3856] text-white flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-emerald-400" />
+          <h3 className="font-extrabold text-sm">Activate Tenancy & Rent Payment Setup</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => setActivateTenancyModalBooking(null)}
+          className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4 text-xs">
+        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
+          <span className="font-bold block">✓ Agreement E-Signed by Tenant</span>
+          <p className="text-[11px] text-emerald-800 leading-relaxed">
+            Set up your monthly rent due date and UPI ID to generate dynamic QR code for tenant monthly rent payments.
+          </p>
+        </div>
+
+        {/* Rent Details Summary */}
+        <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px]">
+          <div>
+            <span className="text-slate-400 block text-[9.5px] uppercase font-bold">Monthly Rent</span>
+            <strong className="text-slate-900 text-sm font-extrabold">
+              ₹{Number(activateTenancyModalBooking.monthly_rent || activateTenancyModalBooking.prop_monthly_rent || 25000).toLocaleString('en-IN')}
+            </strong>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {bookingsList.map((b) => {
-              const isClaimed = b.payment_status === 'CLAIMED';
-              const isVerified = b.payment_status === 'VERIFIED';
-              const isPending = b.payment_status === 'PENDING';
-              const isIssue = b.payment_status === 'ISSUE';
-
-              const isKycPending = b.booking_status === 'KYC_PENDING';
-              const isKycApproved = b.booking_status === 'KYC_APPROVED';
-              const isKycRejected = b.booking_status === 'KYC_REJECTED';
-
-              const tenantName = b.tenant_name || `Tenant #${b.tenant_id}`;
-
-              return (
-                <div
-                  key={`owner-bkg-${b.id || b.booking_id}`}
-                  className={`rounded-2xl border p-4 space-y-3 shadow-xs transition-all ${
-                    isClaimed
-                      ? 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-300/30'
-                      : isVerified
-                      ? 'bg-emerald-50/50 border-emerald-300'
-                      : isIssue
-                      ? 'bg-rose-50/60 border-rose-300'
-                      : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-xs text-slate-900">{tenantName}</span>
-                        <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                          {b.booking_id}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Token: <strong className="text-slate-800">₹{Number(b.token_amount || 0).toLocaleString('en-IN')}</strong> • Move-in: {b.move_in_date || 'N/A'}
-                      </p>
-                    </div>
-
-                    {/* Status Pill */}
-                    <div>
-                      {isClaimed && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white shadow-xs">
-                          🟡 Payment Claimed
-                        </span>
-                      )}
-                      {isVerified && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white flex items-center gap-1">
-                          <CheckCircle2 size={11} /> Verified
-                        </span>
-                      )}
-                      {isPending && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                          Pending Payment
-                        </span>
-                      )}
-                      {isIssue && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">
-                          ⚠️ Payment Issue
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Payment Ref Details */}
-                  {b.payment_reference && (
-                    <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/80 text-[11px] space-y-1">
-                      <div className="flex items-center justify-between font-mono">
-                        <span className="text-slate-500 font-bold uppercase text-[9.5px]">Reference / UTR</span>
-                        <strong className="text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">{b.payment_reference}</strong>
-                      </div>
-                      {b.payment_notes && (
-                        <p className="text-slate-600 italic text-[10.5px]">"{b.payment_notes}"</p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 📜 Mini 5-Step Lifecycle Progress Tracker for Owner */}
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-[10px] space-y-1.5">
-                    <span className="font-extrabold uppercase tracking-wider text-slate-500 text-[9px] block">Tenancy Lifecycle Progress</span>
-                    <div className="grid grid-cols-5 gap-1 text-center font-bold">
-                      <div className="p-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        1. Select ✓
-                      </div>
-                      <div className={`p-1 rounded border ${isClaimed || isVerified ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
-                        2. Claim {isClaimed || isVerified ? '✓' : '⏳'}
-                      </div>
-                      <div className={`p-1 rounded border ${isVerified ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : isClaimed ? 'bg-amber-500 text-white border-amber-600 animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                        3. Verify {isVerified ? '✓' : isClaimed ? '👈' : '⏳'}
-                      </div>
-                      <div className={`p-1 rounded border ${isKycApproved ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : isKycPending ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-400'}`}>
-                        4. KYC {isKycApproved ? '✓' : '⏳'}
-                      </div>
-                      <div className={`p-1 rounded border ${b.booking_status === 'BOOKED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-400'}`}>
-                        5. Lease
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons for Owner */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 flex-wrap gap-2">
-                    {/* Payment verification actions */}
-                    {isClaimed && (
-                      <div className="flex items-center gap-1.5 w-full">
-                        <button
-                          type="button"
-                          disabled={actionLoadingId === b.id}
-                          onClick={() => handleVerifyPayment(b.booking_id)}
-                          className="flex-1 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
-                        >
-                          {actionLoadingId === b.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                          <span>Verify Payment</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLoadingId === b.id}
-                          onClick={() => handleFlagIssue(b.booking_id)}
-                          className="px-3 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                        >
-                          Issue
-                        </button>
-                      </div>
-                    )}
-
-                    {/* KYC Actions once payment verified */}
-                    {isVerified && isKycPending && (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                          KYC Review Required
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyKyc(b.booking_id)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[10.5px] font-bold hover:bg-emerald-700 cursor-pointer"
-                          >
-                            Approve KYC
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRejectKyc(b.booking_id)}
-                            className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[10.5px] font-semibold hover:bg-rose-100 hover:text-rose-700 cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {isKycApproved && (
-                      <span className="text-[10.5px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <CheckCircle2 size={11} /> KYC Approved — Move to Agreement
-                      </span>
-                    )}
-
-                    {isKycRejected && (
-                      <span className="text-[10.5px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
-                        ✕ KYC Rejected
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div>
+            <span className="text-slate-400 block text-[9.5px] uppercase font-bold">Tenant Name</span>
+            <strong className="text-slate-900 text-xs truncate block font-bold">
+              {activateTenancyModalBooking.tenant_signature_name || activateTenancyModalBooking.tenant_name || 'Tenant'}
+            </strong>
           </div>
         </div>
-      )}
 
-      {/* 🌟 0. Live Tenant Interest Requests & Candidate Selection (Single-Tenant Confirmation Rule) */}
-      {interestsList.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <HeartHandshake size={14} className="text-orange-500" />
-              <span>Interested Tenant Applicants & Selection ({interestsList.length})</span>
-            </h3>
+        {/* 1. Rent Due Date Dropdown */}
+        <div className="space-y-1">
+          <label className="font-bold text-slate-800 text-[11px] block">
+            Select Monthly Rent Due Date:
+          </label>
+          <select
+            value={activateRentDueDay}
+            onChange={(e) => setActivateRentDueDay(Number(e.target.value))}
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-slate-900 outline-none focus:ring-2 focus:ring-[#0b3856]"
+          >
+            <option value={1}>1st of every month</option>
+            <option value={5}>5th of every month (Recommended)</option>
+            <option value={7}>7th of every month</option>
+            <option value={10}>10th of every month</option>
+            <option value={15}>15th of every month</option>
+            <option value={20}>20th of every month</option>
+            <option value={25}>25th of every month</option>
+          </select>
+        </div>
+
+        {/* 2. Owner UPI ID Input */}
+        <div className="space-y-1">
+          <label className="font-bold text-slate-800 text-[11px] flex items-center justify-between">
+            <span>Owner UPI ID for Rent Direct Credit:</span>
+            <span className="text-[9.5px] text-amber-600 font-semibold">Required</span>
+          </label>
+          <input
+            type="text"
+            value={activateOwnerUpiId}
+            onChange={(e) => setActivateOwnerUpiId(e.target.value)}
+            placeholder="e.g. owner@oksbi or 9876543210@paytm"
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-xs bg-white text-slate-900 outline-none focus:ring-2 focus:ring-[#0b3856]"
+          />
+          <p className="text-[10px] text-slate-500">
+            A dynamic UPI QR Code will be generated automatically for the tenant from this UPI ID.
+          </p>
+        </div>
+
+        {/* Confirmation Checkbox */}
+        <label
+          onClick={() => setActivateUpiConfirmed(!activateUpiConfirmed)}
+          className="flex items-start gap-2 cursor-pointer select-none text-slate-800 text-[11px] font-semibold pt-1"
+        >
+          {activateUpiConfirmed ? (
+            <CheckSquare size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+          ) : (
+            <Square size={16} className="text-slate-400 shrink-0 mt-0.5" />
+          )}
+          <span>I confirm this UPI ID belongs to me and rent payments will be credited to this account.</span>
+        </label>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          disabled={actionLoadingId === activateTenancyModalBooking.id || !activateOwnerUpiId.trim() || !activateUpiConfirmed}
+          onClick={handleFinalizeAgreement}
+          className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50 transition-all active:scale-[0.99]"
+        >
+          {actionLoadingId === activateTenancyModalBooking.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={16} />}
+          <span>Activate Tenancy & Save Rent Payment Setup</span>
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* 🪪 KYC Document Viewer Modal */}
+{viewingKycBooking && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+      <div className="px-4 py-3 bg-[#0b3856] text-white flex items-center justify-between">
+        <h3 className="font-extrabold text-sm">🪪 Tenant KYC Documents</h3>
+        <button onClick={() => setViewingKycBooking(null)} className="p-1 rounded-lg hover:bg-white/10">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="p-4 space-y-3 text-xs">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <span className="text-[9px] text-gray-400 uppercase block">ID Proof Type</span>
+            <span className="font-bold text-slate-900">{viewingKycBooking.id_proof_type || '—'}</span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {interestsList.map((item) => {
-              const isConfirmed = item.status === 'OWNER_CONFIRMED';
-              const isSelectedOthers = item.status === 'PROPERTY_SELECTED';
-              const isAccepted = item.status === 'TENANT_ACCEPTED' || item.status === 'BOOKING_PENDING';
-              const isRejected = item.status === 'OWNER_REJECTED' || item.status === 'TENANT_DECLINED';
-
-              const phone = item.tenant_phone || '';
-              const tenantName = item.tenant_name || 'Tenant Applicant';
-              const propTitle = item.society_name ? `${item.unit_type || '2 BHK'} at ${item.society_name}` : `Rental Property #${item.rental_property_id}`;
-
-              return (
-                <div
-                  key={`owner-interest-${item.id}`}
-                  className={`rounded-2xl border p-3.5 sm:p-4 transition-all flex flex-col justify-between space-y-3 ${isConfirmed
-                    ? 'bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white border-emerald-400 shadow-md ring-2 ring-emerald-400/20'
-                    : isSelectedOthers
-                      ? 'bg-amber-50/40 border-amber-200'
-                      : isAccepted
-                        ? 'bg-indigo-50/40 border-indigo-200'
-                        : isRejected
-                          ? 'bg-rose-50/40 border-rose-200 opacity-75'
-                          : 'bg-white border-slate-200 shadow-2xs hover:shadow-sm'
-                    }`}
-                >
-                  <div className="space-y-2.5">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-900 to-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-inner">
-                          {tenantName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
-                              {tenantName}
-                            </h4>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
-                              {item.match_score}% Match
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-gray-500 mt-0.5">
-                            {item.occupation_type || 'Salaried'} {item.company_name ? `• ${item.company_name}` : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Status Tag */}
-                      <div className="shrink-0">
-                        {isConfirmed ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
-                            <CheckCircle2 size={12} /> Confirmed Candidate
-                          </span>
-                        ) : isSelectedOthers ? (
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                            In Reserve Queue
-                          </span>
-                        ) : isAccepted ? (
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
-                            Tenant Accepted!
-                          </span>
-                        ) : isRejected ? (
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-medium bg-rose-100 text-rose-800 border border-rose-200">
-                            Rejected
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            Pending Review
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Property Reference */}
-                    <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800 text-[11px] truncate">
-                        {propTitle}
-                      </span>
-                      <span className="font-mono text-[9px] font-extrabold px-1.5 py-0.5 bg-slate-900 text-white rounded shrink-0">
-                        RENT-{item.rental_property_id}
-                      </span>
-                    </div>
-
-                    {/* Profile Snapshot Grid (Privacy Preserved - No KYC) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-2 rounded-xl bg-slate-50/80 border border-slate-100 text-[10.5px]">
-                      <div>
-                        <span className="text-[8.5px] text-gray-400 font-semibold uppercase block">Tenant Type</span>
-                        <span className="font-bold text-slate-800">{item.tenant_type || 'Family'}</span>
-                      </div>
-                      <div>
-                        <span className="text-[8.5px] text-gray-400 font-semibold uppercase block">Income</span>
-                        <span className="font-bold text-slate-800">
-                          {item.monthly_income ? `₹${Number(item.monthly_income).toLocaleString('en-IN')}` : '—'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[8.5px] text-gray-400 font-semibold uppercase block">Food</span>
-                        <span className="font-bold text-slate-800">{item.food_preference || 'Any'}</span>
-                      </div>
-                      <div>
-                        <span className="text-[8.5px] text-gray-400 font-semibold uppercase block">Pets</span>
-                        <span className="font-bold text-slate-800">{item.has_pets || 'No'}</span>
-                      </div>
-                    </div>
-
-                    {item.message && (
-                      <p className="text-[10px] text-slate-600 italic bg-amber-50/50 p-2 rounded-lg border border-amber-100/80">
-                        "{item.message}"
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Confirmation / Decision Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      {phone && (
-                        <>
-                          <a
-                            href={`https://wa.me/91${String(phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${tenantName}! I received your application for my property at ${propTitle}. Match score is ${item.match_score}%. Let's discuss!`)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-2.5 py-1 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white text-[10px] font-extrabold flex items-center gap-1 shadow-2xs"
-                          >
-                            <SiWhatsapp size={11} />
-                            <span>WhatsApp</span>
-                          </a>
-                          <a
-                            href={`tel:${phone}`}
-                            className="px-2.5 py-1 rounded-lg bg-[#0b3856] hover:bg-[#072438] text-white text-[10px] font-extrabold flex items-center gap-1 shadow-2xs"
-                          >
-                            <PhoneCall size={11} />
-                            <span>Call</span>
-                          </a>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Confirm Candidate Button */}
-                    <div className="flex items-center gap-1.5">
-                      {!isConfirmed && !isAccepted && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={actionLoadingId === item.id}
-                            onClick={() => handleConfirmCandidate(item.id)}
-                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold flex items-center gap-1 shadow-xs transition cursor-pointer disabled:opacity-50"
-                            title="Confirm this candidate and move other property applicants to reserve queue"
-                          >
-                            {actionLoadingId === item.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-                            <span>Confirm Candidate</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLoadingId === item.id}
-                            onClick={() => handleRejectCandidate(item.id)}
-                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 text-[10.5px] font-semibold transition cursor-pointer disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                      {isConfirmed && (
-                        <span className="text-[10.5px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-md">
-                          ✓ Confirmed & Waiting Acceptance
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div>
+            <span className="text-[9px] text-gray-400 uppercase block">ID Number</span>
+            <span className="font-bold text-slate-900">{viewingKycBooking.id_proof_number || '—'}</span>
           </div>
         </div>
-      )}
+        {viewingKycBooking.id_proof_document ? (
+          <div className="space-y-3">
+            <a href={viewingKycBooking.id_proof_document} target="_blank" rel="noreferrer" className="block">
+              <img
+                src={viewingKycBooking.id_proof_document}
+                alt="ID Proof"
+                className="w-full max-h-64 object-contain rounded-xl border border-slate-200"
+              />
+            </a>
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  handleVerifyKyc(viewingKycBooking.booking_id);
+                  setViewingKycBooking(null);
+                }}
+                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition cursor-pointer"
+              >
+                Approve KYC Document
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleRejectKyc(viewingKycBooking.booking_id);
+                  setViewingKycBooking(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition cursor-pointer"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3.5 bg-amber-50/90 rounded-xl border border-amber-200 space-y-2.5 text-center">
+            <p className="text-amber-900 font-extrabold text-xs">⚠️ No document uploaded yet.</p>
+            <p className="text-amber-800 text-[11px] leading-relaxed">
+              Tenant must upload their ID proof document (Aadhaar / PAN / Passport) in their Profile tab before you can approve KYC.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                handleRequestKyc(viewingKycBooking.booking_id);
+                setViewingKycBooking(null);
+              }}
+              className="w-full py-2 rounded-xl bg-[#0b3856] hover:bg-[#072438] text-white font-bold text-xs shadow-xs cursor-pointer"
+            >
+              Request KYC Documents from Tenant
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* 📄 Upload Agreement PDF Modal for Owner */}
+{uploadAgreementModalBooking && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-200 space-y-0">
+      <div className="px-5 py-3.5 bg-[#0b3856] text-white flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center">
+            <FolderUp size={16} />
+          </div>
+          <h3 className="font-extrabold text-sm text-white">Upload Rental Agreement (PDF)</h3>
+        </div>
+        <button
+          onClick={() => { setUploadAgreementModalBooking(null); setAgreementFile(null); }}
+          className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-4 text-xs">
+        {/* Booking & Tenant Brief */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-[11px]">
+          <div>
+            <span className="text-slate-400 text-[9.5px] uppercase font-bold block">Tenant</span>
+            <strong className="text-slate-900 text-xs">{uploadAgreementModalBooking.tenant_name || `Tenant #${uploadAgreementModalBooking.tenant_id}`}</strong>
+          </div>
+          <div className="text-right">
+            <span className="text-slate-400 text-[9.5px] uppercase font-bold block">Booking ID</span>
+            <span className="font-mono font-black text-slate-800 text-xs">{uploadAgreementModalBooking.booking_id}</span>
+          </div>
+        </div>
+
+        {/* File Dropzone */}
+        <div>
+          <label className="text-[10px] font-bold text-slate-700 block uppercase mb-1.5">
+            Select Agreement Document File (PDF / DOC / Image)
+          </label>
+          <input
+            type="file"
+            ref={agreementFileInputRef}
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setAgreementFile(e.target.files[0]);
+              }
+            }}
+          />
+
+          {agreementFile ? (
+            <div className="p-3.5 rounded-xl border-2 border-emerald-400 bg-emerald-50/50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-900 text-xs truncate">{agreementFile.name}</p>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {(agreementFile.size / 1024).toFixed(1)} KB • Ready to send
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAgreementFile(null)}
+                className="p-1 rounded-lg text-rose-500 hover:bg-rose-100 cursor-pointer"
+                title="Remove file"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={() => agreementFileInputRef.current?.click()}
+              className="p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/30 text-center cursor-pointer transition-all space-y-2 group"
+            >
+              <div className="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                <FolderUp size={22} />
+              </div>
+              <div>
+                <p className="font-extrabold text-xs text-slate-900">Click to browse or drop Agreement PDF here</p>
+                <p className="text-[10.5px] text-slate-400 mt-0.5">Supports PDF, DOCX, PNG, JPG (Max 50MB)</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Fallback Custom URL / Template Path */}
+        <div>
+          <label className="text-[9.5px] font-bold text-slate-500 block uppercase mb-1">
+            Or Agreement Document Link (Optional)
+          </label>
+          <input
+            type="text"
+            value={agreementCustomUrl}
+            onChange={(e) => setAgreementCustomUrl(e.target.value)}
+            placeholder="/agreements/sample_rental_agreement.pdf"
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+          />
+        </div>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          disabled={uploadingAgreement || (!agreementFile && !agreementCustomUrl.trim())}
+          onClick={handleSubmitAgreementUpload}
+          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all disabled:opacity-50"
+        >
+          {uploadingAgreement ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              <span>Uploading & Sending Agreement...</span>
+            </>
+          ) : (
+            <>
+              <Upload size={14} />
+              <span>Send Agreement to Tenant for E-Sign</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* 🔍 Search & Filter Bar + Bulk Actions */}
       <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
@@ -1234,6 +1370,40 @@ export const OwnerInquiriesTab: React.FC<OwnerInquiriesTabProps> = ({
                 className="px-4 py-1.5 rounded-lg bg-[#0b3856] text-white font-extrabold text-xs hover:bg-[#072438] transition cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🗑️ Custom Confirmation Modal */}
+      {confirmModalConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 text-amber-600">
+              <div className="p-2.5 rounded-xl bg-amber-100">
+                <Trash2 size={20} />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900">{confirmModalConfig.title}</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">{confirmModalConfig.message}</p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModalConfig.onConfirm();
+                  setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }));
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition shadow-sm cursor-pointer"
+              >
+                Confirm
               </button>
             </div>
           </div>

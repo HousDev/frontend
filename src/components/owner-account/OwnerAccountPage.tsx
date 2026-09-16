@@ -21,6 +21,7 @@ import OwnerFinancialsTab from './OwnerFinancialsTab';
 import OwnerProfileTab from './OwnerProfileTab';
 import OwnerSelfSetupModal from './OwnerSelfSetupModal';
 import OwnerApplicantsTab from './OwnerApplicantsTab';
+import { connectSocket } from '@/lib/socket';
 
 interface OwnerAccountPageProps {
   owner: any;
@@ -48,25 +49,35 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
   const [visits, setVisits] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [interestsList, setInterestsList] = useState<any[]>([]);
-
+  const [paymentClaimAlert, setPaymentClaimAlert] = useState<any>(null);
   // Modals
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showLinkModal, setShowLinkModal] = useState<boolean>(false);
   const [showSelfSetupModal, setShowSelfSetupModal] = useState<boolean>(false);
 
-  // Auto-prompt self-setup for new/unconfigured owner accounts
+  // Auto-prompt self-setup only for NEW/unconfigured owner accounts
   useEffect(() => {
     if (!owner?.id) return;
-    const shouldPrompt =
-      localStorage.getItem(`prompt_owner_setup_${owner.id}`) === 'true' ||
-      localStorage.getItem('prompt_owner_setup') === 'true' ||
-      !localStorage.getItem(`owner_preferred_slots_${owner.id}`);
 
-    if (shouldPrompt) {
+    const isExplicitPrompt =
+      localStorage.getItem(`prompt_owner_setup_${owner.id}`) === 'true' ||
+      localStorage.getItem('prompt_owner_setup') === 'true';
+
+    const isDismissed =
+      localStorage.getItem(`owner_setup_dismissed_${owner.id}`) === 'true' ||
+      Boolean(localStorage.getItem(`owner_preferred_slots_${owner.id}`));
+
+    const hasExistingOwnerDetails = Boolean(
+      owner?.phone || owner?.email || owner?.address || (Array.isArray(owner?.properties) && owner.properties.length > 0)
+    );
+
+    if (isExplicitPrompt || (!isDismissed && !hasExistingOwnerDetails)) {
       const timer = setTimeout(() => setShowSelfSetupModal(true), 600);
       return () => clearTimeout(timer);
+    } else {
+      setShowSelfSetupModal(false);
     }
-  }, [owner?.id]);
+  }, [owner?.id, owner?.phone, owner?.email]);
 
   // Fetch full details for this owner
   const fetchOwnerFullData = async () => {
@@ -92,6 +103,23 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
 
   useEffect(() => {
     fetchOwnerFullData();
+  }, [owner?.id]);
+
+
+  useEffect(() => {
+    if (!owner?.id) return;
+    const socket = connectSocket(owner.id);
+
+    const handleNotification = (data: any) => {
+      toast.info(`🔔 ${data.title || 'New update'}`);
+      if (data.type === 'payment_claimed') {
+        setPaymentClaimAlert(data); // popup trigger — naya state banao: useState<any>(null)
+      }
+      fetchOwnerFullData();
+    };
+
+    socket?.on('notification', handleNotification);
+    return () => { socket?.off('notification', handleNotification); };
   }, [owner?.id]);
 
   // Derived Username (e.g. Heena Bagwan -> hbagwan)
@@ -206,8 +234,8 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
                       setShowMobileSidebar(false);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all cursor-pointer ${active
-                        ? 'bg-orange-50 text-orange-600 border border-orange-200 font-bold'
-                        : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-orange-50 text-orange-600 border border-orange-200 font-bold'
+                      : 'text-gray-600 hover:bg-gray-50'
                       }`}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -359,12 +387,14 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
             <OwnerLeaseVaultTab
               properties={properties}
               ownerName={owner?.name || 'Owner'}
+              ownerId={owner?.id}
             />
           )}
 
           {activeTab === 'financials' && (
             <OwnerFinancialsTab
               properties={properties}
+              ownerId={owner?.id}
             />
           )}
 
@@ -416,6 +446,37 @@ export const OwnerAccountPage: React.FC<OwnerAccountPageProps> = ({
           }}
           allowDismiss={true}
         />
+      )}
+
+      {paymentClaimAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+            <div className="px-4 py-3 bg-[#0b3856] text-white flex items-center justify-between">
+              <h3 className="font-extrabold text-sm">💰 Payment Claimed</h3>
+              <button onClick={() => setPaymentClaimAlert(null)} className="p-1 rounded-lg hover:bg-white/10">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <p className="text-slate-700">{paymentClaimAlert.message}</p>
+              <p className="font-bold text-slate-900">Did you receive the money?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setActiveTab('inquiries'); setPaymentClaimAlert(null); }}
+                  className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                >
+                  Review & Verify
+                </button>
+                <button
+                  onClick={() => setPaymentClaimAlert(null)}
+                  className="flex-1 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold"
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

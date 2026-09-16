@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle2, Clock, AlertCircle, Key, Heart, LogOut,
   BarChart3, Building, MapPin, Phone, ExternalLink, Calendar,
-  Bell, ChevronDown, User, Settings, SlidersHorizontal, RefreshCw
+  Bell, ChevronDown, User, Settings, SlidersHorizontal, RefreshCw,
+  X
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { toast } from 'react-toastify';
@@ -83,7 +84,7 @@ export default function TenantAccountPage({
   onUpdateTenant,
 }: TenantAccountPageProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [tenant, setTenant] = useState<Tenant>(initialTenant);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [showMobileSidebar, setShowMobileSidebar] = useState<boolean>(false);
@@ -99,12 +100,17 @@ export default function TenantAccountPage({
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [paymentVerifiedAlert, setPaymentVerifiedAlert] = useState<any>(null);
 
-  // Close notifications on outside click
+  // Close notifications & profile menu on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -120,10 +126,11 @@ export default function TenantAccountPage({
   const [loadingProperties, setLoadingProperties] = useState<boolean>(false);
   const [linkingId, setLinkingId] = useState<number | string | null>(null);
 
-  // Timeline / Visits State
+  // Timeline / Visits / Interests State
   const [, setFollowups] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [, setActivities] = useState<any[]>([]);
+  const [ownerInterests, setOwnerInterests] = useState<any[]>([]);
 
   // Shortlist State - persists in localStorage
   const [shortlistedIds, setShortlistedIds] = useState<Set<string | number>>(new Set());
@@ -186,6 +193,24 @@ export default function TenantAccountPage({
       }
     };
 
+    // const handleGenericNotification = (data: any) => {
+    //   setLiveNotifications((prev) => [
+    //     {
+    //       id: `gen_${Date.now()}`,
+    //       badge: data.badge || 'Alert',
+    //       badgeColor: 'bg-blue-100 text-blue-900 border-blue-200',
+    //       title: data.title || 'New Notification',
+    //       desc: data.message || data.desc || '',
+    //       time: 'Just now',
+    //       priority: 3,
+    //       type: data.type || 'alert',
+    //       tab: data.tab || 'dashboard',
+    //     },
+    //     ...prev,
+    //   ]);
+    // };
+
+
     const handleGenericNotification = (data: any) => {
       setLiveNotifications((prev) => [
         {
@@ -201,6 +226,12 @@ export default function TenantAccountPage({
         },
         ...prev,
       ]);
+      if (data.type === 'payment_verified') {
+        setPaymentVerifiedAlert(data);
+      }
+      if (data.type === 'kyc_requested') {
+        toast.info(`🪪 ${data.message}`);
+      }
     };
 
     const handleInterestConfirmed = (data: any) => {
@@ -334,29 +365,34 @@ export default function TenantAccountPage({
     });
   }, [initialTenant]);
 
-  // Automatic Preference Setup Prompt (Prompt mandatory modal ONLY for new tenants who have NOT completed preferences)
+  // Automatic Preference Setup Prompt (Prompt mandatory modal only for NEW tenants without preferences)
   useEffect(() => {
-    // 1. Check if tenant already has preferences in database or configured in session
-    const hasDbPreferences = Boolean(
+    if (!tenant?.id) return;
+
+    const isExplicitPrompt = localStorage.getItem('prompt_tenant_preferences') === 'true';
+    const isConfigured = localStorage.getItem(`tenant_preferences_configured_${tenant.id}`) === 'true';
+
+    const hasAnyDbPreferences = Boolean(
       (tenant?.preferred_location && String(tenant.preferred_location).trim().length > 0) ||
       (tenant?.preferred_bhk && String(tenant.preferred_bhk).trim().length > 0) ||
       (Number(tenant?.budget_max) > 0 || Number(tenant?.budget_min) > 0)
     );
-    const isConfigured = Boolean(tenant?.id && localStorage.getItem(`tenant_preferences_configured_${tenant.id}`) === 'true');
 
-    // If tenant already has preferences in DB or already configured, NEVER auto-open on page refresh
-    if (hasDbPreferences || isConfigured) {
-      localStorage.removeItem('prompt_tenant_preferences');
-      setShowPreferenceModal(false);
-      return;
+    if (hasAnyDbPreferences) {
+      try {
+        localStorage.setItem(`tenant_preferences_configured_${tenant.id}`, 'true');
+      } catch { }
     }
 
-    // New tenant without preferences -> trigger mandatory Preference Setup Modal
-    const timer = setTimeout(() => {
-      setIsManualPreferenceOpen(false);
-      setShowPreferenceModal(true);
-    }, 400);
-    return () => clearTimeout(timer);
+    if (isExplicitPrompt || (!isConfigured && !hasAnyDbPreferences)) {
+      const timer = setTimeout(() => {
+        setIsManualPreferenceOpen(false);
+        setShowPreferenceModal(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPreferenceModal(false);
+    }
   }, [tenant?.id, tenant?.preferred_location, tenant?.preferred_bhk, tenant?.budget_max, tenant?.budget_min]);
 
   // Load properties and timeline
@@ -375,14 +411,16 @@ export default function TenantAccountPage({
   const loadTimelineData = async () => {
     if (!tenant?.id) return;
     try {
-      const [fData, vData, aData] = await Promise.all([
+      const [fData, vData, aData, iData] = await Promise.all([
         tenantFollowupAPI.getByTenantId(tenant.id).catch(() => ({ data: [] })),
         tenantVisitAPI.getByTenantId(tenant.id).catch(() => ({ data: [] })),
         tenantActivityAPI.getByTenantId(tenant.id).catch(() => ({ data: [] })),
+        tenantAPI.getTenantInterests(tenant.id).catch(() => ({ data: [] })),
       ]);
       setFollowups(fData?.data || []);
       setVisits(vData?.data || []);
       setActivities(aData?.data || []);
+      setOwnerInterests(iData?.data || iData || []);
     } catch (err) {
       console.error('Error loading timeline data:', err);
     }
@@ -391,7 +429,7 @@ export default function TenantAccountPage({
   useEffect(() => {
     loadRentalProperties();
     loadTimelineData();
-  }, [tenant.id]);
+  }, [tenant.id, enquiryRefreshKey]);
 
   const handleLogout = async () => {
     localStorage.removeItem('verified_tenant');
@@ -710,7 +748,29 @@ export default function TenantAccountPage({
       }
     });
 
-    // 2. Enquiries list
+    // 2. Owner Interests & Confirmations
+    if (Array.isArray(ownerInterests) && ownerInterests.length > 0) {
+      ownerInterests.forEach((interest: any, idx: number) => {
+        const statusStr = String(interest.status || '').toUpperCase();
+        const isOwnerConfirmed = statusStr === 'OWNER_CONFIRMED';
+        const isPendingTenant = statusStr === 'PENDING_TENANT_ACCEPTANCE' || isOwnerConfirmed;
+        if (isPendingTenant) {
+          list.push({
+            id: `owner_int_${interest.id || idx}`,
+            badge: 'Owner Approved',
+            badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+            title: `🎉 Owner Interested: ${interest.property_title || 'Rental Property'}`,
+            desc: `Landlord ${interest.owner_name ? `"${interest.owner_name}"` : ''} showed interest in your profile! Click to view & confirm application.`,
+            time: 'Action Required',
+            priority: 1,
+            type: 'owner_interest',
+            tab: 'enquiries',
+          });
+        }
+      });
+    }
+
+    // 3. Enquiries list
     const tenantEnquiries = getTenantEnquiries();
     if (Array.isArray(tenantEnquiries)) {
       tenantEnquiries.forEach((enq: any, idx: number) => {
@@ -729,7 +789,7 @@ export default function TenantAccountPage({
       });
     }
 
-    // 3. Matched Properties
+    // 4. Matched Properties
     if (matchedProperties.length > 0) {
       list.push({
         id: 'matched_props',
@@ -745,7 +805,7 @@ export default function TenantAccountPage({
     }
 
     return list.sort((a, b) => (a.priority || 10) - (b.priority || 10));
-  }, [liveNotifications, visits, matchedProperties, enquiryRefreshKey]);
+  }, [liveNotifications, visits, ownerInterests, matchedProperties, enquiryRefreshKey]);
 
   const handleLinkProperty = async (prop: MatchedProperty) => {
     try {
@@ -1000,7 +1060,9 @@ export default function TenantAccountPage({
               >
                 <Bell size={18} />
                 {dynamicNotifications.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-orange-500 ring-2 ring-white animate-pulse" />
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white font-black text-[10px] flex items-center justify-center ring-2 ring-white shadow-xs animate-in zoom-in-50">
+                    {dynamicNotifications.length > 99 ? '99+' : dynamicNotifications.length}
+                  </span>
                 )}
               </button>
 
@@ -1026,12 +1088,12 @@ export default function TenantAccountPage({
                             setShowNotifications(false);
                           }}
                           className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left space-y-1 relative ${notif.priority === 1
-                              ? 'bg-amber-50/80 hover:bg-amber-100/80 border-amber-200 shadow-2xs'
-                              : notif.type === 'visit_confirmed'
-                                ? 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200'
-                                : notif.type === 'enquiry'
-                                  ? 'bg-purple-50/60 hover:bg-purple-100/60 border-purple-200'
-                                  : 'bg-slate-50 hover:bg-slate-100 border-slate-100'
+                            ? 'bg-amber-50/80 hover:bg-amber-100/80 border-amber-200 shadow-2xs'
+                            : notif.type === 'visit_confirmed'
+                              ? 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200'
+                              : notif.type === 'enquiry'
+                                ? 'bg-purple-50/60 hover:bg-purple-100/60 border-purple-200'
+                                : 'bg-slate-50 hover:bg-slate-100 border-slate-100'
                             }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
@@ -1071,7 +1133,7 @@ export default function TenantAccountPage({
             </div>
 
             {/* 👤 Profile Avatar Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-gray-200"
@@ -1284,7 +1346,7 @@ export default function TenantAccountPage({
           )}
 
           {activeTab === 'payments' && (
-            <TenantPaymentsTab tenant={tenant} fmtINR={fmtINR} />
+            <TenantPaymentsTab tenant={tenant} fmtINR={fmtINR} onNavigateTab={setActiveTab} />
           )}
 
           {activeTab === 'maintenance' && (
@@ -1555,6 +1617,28 @@ export default function TenantAccountPage({
             localStorage.removeItem('show_password_reminder');
           }}
         />
+      )}
+
+      {paymentVerifiedAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+            <div className="px-4 py-3 bg-emerald-600 text-white flex items-center justify-between">
+              <h3 className="font-extrabold text-sm">✅ Payment Verified!</h3>
+              <button onClick={() => setPaymentVerifiedAlert(null)} className="p-1 rounded-lg hover:bg-white/10">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <p className="text-slate-700">{paymentVerifiedAlert.message}</p>
+              <button
+                onClick={() => { setActiveTab('linked'); setPaymentVerifiedAlert(null); }}
+                className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
+                View Linked Lease
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

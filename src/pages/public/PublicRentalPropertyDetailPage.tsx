@@ -1327,19 +1327,26 @@ export const PublicRentalPropertyDetailPage: React.FC<{ property?: any; onBack?:
                 </span>
               </div>
 
-              {/* Owner Showing Property Notice with Live Indicator */}
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-700 font-medium truncate mt-0.5">
+              {/* Owner Showing Property Notice with Live Indicator & 1-Click Auto Join */}
+              <button
+                type="button"
+                onClick={handleDirectJoinShowingVisit}
+                disabled={directBookingLoading}
+                title={`Click to schedule site visit for ${nextAvailableOwnerShowing.fullText}`}
+                className="flex items-center gap-1.5 text-[11px] text-slate-700 font-medium truncate mt-0.5 cursor-pointer hover:opacity-90 transition-all text-left bg-blue-50/60 hover:bg-blue-100/70 border border-blue-200/80 px-2 py-0.5 rounded-lg shrink-0 disabled:opacity-50"
+              >
                 <span className="flex h-2 w-2 relative shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
                 </span>
                 <span className="truncate">
                   Owner showing this property{' '}
-                  <strong className="text-blue-900 font-extrabold">
+                  <strong className="text-blue-900 font-extrabold underline decoration-blue-400">
                     {nextAvailableOwnerShowing.fullText}
                   </strong>
                 </span>
-              </div>
+                
+              </button>
             </div>
           </div>
 
