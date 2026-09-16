@@ -58,6 +58,8 @@ export interface UIRentalProperty {
   furnishing?: string;
   facing?: string;
   balcony?: string | number;
+  dryBalcony?: string;
+  dry_balcony?: string;
   bedrooms?: string | number;
   bathrooms?: string | number;
   parkingType?: string;
@@ -136,6 +138,7 @@ const buildInitialData = (p: any) => ({
   furnishing: p.furnishing || '',
   facing: p.facing || '',
   balcony: p.balcony ? String(p.balcony) : '',
+  dryBalcony: p.dryBalcony || p.dry_balcony || 'No',
   bedrooms: p.bedrooms ? String(p.bedrooms) : '',
   bathrooms: p.bathrooms ? String(p.bathrooms) : '',
   parkingType: p.parkingType || p.parking_type || '',
@@ -620,6 +623,12 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               <div className="p-1.5 rounded" style={{ background: '#eab30810', border: '1px solid #eab30820' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#eab308' }}>Balcony</div>
                 <div className="font-medium truncate" style={{ color: N }}>{property?.balcony || "-"}</div>
+              </div>
+              
+              {/* Dry Balcony - Amber */}
+              <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Dry Balcony</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.dryBalcony || property?.dry_balcony || "No"}</div>
               </div>
               
               {/* Society - Indigo */}

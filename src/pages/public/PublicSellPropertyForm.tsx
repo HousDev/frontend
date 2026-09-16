@@ -77,6 +77,8 @@ interface PropertyFormData {
   photoUrls?: string[];
   bedrooms?: string;
   bathrooms?: string;
+  balcony?: string;
+  dryBalcony?: string;
   facing?: string;
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
@@ -131,6 +133,9 @@ interface InitialDataFromParent {
   existingPhotos?: Array<{ id: string; url: string; name?: string }>;
   bedrooms?: string;
   bathrooms?: string;
+  balcony?: string;
+  dryBalcony?: string;
+  dry_balcony?: string;
   facing?: string;
   priceType?: 'Fixed' | 'Negotiable' | '';
   finalPrice?: string;
@@ -212,9 +217,22 @@ function getScrollParents(node: Element | null): Element[] {
 const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
 const sortNumericOptions = (options: MasterOption[] = []) => {
   return [...options].sort((a, b) => {
-    const numA = parseInt(a.label || a.value || '0', 10);
-    const numB = parseInt(b.label || b.value || '0', 10);
-    return numA - numB;
+    const textA = (a.label || a.value || '').trim();
+    const textB = (b.label || b.value || '').trim();
+    const matchA = textA.match(/^(\d+(?:\.\d+)?)/);
+    const matchB = textB.match(/^(\d+(?:\.\d+)?)/);
+    const numA = matchA ? parseFloat(matchA[1]) : NaN;
+    const numB = matchB ? parseFloat(matchB[1]) : NaN;
+    const isNumA = !isNaN(numA);
+    const isNumB = !isNaN(numB);
+
+    if (isNumA && isNumB) {
+      if (numA !== numB) return numA - numB;
+      return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
+    }
+    if (isNumA) return -1;
+    if (isNumB) return 1;
+    return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
   });
 };
 /* ─────────────────────────────────────────────────────────────
@@ -560,6 +578,8 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
     photoUrls: (initialData?.existingPhotos || []).map((p) => p.url),
     bedrooms: initialData?.bedrooms || '',
     bathrooms: initialData?.bathrooms || '',
+    balcony: initialData?.balcony || '',
+    dryBalcony: initialData?.dryBalcony || (initialData as any)?.dry_balcony || 'No',
     facing: initialData?.facing || '',
     priceType: initialData?.priceType as 'Fixed' | 'Negotiable' || '',
     finalPrice: initialData?.finalPrice || '',
@@ -859,9 +879,10 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
       'floor', 'totalFloors', 'carpetArea', 'builtupArea', 'budget', 'address',
       'status', 'leadSource', 'possessionMonth', 'possessionYear',
       'purchaseMonth', 'purchaseYear', 'sellingRights', 'description',
-      'bedrooms', 'bathrooms', 'facing', 'priceType', 'finalPrice', 'deposit', 'preferredTenant'
+      'bedrooms', 'bathrooms', 'balcony', 'dryBalcony', 'facing', 'priceType', 'finalPrice', 'deposit', 'preferredTenant'
     ];
     textFields.forEach((k) => fd.append(k, String((formData as any)[k] ?? '')));
+    fd.append('dry_balcony', formData.dryBalcony || 'No');
     fd.append('listing_type', currentListingType);
     fd.append('transaction_type', currentListingType);
     if (currentListingType === 'rent') {
@@ -1148,37 +1169,8 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
           {errors.propertySubtype && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertySubtype}</p>}
         </div>
         <div>
-          <label className={LBL}>Bedrooms</label>
-          <SafeDropdown placeholder="BHK" options={getOptions('bedrooms')} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Bathrooms</label>
-          <SafeDropdown placeholder="Baths" options={getOptions('bathrooms')} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Furnishing</label>
-          <SafeDropdown placeholder="Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Facing</label>
-          <SafeDropdown placeholder="Facing" options={getOptions('facing')} value={formData.facing || ''} onChange={handleDropdownChange('facing')} className="w-full" />
-        </div>
-        {/* PARKING FIELDS */}
-        <div>
-          <label className={LBL}>Parking Type</label>
-          <SafeDropdown placeholder="Parking type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Parking Qty</label>
-          <SafeDropdown placeholder="Quantity" options={sortNumericOptions(getOptions('parking qty'))} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
-        </div>
-        <div>
           <label className={LBL}>Unit Type</label>
-          <SafeDropdown placeholder="Unit type" options={getOptions('unit type')} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Status</label>
-          <SafeDropdown placeholder="Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
+          <SafeDropdown placeholder="Unit type" options={sortNumericOptions(getOptions('unit type'))} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
         </div>
         <div>
           <label className={LBL}>Wing</label>
@@ -1189,12 +1181,57 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
           <input type="text" placeholder="304" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
         </div>
         <div>
+          <label className={LBL}>Floor</label>
+          <SafeDropdown placeholder="Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
+        </div>
+        <div>
           <label className={LBL}>Total Floors</label>
           <SafeDropdown placeholder="Total" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
         </div>
         <div>
-          <label className={LBL}>Floor</label>
-          <SafeDropdown placeholder="Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
+          <label className={LBL}>Bedrooms</label>
+          <SafeDropdown placeholder="BHK" options={sortNumericOptions(getOptions('bedrooms'))} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Bathrooms</label>
+          <SafeDropdown placeholder="Baths" options={sortNumericOptions(getOptions('bathrooms'))} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Balcony</label>
+          <SafeDropdown placeholder="Balcony" options={sortNumericOptions(getOptions('balcony'))} value={formData.balcony || ''} onChange={handleDropdownChange('balcony')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Dry Balcony</label>
+          <SafeDropdown
+            placeholder="Dry Balcony"
+            options={[
+              { value: 'Yes', label: 'Yes' },
+              { value: 'No', label: 'No' },
+            ]}
+            value={formData.dryBalcony || 'No'}
+            onChange={handleDropdownChange('dryBalcony')}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label className={LBL}>Facing</label>
+          <SafeDropdown placeholder="Facing" options={getOptions('facing')} value={formData.facing || ''} onChange={handleDropdownChange('facing')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Furnishing</label>
+          <SafeDropdown placeholder="Furnishing" options={getOptions('furnishing')} value={formData.furnishing} onChange={handleDropdownChange('furnishing')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Parking Type</label>
+          <SafeDropdown placeholder="Parking type" options={getOptions('parking type')} value={formData.parkingType} onChange={handleDropdownChange('parkingType')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Parking Qty</label>
+          <SafeDropdown placeholder="Quantity" options={sortNumericOptions(getOptions('parking qty'))} value={formData.parkingQty} onChange={handleDropdownChange('parkingQty')} className="w-full" />
+        </div>
+        <div>
+          <label className={LBL}>Status</label>
+          <SafeDropdown placeholder="Status" options={getOptions('property status')} value={formData.status} onChange={handleDropdownChange('status')} className="w-full" />
         </div>
       </div>
 

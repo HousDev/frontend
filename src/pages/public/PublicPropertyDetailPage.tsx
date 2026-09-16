@@ -1084,8 +1084,8 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
         }
         return [];
       })(),
-      // ✅ ADD BALCONY & RENTAL FIELDS HERE
       balcony: p?.balcony ?? p?.balconies ?? p?.balcony_count ?? '',
+      dryBalcony: p?.dryBalcony ?? p?.dry_balcony ?? '',
       monthly_rent: p?.monthly_rent ?? p?.expected_rent ?? null,
       security_deposit: p?.security_deposit ?? null,
       listing_type: p?.listing_type ?? (p?.monthly_rent ? 'rent' : null),
@@ -2398,6 +2398,7 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
                   { label: "Bathrooms", icon: <Bath size={14} className="text-green-600" />, value: property?.bathrooms ?? "-" },
                   { label: "Parking", icon: <Car size={14} className="text-orange-600" />, value: property?.parkingQty ?? "-" },
                   { label: "Balcony", icon: <Building2 size={14} className="text-cyan-600" />, value: property?.balcony || "-" },
+                  { label: "Dry Balcony", icon: <Building2 size={14} className="text-amber-600" />, value: property?.dryBalcony || property?.dry_balcony || "-" },
                   { label: "Property Type", icon: <Building size={14} className="text-blue-600" />, value: property?.type ?? "-" },
                   { label: "Furnishing", icon: <Home size={14} className="text-purple-600" />, value: property?.furnishing ?? "-" },
                   { label: "Facing", icon: <Target size={14} className="text-orange-600" />, value: property?.facing ?? "-" },

@@ -378,7 +378,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
 
               <button
                 onClick={handleSellPropertyClick}
-                className="hidden sm:flex items-center gap-2 text-white px-4 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                className="relative hidden sm:flex items-center gap-2 text-white px-4 py-2.5 rounded-xl transition-all text-sm font-medium shadow-md hover:shadow-lg"
                 style={{ backgroundColor: colors.brand }}
                 onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
@@ -390,6 +390,20 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 }
                 aria-label="Sell property"
               >
+                {/* 🌟 Animated Glowing NEW Badge */}
+                <span className="absolute -top-2.5 -right-2 z-20 flex items-center justify-center select-none pointer-events-none">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping pointer-events-none" />
+                  <span
+                    className="relative inline-flex items-center justify-center h-[18px] px-2 rounded-full text-white text-[9px] sm:text-[9.5px] font-black tracking-tight border-[1.5px] border-white leading-none whitespace-nowrap overflow-hidden shadow-md"
+                    style={{
+                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 60%, #15803d 100%)',
+                      boxShadow: '0 2px 8px rgba(22, 163, 74, 0.7)',
+                    }}
+                  >
+                    <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">NEW</span>
+                  </span>
+                </span>
+
                 <span className="font-semibold">Post Property</span>
 
                 <span className="bg-white text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -633,9 +647,23 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                 </button> */}
                 <button
                   onClick={handleSellPropertyClick}
-                  className="w-full flex items-center justify-center gap-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all"
+                  className="relative w-full flex items-center justify-center gap-2 text-white px-4 py-3 rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all"
                   style={{ backgroundColor: colors.brand }}
                 >
+                  {/* 🌟 Animated Glowing NEW Badge */}
+                  <span className="absolute -top-2 right-2 z-20 flex items-center justify-center select-none pointer-events-none">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping pointer-events-none" />
+                    <span
+                      className="relative inline-flex items-center justify-center h-[18px] px-2 rounded-full text-white text-[9px] font-black tracking-tight border-[1.5px] border-white leading-none whitespace-nowrap overflow-hidden shadow-md"
+                      style={{
+                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 60%, #15803d 100%)',
+                        boxShadow: '0 2px 8px rgba(22, 163, 74, 0.7)',
+                      }}
+                    >
+                      <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">NEW</span>
+                    </span>
+                  </span>
+
                   <span>Post Property</span>
 
                   <span className="inline-flex items-center bg-white text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">

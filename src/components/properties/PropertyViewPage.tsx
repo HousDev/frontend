@@ -100,6 +100,8 @@ interface UIProperty {
   furnishing: string;
   facing: string,
   balcony: string;
+  dryBalcony?: string;
+  dry_balcony?: string;
   bedrooms: string,
   bathrooms: string,
   priceType?: 'Fixed' | 'Negotiable' | string;
@@ -255,6 +257,7 @@ const buildInitialData = (p: UIProperty) => {
     furnishing: p.furnishing || '',
     facing: p.facing || '',
     balcony: p.balcony ? String(p.balcony) : '',
+    dryBalcony: p.dryBalcony || p.dry_balcony || 'No',
     bedrooms: p.bedrooms ? String(p.bedrooms) : '',
     bathrooms: p.bathrooms ? String(p.bathrooms) : '',
     priceType: (p.priceType as 'Fixed' | 'Negotiable') || 'Fixed',
@@ -1729,6 +1732,12 @@ const OverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               <div className="p-1.5 rounded" style={{ background: '#eab30810', border: '1px solid #eab30820' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#eab308' }}>Balcony</div>
                 <div className="font-medium truncate" style={{ color: N }}>{property?.balcony || "-"}</div>
+              </div>
+
+              {/* Dry Balcony - Amber */}
+              <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
+                <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Dry Balcony</div>
+                <div className="font-medium truncate" style={{ color: N }}>{property?.dryBalcony || property?.dry_balcony || "No"}</div>
               </div>
 
               {/* Society - Indigo */}
