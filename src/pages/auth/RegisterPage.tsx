@@ -1,29 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Building, Eye, EyeOff, ShieldCheck, Zap, Mail,
-  ArrowRight, KeyRound, CheckCircle2, RotateCcw, User, Phone as PhoneIcon,
-  Home, ShoppingBag, Key, UserCheck, Briefcase
-} from 'lucide-react';
-import PhoneInput from 'react-phone-input-2';
-import 'react-phone-input-2/lib/style.css';
-import { useAuth } from '@/contexts/AuthContext';
-import { authAPI } from '@/lib/api';
-import { integrationsAPI } from '@/lib/integrationsAPI';
-import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import { toast } from 'react-toastify';
-
-type Persona = 'buyer' | 'seller' | 'owner' | 'tenant' | 'broker';
-
-const PERSONAS: Array<{ id: Persona; label: string; sub: string; icon: any }> = [
-  { id: 'buyer', label: 'Buyer', sub: 'Looking to purchase', icon: ShoppingBag },
-  { id: 'seller', label: 'Seller', sub: 'Looking to sell', icon: Home },
-  { id: 'owner', label: 'Owner', sub: 'Property owner / landlord', icon: Key },
-  { id: 'tenant', label: 'Tenant', sub: 'Looking to rent', icon: UserCheck },
-  { id: 'broker', label: 'Broker / CP', sub: 'Real estate partner', icon: Briefcase },
-];
+import React from "react";
+import AuthPage from "./AuthPage";
 
 const RegisterPage: React.FC = () => {
+  return <AuthPage initialMode="register" />;
   const navigate = useNavigate();
   const location = useLocation();
   const { setAuthSession } = useAuth();

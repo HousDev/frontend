@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Search,
@@ -36,7 +35,7 @@ import { toast } from 'react-toastify';
 import StatusStepper from './StatusStepper';
 import PartyVerificationModal from './PartyVerificationModal';
 import EsignAadhaarModal from './EsignAadhaarModal';
-import {getDocumentDetails,getDigioStatusByLocalId } from "@/lib/digioAPI";
+import { getDocumentDetails, getDigioStatusByLocalId } from "@/lib/digioAPI";
 import DigioStatusModal from './DigioStatusModal';
 
 const normalizeStatus = (s?: string) =>
@@ -206,7 +205,7 @@ const TrackingTab = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [userRole] = useState('admin'); // This would come from auth context
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [currentPage, setCurrentPage] = useState(1);
@@ -226,10 +225,10 @@ const TrackingTab = () => {
   const [verifyDoc, setVerifyDoc] = useState<Document | null>(null);
   const [showEsignModal, setShowEsignModal] = React.useState(false);
   const [esignDoc, setEsignDoc] = React.useState<Document | null>(null);
-// Digio status modal state
-const [showDigioStatusModal, setShowDigioStatusModal] = useState(false);
-const [digioDoc, setDigioDoc] = useState<Document | null>(null);
-const [digioDetails, setDigioDetails] = useState<DigioDetails | null>(null);
+  // Digio status modal state
+  const [showDigioStatusModal, setShowDigioStatusModal] = useState(false);
+  const [digioDoc, setDigioDoc] = useState<Document | null>(null);
+  const [digioDetails, setDigioDetails] = useState<DigioDetails | null>(null);
 
   useEffect(() => {
     const onStatus = (e: any) => {
@@ -240,74 +239,74 @@ const [digioDetails, setDigioDetails] = useState<DigioDetails | null>(null);
     return () => window.removeEventListener("doc:status", onStatus);
   }, []);
 
-const checkDigioStatusAndOpenModal = async (doc: Document) => {
-  try {
-    if (!doc?.id) {
-      // no local id → fallback to normal e-sign
-      setEsignDoc(doc);
-      setShowEsignModal(true);
-      setPendingStepDoc(doc);
-      return;
-    }
-
-    // 1) Try read Digio ID from doc
-    let digioId = extractDigioIdFromDoc(doc);
-
-    // 2) If absent → check backend by local_document_id
-    if (!digioId) {
-      const statusRes = await getDigioStatusByLocalId(doc.id);
-      if (statusRes?.success && statusRes?.digio_id) {
-        digioId = statusRes.digio_id;
-        const norm = normalizeDigioStatus(statusRes.status);
-        if (norm === "requested" || norm === "completed") {
-          setDigioDoc(doc);
-          setDigioDetails({
-            ...statusRes,
-            local_document_id: statusRes.local_document_id ?? doc.id,
-          });
-          setShowDigioStatusModal(true);
-          setPendingStepDoc(doc);
-          return;
-        }
-        // else → proceed to normal esign
+  const checkDigioStatusAndOpenModal = async (doc: Document) => {
+    try {
+      if (!doc?.id) {
+        // no local id → fallback to normal e-sign
         setEsignDoc(doc);
         setShowEsignModal(true);
         setPendingStepDoc(doc);
         return;
       }
 
-      // still nothing → normal esign
-      setEsignDoc(doc);
-      setShowEsignModal(true);
-      setPendingStepDoc(doc);
-      return;
-    }
+      // 1) Try read Digio ID from doc
+      let digioId = extractDigioIdFromDoc(doc);
 
-    // 3) We have a Digio ID → fetch latest details
-    const details = await getDocumentDetails(digioId, doc.id);
-    if (details?.success) {
-      const norm = normalizeDigioStatus(details.status);
-      if (norm === "requested" || norm === "completed") {
-        setDigioDoc(doc);
-        setDigioDetails(details);
-        setShowDigioStatusModal(true);
+      // 2) If absent → check backend by local_document_id
+      if (!digioId) {
+        const statusRes = await getDigioStatusByLocalId(doc.id);
+        if (statusRes?.success && statusRes?.digio_id) {
+          digioId = statusRes.digio_id;
+          const norm = normalizeDigioStatus(statusRes.status);
+          if (norm === "requested" || norm === "completed") {
+            setDigioDoc(doc);
+            setDigioDetails({
+              ...statusRes,
+              local_document_id: statusRes.local_document_id ?? doc.id,
+            });
+            setShowDigioStatusModal(true);
+            setPendingStepDoc(doc);
+            return;
+          }
+          // else → proceed to normal esign
+          setEsignDoc(doc);
+          setShowEsignModal(true);
+          setPendingStepDoc(doc);
+          return;
+        }
+
+        // still nothing → normal esign
+        setEsignDoc(doc);
+        setShowEsignModal(true);
         setPendingStepDoc(doc);
         return;
       }
-    }
 
-    // 4) If not requested/completed → normal esign
-    setEsignDoc(doc);
-    setShowEsignModal(true);
-    setPendingStepDoc(doc);
-  } catch (err) {
-    console.error("Error checking Digio status:", err);
-    // fallback to normal esign
-    setEsignDoc(doc);
-    setShowEsignModal(true);
-    setPendingStepDoc(doc);
-  }
-};
+      // 3) We have a Digio ID → fetch latest details
+      const details = await getDocumentDetails(digioId, doc.id);
+      if (details?.success) {
+        const norm = normalizeDigioStatus(details.status);
+        if (norm === "requested" || norm === "completed") {
+          setDigioDoc(doc);
+          setDigioDetails(details);
+          setShowDigioStatusModal(true);
+          setPendingStepDoc(doc);
+          return;
+        }
+      }
+
+      // 4) If not requested/completed → normal esign
+      setEsignDoc(doc);
+      setShowEsignModal(true);
+      setPendingStepDoc(doc);
+    } catch (err) {
+      console.error("Error checking Digio status:", err);
+      // fallback to normal esign
+      setEsignDoc(doc);
+      setShowEsignModal(true);
+      setPendingStepDoc(doc);
+    }
+  };
 
 
   const openStatusModal = async () => {
@@ -368,7 +367,7 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
       setIsLoading(true);
 
       const res = await documentsGeneratedAPI.getAllWithRelations();
-    
+
 
       /* ---------- normalize API shapes to an array ---------- */
       const toArray = (r: any): any[] => {
@@ -744,8 +743,7 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
 
 
 
-  const [documents, setDocuments] = useState([
-  ]);
+  const [documents, setDocuments] = useState<Document[]>([]);
 
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch =
@@ -942,12 +940,12 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
             updated_at: nowISO,
             assigned_to: doc.assigned_to,
             tracking_history: [
-              ...doc.tracking_history,
+              ...(doc.tracking_history || []),
               {
-                id: doc.tracking_history.length + 1,
+                id: (doc.tracking_history?.length || 0) + 1,
                 action: `Status changed to ${(normalized as string).replace(/_/g, " ")}`,
                 timestamp: nowISO,
-                user: user?.id || null,
+                user: String(user?.id || 'system'),
                 details: `Reason: ${reason || "—"}`,
                 stage: normalized,
                 icon: "Settings",
@@ -1092,9 +1090,9 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
           ...d,
           shared_channels: Array.from(new Set([...(d.shared_channels || []), ...payload.channels])),
           tracking_history: [
-            ...d.tracking_history,
+            ...(d.tracking_history || []),
             {
-              id: d.tracking_history.length + 1,
+              id: (d.tracking_history?.length || 0) + 1,
               action: `Shared via ${payload.channels.join(', ')}`,
               timestamp: new Date().toISOString(),
               user: 'Admin User',
@@ -1389,9 +1387,9 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
           status: 'archived',
           updated_at: new Date().toISOString(),
           tracking_history: [
-            ...d.tracking_history,
+            ...(d.tracking_history || []),
             {
-              id: d.tracking_history.length + 1,
+              id: (d.tracking_history?.length || 0) + 1,
               action: 'Document Archived',
               timestamp: new Date().toISOString(),
               user: 'Admin User',
@@ -1472,6 +1470,30 @@ const checkDigioStatusAndOpenModal = async (doc: Document) => {
           <div className="mt-1 text-purple-100 text-xs">🔥 Urgent documents</div>
         </div>
       </div>
+
+      {/* Expiry & Lease Renewal Alert Bar */}
+      {documents.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-amber-100 text-amber-700 rounded-md">
+              <Clock size={16} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-900">Agreement Expiry & Automated Lease Renewal Tracking</p>
+              <p className="text-[11px] text-amber-700">Track 11-month rental agreements, MOUs, and time-bound deeds before expiry.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const targetDoc = documents.find(d => d.status === 'completed') || documents[0];
+              if (targetDoc) handleDuplicateDocument(targetDoc);
+            }}
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-medium transition-colors shadow-xs whitespace-nowrap"
+          >
+            Renew Latest Agreement
+          </button>
+        </div>
+      )}
 
       {/* Search and Filters */}
       {/* Search and Filters */}
@@ -1873,11 +1895,11 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                                           setPendingStepDoc(doc);
                                           return true;
                                         }
-                                       case 'esign_pending': {
-  // ✅ First see if Digio already has a request/completed state
-  checkDigioStatusAndOpenModal(doc);
-  return true;
-}
+                                        case 'esign_pending': {
+                                          // ✅ First see if Digio already has a request/completed state
+                                          checkDigioStatusAndOpenModal(doc);
+                                          return true;
+                                        }
 
 
                                         default:
@@ -2194,81 +2216,81 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
           }}
         />
       )}
-{showDigioStatusModal && digioDoc && (
-  <DigioStatusModal
-    isOpen={showDigioStatusModal}
-    onClose={() => {
-      setShowDigioStatusModal(false);
-      setDigioDoc(null);
-      setDigioDetails(null);
-      setPendingStepDoc(null);
-    }}
-    doc={digioDoc}
-    details={digioDetails}
-    onResumeEsign={() => {
-      // user chooses to continue with Aadhaar e-sign anyway
-      setShowDigioStatusModal(false);
-      setEsignDoc(digioDoc);
-      setShowEsignModal(true);
-    }}
-    onMarkCompleted={async () => {
-      if (!digioDoc) return;
-      await setStatusAndSync(digioDoc.id, 'completed', 'Marked completed from DigioStatusModal');
-      setShowDigioStatusModal(false);
-      setDigioDoc(null);
-      setDigioDetails(null);
-      setPendingStepDoc(null);
-    }}
-  />
-)}
+      {showDigioStatusModal && digioDoc && (
+        <DigioStatusModal
+          isOpen={showDigioStatusModal}
+          onClose={() => {
+            setShowDigioStatusModal(false);
+            setDigioDoc(null);
+            setDigioDetails(null);
+            setPendingStepDoc(null);
+          }}
+          doc={digioDoc}
+          details={digioDetails}
+          onResumeEsign={() => {
+            // user chooses to continue with Aadhaar e-sign anyway
+            setShowDigioStatusModal(false);
+            setEsignDoc(digioDoc);
+            setShowEsignModal(true);
+          }}
+          onMarkCompleted={async () => {
+            if (!digioDoc) return;
+            await setStatusAndSync(digioDoc.id, 'completed', 'Marked completed from DigioStatusModal');
+            setShowDigioStatusModal(false);
+            setDigioDoc(null);
+            setDigioDetails(null);
+            setPendingStepDoc(null);
+          }}
+        />
+      )}
 
-{showVerifyModal && verifyDoc && (
-  <PartyVerificationModal
-    isOpen={showVerifyModal}
-    documentId={verifyDoc.id}
-    defaultBuyer={{
-      name: verifyDoc.data?.buyer_name || '',
-      email: verifyDoc.data?.buyer_email || '',
-      phone: verifyDoc.data?.buyer_phone || '',
-    }}
-    defaultSeller={{
-      name: verifyDoc.data?.seller_name || '',
-      email: verifyDoc.data?.seller_email || '',
-      phone: verifyDoc.data?.seller_phone || '',
-    }}
-    onClose={() => {
-      setShowVerifyModal(false);
-      setVerifyDoc(null);
-      setPendingStepDoc(null);
-    }}
-    onVerified={async (payload) => {
-      const { note, buyer, seller } = payload;
-      if (!pendingStepDoc) return;
-      
-      // Determine verification type for the reason
-      let verificationType = '';
-      if (buyer?.verified && seller?.verified) {
-        verificationType = 'Both parties verified';
-      } else if (buyer?.verified) {
-        verificationType = 'Buyer verified only';
-      } else if (seller?.verified) {
-        verificationType = 'Seller verified only';
-      }
-      
-      const reason = note ? `${verificationType}: ${note}` : verificationType;
-      
-      await setStatusAndSync(
-        pendingStepDoc.id,
-        'otp_verified',
-        reason
-      );
-      
-      setShowVerifyModal(false);
-      setVerifyDoc(null);
-      setPendingStepDoc(null);
-    }}
-  />
-)}
+      {showVerifyModal && verifyDoc && (
+        <PartyVerificationModal
+          isOpen={showVerifyModal}
+          documentId={verifyDoc.id}
+          defaultBuyer={{
+            name: verifyDoc.data?.buyer_name || '',
+            email: verifyDoc.data?.buyer_email || '',
+            phone: verifyDoc.data?.buyer_phone || '',
+          }}
+          defaultSeller={{
+            name: verifyDoc.data?.seller_name || '',
+            email: verifyDoc.data?.seller_email || '',
+            phone: verifyDoc.data?.seller_phone || '',
+          }}
+          onClose={() => {
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+          onVerified={async (payload) => {
+            const { note, buyer, seller } = payload;
+            if (!pendingStepDoc) return;
+
+            // Determine verification type for the reason
+            let verificationType = '';
+            if (buyer?.verified && seller?.verified) {
+              verificationType = 'Both parties verified';
+            } else if (buyer?.verified) {
+              verificationType = 'Buyer verified only';
+            } else if (seller?.verified) {
+              verificationType = 'Seller verified only';
+            }
+
+            const reason = note ? `${verificationType}: ${note}` : verificationType;
+
+            await setStatusAndSync(
+              pendingStepDoc.id,
+              'otp_verified',
+              reason
+            );
+
+            setShowVerifyModal(false);
+            setVerifyDoc(null);
+            setPendingStepDoc(null);
+          }}
+        />
+      )}
 
       {showShareModal && selectedDocument && (
         <DocumentShareModal
@@ -2295,9 +2317,9 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                         new Set([...(d.shared_channels || []), ...(shareData.channels || [])])
                       ),
                       tracking_history: [
-                        ...d.tracking_history,
+                        ...(d.tracking_history || []),
                         {
-                          id: d.tracking_history.length + 1,
+                          id: (d.tracking_history?.length || 0) + 1,
                           action: `Shared via ${shareData.channels.join(', ')}`,
                           timestamp: new Date().toISOString(),
                           user: 'Admin User',

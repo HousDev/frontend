@@ -1,67 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Eye, EyeOff, ShoppingBag, Home, Key, UserCheck, Briefcase,
-  ArrowLeft, Sparkles, Mail, KeyRound, RefreshCw, CheckCircle2
-} from 'lucide-react';
-import PhoneInput from 'react-phone-input-2';
-import 'react-phone-input-2/lib/style.css';
-import { useAuth } from '@/contexts/AuthContext';
-import { authAPI } from '@/lib/api';
-import { integrationsAPI } from '@/lib/integrationsAPI';
-import { toast } from 'react-toastify';
-import { useSystemSettings } from '@/contexts/SystemSettingsContext';
-import logo from '@/assets/images/logo.png';
-import { requestMandatoryPreLoginLocation, getDeviceId, getBrowserSource } from '@/utils/deviceInfo';
-
-interface User {
-  id: string | number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: 'admin' | 'manager' | 'agent' | 'buyer' | 'seller' | 'team leader' | 'sales team leader' | 'presales team leader' | 'sales manager' | 'marketing executive' | 'presales executive' | 'sales executive';
-  phone?: string;
-  avatar?: string;
-  is_active: boolean;
-  buyer_id?: number | string;
-  seller_id?: number | string;
-}
-
-type Persona = 'buyer' | 'seller' | 'owner' | 'tenant' | 'broker';
-
-const PERSONAS: Array<{ id: Persona; label: string; icon: any }> = [
-  { id: 'buyer', label: 'Buyer', icon: ShoppingBag },
-  { id: 'seller', label: 'Seller', icon: Home },
-  { id: 'owner', label: 'Owner', icon: Key },
-  { id: 'tenant', label: 'Tenant', icon: UserCheck },
-  { id: 'broker', label: 'Broker', icon: Briefcase },
-];
-
-interface LoginFormData {
-  username: string;
-  password: string;
-}
-
-const SLIDES = [
-  {
-    img: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80',
-    title: 'Your Trusted Resale Experts',
-    sub: 'Simplifying resale property transactions across Maharashtra',
-  },
-  {
-    img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=900&q=80',
-    title: 'Buy or Sell with Confidence',
-    sub: 'Verified listings, fair prices & zero-hassle experience',
-  },
-  {
-    img: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=900&q=80',
-    title: 'Resale Made Simple',
-    sub: 'Expert guidance from search to final documentation',
-  },
-];
+import React from "react";
+import AuthPage from "./AuthPage";
 
 const LoginPage: React.FC = () => {
+  return <AuthPage initialMode="login" />;
   const [formData, setFormData] = useState<LoginFormData>({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
