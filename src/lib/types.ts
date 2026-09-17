@@ -208,7 +208,7 @@ export type NewAutomationJob = {
 };
 
 export type Team = {
-  id: string;
+  id: string;l
   code: string;
   name: string;
   description: string | null;

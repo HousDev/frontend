@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Brain, 
   Database, 
@@ -18,12 +18,20 @@ import {
   Users,
   Trash2
 } from 'lucide-react';
+import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 const AITraining = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isTraining, setIsTraining] = useState(false);
   const [trainingProgress, setTrainingProgress] = useState(0);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    propertiesLoaded: 125847,
+    marketDataPoints: 45623,
+    interactionsAnalyzed: 78945,
+    pricePointsTracked: 234567,
+  });
   
   const [trainingData, setTrainingData] = useState({
     propertyData: '',
@@ -40,44 +48,88 @@ const AITraining = () => {
     { id: 'analytics', label: 'Performance', icon: BarChart3 }
   ];
 
-  const handleFileUpload = (fileType, event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const newUpload = {
-        id: Date.now(),
-        name: file.name,
-        type: fileType,
-        size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-        uploadDate: new Date().toISOString().split('T')[0],
-        status: 'Processing',
-        records: Math.floor(Math.random() * 10000) + 1000
-      };
-      setUploadedFiles(prev => [...prev, newUpload]);
-      
-      // Simulate processing
-      setTimeout(() => {
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === newUpload.id ? {...f, status: 'Processed'} : f
-        ));
-      }, 3000);
+  const fetchStats = async () => {
+    try {
+      const res = await api.get('v1/ai-training/stats');
+      if (res.data?.stats) {
+        setStats(res.data.stats);
+      }
+      if (res.data?.recentBatches?.length > 0) {
+        setUploadedFiles(res.data.recentBatches.map((b: any) => ({
+          id: b.id,
+          name: b.file_name,
+          type: b.dataset_type,
+          size: 'Dataset',
+          uploadDate: b.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          status: b.status === 'processed' ? 'Processed' : 'Processing',
+          records: b.total_records || b.processed_records || 0,
+        })));
+      }
+    } catch (e) {
+      console.warn('Could not fetch AI training stats:', e);
     }
   };
 
-  const startTraining = () => {
-    setIsTraining(true);
-    setTrainingProgress(0);
-    
-    // Simulate training progress
-    const interval = setInterval(() => {
-      setTrainingProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsTraining(false);
-          return 100;
-        }
-        return prev + 10;
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const handleFileUpload = async (fileType: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    let datasetType = 'property_data';
+    if (fileType.toLowerCase().includes('market')) datasetType = 'market_trends';
+    else if (fileType.toLowerCase().includes('interaction')) datasetType = 'client_interactions';
+    else if (fileType.toLowerCase().includes('pricing')) datasetType = 'pricing_history';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('datasetType', datasetType);
+
+    const tempId = Date.now();
+    const newUpload = {
+      id: tempId,
+      name: file.name,
+      type: fileType,
+      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+      uploadDate: new Date().toISOString().split('T')[0],
+      status: 'Processing',
+      records: 0,
+    };
+    setUploadedFiles(prev => [newUpload, ...prev]);
+
+    try {
+      toast.loading(`Uploading and processing ${file.name}...`, { id: 'upload-toast' });
+      const res = await api.post('v1/ai-training/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-    }, 1000);
+      toast.success(res.data?.message || `${file.name} processed successfully!`, { id: 'upload-toast' });
+      setTimeout(fetchStats, 1500);
+    } catch (err: any) {
+      toast.error('Upload failed: ' + (err.response?.data?.message || err.message), { id: 'upload-toast' });
+      setUploadedFiles(prev => prev.map(f => f.id === tempId ? { ...f, status: 'Failed' } : f));
+    }
+  };
+
+  const startTraining = async () => {
+    setIsTraining(true);
+    setTrainingProgress(20);
+    try {
+      toast.loading('Synchronizing Google Trends and refreshing AI embeddings...', { id: 'train-toast' });
+      setTrainingProgress(50);
+      const res = await api.post('v1/ai-training/start-training');
+      setTrainingProgress(100);
+      toast.success(res.data?.message || 'AI Knowledge Base updated!', { id: 'train-toast' });
+      fetchStats();
+    } catch (err: any) {
+      toast.error('Training run error: ' + (err.response?.data?.message || err.message), { id: 'train-toast' });
+    } finally {
+      setTimeout(() => {
+        setIsTraining(false);
+        setTrainingProgress(0);
+      }, 1000);
+    }
   };
 
   const renderDashboard = () => (
@@ -201,7 +253,7 @@ const AITraining = () => {
               </a>
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              Current: 125,847 properties loaded
+              Current: {Number(stats.propertiesLoaded).toLocaleString()} properties loaded
             </div>
           </div>
 
@@ -234,7 +286,7 @@ const AITraining = () => {
               </a>
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              Current: 45,623 market data points
+              Current: {Number(stats.marketDataPoints).toLocaleString()} market data points
             </div>
           </div>
 
@@ -267,7 +319,7 @@ const AITraining = () => {
               </a>
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              Current: 78,945 interactions analyzed
+              Current: {Number(stats.interactionsAnalyzed).toLocaleString()} interactions analyzed
             </div>
           </div>
 
@@ -291,9 +343,16 @@ const AITraining = () => {
               >
                 Choose Files
               </label>
+              <a
+                href="/sample-data/pricing-history-sample.csv"
+                download
+                className="ml-2 text-orange-600 hover:text-orange-700 text-sm underline"
+              >
+                Download Sample
+              </a>
             </div>
             <div className="mt-2 text-sm text-gray-600">
-              Current: 234,567 price points tracked
+              Current: {Number(stats.pricePointsTracked).toLocaleString()} price points tracked
             </div>
           </div>
         </div>

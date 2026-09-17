@@ -229,8 +229,8 @@ export const ChatContextPanel: React.FC<ChatContextPanelProps> = ({
             </div>
           </div>
 
-          {/* 3. Admin Executive Reassignment Control */}
-          {isAdmin && onReassign && (
+          {/* 3. Admin Executive Reassignment Control - commented out from frontend per request */}
+          {/* {isAdmin && onReassign && (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
               <label className="block text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                 <UserCheck size={14} className="text-indigo-600" />
@@ -273,7 +273,7 @@ export const ChatContextPanel: React.FC<ChatContextPanelProps> = ({
                 </p>
               )}
             </div>
-          )}
+          )} */}
 
           {/* 4. AI Session / Handoff Summary */}
           {conversation.ai_summary_json && (

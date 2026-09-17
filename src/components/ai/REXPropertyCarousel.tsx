@@ -48,7 +48,7 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
         {properties.map((prop) => {
           const rawPhoto = prop.photos?.[0] || null;
           const photoUrl = rawPhoto ? getImageUrl(rawPhoto) : null;
-          const displayPrice = formatIndianPrice(prop.price);
+          const displayPrice = prop.price_display || formatIndianPrice(prop.price);
           const cleanTitle = (prop.title || "Residential Property")
             .replace(/\[REX\d+\]\s*/gi, "")
             .replace(/\s*\([^)]*\)/g, "")
@@ -122,11 +122,15 @@ export const REXPropertyCarousel: React.FC<REXPropertyCarouselProps> = ({
                       className="flex-1 py-1.5 px-2 bg-gradient-to-r from-[#e87722] to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
                     >
                       <Check size={12} />
-                      <span>Interested</span>
+                      <span>{prop.listing_type === "rent" || prop.price_display?.includes("/mo") ? "Contact Owner" : "Interested"}</span>
                     </button>
                     {prop.slug && (
                       <Link
-                        to={`/properties/${prop.slug}`}
+                        to={
+                          prop.listing_type === "rent" || prop.price_display?.includes("/mo")
+                            ? `/rentals/${prop.slug}`
+                            : `/properties/${prop.slug}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 bg-slate-100 hover:bg-[#0f2b3d] hover:text-white text-slate-700 rounded-lg transition-colors flex items-center justify-center shrink-0"

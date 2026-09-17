@@ -1,0 +1,26 @@
+[
+  {
+    "client_role": "buyer",
+    "locality": "Wakad",
+    "bhk": "2 BHK",
+    "budget": "70L - 80L",
+    "query": "Looking for ready to move 2 BHK in Wakad near Dutta Mandir road",
+    "status": "qualified"
+  },
+  {
+    "client_role": "buyer",
+    "locality": "Baner",
+    "bhk": "3 BHK",
+    "budget": "1.2 Cr - 1.5 Cr",
+    "query": "Resale 3 BHK with Balewadi high street proximity",
+    "status": "site_visit_scheduled"
+  },
+  {
+    "client_role": "seller",
+    "locality": "Hinjewadi",
+    "bhk": "2 BHK",
+    "budget": "60L",
+    "query": "Want to sell flat in Megapolis Phase 3 within 45 days",
+    "status": "valuation_shared"
+  }
+]

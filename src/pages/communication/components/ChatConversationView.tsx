@@ -424,11 +424,16 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
 
   const isSellerConversation = useMemo(() => {
     const role = (conversation?.user_role || "").toLowerCase();
+    if (role === "buyer" || role === "tenant") return false;
     if (role === "seller" || role === "owner") return true;
-    if (lastUserMsg.toLowerCase().includes("seller") || lastUserMsg.toLowerCase().includes("selling")) return true;
-    if (conversation?.property_title && lastUserMsg.toLowerCase().includes("listing")) return true;
+    if (
+      lastUserMsg.toLowerCase().startsWith("new seller listing") ||
+      lastUserMsg.toLowerCase().startsWith("new owner rental")
+    ) {
+      return true;
+    }
     return false;
-  }, [conversation?.user_role, conversation?.property_title, lastUserMsg]);
+  }, [conversation?.user_role, lastUserMsg]);
 
   const activeTemplates = useMemo(() => {
     return isSellerConversation ? SELLER_QUICK_ACTION_TEMPLATES : QUICK_ACTION_TEMPLATES;
@@ -836,7 +841,8 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isAdmin && onReassignClick && (
+          {/* Reassign button commented out from frontend per request */}
+          {/* {isAdmin && onReassignClick && (
             <button
               onClick={onReassignClick}
               className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200"
@@ -845,7 +851,7 @@ export const ChatConversationView: React.FC<ChatConversationViewProps> = ({
               <UserCheck size={14} />
               <span>Reassign</span>
             </button>
-          )}
+          )} */}
 
           <button
             type="button"

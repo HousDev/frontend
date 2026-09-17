@@ -56,9 +56,15 @@ export const REXPropertyCard: React.FC<REXPropertyCardProps> = ({
       ? property.photos[0]
       : DEFAULT_PROPERTY_IMAGE;
 
+  const isRental =
+    property.listing_type === "rent" ||
+    property.price_display?.includes("/mo") ||
+    Boolean((property as any).monthly_rent);
+  const targetBase = isRental ? "/rentals" : "/properties";
+
   const handleViewProperty = () => {
     const targetSlug = property.slug || String(property.id);
-    navigate(`/properties/${encodeURIComponent(targetSlug)}`);
+    navigate(`${targetBase}/${encodeURIComponent(targetSlug)}`);
   };
 
   const handleChatWithExecutive = async () => {
@@ -78,7 +84,7 @@ export const REXPropertyCard: React.FC<REXPropertyCardProps> = ({
       if (onRequireAuth) {
         onRequireAuth(property);
       } else {
-        navigate(`/login?redirect=/properties/${encodeURIComponent(targetSlug)}`);
+        navigate(`/login?redirect=${targetBase}/${encodeURIComponent(targetSlug)}`);
       }
       return;
     }
@@ -107,7 +113,7 @@ export const REXPropertyCard: React.FC<REXPropertyCardProps> = ({
     } catch (err: any) {
       console.error("Failed to start executive conversation:", err);
       // Fallback navigation to property page if desk routing is restricted
-      navigate(`/properties/${encodeURIComponent(property.slug || String(property.id))}`);
+      navigate(`${targetBase}/${encodeURIComponent(property.slug || String(property.id))}`);
     } finally {
       setIsInitiatingChat(false);
     }

@@ -2,45 +2,59 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, MapPin, BarChart3, Target, Brain, Zap, Calendar, DollarSign, Home, Activity } from 'lucide-react';
 
 const AITrends = () => {
-  const [selectedLocation, setSelectedLocation] = useState('Andheri West');
+  const [selectedLocation, setSelectedLocation] = useState('Wakad');
   const [timeframe, setTimeframe] = useState('6M');
 
-  // Sample AI-generated data
+  // AI-generated trend data for Pune
   const trendData = {
-    'Andheri West': {
-      currentPrice: 18500,
+    'Wakad': {
+      currentPrice: 7400,
       priceChange: 12.5,
       prediction: 15.8,
-      demandScore: 8.2,
+      demandScore: 8.8,
       supplyScore: 6.8,
-      roi: 14.2,
+      roi: 18.2,
       factors: [
-        { name: 'Metro Connectivity', impact: '+8.5%', positive: true },
-        { name: 'New IT Parks', impact: '+5.2%', positive: true },
-        { name: 'Infrastructure Growth', impact: '+3.8%', positive: true },
-        { name: 'Supply Increase', impact: '-2.1%', positive: false }
+        { name: 'Metro Line 3 Hinjewadi-Shivajinagar', impact: '+8.5%', positive: true },
+        { name: 'Rajiv Gandhi IT Park Proximity', impact: '+5.2%', positive: true },
+        { name: 'Bhumkar Chowk Flyover Upgrades', impact: '+3.8%', positive: true },
+        { name: 'High New Launch Supply', impact: '-1.8%', positive: false }
       ]
     },
-    'Bandra West': {
-      currentPrice: 22300,
-      priceChange: 8.7,
-      prediction: 11.2,
+    'Baner': {
+      currentPrice: 9200,
+      priceChange: 11.2,
+      prediction: 14.5,
       demandScore: 9.1,
       supplyScore: 5.2,
-      roi: 16.8,
+      roi: 16.5,
       factors: [
-        { name: 'Premium Location', impact: '+6.8%', positive: true },
-        { name: 'Sea Facing Premium', impact: '+4.5%', positive: true },
-        { name: 'Limited Supply', impact: '+2.9%', positive: true },
-        { name: 'High Base Price', impact: '-1.5%', positive: false }
+        { name: 'Balewadi High Street Lifestyle Corridor', impact: '+7.2%', positive: true },
+        { name: 'Mumbai-Pune Expressway Connectivity', impact: '+4.8%', positive: true },
+        { name: 'Limited Resale Inventory', impact: '+3.1%', positive: true },
+        { name: 'High Base Asking Rates', impact: '-1.5%', positive: false }
+      ]
+    },
+    'Hinjewadi': {
+      currentPrice: 6800,
+      priceChange: 9.8,
+      prediction: 13.2,
+      demandScore: 9.3,
+      supplyScore: 7.1,
+      roi: 19.4,
+      factors: [
+        { name: 'Phase 1-3 Tech Company Expansion', impact: '+8.0%', positive: true },
+        { name: 'Top Tier Rental Yield (4.8% - 5.5%)', impact: '+6.1%', positive: true },
+        { name: 'Upcoming Ring Road', impact: '+3.5%', positive: true },
+        { name: 'Peak Hour Traffic', impact: '-2.4%', positive: false }
       ]
     }
   };
 
-  const locations = ['Andheri West', 'Bandra West', 'Juhu', 'Powai', 'Worli'];
+  const locations = ['Wakad', 'Baner', 'Hinjewadi', 'Kharadi', 'Ravet'];
   const timeframes = ['3M', '6M', '1Y', '2Y'];
 
-  const currentData = trendData[selectedLocation as keyof typeof trendData] || trendData['Andheri West'];
+  const currentData = trendData[selectedLocation as keyof typeof trendData] || trendData['Wakad'];
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6">

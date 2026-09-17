@@ -25,8 +25,10 @@ import {
   ShieldCheck, Handshake
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
+import AIReportModal from '@/components/ai/AIReportModal';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PublicPropertyDetailPage from './PublicPropertyDetailPage';
+import { api } from '@/lib/api';
 import { getImageUrl, DEFAULT_PROPERTY_IMAGE, DEFAULT_PROPERTY_IMAGES } from '@/lib/helpers';
 import { AnimatedCountBadge } from '@/components/common/AnimatedCountBadge';
 
@@ -198,6 +200,23 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [isSubOpen, setIsSubOpen] = useState(false);
+  const [isAiReportOpen, setIsAiReportOpen] = useState(false);
+  const [marketHeatData, setMarketHeatData] = useState<any>({
+    priceTrend: '+12.5%',
+    bestRoiLocality: 'Hinjewadi',
+    bestRoiValue: '18.2%',
+    marketHeatLocality: 'Wakad',
+    marketHeatStatus: 'Hot',
+    avgAiScore: '94/100',
+  });
+
+  useEffect(() => {
+    api.get('v1/ai-reports/market-heat').then((res) => {
+      if (res.data?.data) {
+        setMarketHeatData(res.data.data);
+      }
+    }).catch(() => {});
+  }, []);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());
   const { user } = useAuth();
@@ -1217,7 +1236,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">Price Trends</h3>
                   <div className="text-xs text-gray-500">
-                    Pune <span className="font-medium text-green-600">+12.5%</span>
+                    Pune <span className="font-medium text-green-600">{marketHeatData.priceTrend || '+12.5%'}</span>
                   </div>
                 </div>
               </div>
@@ -1232,7 +1251,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">Best ROI</h3>
                   <div className="text-xs text-gray-500">
-                    Pune <span className="font-medium text-blue-600">18.2%</span>
+                    {marketHeatData.bestRoiLocality || 'Hinjewadi'} <span className="font-medium text-blue-600">{marketHeatData.bestRoiValue || '18.2%'}</span>
                   </div>
                 </div>
               </div>
@@ -1247,8 +1266,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">Market Heat</h3>
                   <div className="text-xs">
-                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 text-[11px]">
-                      Powai · Hot
+                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 text-[11px] font-medium">
+                      {marketHeatData.marketHeatLocality || 'Wakad'} · {marketHeatData.marketHeatStatus || 'Hot'}
                     </span>
                   </div>
                 </div>
@@ -1264,7 +1283,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 <div>
                   <h3 className="font-semibold text-gray-800">AI Score</h3>
                   <div className="text-xs text-gray-500">
-                    Avg <span className="font-medium text-orange-600">92/100</span>
+                    Avg <span className="font-medium text-orange-600">{marketHeatData.avgAiScore || '94/100'}</span>
                   </div>
                 </div>
               </div>
@@ -1274,11 +1293,20 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           {/* CTA */}
           <div className="text-center mt-6">
             <button
-              onClick={() => internalAuthAction('subscribe')}
+              onClick={() => setIsAiReportOpen(true)}
               className="inline-flex items-center justify-center gap-2 bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E6761D]"
             >
               Get Full AI Report
             </button>
+            <AIReportModal
+              isOpen={isAiReportOpen}
+              onClose={() => setIsAiReportOpen(false)}
+              onUnlockPro={() => {
+                setIsAiReportOpen(false);
+                setIsSubOpen(true);
+              }}
+              initialLocality="Wakad"
+            />
             <SubscriptionModal isOpen={isSubOpen} onClose={() => setIsSubOpen(false)} />
           </div>
         </div>

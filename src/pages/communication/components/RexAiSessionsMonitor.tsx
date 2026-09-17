@@ -130,7 +130,7 @@ export const RexAiSessionsMonitor: React.FC = () => {
   const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "buyer" | "seller" | "tenant" | "qualified">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "buyer" | "seller" | "tenant" | "owner" | "broker" | "qualified">("all");
   const [dateRange, setDateRange] = useState<"all" | "today" | "yesterday" | "week" | "month">("all");
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -425,6 +425,8 @@ export const RexAiSessionsMonitor: React.FC = () => {
                 { id: "buyer", label: "Buyers" },
                 { id: "seller", label: "Sellers" },
                 { id: "tenant", label: "Tenants" },
+                { id: "owner", label: "Owners" },
+                { id: "broker", label: "Brokers / CP" },
                 { id: "qualified", label: "Qualified Leads", isSpecial: true },
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -557,6 +559,22 @@ export const RexAiSessionsMonitor: React.FC = () => {
                                 Lead #{session.lead_id}
                               </span>
                             )}
+                            {(() => {
+                              const role = (session.current_intent || session.extracted_profile?.role || "buyer").toLowerCase();
+                              if (role.includes("owner")) {
+                                return <span className="flex-shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Owner</span>;
+                              }
+                              if (role.includes("seller")) {
+                                return <span className="flex-shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Seller</span>;
+                              }
+                              if (role.includes("tenant")) {
+                                return <span className="flex-shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">Tenant</span>;
+                              }
+                              if (role.includes("broker")) {
+                                return <span className="flex-shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">Broker</span>;
+                              }
+                              return <span className="flex-shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Buyer</span>;
+                            })()}
                           </div>
                           <p className="text-[10px] text-slate-500 truncate">
                             {phone || email || `Role: ${session.current_intent || "buyer"}`}
