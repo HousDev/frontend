@@ -25,7 +25,7 @@ import { authAPI } from "@/lib/api";
 import { integrationsAPI } from "@/lib/integrationsAPI";
 import { toast } from "react-toastify";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
-import logo from "@/assets/images/logo.png";
+import logo from "/logo1.png";
 import {
   requestMandatoryPreLoginLocation,
   getDeviceId,
