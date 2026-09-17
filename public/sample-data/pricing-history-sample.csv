@@ -1,0 +1,17 @@
+city,locality,society_name,bhk,carpet_area,sold_price,price_per_sqft,transaction_year,transaction_quarter,source
+Pune,Wakad,Rohan Tarang,2 BHK,750,7200000,9600,2023,2,IGR_Registry
+Pune,Wakad,Rohan Tarang,2 BHK,780,7550000,9679,2024,1,IGR_Registry
+Pune,Wakad,Kolte Patil Western,3 BHK,1050,10500000,10000,2023,4,IGR_Registry
+Pune,Wakad,Kolte Patil Western,2 BHK,790,7800000,9873,2024,3,IGR_Registry
+Pune,Baner,VTP Verve,2 BHK,820,8900000,10853,2023,3,IGR_Registry
+Pune,Baner,VTP Verve,3 BHK,1180,13200000,11186,2024,2,IGR_Registry
+Pune,Baner,Supreme Estia,2 BHK,850,9400000,11058,2024,1,IGR_Registry
+Pune,Hinjewadi,Megapolis Smart Homes,2 BHK,680,5200000,7647,2022,4,IGR_Registry
+Pune,Hinjewadi,Megapolis Smart Homes,2 BHK,700,5650000,8071,2023,3,IGR_Registry
+Pune,Hinjewadi,TCG The Crown,2 BHK,720,6100000,8472,2024,2,IGR_Registry
+Pune,Kharadi,EON Waterfront,3 BHK,1350,15800000,11703,2023,1,IGR_Registry
+Pune,Kharadi,Gera World of Joy,2 BHK,760,7800000,10263,2024,2,IGR_Registry
+Pune,Ravet,Pharande Puneville,2 BHK,740,5900000,7972,2023,3,IGR_Registry
+Pune,Ravet,Pharande Puneville,2 BHK,750,6250000,8333,2024,1,IGR_Registry
+Pune,Punawale,Austin Park,2 BHK,710,5400000,7605,2023,2,IGR_Registry
+Pune,Punawale,Austin Park,2 BHK,730,5800000,7945,2024,4,IGR_Registry

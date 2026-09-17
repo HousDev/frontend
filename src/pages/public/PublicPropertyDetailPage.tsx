@@ -1146,6 +1146,23 @@ const PublicPropertyDetailPage = ({ property: propertyProp, onBack, isRentalProp
         }
 
         const payload = res?.data ?? res ?? null;
+        if (!payload) {
+          setProperty(null);
+          return;
+        }
+
+        const isRentalDetected =
+          !isRentalPath &&
+          (payload.listing_type === 'rent' ||
+            payload.monthly_rent ||
+            payload.price_display?.includes('/mo') ||
+            String(payload.property_id || payload.id).toUpperCase().startsWith('RENT'));
+
+        if (isRentalDetected) {
+          navigate(`/rentals/${encodeURIComponent(payload.slug || slug)}`, { replace: true });
+          return;
+        }
+
         const normalized = normalizeProperty(payload);
         setProperty(normalized);
       } catch (err) {

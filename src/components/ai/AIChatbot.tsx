@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Send,
   X,
@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Phone,
   Building2,
+  Home,
   ExternalLink,
   MessageSquare,
   MessageSquareText,
@@ -27,7 +28,11 @@ import {
   Sparkles,
   ChevronRight,
   User as UserIcon,
+  UserCheck,
   Clock,
+  Lock,
+  LogIn,
+  PhoneCall,
 } from "lucide-react";
 
 import ChatbotLogo from "@/assets/images/RE.png";
@@ -59,8 +64,12 @@ import { REXPropertyCarousel } from "./REXPropertyCarousel";
 import { REXVisitScheduler, REXVisitSchedulePayload } from "./REXVisitScheduler";
 import { REXVisitConfirmedCard } from "./REXVisitConfirmedCard";
 import { REXBuyerFilterCard, BuyerFilterSelection } from "./REXBuyerFilterCard";
+import { REXTenantFilterCard, TenantFilterSelection } from "./REXTenantFilterCard";
 import { REXSellerWizardCard, SellerPropertyFormData } from "./REXSellerWizardCard";
 import { REXSellerConfirmedCard } from "./REXSellerConfirmedCard";
+import { REXOwnerRentalWizardCard, OwnerRentalFormData } from "./REXOwnerRentalWizardCard";
+import { REXOwnerRentalConfirmedCard } from "./REXOwnerRentalConfirmedCard";
+import { REXCallRequestCard, CallRequestData } from "./REXCallRequestCard";
 import { OpenPropertyChatOptions } from "@/services/propertyChatService";
 
 // Authentic WhatsApp doodle wallpaper
@@ -77,7 +86,7 @@ interface InChatAuthData {
   email?: string;
   targetProperty?: RexPropertyCardData;
   sellerPropertyData?: SellerPropertyFormData;
-  actionType?: "schedule_visit" | "interested" | "executive_callback";
+  actionType?: "schedule_visit" | "interested" | "executive_callback" | "owner_listing" | "seller_listing";
 }
 
 type InChatAuthStage =
@@ -250,8 +259,26 @@ function parseVisitDateTime(text: string): ParsedVisitDateTime | null {
 function isBuyingIntentWithoutCriteria(text: string): boolean {
   const lower = text.toLowerCase().trim();
 
-  // Non-buyer intents should not be captured
+  // Non-buyer intents or consultative/advisory questions should not trigger the buyer preference filter card
   if (
+    lower.includes("?") ||
+    lower.includes("which") ||
+    lower.includes("where") ||
+    lower.includes("how") ||
+    lower.includes("what") ||
+    lower.includes("why") ||
+    lower.includes("price") ||
+    lower.includes("prices") ||
+    lower.includes("rate") ||
+    lower.includes("rates") ||
+    lower.includes("insight") ||
+    lower.includes("insights") ||
+    lower.includes("trend") ||
+    lower.includes("recommend") ||
+    lower.includes("best") ||
+    lower.includes("suggest") ||
+    lower.includes("explore popular") ||
+    lower.includes("popular localities") ||
     lower.includes("sell") ||
     lower.includes("valuation") ||
     lower.includes("rent") ||
@@ -334,6 +361,103 @@ function isBuyingIntentWithoutCriteria(text: string): boolean {
   return true;
 }
 
+function isRentingIntentWithoutCriteria(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+
+  // Exclude seller, valuation, resale buyer, or status queries
+  if (
+    lower.includes("sell") ||
+    lower.includes("valuation") ||
+    lower.includes("buy") ||
+    lower.includes("purchase") ||
+    lower.includes("status") ||
+    lower.includes("executive") ||
+    lower.includes("owner of") ||
+    lower.includes("market rent") ||
+    lower.includes("market rate") ||
+    lower.includes("current rent") ||
+    lower.includes("what is the rent") ||
+    lower.includes("what is the current") ||
+    lower.includes("how much is rent") ||
+    lower.includes("agreement") ||
+    lower.includes("rule") ||
+    lower.includes("rules") ||
+    lower.includes("process") ||
+    lower.includes("deposit") ||
+    lower.includes("lock-in") ||
+    lower.includes("police") ||
+    lower.includes("stamp duty") ||
+    lower.includes("registration")
+  ) {
+    return false;
+  }
+
+  // Exact matching for greeting pill or generic rent keywords
+  const rentKeywords = [
+    "search rental home",
+    "search rental homes",
+    "search rentals",
+    "i want rent property",
+    "i want rent flat",
+    "i want to rent property",
+    "i want to rent a property",
+    "i want a flat on rent",
+    "i want rent",
+    "want rent property",
+    "want flat on rent",
+    "want to rent property",
+    "want to rent flat",
+    "rent property",
+    "rent flat",
+    "rent a flat",
+    "rent house",
+    "rent home",
+    "looking for rent",
+    "looking for rental",
+    "flat for rent",
+    "house for rent",
+    "rental flat",
+    "rental home",
+    "rental properties",
+    "find rental",
+    "find rent property",
+    "kiraye par flat",
+    "kiraya",
+    "renting",
+  ];
+
+  const hasRentKeyword =
+    rentKeywords.some((kw) => lower === kw || lower.includes(kw)) ||
+    lower === "rent" ||
+    lower.startsWith("rent ") ||
+    lower.startsWith("renting ") ||
+    lower.includes("want rent") ||
+    lower.includes("want to rent") ||
+    lower.includes("looking to rent");
+
+  if (!hasRentKeyword) return false;
+
+  // Check if specific criteria (locality + bhk/budget) are provided
+  const commonAreas = [
+    "wakad", "tathawade", "hinjewadi", "punawale", "rahatani", "ravet", "kiwale", "mamurdi",
+    "baner", "balewadi", "mahalunge", "sus", "bavdhan", "pashan", "aundh",
+    "pimple saudagar", "pimple gurav", "pimple nilakh", "kalewadi", "thergaon",
+    "pimpri", "chinchwad", "akurdi", "nigdi", "katraj", "dhayari", "narhe",
+    "kondhwa", "undri", "kothrud", "kharadi", "viman nagar", "koregaon park",
+    "magarpatta", "hadapsar", "wagholi", "dhanori", "swargate", "swarget", "camp"
+  ];
+  const hasLocation = commonAreas.some((loc) => lower.includes(loc));
+  const hasBhk = /\b(\d+(?:\.\d+)?)\s*(?:bhk|bedroom|bed|rk)\b/i.test(lower);
+  const hasBudget =
+    /(?:₹|rs\.?|inr)?\s*(\d+)\s*(?:k|thousand)/i.test(lower) ||
+    /\b(under|below|budget|upto|within|max|less than)\s*(?:₹|rs\.?)?\s*\d+/i.test(lower);
+
+  // If user provided ANY location, BHK, or budget -> specific criteria provided, search properties instead of showing filter card
+  if (hasLocation || hasBhk || hasBudget) return false;
+
+  return true;
+}
+
 function isVisitIntent(text: string): boolean {
   const lower = text.toLowerCase().trim();
   const visitKeywords = [
@@ -373,6 +497,11 @@ function isSellerIntent(text: string): boolean {
     lower.includes("estimate price") ||
     lower.includes("market rate") ||
     lower.includes("listing status") ||
+    lower.includes("rent") ||
+    lower.includes("rental") ||
+    lower.includes("tenant") ||
+    lower.includes("to let") ||
+    lower.includes("lease") ||
     lower.includes("check status") ||
     lower.includes("status") ||
     lower.includes("executive") ||
@@ -432,6 +561,74 @@ function isSellerIntent(text: string): boolean {
     lower.startsWith("sell ") ||
     lower.startsWith("selling ")
   );
+}
+
+function isOwnerRentalListingIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+
+  // Exclude non-form inquiries (tenant demand, rules, finding flats, dashboard, etc.)
+  if (
+    lower.includes("interested tenant") ||
+    lower.includes("tenant demand") ||
+    lower.includes("check demand") ||
+    lower.includes("rules") ||
+    lower.includes("agreement") ||
+    lower.includes("executive") ||
+    lower.includes("dashboard") ||
+    lower.includes("portal") ||
+    lower.startsWith("rent in ") ||
+    lower.includes("explore") ||
+    lower.includes("modify")
+  ) {
+    return false;
+  }
+
+  const explicitListingPhrases = [
+    "list property for rent",
+    "list another rental property",
+    "list my property for rent",
+    "list flat for rent",
+    "list my flat for rent",
+    "add my property for rent",
+    "add property for rent",
+    "add flat for rent",
+    "add my flat for rent",
+    "rent out property",
+    "rent out my property",
+    "rent out flat",
+    "rent out my flat",
+    "rent out home",
+    "rent out house",
+    "rent my flat",
+    "rent my house",
+    "rent my home",
+    "rent my apartment",
+    "rent my property",
+    "upload rental property",
+    "upload property for rent",
+    "upload flat for rent",
+    "give flat on rent",
+    "give my flat on rent",
+    "give property on rent",
+    "give on rent",
+    "giving on rent",
+    "post property for rent",
+    "post flat for rent",
+    "post rental",
+    "add rental property",
+    "kiraye pe dena",
+    "kiraye par dena",
+    "kiraye pe dena hai",
+    "bhade pe dena",
+    "bhade par dena",
+    "bhade pe dena hai",
+    "bhadya ne dene",
+    "ghar bhadya ne dene ahe",
+    "ghar kiraye pe dena hai",
+    "flat kiraye pe dena hai",
+  ];
+
+  return explicitListingPhrases.some((p) => lower.includes(p));
 }
 
 function parseSellerDetails(text: string): Partial<SellerPropertyFormData> {
@@ -505,7 +702,7 @@ interface AIMessage {
     role?: string;
     targetProperty?: RexPropertyCardData;
     sellerPropertyData?: SellerPropertyFormData;
-    actionType?: "schedule_visit" | "interested" | "executive_callback";
+    actionType?: "schedule_visit" | "interested" | "executive_callback" | "owner_listing" | "seller_listing";
     disabled?: boolean;
   };
   inChatOtp?: {
@@ -523,12 +720,20 @@ interface AIMessage {
     initialBudget?: string;
     disabled?: boolean;
   };
+  tenantFilterCard?: {
+    initialLocation?: string;
+    initialBhk?: string;
+    initialBudget?: string;
+    initialFurnishing?: string;
+    disabled?: boolean;
+  };
   sellerWizardCard?: {
     initialData?: Partial<SellerPropertyFormData>;
     disabled?: boolean;
   };
   sellerConfirmedCard?: {
     data: SellerPropertyFormData;
+    executiveCard?: any;
   };
   scheduleLaterCard?: {
     property: RexPropertyCardData;
@@ -540,6 +745,63 @@ interface AIMessage {
       email?: string;
       avatar?: string;
     };
+  };
+  sellerExecutiveCard?: {
+    executiveName: string;
+    executiveFirstName?: string;
+    executivePhone?: string;
+    executiveEmail?: string;
+    executiveRole?: string;
+    propertyTitle?: string;
+    propertyId?: number | string;
+    propertySlug?: string;
+    propertyPrice?: number | string;
+    conversationId?: number | string | null;
+  };
+  rentalOwnerCard?: {
+    ownerId?: number | null;
+    ownerName: string;
+    ownerPhone?: string | null;
+    ownerWhatsapp?: string | null;
+    ownerEmail?: string | null;
+    propertyTitle?: string;
+    propertyId?: number | string;
+    monthlyRent?: number | string;
+    securityDeposit?: number | string;
+    location?: string;
+    verifiedBadge?: boolean;
+  };
+  ownerWizardCard?: {
+    disabled?: boolean;
+  };
+  ownerConfirmedCard?: {
+    propertyTitle?: string;
+    societyName?: string;
+    locality?: string;
+    unitType?: string;
+    monthlyRent?: number | string;
+    securityDeposit?: number | string;
+    executiveName?: string;
+    executivePhone?: string;
+    executiveEmail?: string;
+    executiveRole?: string;
+  };
+  executiveDeskCard?: {
+    deskName?: string;
+    phone?: string;
+    displayPhone?: string;
+    persona?: string;
+  };
+  callRequestCard?: {
+    initialPhone?: string;
+    initialName?: string;
+    persona?: string;
+    disabled?: boolean;
+  };
+  accountExistsCard?: {
+    email: string;
+    name?: string;
+    message?: string;
   };
 }
 
@@ -876,17 +1138,6 @@ const InlineInChatAuthCard: React.FC<InlineAuthCardProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setStep("details");
-              setErrorMsg("");
-            }}
-            disabled={isVerifying || loading}
-            className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-          >
-            Edit Email
-          </button>
         </div>
 
         <div className="space-y-3">
@@ -1183,16 +1434,6 @@ const InlineInChatOtpCard: React.FC<InlineOtpCardProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-bold text-[13px] text-slate-900 leading-tight">Verify Your Email</h4>
-            {onEditEmail && (
-              <button
-                type="button"
-                onClick={onEditEmail}
-                className="text-[10.5px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer"
-                title="Change or fix email address"
-              >
-                Edit Email
-              </button>
-            )}
           </div>
           <p className="text-[11px] text-slate-500 leading-tight mt-0.5 truncate">
             Code sent to <span className="font-semibold text-slate-700">{email}</span>
@@ -1276,6 +1517,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   const isMobile = width > 0 ? width < 640 : false;
   const { user, isAuthenticated, setAuthSession } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Widget States
   const [isOpen, setIsOpen] = useState<boolean>(() => {
@@ -1563,14 +1805,45 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     );
   }, [activeConversation, currentPropertyContext]);
 
+  const activePropertyDetailUrl = useMemo(() => {
+    if (!activePropertySlug) return "";
+    const isRental =
+      selectedPersona === "tenant" ||
+      (activeConversation as any)?.property_listing_type === "rent" ||
+      (activeConversation as any)?.listing_type === "rent" ||
+      (currentPropertyContext as any)?.propertyType === "rent";
+    return isRental ? `/rentals/${activePropertySlug}` : `/properties/${activePropertySlug}`;
+  }, [activePropertySlug, selectedPersona, activeConversation, currentPropertyContext]);
+
   const isSellerChat = useMemo(() => {
-    // Strictly identify seller property chat only if conversation user_role is explicitly seller
-    return activeConversation?.user_role === "seller";
-  }, [activeConversation]);
+    // 1. Explicit buyer role / persona overrides: buyers never see seller controls
+    if (
+      selectedPersona === "buyer" ||
+      user?.role === "buyer" ||
+      activeConversation?.user_role === "buyer" ||
+      activeConversation?.user_role === "tenant"
+    ) {
+      return false;
+    }
+
+    // 2. Otherwise check for seller / owner criteria
+    return (
+      activeConversation?.user_role === "seller" ||
+      activeConversation?.user_role === "owner" ||
+      selectedPersona === "seller" ||
+      selectedPersona === "owner" ||
+      user?.role === "seller" ||
+      user?.role === "owner" ||
+      Boolean(
+        activeConversation?.last_message_text &&
+          String(activeConversation?.last_message_text).toLowerCase().startsWith("new seller listing")
+      )
+    );
+  }, [activeConversation, selectedPersona, user?.role]);
 
   const isPropertyPublic = useMemo(() => {
     if (activeConversation?.property_is_public === 1 || (activeConversation as any)?.property_is_public === true) return true;
-    if ((activeConversation as any)?.property_status === "Available") return true;
+    if ((activeConversation as any)?.property_status === "Available" || (activeConversation as any)?.property_status === "Active") return true;
     return false;
   }, [activeConversation]);
 
@@ -1888,16 +2161,277 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     }
   }, [location.search, isAuthenticated, handleOpenPropertyConversation]);
 
+  /* ---------------- Resume Pending Chat Action Post-Login ---------------- */
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const pendingResumeRaw = sessionStorage.getItem("rex_pending_resume");
+    if (!pendingResumeRaw) return;
+
+    try {
+      const pendingResume = JSON.parse(pendingResumeRaw);
+      sessionStorage.removeItem("rex_pending_resume");
+
+      // Only resume if initiated within last 2 hours
+      if (Date.now() - (pendingResume.timestamp || 0) < 7200000) {
+        setIsOpen(true);
+        setIsMinimized(false);
+        setChatMode("rex_ai");
+
+        if (pendingResume.type === "get_rental_owner" && pendingResume.property) {
+          const welcomeResumeMsg: AIMessage = {
+            id: `resumed_${Date.now()}`,
+            text: `Welcome back, ${user.first_name || "there"}! Fetching the verified owner contact details for ${pendingResume.property.title}...`,
+            sender: "bot",
+            timestamp: new Date(),
+          };
+          setAiMessages((prev) => [...prev, welcomeResumeMsg]);
+          handlePropertyInterested(pendingResume.property);
+        } else if (pendingResume.type === "schedule_visit" && pendingResume.property) {
+          const schedMsg: AIMessage = {
+            id: `sched_resume_${Date.now()}`,
+            text: `Welcome back, ${user.first_name || "there"}! Let's choose your site visit schedule for ${getBuyerSafePropertyTitle(pendingResume.property)}:`,
+            sender: "bot",
+            timestamp: new Date(),
+            visitScheduler: { property: pendingResume.property },
+          };
+          setAiMessages((prev) => [...prev, schedMsg]);
+        } else if (pendingResume.type === "seller_property" && pendingResume.sellerPropertyData) {
+          handleSellerWizardSubmit(pendingResume.sellerPropertyData);
+        } else if (pendingResume.type === "owner_rental_wizard") {
+          const ownerMsg: AIMessage = {
+            id: `owner_resume_${Date.now()}`,
+            text: `Welcome back, ${user.first_name || "there"}! You can now list your rental property below:`,
+            sender: "bot",
+            timestamp: new Date(),
+            ownerWizardCard: {},
+          };
+          setAiMessages((prev) => [...prev, ownerMsg]);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to resume pending chat action post-login:", e);
+      sessionStorage.removeItem("rex_pending_resume");
+    }
+  }, [isAuthenticated, user]);
+
+  /* ---------------- Helper: Existing Account Notification ----------------- */
+  const promptExistingUserLogin = (
+    email: string,
+    firstName?: string,
+    pendingAction?: any
+  ) => {
+    if (pendingAction) {
+      sessionStorage.setItem(
+        "rex_pending_resume",
+        JSON.stringify({
+          ...pendingAction,
+          email,
+          timestamp: Date.now(),
+        })
+      );
+    }
+
+    const existMsg: AIMessage = {
+      id: `exist_user_${Date.now()}`,
+      text: `Your account already exists (${email}). Please login to continue forward.`,
+      sender: "bot",
+      timestamp: new Date(),
+      accountExistsCard: {
+        email,
+        name: firstName || "Client",
+        message: "Your account already exists in our system. Please login to your account to continue directly without re-verification.",
+      },
+      suggestions: [
+        "Login to Your Account",
+        "Explore Rental Listings",
+        "Talk to Property Executive",
+      ],
+    };
+    setAiMessages((prev) => [...prev, existMsg]);
+  };
+
   /* ------------------------- Interactive REX Actions ------------------------ */
   const [isLoadingMoreProperties, setIsLoadingMoreProperties] = useState(false);
   const [isBookingVisit, setIsBookingVisit] = useState(false);
 
   const handlePropertyInterested = async (property: RexPropertyCardData) => {
+    const isRentalProperty =
+      property.listing_type === "rent" ||
+      Boolean(property.price_display?.includes("/mo")) ||
+      (selectedPersona as string) === "tenant";
+
+    if (isRentalProperty) {
+      if (isAuthenticated) {
+        setIsSending(true);
+        try {
+          const res = await rexApi.performAction({
+            action: "get_rental_owner_details",
+            payload: {
+              property_id: property.id,
+              userId: user?.id,
+              phone: user?.phone,
+              email: user?.email,
+              name: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : undefined,
+            },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+
+          if (res.success && res.rental_owner_card) {
+            const ownerMsg: AIMessage = {
+              id: `rental_owner_${Date.now()}`,
+              text: res.message || `Here are the verified owner contact details for ${property.title}:`,
+              sender: "bot",
+              timestamp: new Date(),
+              rentalOwnerCard: res.rental_owner_card,
+              suggestions: [
+                "Go to Tenant Dashboard",
+                "Find more rental properties",
+                "Rental agreement process",
+                "Talk to Property Executive",
+              ],
+            };
+            setAiMessages((prev) => [...prev, ownerMsg]);
+            return;
+          }
+        } catch (err: any) {
+          console.error("Failed to fetch rental owner details:", err);
+        } finally {
+          setIsSending(false);
+        }
+      }
+
+      const knownEmail = rexProfile?.email || inChatAuthData?.email;
+      const knownPhone = rexProfile?.phone || inChatAuthData?.phone;
+      if (knownEmail || knownPhone) {
+        try {
+          const statusRes = await rexApi.performAction({
+            action: "check_user_status",
+            payload: { email: knownEmail, phone: knownPhone },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+          if (statusRes.is_registered) {
+            promptExistingUserLogin(knownEmail || knownPhone || "", statusRes.first_name, {
+              type: "get_rental_owner",
+              property,
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("Error checking user status in handlePropertyInterested:", e);
+        }
+
+        const updatedAuth: InChatAuthData = {
+          ...inChatAuthData,
+          email: knownEmail,
+          first_name: rexProfile?.name?.split(" ")[0] || inChatAuthData.first_name || "Client",
+          last_name: rexProfile?.name?.split(" ").slice(1).join(" ") || inChatAuthData.last_name || "",
+          phone: rexProfile?.phone || inChatAuthData.phone,
+          role: "tenant",
+          targetProperty: property,
+        };
+        setInChatAuthData(updatedAuth);
+        setInChatAuthStage("verifying_otp");
+
+        const promptMsg: AIMessage = {
+          id: `auth_quick_${Date.now()}`,
+          text: `Welcome back${rexProfile?.name ? `, ${rexProfile.name}` : ""}! To view the verified owner contact details for ${property.title}, I've sent a 6-digit verification code to ${knownEmail}. Please enter it below:`,
+          sender: "bot",
+          timestamp: new Date(),
+        };
+        setAiMessages((prev) => [...prev, promptMsg]);
+        setIsSending(true);
+
+        try {
+          await rexApi.sendInChatOtp({
+            email: knownEmail,
+            first_name: updatedAuth.first_name,
+            last_name: updatedAuth.last_name,
+            phone: updatedAuth.phone,
+            role: "tenant",
+          });
+
+          const otpCardMsg: AIMessage = {
+            id: `otp_card_${Date.now()}`,
+            text: `Please enter the 6-digit code sent to ${knownEmail}:`,
+            sender: "bot",
+            timestamp: new Date(),
+            inChatOtp: {
+              email: knownEmail,
+              first_name: updatedAuth.first_name,
+              last_name: updatedAuth.last_name,
+              phone: updatedAuth.phone,
+              role: "tenant",
+              targetProperty: property,
+            },
+          };
+          setAiMessages((prev) => [...prev, otpCardMsg]);
+        } catch (err: any) {
+          console.error("Failed to send quick OTP:", err);
+          const errMsg: AIMessage = {
+            id: `err_otp_${Date.now()}`,
+            text: err.message || "Failed to send verification code. Please enter your details below:",
+            sender: "bot",
+            timestamp: new Date(),
+            isError: true,
+            inChatAuthForm: {
+              initialEmail: knownEmail,
+              role: "tenant",
+              targetProperty: property,
+              actionType: "interested",
+            },
+          };
+          setAiMessages((prev) => [...prev, errMsg]);
+        } finally {
+          setIsSending(false);
+        }
+        return;
+      }
+
+      // Unauthenticated new user: Show inline auth form for Tenant
+      const authFormMsg: AIMessage = {
+        id: `auth_form_tenant_${Date.now()}`,
+        text: `To connect directly with the verified owner of ${property.title}, please share your details below:`,
+        sender: "bot",
+        timestamp: new Date(),
+        inChatAuthForm: {
+          initialName: inChatAuthData.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "",
+          initialEmail: inChatAuthData.email || "",
+          initialPhone: inChatAuthData.phone || "",
+          role: "tenant",
+          targetProperty: property,
+          actionType: "interested",
+        },
+      };
+      setAiMessages((prev) => [...prev, authFormMsg]);
+      return;
+    }
+
     if (!isAuthenticated) {
       const knownEmail = rexProfile?.email || inChatAuthData?.email;
+      const knownPhone = rexProfile?.phone || inChatAuthData?.phone;
 
-      // Returning / Known User with cached email: Trigger 1-click OTP verification directly!
-      if (knownEmail) {
+      if (knownEmail || knownPhone) {
+        try {
+          const statusRes = await rexApi.performAction({
+            action: "check_user_status",
+            payload: { email: knownEmail, phone: knownPhone },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+          if (statusRes.is_registered) {
+            promptExistingUserLogin(knownEmail || knownPhone || "", statusRes.first_name, {
+              type: "schedule_visit",
+              property,
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("Error checking user status in buyer flow:", e);
+        }
+
         const updatedAuth: InChatAuthData = {
           ...inChatAuthData,
           email: knownEmail,
@@ -1996,16 +2530,49 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
   const handleInChatSendOtp = async (
     formData: { name: string; email: string; phone: string },
-    formMeta?: AIMessage["inChatAuthForm"]
+    formMeta?: AIMessage["inChatAuthForm"],
+    msgId?: string
   ) => {
+    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanPhone = formData.phone.replace(/\D/g, "");
+
+    // 1. Check if user already exists
+    try {
+      const statusRes = await rexApi.performAction({
+        action: "check_user_status",
+        payload: { email: cleanEmail, phone: cleanPhone },
+        session_uuid: sessionUuid || undefined,
+        guest_uuid: getGuestUuid(),
+      });
+
+      if (statusRes.is_registered) {
+        if (msgId) {
+          setAiMessages((prev) => prev.filter((m) => m.id !== msgId));
+        }
+
+        const isRental =
+          formMeta?.targetProperty?.listing_type === "rent" ||
+          Boolean(formMeta?.targetProperty?.price_display?.includes("/mo")) ||
+          formMeta?.role === "tenant";
+
+        promptExistingUserLogin(cleanEmail, statusRes.first_name, {
+          type: formMeta?.sellerPropertyData ? "seller_property" : (isRental ? "get_rental_owner" : "schedule_visit"),
+          property: formMeta?.targetProperty,
+          sellerPropertyData: formMeta?.sellerPropertyData,
+        });
+        return;
+      }
+    } catch (e) {
+      console.error("Error checking user registration status in handleInChatSendOtp:", e);
+    }
+
     const nameParts = formData.name.split(/\s+/).filter(Boolean);
     const first_name = nameParts[0] || "Client";
     const last_name = nameParts.slice(1).join(" ");
-    const cleanPhone = formData.phone.replace(/\D/g, "");
 
     const updatedAuth: InChatAuthData = {
       ...inChatAuthData,
-      email: formData.email,
+      email: cleanEmail,
       first_name,
       last_name,
       phone: cleanPhone,
@@ -2016,7 +2583,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     setInChatAuthData(updatedAuth);
 
     await rexApi.sendInChatOtp({
-      email: formData.email,
+      email: cleanEmail,
       first_name,
       last_name,
       phone: cleanPhone,
@@ -2049,18 +2616,96 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     setAiMessages((prev) => prev.filter((m) => m.id !== msgId));
   };
 
-  const handlePropertyNotInterested = (_property: RexPropertyCardData) => {
-    const notInterestedMsg: AIMessage = {
-      id: `not_int_${Date.now()}`,
-      text: `Understood. Would you like to check properties in a different budget or locality?`,
+  const handleOpenCallRequest = (_deskPhone?: string, _deskName?: string) => {
+    const callReqMsg: AIMessage = {
+      id: `call_req_${Date.now()}`,
+      text: "Please provide your mobile number and preferred time below so our Property Executive can call you back directly.",
       sender: "bot",
       timestamp: new Date(),
-      suggestions: [
-        "2 BHK in Wakad under 80 Lakhs",
-        "Properties in Hinjewadi",
-        "Budget under ₹60L",
-        "Top projects in Pune",
-      ],
+      callRequestCard: {
+        initialPhone: user?.phone || "",
+        initialName: user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "",
+        persona: selectedPersona || "tenant",
+      },
+    };
+    setAiMessages((prev) => [...prev, callReqMsg]);
+  };
+
+  const handleCancelCallRequest = (msgId: string) => {
+    setAiMessages((prev) => prev.filter((m) => m.id !== msgId));
+  };
+
+  const handleSubmitCallRequest = async (data: CallRequestData, msgId: string) => {
+    try {
+      await rexApi.performAction({
+        action: "create_call_request_lead",
+        payload: {
+          phone: data.phone,
+          name: data.name,
+          timing: data.timing,
+          persona: data.persona || selectedPersona || "tenant",
+          location: rexRequirements.locations?.[0] || "",
+          society_name: rexRequirements.society_name || "",
+        },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      });
+
+      // Mark card as disabled/completed
+      setAiMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.callRequestCard
+            ? { ...m, callRequestCard: { ...m.callRequestCard, disabled: true } }
+            : m
+        )
+      );
+
+      // Bot confirmation response
+      setTimeout(() => {
+        const confirmMsg: AIMessage = {
+          id: `b_call_confirmed_${Date.now()}`,
+          text: `✅ Callback Request Registered!\n\nThank you ${data.name}! Our Property Executive will call you ${data.timing === "Immediately" ? "immediately" : data.timing} at +91 ${data.phone}.\n\nYour request has been saved and routed to our CRM team. How else can we assist you today?`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions:
+            selectedPersona === "tenant"
+              ? ["Rent in Baner", "Rent in Wakad", "Rent in Hinjewadi", "Modify Filters"]
+              : ["Explore 2 BHK in Pune", "Book Site Visit", "Properties under ₹80L", "Filter Properties"],
+        };
+        setAiMessages((prev) => [...prev, confirmMsg]);
+      }, 350);
+    } catch (err: any) {
+      console.error("Submit Call Request error:", err);
+      throw new Error(err?.response?.data?.message || err?.message || "Could not submit call request");
+    }
+  };
+
+  const handlePropertyNotInterested = (_property: RexPropertyCardData) => {
+    const isTenant =
+      selectedPersona === "tenant" ||
+      _property.listing_type === "rent" ||
+      _property.price_display?.includes("/mo");
+
+    const notInterestedMsg: AIMessage = {
+      id: `not_int_${Date.now()}`,
+      text: isTenant
+        ? `Understood. Would you like to check rental homes in a different budget or locality?`
+        : `Understood. Would you like to check properties in a different budget or locality?`,
+      sender: "bot",
+      timestamp: new Date(),
+      suggestions: isTenant
+        ? [
+            "Rent in Baner",
+            "Rent in Wakad",
+            "Rent in Hinjewadi",
+            "Modify Filters",
+          ]
+        : [
+            "2 BHK in Wakad under 80 Lakhs",
+            "Properties in Hinjewadi",
+            "Budget under ₹60L",
+            "Top projects in Pune",
+          ],
     };
     setAiMessages((prev) => [...prev, notInterestedMsg]);
   };
@@ -2128,20 +2773,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
       if (otpData.sellerPropertyData) {
         const sellerData = otpData.sellerPropertyData;
-
-        const successSellerMsg: AIMessage = {
-          id: `auth_verified_seller_${Date.now()}`,
-          text: `Verified successfully! Welcome, ${res.user.first_name || otpData.first_name || "there"}. Your property at ${sellerData.society_name}, ${sellerData.locality} has been submitted for review. Our team will assign a dedicated Property Executive for your property shortly.`,
-          sender: "bot",
-          timestamp: new Date(),
-          sellerConfirmedCard: { data: sellerData },
-          suggestions: ["List Another Property", "Check Listing Status", "Get Free Property Valuation", "Talk to Property Executive"],
-        };
-
-        const allCurrentMessages = [...aiMessages, successSellerMsg];
-
+        setIsSending(true);
         try {
-          await rexApi.performAction({
+          const submitRes = await rexApi.performAction({
             action: "submit_seller_property",
             payload: {
               ...sellerData,
@@ -2150,28 +2784,48 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
               seller_email: res.user.email || otpData.email,
               user_id: res.user.id,
               seller_id: (res.user as any).seller_id || undefined,
-              messages: allCurrentMessages,
             },
             session_uuid: sessionUuid || undefined,
             guest_uuid: getGuestUuid(),
           });
-        } catch (e) {
-          console.error("Failed to auto-submit seller property post-auth:", e);
+
+          const loc = sellerData.location_name || (sellerData as any).locality || "Pune";
+          const unit = sellerData.unit_type || (sellerData as any).bhk || "Property";
+
+          const successSellerMsg: AIMessage = {
+            id: `auth_verified_seller_${Date.now()}`,
+            text: submitRes.reply || `Verified successfully! Welcome, ${res.user.first_name || otpData.first_name || "there"}. Your property at ${sellerData.society_name}, ${loc} has been submitted for review. Dedicated Property Executive ${submitRes.executive_card?.executiveName || ""} has been assigned to your property.`,
+            sender: "bot",
+            timestamp: new Date(),
+            sellerConfirmedCard: {
+              data: {
+                ...sellerData,
+                location_name: loc,
+                unit_type: unit,
+              },
+              executiveCard: submitRes.executive_card,
+            },
+            suggestions: ["Chat with Executive", "List Another Property", "Check Active Buyers in My Locality", "Talk to Property Executive"],
+          };
+
+          setRexRequirements((prev) => ({
+            ...prev,
+            locations: [loc],
+            society_name: sellerData.society_name,
+            unit_type: unit,
+            carpet_area: sellerData.carpet_area,
+            budget: sellerData.expected_price,
+            transaction_type: "sell",
+          }));
+
+          setAiMessages((prev) => [...prev, successSellerMsg]);
+          loadUserConversations();
+          return;
+        } catch (sErr) {
+          console.error("Failed to auto-submit seller property post-auth:", sErr);
+        } finally {
+          setIsSending(false);
         }
-
-        setRexRequirements((prev) => ({
-          ...prev,
-          locations: [sellerData.locality],
-          society_name: sellerData.society_name,
-          unit_type: sellerData.bhk,
-          carpet_area: sellerData.carpet_area,
-          budget: sellerData.expected_price,
-          transaction_type: "sell",
-        }));
-
-        setAiMessages(allCurrentMessages);
-        loadUserConversations();
-        return;
       }
 
       if (isSeller) {
@@ -2181,13 +2835,174 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           sender: "bot",
           timestamp: new Date(),
           sellerWizardCard: {
-            initialData: { locality: "Punawale", bhk: "2 BHK" },
+            initialData: { location_name: "Punawale", unit_type: "2 BHK" },
           },
-          suggestions: ["Get Free Property Valuation", "Check Active Buyers in My Locality", "Talk to Property Executive"],
+          suggestions: ["Check Active Buyers in My Locality", "Get Free Property Valuation", "Talk to Property Executive"],
         };
         setAiMessages((prev) => [...prev, successSellerGeneralMsg]);
         loadUserConversations();
         return;
+      }
+
+      const isTenant =
+        (otpData.role || selectedPersona || inChatAuthData.role) === "tenant" ||
+        otpData.targetProperty?.listing_type === "rent" ||
+        Boolean(otpData.targetProperty?.price_display?.includes("/mo"));
+
+      // Ensure targetProperty is preserved or recovered if available from anywhere in the conversation
+      let targetRentalProp = otpData.targetProperty;
+      if (!targetRentalProp) {
+        const lastPropMsg = [...aiMessages].reverse().find(
+          (m) =>
+            m.inChatAuthForm?.targetProperty ||
+            m.rentalOwnerCard ||
+            m.properties?.find((p) => p.listing_type === "rent" || p.price_display?.includes("/mo")) ||
+            (m.properties && m.properties.length > 0)
+        );
+        targetRentalProp =
+          lastPropMsg?.inChatAuthForm?.targetProperty ||
+          lastPropMsg?.properties?.find((p) => p.listing_type === "rent" || p.price_display?.includes("/mo")) ||
+          lastPropMsg?.properties?.[0];
+      }
+
+      if (isTenant && targetRentalProp) {
+        setIsSending(true);
+        try {
+          const resOwner = await rexApi.performAction({
+            action: "get_rental_owner_details",
+            payload: {
+              property_id: targetRentalProp.id,
+              userId: res.user.id,
+              phone: res.user.phone || otpData.phone,
+              email: res.user.email || otpData.email,
+              name: res.user.first_name ? `${res.user.first_name} ${res.user.last_name || ""}`.trim() : otpData.first_name,
+            },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+
+          if (resOwner.success && resOwner.rental_owner_card) {
+            const ownerMsg: AIMessage = {
+              id: `auth_verified_tenant_${Date.now()}`,
+              text: `Verified successfully! Welcome, ${res.user.first_name || "there"}. Here are the verified contact details of the property owner for ${targetRentalProp.title}:`,
+              sender: "bot",
+              timestamp: new Date(),
+              rentalOwnerCard: resOwner.rental_owner_card,
+              suggestions: [
+                "Go to Tenant Dashboard",
+                "Find more rental properties",
+                "Rental agreement process",
+                "Talk to Property Executive",
+              ],
+            };
+            setAiMessages((prev) => [...prev, ownerMsg]);
+            loadUserConversations();
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to fetch rental owner details post-auth:", err);
+        } finally {
+          setIsSending(false);
+        }
+      }
+
+      if (isTenant) {
+        const tenantWelcomeMsg: AIMessage = {
+          id: `auth_verified_tenant_gen_${Date.now()}`,
+          text: `Verified successfully! Welcome, ${res.user.first_name || "there"}. Which area in Pune are you looking for a rental flat? (e.g. Baner, Hinjewadi, Wakad)`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: [
+            "1 BHK for rent in Baner",
+            "2 BHK flat in Wakad under ₹25k",
+            "Rental agreement process",
+            "Talk to Property Executive",
+          ],
+        };
+        setAiMessages((prev) => [...prev, tenantWelcomeMsg]);
+        loadUserConversations();
+        return;
+      }
+
+      const isOwner =
+        (otpData.role || selectedPersona || inChatAuthData.role) === "owner" ||
+        res.user.role === "owner";
+
+      const savedRentalDraft = sessionStorage.getItem("rex_pending_owner_rental");
+      if (isOwner && savedRentalDraft) {
+        sessionStorage.removeItem("rex_pending_owner_rental");
+        const rentalData: OwnerRentalFormData = JSON.parse(savedRentalDraft);
+        setIsSending(true);
+        try {
+          const submitRes = await rexApi.performAction({
+            action: "submit_owner_rental_property",
+            payload: {
+              ...rentalData,
+              owner_name: res.user.first_name ? `${res.user.first_name} ${res.user.last_name || ""}`.trim() : (otpData.first_name || "Owner"),
+              owner_phone: res.user.phone || otpData.phone,
+              owner_email: res.user.email || otpData.email,
+              user_id: res.user.id,
+              owner_id: (res.user as any).owner_id || undefined,
+            },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+
+          const successOwnerMsg: AIMessage = {
+            id: `auth_owner_sub_${Date.now()}`,
+            text: submitRes.message || `Verified successfully! Your rental property at ${rentalData.society_name}, ${rentalData.location_name} has been registered! A dedicated Sales Executive has been assigned.`,
+            sender: "bot",
+            timestamp: new Date(),
+            ownerConfirmedCard: {
+              propertyTitle: submitRes.property?.title || `${rentalData.unit_type} at ${rentalData.society_name}`,
+              societyName: rentalData.society_name,
+              locality: rentalData.location_name,
+              unitType: rentalData.unit_type,
+              monthlyRent: rentalData.monthly_rent,
+              securityDeposit: rentalData.security_deposit,
+              executiveName: submitRes.executive_card?.executiveName || "Soniya Singh",
+              executivePhone: submitRes.executive_card?.executivePhone || "+91 9604 350 255",
+              executiveEmail: submitRes.executive_card?.executiveEmail || "support@resaleexpert.in",
+              executiveRole: submitRes.executive_card?.executiveRole || "Sales Executive",
+            },
+            suggestions: ["Go to Owner Dashboard", "List Another Rental Property", "Check Interested Tenants", "Talk to Sales Executive"],
+          };
+          setAiMessages((prev) => [...prev, successOwnerMsg]);
+          loadUserConversations();
+          return;
+        } catch (e) {
+          console.error("Failed to auto-submit owner rental property post-auth:", e);
+        } finally {
+          setIsSending(false);
+        }
+      } else if (isOwner) {
+        const successOwnerGenMsg: AIMessage = {
+          id: `auth_verified_owner_gen_${Date.now()}`,
+          text: `Verified successfully! Welcome, ${res.user.first_name || "there"}. You are logged into your Owner Account. Please fill in your rental property details below to find tenants:`,
+          sender: "bot",
+          timestamp: new Date(),
+          ownerWizardCard: {},
+          suggestions: ["Go to Owner Dashboard", "Explore Rental Listings", "Talk to Sales Executive"],
+        };
+        setAiMessages((prev) => [...prev, successOwnerGenMsg]);
+        loadUserConversations();
+        return;
+      }
+
+      // Check if there was a pending visit scheduled
+      const pendingVisitRaw = sessionStorage.getItem("rex_pending_visit_schedule");
+      if (pendingVisitRaw) {
+        sessionStorage.removeItem("rex_pending_visit_schedule");
+        try {
+          const pendingVisit = JSON.parse(pendingVisitRaw);
+          if (pendingVisit?.property && pendingVisit?.payload) {
+            await handleConfirmVisitSchedule(pendingVisit.property, pendingVisit.payload, pendingVisit.messageId);
+            loadUserConversations();
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to confirm pending visit post-auth:", err);
+        }
       }
 
       const successMsg: AIMessage = {
@@ -2196,6 +3011,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
         sender: "bot",
         timestamp: new Date(),
         visitScheduler: otpData.targetProperty ? { property: otpData.targetProperty } : undefined,
+        suggestions: ["View more properties", "Modify Filters", "Talk to Executive"],
       };
 
       setAiMessages((prev) => [...prev, successMsg]);
@@ -2238,6 +3054,33 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     payload: REXVisitSchedulePayload,
     messageId?: string
   ) => {
+    if (!isAuthenticated) {
+      sessionStorage.setItem(
+        "rex_pending_visit_schedule",
+        JSON.stringify({ property, payload, messageId })
+      );
+      const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+      const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+      const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+
+      const authFormMsg: AIMessage = {
+        id: `auth_form_${Date.now()}`,
+        text: `To confirm your site visit for ${getBuyerSafePropertyTitle(property)} on ${payload.formattedDisplay} and connect with your dedicated Property Executive, please provide your details below:`,
+        sender: "bot",
+        timestamp: new Date(),
+        inChatAuthForm: {
+          initialName: cachedName,
+          initialEmail: cachedEmail,
+          initialPhone: cachedPhone,
+          role: "buyer",
+          targetProperty: property,
+          actionType: "schedule_visit",
+        },
+      };
+      setAiMessages((prev) => [...prev, authFormMsg]);
+      return;
+    }
+
     if (isBookingVisit) return;
     setIsBookingVisit(true);
 
@@ -2493,6 +3336,91 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     }
   };
 
+  const handleTenantFilterSubmit = async (filters: TenantFilterSelection, msgId?: string) => {
+    if (msgId) {
+      setAiMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.tenantFilterCard
+            ? { ...m, tenantFilterCard: { ...m.tenantFilterCard, disabled: true } }
+            : m
+        )
+      );
+    }
+
+    const bhkPrefix = filters.bhk !== "Any BHK" ? filters.bhk : "Rental flat";
+    const budgetSuffix = filters.budget !== "Any Budget" ? `under ${filters.budget}` : "";
+    const furnishSuffix = filters.furnishing && filters.furnishing !== "Any" ? `(${filters.furnishing})` : "";
+    const userQuery = `Rent ${bhkPrefix} in ${filters.location} ${budgetSuffix} ${furnishSuffix}`.trim();
+
+    const userMsg: AIMessage = {
+      id: `u_${Date.now()}`,
+      text: `Searching for rent: ${bhkPrefix} in ${filters.location} ${budgetSuffix}`.trim(),
+      sender: "user",
+      timestamp: new Date(),
+    };
+
+    setAiMessages((prev) => [...prev, userMsg]);
+    setIsAiTyping(true);
+
+    try {
+      const res = await rexApi.sendMessage({
+        message: userQuery,
+        session_uuid: sessionUuid || undefined,
+        guest_uuid: getGuestUuid(),
+        persona: "tenant",
+        requirements: {
+          locations: [filters.location],
+          unit_type: filters.bhk !== "Any BHK" ? filters.bhk : undefined,
+          budget: filters.budget !== "Any Budget" ? filters.budget : undefined,
+          property_type: "Residential",
+          transaction_type: "rent",
+        },
+      });
+
+      if (res.success) {
+        if (res.session_uuid && !sessionUuid) {
+          setSessionUuid(res.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
+        }
+
+        const hasProperties = Array.isArray(res.properties) && res.properties.length > 0;
+        let botText = res.reply || `Here are verified rental properties in ${filters.location}:`;
+        let suggestions = (res.suggestions || []).filter((s) => {
+          const low = s.toLowerCase();
+          return !low.includes("site visit") && !low.includes("schedule") && !low.includes("resale") && !low.includes("valuation") && !low.includes("sell");
+        });
+
+        if (!hasProperties) {
+          botText = res.reply || `Currently, no rental properties are available in ${filters.location} for ${filters.bhk}. Would you like to adjust your filters or explore other areas?`;
+          if (!suggestions.length) {
+            suggestions = [
+              `Rent in Baner`,
+              `Rent in Wakad`,
+              `Rent in Hinjewadi`,
+              `Modify Filters`,
+            ];
+          }
+        }
+
+        const botMsg: AIMessage = {
+          id: `bot_${Date.now()}`,
+          text: botText,
+          sender: "bot",
+          timestamp: new Date(),
+          properties: res.properties,
+          pagination: res.pagination,
+          suggestions: suggestions.length > 0 ? suggestions : ["Contact Owner", "Explore nearby rentals", "Modify Filters"],
+        };
+
+        setAiMessages((prev) => [...prev, botMsg]);
+      }
+    } catch (err) {
+      console.error("Failed to query rental properties:", err);
+    } finally {
+      setIsAiTyping(false);
+    }
+  };
+
   const handleSellerWizardSubmit = async (data: SellerPropertyFormData, msgId?: string) => {
     if (msgId) {
       setAiMessages((prev) =>
@@ -2504,9 +3432,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       );
     }
 
+    const locName = data.location_name || (data as any).locality || "Pune";
+    const unitName = data.unit_type || (data as any).bhk || "Property";
+
     const userSummaryMsg: AIMessage = {
       id: `u_seller_${Date.now()}`,
-      text: `Listing: ${data.bhk} at ${data.society_name}, ${data.locality} (Expected: ${data.expected_price})`,
+      text: `Listing for Resale: ${unitName} at ${data.society_name}, ${locName} (Expected: ${data.expected_price})`,
       sender: "user",
       timestamp: new Date(),
     };
@@ -2518,9 +3449,31 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
       const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
 
+      sessionStorage.setItem("rex_pending_seller_property", JSON.stringify(data));
+
+      if (cachedEmail || cachedPhone) {
+        try {
+          const statusRes = await rexApi.performAction({
+            action: "check_user_status",
+            payload: { email: cachedEmail, phone: cachedPhone },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+          if (statusRes.is_registered) {
+            promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+              type: "seller_property",
+              sellerPropertyData: data,
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("Check user status error in handleSellerWizardSubmit:", e);
+        }
+      }
+
       const authFormMsg: AIMessage = {
         id: `bot_seller_auth_form_${Date.now()}`,
-        text: `Great! To register your property at ${data.society_name}, please verify your details below so our team will assign a dedicated Property Executive for your property:`,
+        text: `Great! To register your property at ${data.society_name} and assign your dedicated Property Executive, please verify your details below:`,
         sender: "bot",
         timestamp: new Date(),
         inChatAuthForm: {
@@ -2528,6 +3481,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           initialEmail: cachedEmail,
           initialPhone: cachedPhone,
           role: "seller",
+          actionType: "seller_listing",
           sellerPropertyData: data,
         },
       };
@@ -2549,53 +3503,173 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     // If authenticated, submit seller property immediately
     setIsSending(true);
     try {
-      const confirmedMsg: AIMessage = {
-        id: `seller_conf_${Date.now()}`,
-        text: `Your property at ${data.society_name}, ${data.locality} has been submitted for review! Our team will assign a dedicated Property Executive for your property shortly.`,
-        sender: "bot",
-        timestamp: new Date(),
-        sellerConfirmedCard: { data },
-        suggestions: ["List Another Property", "Check Listing Status", "Get Free Property Valuation", "Talk to Property Executive"],
-      };
-
-      const allCurrentMessages = [...aiMessages, confirmedMsg];
-
       const res = await rexApi.performAction({
         action: "submit_seller_property",
         payload: {
           ...data,
+          location_name: locName,
+          unit_type: unitName,
           seller_name: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "Property Seller",
           seller_phone: user?.phone || undefined,
           seller_email: user?.email || undefined,
           user_id: user?.id,
           seller_id: (user as any)?.seller_id || undefined,
-          messages: allCurrentMessages,
         },
         session_uuid: sessionUuid || undefined,
         guest_uuid: getGuestUuid(),
       });
 
-      setRexRequirements((prev) => ({
-        ...prev,
-        locations: [data.locality],
-        society_name: data.society_name,
-        unit_type: data.bhk,
-        carpet_area: data.carpet_area,
-        budget: data.expected_price,
-        transaction_type: "sell",
-      }));
-
       if (res.success) {
+        const confirmedMsg: AIMessage = {
+          id: `seller_conf_${Date.now()}`,
+          text: res.reply || `Your property at ${data.society_name}, ${locName} has been submitted for review! Our team has assigned dedicated Property Executive ${res.executive_card?.executiveName || ""} to your property.`,
+          sender: "bot",
+          timestamp: new Date(),
+          sellerConfirmedCard: {
+            data: {
+              ...data,
+              location_name: locName,
+              unit_type: unitName,
+            },
+            executiveCard: res.executive_card,
+          },
+          suggestions: ["Chat with Executive", "List Another Property", "Check Active Buyers in My Locality", "Talk to Property Executive"],
+        };
+
         if (res.session_uuid && !sessionUuid) {
           setSessionUuid(res.session_uuid);
           localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
         }
 
-        setAiMessages(allCurrentMessages);
+        setRexRequirements((prev) => ({
+          ...prev,
+          locations: [locName],
+          society_name: data.society_name,
+          unit_type: unitName,
+          carpet_area: data.carpet_area,
+          budget: data.expected_price,
+          transaction_type: "sell",
+        }));
+
+        setAiMessages((prev) => [...prev, confirmedMsg]);
         loadUserConversations();
       }
     } catch (err) {
       console.error("Failed to submit seller property:", err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleOwnerRentalSubmit = async (data: OwnerRentalFormData, msgId?: string) => {
+    if (msgId) {
+      setAiMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId && m.ownerWizardCard
+            ? { ...m, ownerWizardCard: { ...m.ownerWizardCard, disabled: true } }
+            : m
+        )
+      );
+    }
+
+    const userSummaryMsg: AIMessage = {
+      id: `u_owner_${Date.now()}`,
+      text: `Listing for Rent: ${data.unit_type || data.property_subtype_name} at ${data.society_name}, ${data.location_name} (Rent: ₹${Number(data.monthly_rent).toLocaleString("en-IN")}/mo, Deposit: ₹${Number(data.security_deposit).toLocaleString("en-IN")})`,
+      sender: "user",
+      timestamp: new Date(),
+    };
+    setAiMessages((prev) => [...prev, userSummaryMsg]);
+
+    // If not authenticated, prompt in-chat verification or existing user login
+    if (!isAuthenticated) {
+      const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+      const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+      const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+
+      sessionStorage.setItem("rex_pending_owner_rental", JSON.stringify(data));
+
+      if (cachedEmail || cachedPhone) {
+        try {
+          const statusRes = await rexApi.performAction({
+            action: "check_user_status",
+            payload: { email: cachedEmail, phone: cachedPhone },
+            session_uuid: sessionUuid || undefined,
+            guest_uuid: getGuestUuid(),
+          });
+          if (statusRes.is_registered) {
+            promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+              type: "owner_rental_wizard",
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("Check user status error in handleOwnerRentalSubmit:", e);
+        }
+      }
+
+      const authFormMsg: AIMessage = {
+        id: `bot_owner_auth_form_${Date.now()}`,
+        text: `Great! To list your rental property at ${data.society_name} and assign your dedicated Sales Executive, please verify your details below:`,
+        sender: "bot",
+        timestamp: new Date(),
+        inChatAuthForm: {
+          initialName: cachedName,
+          initialEmail: cachedEmail,
+          initialPhone: cachedPhone,
+          role: "owner",
+          actionType: "interested",
+        },
+      };
+      setAiMessages((prev) => [...prev, authFormMsg]);
+      return;
+    }
+
+    // If authenticated, submit immediately
+    setIsSending(true);
+    try {
+      const res = await rexApi.performAction({
+        action: "submit_owner_rental_property",
+        payload: {
+          ...data,
+          owner_name: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "Property Owner",
+          owner_phone: user?.phone || undefined,
+          owner_email: user?.email || undefined,
+          user_id: user?.id,
+          owner_id: (user as any)?.owner_id || undefined,
+        },
+        session_uuid: sessionUuid || undefined,
+        guest_uuid: getGuestUuid(),
+      });
+
+      if (res.success) {
+        const confirmedMsg: AIMessage = {
+          id: `owner_conf_${Date.now()}`,
+          text: res.message || `Your rental property at ${data.society_name}, ${data.location_name} has been registered! A dedicated Sales Executive has been assigned to find and verify tenants.`,
+          sender: "bot",
+          timestamp: new Date(),
+          ownerConfirmedCard: {
+            propertyTitle: res.property?.title || `${data.unit_type} at ${data.society_name}`,
+            societyName: data.society_name,
+            locality: data.location_name,
+            unitType: data.unit_type,
+            monthlyRent: data.monthly_rent,
+            securityDeposit: data.security_deposit,
+            executiveName: res.executive_card?.executiveName || "Soniya Singh",
+            executivePhone: res.executive_card?.executivePhone || "+91 9604 350 255",
+            executiveEmail: res.executive_card?.executiveEmail || "support@resaleexpert.in",
+            executiveRole: res.executive_card?.executiveRole || "Sales Executive",
+          },
+          suggestions: [
+            "Go to Owner Dashboard",
+            "List Another Rental Property",
+            "Check Interested Tenants",
+            "Talk to Sales Executive",
+          ],
+        };
+        setAiMessages((prev) => [...prev, confirmedMsg]);
+      }
+    } catch (err) {
+      console.error("Failed to submit owner rental property:", err);
     } finally {
       setIsSending(false);
     }
@@ -2704,6 +3778,41 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       return;
     }
 
+    // Up-Front Rent Property / Tenant Search Intent:
+    // When user clicks "Search Rental Home" or asks "i want rent property / flat" without specifications
+    if (isRentingIntentWithoutCriteria(text)) {
+      setSelectedPersona("tenant");
+      localStorage.setItem(REX_PERSONA_KEY, "tenant");
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+      const botMsg: AIMessage = {
+        id: `b_persona_tenant_${Date.now()}`,
+        text: "Looking for a home on rent? Filter by preferred locality, monthly budget, and BHK configuration to find verified rental matches:",
+        sender: "bot",
+        timestamp: new Date(),
+        tenantFilterCard: {
+          initialLocation: rexRequirements.locations?.[0] || "Baner",
+          initialBhk: rexRequirements.unit_type || "2 BHK",
+          initialBudget: "₹15k - ₹25k",
+          initialFurnishing: "Any",
+        },
+        suggestions: ["Rent in Baner", "Rent in Wakad", "Rent in Hinjewadi", "1 BHK in Hinjewadi"],
+      };
+      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setInputText("");
+      rexApi.performAction({
+        action: "save_message",
+        payload: { messages: [userMsg, botMsg], persona: "tenant" },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      }).then((r) => {
+        if (r.session_uuid && !sessionUuid) {
+          setSessionUuid(r.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+        }
+      }).catch(() => {});
+      return;
+    }
+
     // 2) Seller Suggestion Pill Interceptors (High Priority)
     if (
       lower.includes("active buyers") ||
@@ -2738,23 +3847,50 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       lower === "check listing status"
     ) {
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
-      const society = rexRequirements.society_name || "your submitted property";
-      const loc = rexRequirements.locations?.[0] || "Pune";
-      const botMsg: AIMessage = {
-        id: `b_listing_status_${Date.now()}`,
-        text: `Property Listing Status:\n\n• Property: ${society} (${loc})\n• Status: Under Review • Executive Assignment in Progress\n• Stage: Document & Society Verification\n\nOur operations team is currently reviewing your property details. A dedicated Property Executive will contact you shortly to verify ownership documents and initiate buyer matching.`,
-        sender: "bot",
-        timestamp: new Date(),
-        suggestions: ["Talk to Property Executive", "Check Active Buyers in My Locality", "Get Free Property Valuation", "List Another Property"],
-      };
-      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setAiMessages((prev) => [...prev, userMsg]);
       setInputText("");
+      setIsAiTyping(true);
+
       rexApi.performAction({
-        action: "save_message",
-        payload: { messages: [userMsg, botMsg], persona: "seller" },
+        action: "get_listing_status",
+        payload: {
+          userId: user?.id,
+          phone: user?.phone,
+          email: user?.email,
+          society_name: rexRequirements.society_name,
+        },
         session_uuid: sessionUuid,
         guest_uuid: getGuestUuid(),
-      }).catch(() => {});
+      }).then((res) => {
+        const society = rexRequirements.society_name || "your submitted property";
+        const loc = rexRequirements.locations?.[0] || "Pune";
+        const botMsg: AIMessage = {
+          id: `b_listing_status_${Date.now()}`,
+          text: res.reply || `Property Listing Status:\n\n• Property: ${society} (${loc})\n• Status: Under Review • Executive Assignment in Progress\n• Stage: Document & Society Verification\n\nOur operations team is currently reviewing your property details. A dedicated Property Executive will contact you shortly to verify ownership documents and initiate buyer matching.`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: res.suggestions || ["Talk to Property Executive", "Check Active Buyers in My Locality", "Get Free Property Valuation", "List Another Property"],
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+        if (res.session_uuid && !sessionUuid) {
+          setSessionUuid(res.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
+        }
+      }).catch((err) => {
+        console.error("get_listing_status error:", err);
+        const society = rexRequirements.society_name || "your submitted property";
+        const loc = rexRequirements.locations?.[0] || "Pune";
+        const botMsg: AIMessage = {
+          id: `b_listing_status_${Date.now()}`,
+          text: `Property Listing Status:\n\n• Property: ${society} (${loc})\n• Status: Under Review • Executive Assignment in Progress\n• Stage: Document & Society Verification\n\nOur operations team is currently reviewing your property details. A dedicated Property Executive will contact you shortly to verify ownership documents and initiate buyer matching.`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: ["Talk to Property Executive", "Check Active Buyers in My Locality", "Get Free Property Valuation", "List Another Property"],
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+      }).finally(() => {
+        setIsAiTyping(false);
+      });
       return;
     }
 
@@ -2785,30 +3921,338 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       return;
     }
 
+    // Check for Call Request intent
     if (
-      lower.includes("talk to property executive") ||
-      lower.includes("talk to executive") ||
-      lower.includes("connect with executive") ||
-      lower.includes("contact executive") ||
-      lower.includes("chat with executive") ||
-      lower.includes("talk to agent") ||
-      lower === "talk to property executive"
+      lower === "call request" ||
+      lower === "request call" ||
+      lower === "request callback" ||
+      lower === "call me back" ||
+      lower.includes("call request")
     ) {
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+      setAiMessages((prev) => [...prev, userMsg]);
+      setInputText("");
+      handleOpenCallRequest();
+      return;
+    }
+
+    // Broker / Channel Partner Intent:
+    if (
+      lower.includes("i am a broker") ||
+      lower.includes("i am broker") ||
+      lower.includes("i am an agent") ||
+      lower.includes("i am agent") ||
+      lower.includes("channel partner") ||
+      lower.includes("cp registration") ||
+      lower.includes("broker tie up") ||
+      lower.includes("brokerage") ||
+      lower.includes("commission slab") ||
+      lower.includes("commission structure") ||
+      lower === "broker"
+    ) {
+      setSelectedPersona("broker");
+      localStorage.setItem(REX_PERSONA_KEY, "broker");
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
       const botMsg: AIMessage = {
-        id: `b_talk_exec_${Date.now()}`,
-        text: `You can connect with the Resale Expert team directly:\n\n• Dedicated Support: Resale Expert Property Executive Team\n• Direct Phone / WhatsApp: +91 9637 00 9639 / +91 9146 00 9176\n• Email: support@resaleexpert.in\n• Office Hours: Mon – Sun, 9:30 AM – 7:30 PM\n\nOur assigned Executive handles physical verification, key holding, legal documentation, and verified buyer visits.`,
+        id: `b_broker_${Date.now()}`,
+        text: `Welcome to the Resale Expert Channel Partner Network!\n\n• Partnership Desk: B2B Channel Partner Relations\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: partners@resaleexpert.in\n• Office Hours: Mon – Sun, 9:30 AM – 7:30 PM\n• Collaboration: Verified Pune resale & rental inventory, transparent commission slabs, dedicated relationship manager, and swift deal closures.\n\nYou can chat, call, or reach us on WhatsApp directly!`,
         sender: "bot",
         timestamp: new Date(),
-        suggestions: ["Check Active Buyers in My Locality", "Get Free Property Valuation", "Check Listing Status", "List Another Property"],
+        suggestions: ["Channel Partner Registration", "Commission Structure", "Inventory Sharing", "Talk to Partner Desk"],
+        executiveDeskCard: {
+          deskName: "Dedicated Channel Partner Desk",
+          phone: "+919637009639",
+          displayPhone: "+91 9637 00 9639",
+          persona: "broker",
+        },
       };
       setAiMessages((prev) => [...prev, userMsg, botMsg]);
       setInputText("");
       rexApi.performAction({
         action: "save_message",
-        payload: { messages: [userMsg, botMsg], persona: "seller" },
+        payload: { messages: [userMsg, botMsg], persona: "broker" },
         session_uuid: sessionUuid,
         guest_uuid: getGuestUuid(),
+      }).catch(() => {});
+      return;
+    }
+
+    // Dedicated Interceptor: Chat with Executive for submitted property
+    if (lower === "chat with executive" || lower === "chat with property executive") {
+      const lastConfirmed = [...aiMessages].reverse().find(
+        (m) => m.sellerConfirmedCard?.executiveCard?.propertyId || (m as any).rentalOwnerCard?.property_id
+      );
+      const propId =
+        lastConfirmed?.sellerConfirmedCard?.executiveCard?.propertyId ||
+        (lastConfirmed as any)?.rentalOwnerCard?.property_id ||
+        (activeConversation as any)?.property_id;
+
+      if (propId) {
+        handleOpenPropertyConversation({ propertyId: Number(propId) });
+        return;
+      }
+    }
+
+    if (
+      lower.includes("talk to sales executive") ||
+      lower.includes("talk to property executive") ||
+      lower.includes("talk to executive") ||
+      lower.includes("connect with executive") ||
+      lower.includes("contact executive") ||
+      lower.includes("talk to agent") ||
+      lower.includes("talk to partner desk") ||
+      lower.includes("talk to owner desk") ||
+      lower === "talk to sales executive" ||
+      lower === "talk to property executive" ||
+      lower === "talk to executive"
+    ) {
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+      setAiMessages((prev) => [...prev, userMsg]);
+      setInputText("");
+      setIsAiTyping(true);
+
+      // Handle Tenant persona explicitly - connect to Dedicated Rental Support Desk
+      if (selectedPersona === "tenant") {
+        setTimeout(() => {
+          const botMsg: AIMessage = {
+            id: `b_talk_exec_${Date.now()}`,
+            text: `You are connected with our Dedicated Rental Assistance Desk:\n\n• Dedicated Rental Desk: Tenant Support Team\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: info@resaleexpert.in\n• Office Hours: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n• Assistance: Our rental team assists you with owner contact details, physical flat verification, rental agreement drafting, and move-in coordination.\n\nYou can chat, call, or reach us on WhatsApp directly!`,
+            sender: "bot",
+            timestamp: new Date(),
+            suggestions: ["Rent in Baner", "Rent in Wakad", "Rent in Hinjewadi", "Modify Filters"],
+            executiveDeskCard: {
+              deskName: "Dedicated Rental Desk",
+              phone: "+919637009639",
+              displayPhone: "+91 9637 00 9639",
+              persona: "tenant",
+            },
+          };
+          setAiMessages((prev) => [...prev, botMsg]);
+          setIsAiTyping(false);
+        }, 350);
+        return;
+      }
+
+      // Handle Buyer persona explicitly - connect to Dedicated Buyer Advisory Desk
+      if (selectedPersona === "buyer") {
+        setTimeout(() => {
+          const botMsg: AIMessage = {
+            id: `b_talk_exec_${Date.now()}`,
+            text: `You are connected with our Dedicated Buyer Advisory Desk:\n\n• Advisory Team: Resale Expert Property Advisory\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: info@resaleexpert.in\n• Office Hours: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n• Assistance: Our property advisors assist with verified property visits, legal documentation review, pricing negotiations, and home loan processing.\n\nYou can call, message on WhatsApp, or let me know what property you'd like to visit!`,
+            sender: "bot",
+            timestamp: new Date(),
+            suggestions: ["Explore 2 BHK in Pune", "Book Site Visit", "Properties under ₹80L", "Filter Properties"],
+            executiveDeskCard: {
+              deskName: "Dedicated Buyer Advisory Desk",
+              phone: "+919637009639",
+              displayPhone: "+91 9637 00 9639",
+              persona: "buyer",
+            },
+          };
+          setAiMessages((prev) => [...prev, botMsg]);
+          setIsAiTyping(false);
+        }, 350);
+        return;
+      }
+
+      // Handle Broker persona explicitly - connect to Dedicated Channel Partner Desk
+      if (selectedPersona === "broker") {
+        setTimeout(() => {
+          const botMsg: AIMessage = {
+            id: `b_talk_exec_${Date.now()}`,
+            text: `You are connected with our Dedicated Channel Partner & Broker Desk:\n\n• Partnership Desk: B2B Channel Partner Relations\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: info@resaleexpert.in\n• Office Hours: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n• Collaboration: Verified Pune inventory access, guaranteed fast commission payouts, dedicated CP relationship manager, and joint client site visit coordination.\n\nYou can call, reach us on WhatsApp, or schedule a partnership discussion!`,
+            sender: "bot",
+            timestamp: new Date(),
+            suggestions: ["Channel Partner Registration", "Commission Structure", "Inventory Sharing", "Talk to Partner Desk"],
+            executiveDeskCard: {
+              deskName: "Dedicated Channel Partner Desk",
+              phone: "+919637009639",
+              displayPhone: "+91 9637 00 9639",
+              persona: "broker",
+            },
+          };
+          setAiMessages((prev) => [...prev, botMsg]);
+          setIsAiTyping(false);
+        }, 350);
+        return;
+      }
+
+      rexApi.performAction({
+        action: "get_property_executive",
+        payload: {
+          userId: user?.id,
+          phone: user?.phone,
+          email: user?.email,
+          society_name: rexRequirements.society_name,
+          persona: selectedPersona || "seller",
+        },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      }).then((res: any) => {
+        const botMsg: AIMessage = {
+          id: `b_talk_exec_${Date.now()}`,
+          text: res.reply || `You can connect with the Resale Expert team directly:\n\n• Dedicated Support: Resale Expert Property Executive Team\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: info@resaleexpert.in\n• Office Hours: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n\nOur assigned Executive handles physical verification, key holding, legal documentation, and verified buyer visits.`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: res.suggestions || ["Check Active Buyers in My Locality", "Get Free Property Valuation", "Check Listing Status", "List Another Property"],
+          executiveDeskCard: !res.executive_card ? {
+            deskName: res.executive_desk?.deskName || (selectedPersona === "owner" ? "Dedicated Owner Assistance Desk" : "Resale Expert Property Executive Team"),
+            phone: res.executive_desk?.phone || "+919637009639",
+            displayPhone: res.executive_desk?.displayPhone || "+91 9637 00 9639",
+            persona: selectedPersona || "seller",
+          } : undefined,
+          sellerExecutiveCard: res.executive_card ? {
+            executiveName: res.executive_card.executiveName,
+            executiveFirstName: res.executive_card.executiveFirstName,
+            executivePhone: res.executive_card.executivePhone,
+            executiveEmail: res.executive_card.executiveEmail,
+            executiveRole: res.executive_card.executiveRole,
+            propertyTitle: res.executive_card.propertyTitle,
+            propertyId: res.executive_card.propertyId,
+            propertySlug: res.executive_card.propertySlug,
+            propertyPrice: res.executive_card.propertyPrice,
+            conversationId: res.executive_card.conversationId,
+          } : undefined,
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+        if (res.session_uuid && !sessionUuid) {
+          setSessionUuid(res.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
+        }
+      }).catch((err) => {
+        console.error("get_property_executive error:", err);
+        const botMsg: AIMessage = {
+          id: `b_talk_exec_${Date.now()}`,
+          text: `You can connect with the Resale Expert team directly:\n\n• Dedicated Support: Resale Expert Property Executive Team\n• Direct Phone / WhatsApp: +91 9637 00 9639\n• Email: info@resaleexpert.in\n• Office Hours: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n\nOur assigned Executive handles physical verification, key holding, legal documentation, and verified buyer visits.`,
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: ["Check Active Buyers in My Locality", "Get Free Property Valuation", "Check Listing Status", "List Another Property"],
+          executiveDeskCard: {
+            deskName: "Resale Expert Property Executive Team",
+            phone: "+919637009639",
+            displayPhone: "+91 9637 00 9639",
+            persona: selectedPersona || "seller",
+          },
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+      }).finally(() => {
+        setIsAiTyping(false);
+      });
+      return;
+    }
+
+    // Dedicated Owner Inquiry: Check Interested Tenants / Demand
+    if (
+      lower.includes("interested tenant") ||
+      lower.includes("tenant demand") ||
+      lower.includes("track interested") ||
+      lower.includes("check interested") ||
+      lower.includes("check tenant")
+    ) {
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+      const botMsg: AIMessage = {
+        id: `b_tenants_${Date.now()}`,
+        text: `We are actively tracking verified tenant requirements across Pune!\n\n• High Tenant Demand: IT working professionals & families are looking for 1, 2 & 3 BHKs in Baner, Wakad, Hinjewadi, and Kharadi.\n• Verified Backgrounds: All interested tenants undergo phone screening, corporate ID verification, and biometric Leave & License drafting.\n• Owner Dashboard: You can review matching tenant inquiries, move-in timelines, and contact details directly in your Owner Portal.`,
+        sender: "bot",
+        timestamp: new Date(),
+        suggestions: ["Open Your Dashboard", "List Another Rental Property", "Talk to Sales Executive", "Rental Agreement Rules"],
+      };
+      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setInputText("");
+      rexApi.performAction({
+        action: "save_message",
+        payload: { messages: [userMsg, botMsg], persona: "owner" },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      }).then((r) => {
+        if (r.session_uuid && !sessionUuid) {
+          setSessionUuid(r.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+        }
+      });
+      return;
+    }
+
+    // Dedicated Owner Rental Property Intent:
+    // When user clicks "List Property for Rent" or expresses intent to list rental property:
+    // 1. If not authenticated:
+    //    - If known email/phone in chat session, check registration status via check_user_status.
+    //      If already registered, prompt them: "Your account already exists. Please login to continue forward" with login button.
+    //    - If new user, show In-Chat Registration Card with role: "owner", actionType: "owner_listing".
+    //      Once OTP is verified, handleVerifyInChatOtp logs them in and renders the ownerWizardCard!
+    // 2. If already authenticated:
+    //    - Render the ownerWizardCard immediately!
+    if (isOwnerRentalListingIntent(text)) {
+      setSelectedPersona("owner");
+      localStorage.setItem(REX_PERSONA_KEY, "owner");
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+
+      if (!isAuthenticated) {
+        const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+        const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+        const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+
+        if (cachedEmail || cachedPhone) {
+          try {
+            const statusRes = await rexApi.performAction({
+              action: "check_user_status",
+              payload: { email: cachedEmail, phone: cachedPhone },
+              session_uuid: sessionUuid || undefined,
+              guest_uuid: getGuestUuid(),
+            });
+            if (statusRes.is_registered) {
+              setAiMessages((prev) => [...prev, userMsg]);
+              setInputText("");
+              promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+                type: "owner_rental_wizard",
+              });
+              return;
+            }
+          } catch (e) {
+            console.error("Check user status error in owner intent:", e);
+          }
+        }
+
+        const authFormMsg: AIMessage = {
+          id: `b_owner_reg_${Date.now()}`,
+          text: "To list your rental property with Resale Expert and connect with verified tenants, please register your owner profile below:",
+          sender: "bot",
+          timestamp: new Date(),
+          inChatAuthForm: {
+            initialName: cachedName,
+            initialEmail: cachedEmail,
+            initialPhone: cachedPhone,
+            role: "owner",
+            actionType: "owner_listing",
+          },
+          suggestions: ["Login to Your Account", "Talk to Sales Executive", "Explore Pune Rentals"],
+        };
+        setAiMessages((prev) => [...prev, userMsg, authFormMsg]);
+        setInputText("");
+        return;
+      }
+
+      // If user is already authenticated:
+      const botMsg: AIMessage = {
+        id: `b_owner_wizard_${Date.now()}`,
+        text: `Welcome, ${user?.first_name || "Owner"}! Please fill in your rental property details below to find verified tenants and have a dedicated Sales Executive assigned:`,
+        sender: "bot",
+        timestamp: new Date(),
+        ownerWizardCard: {},
+        suggestions: ["Go to Owner Dashboard", "Talk to Sales Executive", "Explore Pune Rentals"],
+      };
+      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setInputText("");
+      rexApi.performAction({
+        action: "save_message",
+        payload: { messages: [userMsg, botMsg], persona: "owner" },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      }).then((r) => {
+        if (r.session_uuid && !sessionUuid) {
+          setSessionUuid(r.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+        }
       }).catch(() => {});
       return;
     }
@@ -2818,6 +4262,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     // Immediately open the interactive Seller Listing Wizard with any extracted details pre-filled!
     if (isSellerIntent(text) || (selectedPersona === "seller" && (lower.includes("sq ft") || lower.includes("bhk") || lower.includes(",") || lower.includes("sqft")) && !lower.includes("status") && !lower.includes("valuation") && !lower.includes("buyers"))) {
       setSelectedPersona("seller");
+      localStorage.setItem(REX_PERSONA_KEY, "seller");
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
 
       const parsed = parseSellerDetails(text);
@@ -2827,16 +4272,71 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       const initialCarpet = parsed.carpet_area || "";
       const initialPrice = parsed.expected_price || "";
 
+      if (!isAuthenticated) {
+        const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+        const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+        const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+
+        if (cachedEmail || cachedPhone) {
+          try {
+            const statusRes = await rexApi.performAction({
+              action: "check_user_status",
+              payload: { email: cachedEmail, phone: cachedPhone },
+              session_uuid: sessionUuid || undefined,
+              guest_uuid: getGuestUuid(),
+            });
+            if (statusRes.is_registered) {
+              setAiMessages((prev) => [...prev, userMsg]);
+              setInputText("");
+              promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+                type: "seller_property",
+                sellerPropertyData: {
+                  society_name: initialSociety,
+                  location_name: initialLoc,
+                  unit_type: initialBhk,
+                  expected_price: initialPrice,
+                  carpet_area: initialCarpet,
+                  property_type_name: "Residential",
+                  property_subtype_name: "Apartment / Flat",
+                },
+              });
+              return;
+            }
+          } catch (e) {
+            console.error("Check user status error in seller intent:", e);
+          }
+        }
+
+        const authFormMsg: AIMessage = {
+          id: `b_seller_reg_${Date.now()}`,
+          text: "To list your property for resale with Resale Expert and connect with verified buyers, please register your seller profile below:",
+          sender: "bot",
+          timestamp: new Date(),
+          inChatAuthForm: {
+            initialName: cachedName,
+            initialEmail: cachedEmail,
+            initialPhone: cachedPhone,
+            role: "seller",
+            actionType: "seller_listing",
+          },
+          suggestions: ["Login to Your Account", "Talk to Property Executive", "Explore Pune Resale Properties"],
+        };
+        setAiMessages((prev) => [...prev, userMsg, authFormMsg]);
+        setInputText("");
+        return;
+      }
+
+      // If user is already authenticated:
       const botMsg: AIMessage = {
         id: `b_persona_seller_${Date.now()}`,
-        text: "We provide 100% managed resale services with dedicated executive inspection, legal verification, and verified buyer matching. Please provide your property details below to submit for executive review:",
+        text: `Welcome, ${user?.first_name || "Seller"}! Please provide your property details below to submit for dedicated executive inspection and buyer matching:`,
         sender: "bot",
         timestamp: new Date(),
         sellerWizardCard: {
           initialData: {
             society_name: initialSociety,
-            locality: initialLoc,
-            bhk: initialBhk,
+            location_name: initialLoc,
+            unit_type: initialBhk,
             carpet_area: initialCarpet,
             expected_price: initialPrice,
           },
@@ -2859,10 +4359,110 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       return;
     }
 
-    // Interactive Suggestion Interceptors
-    if (lower === "modify filters" || lower.includes("modify filter") || lower.includes("change filter")) {
+    // Interactive Suggestion Interceptors: Contact Owner
+    if (lower === "contact owner" || lower.includes("contact owner") || lower.includes("owner details") || lower.includes("owner contact")) {
+      const rentalProp = aiMessages
+        .slice()
+        .reverse()
+        .map((m) => m.properties?.find((p) => p.listing_type === "rent" || p.price_display?.includes("/mo")) || (m.properties && m.properties[0]))
+        .find(Boolean);
+
+      if (rentalProp) {
+        handlePropertyInterested(rentalProp);
+        return;
+      }
+    }
+
+    // Interactive Suggestion Interceptors: Persona-Aware Dashboard Navigation
+    if (
+      lower === "open your dashboard" ||
+      lower === "open dashboard" ||
+      lower === "my dashboard" ||
+      lower === "dashboard" ||
+      lower === "go to dashboard" ||
+      lower === "go to tenant dashboard" ||
+      lower === "open tenant dashboard" ||
+      lower === "tenant dashboard" ||
+      lower.includes("tenant dashboard") ||
+      lower.includes("owner dashboard") ||
+      lower.includes("seller dashboard") ||
+      lower.includes("buyer dashboard")
+    ) {
+      const isOwner = selectedPersona === "owner" || user?.role === "owner" || lower.includes("owner");
+      const isSeller = selectedPersona === "seller" || user?.role === "seller" || lower.includes("seller");
+      const isBuyer = selectedPersona === "buyer" || user?.role === "buyer" || lower.includes("buyer");
+      const isTenant = selectedPersona === "tenant" || user?.role === "tenant" || lower.includes("tenant");
+
+      let targetUrl = "/dashboard";
+      let portalName = "Dashboard";
+      if (isOwner) {
+        targetUrl = "/dashboard/rental-properties";
+        portalName = "Owner Portal";
+      } else if (isSeller) {
+        targetUrl = "/seller-dashboard";
+        portalName = "Seller Dashboard";
+      } else if (isBuyer) {
+        targetUrl = "/buyer-dashboard";
+        portalName = "Buyer Portal";
+      } else if (isTenant) {
+        targetUrl = "/dashboard/rental-properties";
+        portalName = "Tenant Portal";
+      }
+
+      setIsOpen(false);
+      navigate(targetUrl);
+      return;
+    }
+
+    // Dedicated Owner Suggestion Interceptor: Rental Agreement Rules
+    if (
+      lower === "rental agreement rules" ||
+      lower.includes("agreement rules") ||
+      lower === "rental agreement"
+    ) {
+      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
+      const botMsg: AIMessage = {
+        id: `b_rules_${Date.now()}`,
+        text: `Key Maharashtra Rental Agreement (Leave & License) Rules for Owners:\n\n• Mandatory Online Registration: As per the Maharashtra Rent Control Act, 1999, all rental agreements must be officially registered.\n• Biometric Verification: Both Owner and Tenant must undergo Aadhaar-based biometric e-registration. Our executive assists at your doorstep.\n• Standard Tenure: Typical agreements are drafted for 11 months with an optional renewal and standard 30-day notice clause.\n• Police Intimation: Submission of tenant verification details to the local Pune police station is legally required and coordinated by our team.\n• Security Deposit: Standard deposit in Pune is 2 to 3 months of rent, held securely until move-out inspection.`,
+        sender: "bot",
+        timestamp: new Date(),
+        suggestions: ["Open Your Dashboard", "List Another Rental Property", "Talk to Sales Executive", "Check Interested Tenants"],
+      };
+      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setInputText("");
+      rexApi.performAction({
+        action: "save_message",
+        payload: { messages: [userMsg, botMsg], persona: "owner" },
+        session_uuid: sessionUuid,
+        guest_uuid: getGuestUuid(),
+      }).catch(() => {});
+      return;
+    }
+
+    // Interactive Suggestion Interceptors: Modify Filters
+    if (lower === "modify filters" || lower.includes("modify filter") || lower.includes("change filter") || lower.includes("modify rent budget")) {
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text: "Modify Filters", sender: "user", timestamp: new Date() };
-      const lastFilter = [...aiMessages].reverse().find(m => m.buyerFilterCard)?.buyerFilterCard;
+      if (selectedPersona === "tenant" || lower.includes("rent")) {
+        const lastTenantFilter = [...aiMessages].reverse().find((m) => m.tenantFilterCard)?.tenantFilterCard;
+        const botMsg: AIMessage = {
+          id: `b_mod_filters_${Date.now()}`,
+          text: "Adjust your rental preferences to find verified rental homes:",
+          sender: "bot",
+          timestamp: new Date(),
+          tenantFilterCard: {
+            initialLocation: lastTenantFilter?.initialLocation || rexRequirements.locations?.[0] || "Baner",
+            initialBhk: lastTenantFilter?.initialBhk || rexRequirements.unit_type || "2 BHK",
+            initialBudget: lastTenantFilter?.initialBudget || "₹15k - ₹25k",
+            initialFurnishing: lastTenantFilter?.initialFurnishing || "Any",
+          },
+          suggestions: ["Rent in Baner", "Rent in Wakad", "Rent in Hinjewadi"],
+        };
+        setAiMessages((prev) => [...prev, userMsg, botMsg]);
+        setInputText("");
+        return;
+      }
+
+      const lastFilter = [...aiMessages].reverse().find((m) => m.buyerFilterCard)?.buyerFilterCard;
       const botMsg: AIMessage = {
         id: `b_mod_filters_${Date.now()}`,
         text: "Adjust your configuration, locality, and budget to refine matching properties:",
@@ -2910,6 +4510,71 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           title: topProp.property_title || "Residential Property",
           price: topProp.property_price || 0,
         };
+      }
+
+      // If user is not authenticated, prompt in-chat registration first!
+      if (!isAuthenticated) {
+        if (parsedDateTime) {
+          sessionStorage.setItem(
+            "rex_pending_visit_schedule",
+            JSON.stringify({
+              property: topProp,
+              payload: {
+                date: parsedDateTime.date,
+                time: parsedDateTime.time,
+                shift: parsedDateTime.shift,
+                formattedDisplay: parsedDateTime.formattedDisplay,
+              },
+            })
+          );
+        }
+
+        const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+        const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+        const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+
+        if (cachedEmail || cachedPhone) {
+          try {
+            const statusRes = await rexApi.performAction({
+              action: "check_user_status",
+              payload: { email: cachedEmail, phone: cachedPhone },
+              session_uuid: sessionUuid || undefined,
+              guest_uuid: getGuestUuid(),
+            });
+            if (statusRes.is_registered) {
+              setAiMessages((prev) => [...prev, userMsg]);
+              setInputText("");
+              promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+                type: "schedule_visit",
+                property: topProp,
+              });
+              return;
+            }
+          } catch (e) {
+            console.error("Check user status error in visit intent:", e);
+          }
+        }
+
+        const authFormMsg: AIMessage = {
+          id: `auth_form_${Date.now()}`,
+          text: topProp
+            ? `To schedule your verified site visit for ${getBuyerSafePropertyTitle(topProp)} and connect directly with your dedicated Property Executive, please provide your details below:`
+            : "To schedule a verified site visit and connect directly with your dedicated Property Executive, please provide your details below:",
+          sender: "bot",
+          timestamp: new Date(),
+          inChatAuthForm: {
+            initialName: cachedName,
+            initialEmail: cachedEmail,
+            initialPhone: cachedPhone,
+            role: "buyer",
+            targetProperty: topProp,
+            actionType: "schedule_visit",
+          },
+          suggestions: ["Explore 2 BHK in Pune", "Properties under ₹80L", "Filter Properties"],
+        };
+        setAiMessages((prev) => [...prev, userMsg, authFormMsg]);
+        setInputText("");
+        return;
       }
 
       // Case A: User specified Date and Time (e.g. "tomorrow at 5pm") -> Book in database directly!
@@ -3001,27 +4666,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
         return;
       }
 
-      // Case B: User did NOT mention Date & Time (e.g. "i want to visit") -> Show Schedule Visit Template!
-      if (!isAuthenticated && topProp && inChatAuthData.actionType === "schedule_visit") {
-        const authFormMsg: AIMessage = {
-          id: `auth_form_${Date.now()}`,
-          text: `Before moving forward, kindly provide your details below to schedule your verified visit for ${getBuyerSafePropertyTitle(topProp)}:`,
-          sender: "bot",
-          timestamp: new Date(),
-          inChatAuthForm: {
-            initialName: inChatAuthData.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "",
-            initialEmail: inChatAuthData.email || "",
-            initialPhone: inChatAuthData.phone || "",
-            role: selectedPersona || "buyer",
-            targetProperty: topProp,
-            actionType: "schedule_visit",
-          },
-        };
-        setAiMessages((prev) => [...prev, userMsg, authFormMsg]);
-        setInputText("");
-        return;
-      }
-
+      // Case B: User did NOT mention Date & Time -> Show Interactive Schedule Visit Template!
       if (topProp) {
         const botMsg: AIMessage = {
           id: `b_sched_visit_${Date.now()}`,
@@ -3123,7 +4768,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
       const botMsg: AIMessage = {
         id: `b_admin_contact_${Date.now()}`,
-        text: "You can directly connect with our Resale Expert Admin & Support team:\n\n📞 **Phone**: +91 9637 00 9639 / +91 9146 00 9176\n✉️ **Email**: support@resaleexpert.in\n⏰ **Hours**: Monday – Sunday, 9:30 AM to 7:30 PM (IST)\n📍 **Office**: Baner / Wakad, Pune, Maharashtra\n\nHow else can I assist you with your real estate needs today?",
+        text: "You can directly connect with our Resale Expert Admin & Support team:\n\n📞 **Phone / WhatsApp**: +91 9637 00 9639\n✉️ **Email**: info@resaleexpert.in\n⏰ **Hours**: Mon - Fri: 9:00 AM - 8:00 PM | Sat - Sun: 9:00 AM - 9:00 PM\n📍 **Office**: Shubhchandra, Nakhate Chowk, Rahatani, Pimpri-Chinchwad, Pune, Maharashtra 411017, India\n\nHow else can I assist you with your real estate needs today?",
         sender: "bot",
         timestamp: new Date(),
         suggestions: ["🏠 Buy Property", "🏷️ Sell Property", "📅 Schedule a Site Visit", "📊 Check Property Valuation"],
@@ -3142,39 +4787,77 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     if (lower.includes("check listing status") || lower.includes("check property status") || lower.includes("listing status")) {
       setSelectedPersona("seller");
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
-      const botMsg: AIMessage = {
-        id: `b_listing_status_${Date.now()}`,
-        text: "Your property has been submitted and is currently in Admin Review. A dedicated Property Executive will contact you to verify documents and coordinate buyer visits.",
-        sender: "bot",
-        timestamp: new Date(),
-        suggestions: ["Get Free Property Valuation", "Check Active Buyers in My Locality", "Talk to Property Executive"],
-      };
-      setAiMessages((prev) => [...prev, userMsg, botMsg]);
+      setAiMessages((prev) => [...prev, userMsg]);
       setInputText("");
+      setIsAiTyping(true);
+
       rexApi.performAction({
-        action: "save_message",
-        payload: { messages: [userMsg, botMsg], persona: "seller" },
+        action: "get_listing_status",
+        payload: {
+          userId: user?.id,
+          phone: user?.phone,
+          email: user?.email,
+          society_name: rexRequirements.society_name,
+        },
         session_uuid: sessionUuid,
         guest_uuid: getGuestUuid(),
-      }).then((r) => {
-        if (r.session_uuid && !sessionUuid) {
-          setSessionUuid(r.session_uuid);
-          localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+      }).then((res) => {
+        const botMsg: AIMessage = {
+          id: `b_listing_status_${Date.now()}`,
+          text: res.reply || "Your property has been submitted and is currently in Admin Review. A dedicated Property Executive will contact you to verify documents and coordinate buyer visits.",
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: res.suggestions || ["Get Free Property Valuation", "Check Active Buyers in My Locality", "Talk to Property Executive"],
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+        if (res.session_uuid && !sessionUuid) {
+          setSessionUuid(res.session_uuid);
+          localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
         }
-      }).catch(() => {});
+      }).catch(() => {
+        const botMsg: AIMessage = {
+          id: `b_listing_status_${Date.now()}`,
+          text: "Your property has been submitted and is currently in Admin Review. A dedicated Property Executive will contact you to verify documents and coordinate buyer visits.",
+          sender: "bot",
+          timestamp: new Date(),
+          suggestions: ["Get Free Property Valuation", "Check Active Buyers in My Locality", "Talk to Property Executive"],
+        };
+        setAiMessages((prev) => [...prev, botMsg]);
+      }).finally(() => {
+        setIsAiTyping(false);
+      });
       return;
     }
 
-    const isExactTenantPrompt = ["search rental home", "rent property", "🔑 rent property", "rent", "rent a flat", "rent a home", "tenant"].includes(lower);
+    if (lower === "login to your account" || lower === "login" || lower === "log in") {
+      const emailParam = rexProfile?.email || inChatAuthData?.email || "";
+      navigate(`/login${emailParam ? `?email=${encodeURIComponent(emailParam)}` : ""}`);
+      return;
+    }
+
+    const isExactTenantPrompt =
+      !lower.includes("agreement") &&
+      !lower.includes("rule") &&
+      !lower.includes("process") &&
+      !lower.includes("deposit") &&
+      !lower.includes("police") &&
+      ["search rental home", "rent property", "🔑 rent property", "rent", "rent a flat", "rent a home", "tenant"].includes(lower);
     if (isExactTenantPrompt) {
       setSelectedPersona("tenant");
+      localStorage.setItem(REX_PERSONA_KEY, "tenant");
       const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
       const botMsg: AIMessage = {
         id: `b_persona_tenant_${Date.now()}`,
-        text: "Looking for rental homes? Which locality and monthly rental budget are you considering?",
+        text: "Looking for a home on rent? Filter by preferred locality, monthly budget, and BHK configuration to find verified rental matches:",
         sender: "bot",
         timestamp: new Date(),
-        suggestions: ["Rent in Wakad", "Rent in Baner", "Rent in Hinjewadi", "1/2 BHK Rental Flat"],
+        tenantFilterCard: {
+          initialLocation: rexRequirements.locations?.[0] || "Baner",
+          initialBhk: rexRequirements.unit_type || "2 BHK",
+          initialBudget: "₹15k - ₹25k",
+          initialFurnishing: "Any",
+        },
+        suggestions: ["Rent in Baner", "Rent in Wakad", "Rent in Hinjewadi", "1 BHK in Hinjewadi"],
       };
       setAiMessages((prev) => [...prev, userMsg, botMsg]);
       setInputText("");
@@ -3192,32 +4875,6 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       return;
     }
 
-    const isExactOwnerPrompt = ["list property for rent", "rent owner", "rent out property", "rent my flat"].includes(lower);
-    if (isExactOwnerPrompt) {
-      setSelectedPersona("owner");
-      const userMsg: AIMessage = { id: `u_${Date.now()}`, text, sender: "user", timestamp: new Date() };
-      const botMsg: AIMessage = {
-        id: `b_persona_owner_${Date.now()}`,
-        text: "We can find verified tenants for your property quickly. Please share your property society, BHK type, and expected monthly rent:",
-        sender: "bot",
-        timestamp: new Date(),
-        suggestions: ["List 2 BHK in Wakad", "List Flat in Hinjewadi", "List Apartment in Baner"],
-      };
-      setAiMessages((prev) => [...prev, userMsg, botMsg]);
-      setInputText("");
-      rexApi.performAction({
-        action: "save_message",
-        payload: { messages: [userMsg, botMsg], persona: "owner" },
-        session_uuid: sessionUuid,
-        guest_uuid: getGuestUuid(),
-      }).then((r) => {
-        if (r.session_uuid && !sessionUuid) {
-          setSessionUuid(r.session_uuid);
-          localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
-        }
-      }).catch(() => {});
-      return;
-    }
 
     const isExactBrokerPrompt = ["broker", "channel partner", "i am a broker", "i am channel partner"].includes(lower);
     if (isExactBrokerPrompt) {
@@ -3285,6 +4942,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
         guest_uuid: guestUuid,
         latitude: browserCoords?.latitude,
         longitude: browserCoords?.longitude,
+        persona: selectedPersona,
       });
 
       if (response.success) {
@@ -3296,12 +4954,25 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
         if (response.profile) setRexProfile(response.profile);
         if (response.requirements) setRexRequirements(response.requirements);
 
+        if (response.intent === "tenant" || response.profile?.role === "tenant") {
+          setSelectedPersona("tenant");
+          localStorage.setItem(REX_PERSONA_KEY, "tenant");
+        }
+
+        const filteredSuggestions = (response.suggestions || []).filter((s) => {
+          if (response.intent === "tenant" || response.profile?.role === "tenant" || selectedPersona === "tenant") {
+            const low = s.toLowerCase();
+            return !low.includes("site visit") && !low.includes("schedule") && !low.includes("resale") && !low.includes("valuation") && !low.includes("sell");
+          }
+          return true;
+        });
+
         const botMsg: AIMessage = {
           id: `r_${Date.now()}`,
           text: response.reply,
           sender: "bot",
           timestamp: new Date(),
-          suggestions: response.suggestions,
+          suggestions: filteredSuggestions,
           properties:
             response.properties && response.properties.length > 0
               ? response.properties
@@ -3314,19 +4985,121 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                 initialBudget: "₹50L - ₹80L",
               }
             : undefined,
-          sellerWizardCard: Boolean(response.show_seller_wizard)
+          tenantFilterCard: response.show_tenant_filter
+            ? {
+                initialLocation: response.requirements?.locations?.[0] || "Baner",
+                initialBhk: response.requirements?.unit_type || "2 BHK",
+                initialBudget: "₹15k - ₹25k",
+                initialFurnishing: "Any",
+              }
+            : undefined,
+          sellerWizardCard: (Boolean(response.show_seller_wizard) && isAuthenticated)
             ? {
                 initialData: {
                   society_name: response.requirements?.society_name || "",
-                  locality: response.requirements?.locations?.[0] || "Punawale",
-                  bhk: response.requirements?.unit_type || "2 BHK",
+                  location_name: response.requirements?.locations?.[0] || "Punawale",
+                  unit_type: response.requirements?.unit_type || "2 BHK",
                   carpet_area: response.requirements?.carpet_area ? String(response.requirements.carpet_area) : "",
                   expected_price: response.requirements?.budget_max ? `₹${response.requirements.budget_max}` : "",
                 },
               }
             : undefined,
+          ownerWizardCard: undefined,
           confirmedVisit: response.visit || undefined,
         };
+
+        const isSellerIntentResponse = Boolean(response.show_seller_wizard);
+        if (isSellerIntentResponse) {
+          setSelectedPersona("seller");
+          localStorage.setItem(REX_PERSONA_KEY, "seller");
+
+          if (!isAuthenticated) {
+            botMsg.sellerWizardCard = undefined;
+            const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+            const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+            const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+
+            if (cachedEmail || cachedPhone) {
+              try {
+                const statusRes = await rexApi.performAction({
+                  action: "check_user_status",
+                  payload: { email: cachedEmail, phone: cachedPhone },
+                  session_uuid: sessionUuid || undefined,
+                  guest_uuid: getGuestUuid(),
+                });
+                if (statusRes.is_registered) {
+                  botMsg.suggestions = ["Login to Your Account", "Talk to Property Executive", "Explore Pune Resale Properties"];
+                  setAiMessages((prev) => [...prev, botMsg]);
+                  promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+                    type: "seller_property",
+                  });
+                  return;
+                }
+              } catch (statusErr) {
+                console.warn("Seller status check error:", statusErr);
+              }
+            }
+
+            botMsg.inChatAuthForm = {
+              initialName: cachedName,
+              initialEmail: cachedEmail,
+              initialPhone: cachedPhone,
+              role: "seller",
+              actionType: "seller_listing",
+            };
+            botMsg.suggestions = ["Login to Your Account", "Talk to Property Executive", "Explore Pune Resale Properties"];
+          }
+        }
+
+        const isOwnerIntent = Boolean(
+          response.show_owner_wizard ||
+          (response as any).show_owner_registration
+        );
+
+        if (isOwnerIntent) {
+          setSelectedPersona("owner");
+          localStorage.setItem(REX_PERSONA_KEY, "owner");
+
+          if (!isAuthenticated) {
+            // STRICT GATE: NEVER open owner rental wizard for unregistered / unauthenticated user!
+            const cachedEmail = rexProfile?.email || inChatAuthData?.email || "";
+            const cachedName = rexProfile?.name || (inChatAuthData?.first_name ? `${inChatAuthData.first_name} ${inChatAuthData.last_name || ""}`.trim() : "");
+            const cachedPhone = rexProfile?.phone || inChatAuthData?.phone || "";
+
+            if (cachedEmail || cachedPhone) {
+              try {
+                const statusRes = await rexApi.performAction({
+                  action: "check_user_status",
+                  payload: { email: cachedEmail, phone: cachedPhone },
+                  session_uuid: sessionUuid || undefined,
+                  guest_uuid: getGuestUuid(),
+                });
+                if (statusRes.is_registered) {
+                  botMsg.suggestions = ["Login to Your Account", "Talk to Sales Executive", "Explore Pune Rentals"];
+                  setAiMessages((prev) => [...prev, botMsg]);
+                  promptExistingUserLogin(cachedEmail || cachedPhone || "", statusRes.first_name, {
+                    type: "owner_rental_wizard",
+                  });
+                  return;
+                }
+              } catch (statusErr) {
+                console.warn("Owner status check error:", statusErr);
+              }
+            }
+
+            // Prompt In-Chat Owner Registration / Login
+            botMsg.inChatAuthForm = {
+              initialName: cachedName,
+              initialEmail: cachedEmail,
+              initialPhone: cachedPhone,
+              role: "owner",
+              actionType: "owner_listing",
+            };
+            botMsg.suggestions = ["Login to Your Account", "Talk to Sales Executive", "Explore Pune Rentals"];
+          } else {
+            botMsg.ownerWizardCard = {};
+          }
+        }
 
         setAiMessages((prev) => [...prev, botMsg]);
       } else {
@@ -3886,9 +5659,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                                   </p>
                                 </div>
                               </div>
-                              {activePropertySlug && (
+                              {activePropertyDetailUrl && (
                                 <a
-                                  href={`/properties/${activePropertySlug}`}
+                                  href={activePropertyDetailUrl}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="w-full py-2 px-3 bg-gradient-to-r from-[#e87722] to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-[11.5px] font-semibold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 text-center cursor-pointer active:scale-95"
@@ -3931,9 +5704,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                             <span>Book Site Visit</span>
                           </button>
 
-                          {activePropertySlug ? (
+                          {activePropertyDetailUrl ? (
                             <a
-                              href={`/properties/${activePropertySlug}`}
+                              href={activePropertyDetailUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="w-full py-2 px-3 bg-gradient-to-r from-[#e87722] to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-[11.5px] font-semibold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 text-center cursor-pointer active:scale-95"
@@ -4174,7 +5947,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                                   initialName={m.inChatAuthForm.initialName}
                                   initialEmail={m.inChatAuthForm.initialEmail}
                                   initialPhone={m.inChatAuthForm.initialPhone}
-                                  onSendOtp={(data) => handleInChatSendOtp(data, m.inChatAuthForm)}
+                                  onSendOtp={(data) => handleInChatSendOtp(data, m.inChatAuthForm, m.id)}
                                   onVerifyOtp={(otp, data) => handleInChatVerifyAndComplete(otp, data, m.inChatAuthForm)}
                                   onCancel={() => handleCancelAuthForm(m.id)}
                                   loading={isSending}
@@ -4222,6 +5995,20 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                               </div>
                             )}
 
+                            {/* Tenant Multi-Criteria Interactive Filter */}
+                            {m.tenantFilterCard && (
+                              <div className="mt-3 w-full">
+                                <REXTenantFilterCard
+                                  initialLocation={m.tenantFilterCard.initialLocation}
+                                  initialBhk={m.tenantFilterCard.initialBhk}
+                                  initialBudget={m.tenantFilterCard.initialBudget}
+                                  initialFurnishing={m.tenantFilterCard.initialFurnishing}
+                                  disabled={m.tenantFilterCard.disabled}
+                                  onSubmit={(filters) => handleTenantFilterSubmit(filters, m.id)}
+                                />
+                              </div>
+                            )}
+
                             {/* Seller Managed Property Submission Wizard */}
                             {m.sellerWizardCard && (
                               <div className="mt-3 w-full">
@@ -4236,7 +6023,83 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                             {/* Seller Property Submitted Confirmation Card */}
                             {m.sellerConfirmedCard && (
                               <div className="mt-3 w-full">
-                                <REXSellerConfirmedCard data={m.sellerConfirmedCard.data} />
+                                <REXSellerConfirmedCard
+                                  data={m.sellerConfirmedCard.data}
+                                  executiveCard={m.sellerConfirmedCard.executiveCard}
+                                  onChatWithExecutive={
+                                    m.sellerConfirmedCard.executiveCard?.propertyId
+                                      ? () => handleOpenPropertyConversation({ propertyId: Number(m.sellerConfirmedCard!.executiveCard!.propertyId!) })
+                                      : undefined
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {/* Owner Rental Property Listing Wizard */}
+                            {m.ownerWizardCard && (
+                              <div className="mt-3 w-full">
+                                <REXOwnerRentalWizardCard
+                                  disabled={m.ownerWizardCard.disabled}
+                                  onSubmit={(data) => handleOwnerRentalSubmit(data, m.id)}
+                                />
+                              </div>
+                            )}
+
+                            {/* Owner Rental Confirmed Card */}
+                            {m.ownerConfirmedCard && (
+                              <div className="mt-3 w-full">
+                                <REXOwnerRentalConfirmedCard {...m.ownerConfirmedCard} />
+                              </div>
+                            )}
+
+                            {/* Account Already Exists Banner Card */}
+                            {m.accountExistsCard && (
+                              <div className="mt-3 w-full bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/30 rounded-2xl p-4 shadow-sm backdrop-blur-sm">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                                    <Lock className="w-5 h-5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                      Account Already Registered
+                                    </h4>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
+                                      {m.accountExistsCard.message || `An account with ${m.accountExistsCard.email} already exists. Please login to continue forward directly.`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mt-3.5 pt-3 border-t border-amber-500/20 flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigate(`/login?email=${encodeURIComponent(m.accountExistsCard?.email || "")}`);
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow hover:opacity-95 transition-all cursor-pointer"
+                                  >
+                                    <LogIn className="w-3.5 h-3.5" />
+                                    Login to Your Account
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setInChatAuthData({});
+                                      const retryMsg: AIMessage = {
+                                        id: `retry_auth_${Date.now()}`,
+                                        text: "Please enter your alternative email and phone number:",
+                                        sender: "bot",
+                                        timestamp: new Date(),
+                                        inChatAuthForm: {
+                                          role: selectedPersona || "tenant",
+                                          actionType: "interested",
+                                        },
+                                      };
+                                      setAiMessages((prev) => [...prev, retryMsg]);
+                                    }}
+                                    className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                                  >
+                                    Use different email
+                                  </button>
+                                </div>
                               </div>
                             )}
 
@@ -4350,10 +6213,279 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                               </div>
                             )}
 
+                            {/* Seller Assigned Executive Contact Card */}
+                            {m.sellerExecutiveCard && (
+                              <div className="mt-3 w-full bg-gradient-to-br from-blue-50/90 via-white to-orange-50/80 border border-blue-200/80 rounded-2xl p-3 shadow-2xs space-y-2.5">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-blue-100">
+                                  <div className="flex items-center gap-1.5 font-bold text-xs text-[#0f2b3d]">
+                                    <UserCheck size={14} className="text-[#e87722]" />
+                                    <span>Assigned Property Executive</span>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Active Assigned
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-[#0f2b3d] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs ring-2 ring-orange-200">
+                                    {m.sellerExecutiveCard.executiveName
+                                      ? m.sellerExecutiveCard.executiveName.charAt(0).toUpperCase()
+                                      : <UserIcon size={16} />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-bold text-xs text-slate-900 truncate">
+                                      {m.sellerExecutiveCard.executiveName}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500 font-medium truncate">
+                                      {m.sellerExecutiveCard.executiveRole || "Dedicated Property Executive"}
+                                    </p>
+                                    {m.sellerExecutiveCard.propertyTitle && (
+                                      <p className="text-[10px] text-orange-700 font-semibold truncate mt-0.5">
+                                        Listing: {m.sellerExecutiveCard.propertyTitle}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (m.sellerExecutiveCard?.propertyId) {
+                                        handleOpenPropertyConversation({
+                                          propertyId: Number(m.sellerExecutiveCard.propertyId),
+                                          propertyTitle: m.sellerExecutiveCard.propertyTitle || "My Property Listing",
+                                          propertySlug: m.sellerExecutiveCard.propertySlug || String(m.sellerExecutiveCard.propertyId),
+                                          propertyPrice: Number(m.sellerExecutiveCard.propertyPrice || 0),
+                                          initialMessage: `Hi ${m.sellerExecutiveCard.executiveFirstName || m.sellerExecutiveCard.executiveName}, I am reaching out regarding my property listing for ${m.sellerExecutiveCard.propertyTitle || "my property"}.`,
+                                        });
+                                      } else {
+                                        navigate("/my-chats");
+                                      }
+                                    }}
+                                    className="flex-1 py-2 px-3 bg-[#0f2b3d] hover:bg-[#163e58] text-white text-[11.5px] font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                  >
+                                    <MessageSquare size={13} />
+                                    <span>Chat with {m.sellerExecutiveCard.executiveFirstName || "Executive"}</span>
+                                  </button>
+
+                                  {m.sellerExecutiveCard.executivePhone && (
+                                    <a
+                                      href={`tel:${m.sellerExecutiveCard.executivePhone}`}
+                                      className="py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11.5px] font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                                      title="Call Executive"
+                                    >
+                                      <Phone size={12} className="text-[#e87722]" />
+                                      <span>Call</span>
+                                    </a>
+                                  )}
+
+                                  {m.sellerExecutiveCard.executivePhone && (
+                                    <a
+                                      href={`https://wa.me/91${String(m.sellerExecutiveCard.executivePhone).replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
+                                        `Hello ${m.sellerExecutiveCard.executiveFirstName || m.sellerExecutiveCard.executiveName}, I am contacting you regarding my property listing ${m.sellerExecutiveCard.propertyTitle || ""} on Resale Expert.`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11.5px] font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                                      title="WhatsApp Executive"
+                                    >
+                                      <span>WhatsApp</span>
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Rental Property Verified Owner Contact Details Card */}
+                            {m.rentalOwnerCard && (
+                              <div className="mt-3 w-full bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/80 border border-teal-200/90 rounded-2xl p-3 shadow-2xs space-y-2.5 text-left">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-teal-100">
+                                  <div className="flex items-center gap-1.5 font-bold text-xs text-[#0f2b3d]">
+                                    <Home size={14} className="text-teal-700" />
+                                    <span>Verified Property Owner Details</span>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                    <ShieldCheck size={11} className="text-emerald-600" />
+                                    Verified Owner
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-teal-800 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs ring-2 ring-teal-200">
+                                    {m.rentalOwnerCard.ownerName
+                                      ? m.rentalOwnerCard.ownerName.charAt(0).toUpperCase()
+                                      : <UserIcon size={16} />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-bold text-xs text-slate-900 truncate">
+                                      {m.rentalOwnerCard.ownerName}
+                                    </h4>
+                                    <p className="text-[10px] text-teal-800 font-semibold truncate">
+                                      {m.rentalOwnerCard.propertyTitle}
+                                    </p>
+                                    {m.rentalOwnerCard.monthlyRent && (
+                                      <p className="text-[10px] text-slate-600 font-medium truncate mt-0.5">
+                                        Rent: <span className="font-bold text-[#0f2b3d]">₹{Number(m.rentalOwnerCard.monthlyRent).toLocaleString("en-IN")}/mo</span>
+                                        {m.rentalOwnerCard.securityDeposit ? ` • Deposit: ₹${Number(m.rentalOwnerCard.securityDeposit).toLocaleString("en-IN")}` : ""}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                                  {m.rentalOwnerCard.ownerPhone && (
+                                    <a
+                                      href={`tel:${m.rentalOwnerCard.ownerPhone}`}
+                                      className="flex-1 py-2 px-3 bg-teal-800 hover:bg-teal-900 text-white text-[11.5px] font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+                                      title="Call Property Owner"
+                                    >
+                                      <Phone size={12} />
+                                      <span>Call Owner ({m.rentalOwnerCard.ownerPhone})</span>
+                                    </a>
+                                  )}
+
+                                  {m.rentalOwnerCard.ownerWhatsapp && (
+                                    <a
+                                      href={`https://wa.me/91${String(m.rentalOwnerCard.ownerWhatsapp).replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
+                                        `Hello ${m.rentalOwnerCard.ownerName}, I saw your rental listing for ${m.rentalOwnerCard.propertyTitle} on Resale Expert and would like to know if it is available for rent.`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11.5px] font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                                      title="WhatsApp Owner"
+                                    >
+                                      <span>WhatsApp</span>
+                                    </a>
+                                  )}
+                                </div>
+
+                                {/* Tenant Dashboard Callout */}
+                                <div className="mt-2 pt-2 border-t border-teal-100 flex flex-col gap-1.5 bg-teal-50/70 p-2.5 rounded-xl">
+                                  <div className="flex items-center justify-between text-[11.5px] text-teal-950 font-bold">
+                                    <span>Want more details & rental tools?</span>
+                                    <span className="text-[9.5px] bg-teal-200/80 text-teal-900 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Tenant Dashboard</span>
+                                  </div>
+                                  <p className="text-[10.5px] text-slate-600 leading-tight">
+                                    Visit your Tenant Dashboard for direct owner messaging, rental agreements, saved properties & inquiry management.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsOpen(false);
+                                      navigate("/dashboard/rental-properties");
+                                    }}
+                                    className="w-full py-1.5 px-3 bg-gradient-to-r from-teal-700 to-[#0f2b3d] hover:from-teal-800 hover:to-[#163e58] text-white text-[11px] font-bold rounded-lg transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                  >
+                                    <ExternalLink size={12} />
+                                    <span>Open Tenant Dashboard</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* General Executive / Rental Desk Call & Call Request Action Buttons */}
+                            {(m.executiveDeskCard ||
+                              (!m.sellerExecutiveCard &&
+                                !m.rentalOwnerCard &&
+                                !m.visitScheduler &&
+                                !m.confirmedVisit &&
+                                (m.text.includes("Dedicated Rental Assistance Desk") ||
+                                  m.text.includes("Dedicated Rental Desk") ||
+                                  m.text.includes("Dedicated Buyer Advisory Desk") ||
+                                  m.text.includes("Resale Expert Property Executive Team")))) && (
+                              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-2">
+                                <a
+                                  href={`tel:${m.executiveDeskCard?.phone || "+919637009639"}`}
+                                  className="flex-1 py-1.5 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold rounded-lg transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center whitespace-nowrap"
+                                  title={`Call Desk Directly: ${m.executiveDeskCard?.displayPhone || "+91 9637 00 9639"}`}
+                                >
+                                  <Phone size={12} className="shrink-0" />
+                                  <span>Call Desk</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCallRequest(m.executiveDeskCard?.phone, m.executiveDeskCard?.deskName)}
+                                  className="flex-1 py-1.5 px-2.5 bg-teal-800 hover:bg-teal-900 text-white text-[11px] font-semibold rounded-lg transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+                                  title="Request Executive Callback"
+                                >
+                                  <PhoneCall size={12} className="shrink-0" />
+                                  <span>Call Request</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Inline 3-Step Call Request Wizard */}
+                            {m.callRequestCard && (
+                              <div className="mt-3 w-full">
+                                <REXCallRequestCard
+                                  initialPhone={m.callRequestCard.initialPhone}
+                                  initialName={m.callRequestCard.initialName}
+                                  persona={m.callRequestCard.persona}
+                                  disabled={m.callRequestCard.disabled}
+                                  onSubmit={(data) => handleSubmitCallRequest(data, m.id)}
+                                  onCancel={() => handleCancelCallRequest(m.id)}
+                                />
+                              </div>
+                            )}
+
                             {/* Suggestions Chips without emojis */}
                             {m.suggestions && m.suggestions.length > 0 && (
                               <div className="mt-3 flex flex-wrap gap-1.5">
-                                {m.suggestions.map((sug, i) => {
+                                {m.suggestions
+                                  .filter((sug) => {
+                                    if (m.id === "initial_welcome") return true;
+                                    const low = sug.toLowerCase();
+                                    if (selectedPersona === "seller") {
+                                      return (
+                                        !low.includes("rent in") &&
+                                        !low.includes("rental") &&
+                                        !low.includes("tenant") &&
+                                        !low.includes("site visit") &&
+                                        !low.includes("book visit") &&
+                                        !low.includes("schedule visit") &&
+                                        !low.includes("explore 2 bhk") &&
+                                        !low.includes("properties under") &&
+                                        !low.includes("find ") &&
+                                        !low.includes("buy flat") &&
+                                        !low.includes("buy property")
+                                      );
+                                    }
+                                    if (selectedPersona === "owner") {
+                                      return (
+                                        !low.includes("site visit") &&
+                                        !low.includes("book visit") &&
+                                        !low.includes("schedule visit") &&
+                                        !low.includes("resale") &&
+                                        !low.includes("buy ") &&
+                                        !low.includes("buyer") &&
+                                        !low.includes("properties under") &&
+                                        !low.includes("find ")
+                                      );
+                                    }
+                                    if (selectedPersona === "tenant") {
+                                      return (
+                                        !low.includes("site visit") &&
+                                        !low.includes("schedule") &&
+                                        !low.includes("resale") &&
+                                        !low.includes("valuation") &&
+                                        !low.includes("sell") &&
+                                        !low.includes("buyer")
+                                      );
+                                    }
+                                    if (selectedPersona === "buyer") {
+                                      return (
+                                        !low.includes("rent in") &&
+                                        !low.includes("rental") &&
+                                        !low.includes("tenant") &&
+                                        !low.includes("list property") &&
+                                        !low.includes("sell property")
+                                      );
+                                    }
+                                    return true;
+                                  })
+                                  .map((sug, i) => {
                                   const textLower = sug.toLowerCase();
                                   const isVisit = textLower.includes("visit") || textLower.includes("schedule") || textLower.includes("book");
                                   const isExec = textLower.includes("executive") || textLower.includes("agent") || textLower.includes("call") || textLower.includes("talk");

@@ -123,14 +123,23 @@ export function formatRupeePrice(price?: number | string | null): string {
 
 function getRoleBadge(role?: string) {
   const norm = String(role || "buyer").toLowerCase().trim();
-  if (norm.includes("seller")) {
-    return { label: "Seller", bg: "bg-amber-50 text-amber-700 border-amber-200" };
+  if (norm === "buyer" || norm.includes("buyer")) {
+    return { label: "Buyer", bg: "bg-blue-50 text-blue-700 border-blue-200" };
   }
-  if (norm.includes("tenant")) {
+  if (norm === "tenant" || norm.includes("tenant")) {
     return { label: "Tenant", bg: "bg-purple-50 text-purple-700 border-purple-200" };
   }
-  if (norm.includes("owner")) {
+  if (norm === "owner" || norm.includes("owner")) {
     return { label: "Owner", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  }
+  if (norm === "seller" || norm.includes("seller")) {
+    return { label: "Seller", bg: "bg-amber-50 text-amber-700 border-amber-200" };
+  }
+  if (norm.includes("broker") || norm.includes("partner")) {
+    return { label: "Broker", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+  }
+  if (norm === "user") {
+    return { label: "User", bg: "bg-slate-100 text-slate-700 border-slate-200" };
   }
   return { label: "Buyer", bg: "bg-blue-50 text-blue-700 border-blue-200" };
 }
@@ -1098,12 +1107,44 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
                 ))}
               </div>
 
+              {/* Role Filter Tabs (All Roles, Sellers, Buyers, Tenants, Owners, Users) */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 mb-1.5 text-[9.5px] font-semibold">
+                {[
+                  { id: "all", label: "All Roles" },
+                  { id: "seller", label: "Sellers" },
+                  { id: "buyer", label: "Buyers" },
+                  { id: "tenant", label: "Tenants" },
+                  { id: "owner", label: "Owners" },
+                  { id: "user", label: "Users" },
+                ].map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelectedRole(r.id)}
+                    className={`px-2 py-0.5 rounded-md whitespace-nowrap transition-all border cursor-pointer ${
+                      selectedRole === r.id
+                        ? r.id === "seller"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-2xs font-bold"
+                          : r.id === "buyer"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-2xs font-bold"
+                          : r.id === "tenant"
+                          ? "bg-purple-600 text-white border-purple-600 shadow-2xs font-bold"
+                          : r.id === "owner"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
+                          : "bg-slate-900 text-white border-slate-900 shadow-2xs font-bold"
+                        : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Search User / Keyword */}
               <div className="relative">
                 <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search buyer, msg..."
+                  placeholder="Search client, seller, buyer, msg..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-7 pr-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#e87722] text-slate-800 placeholder-slate-400 transition-colors"

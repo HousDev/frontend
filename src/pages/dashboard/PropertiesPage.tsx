@@ -841,7 +841,9 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     totalFloors: r.total_floors ?? ' - ',
     carpetArea: r.carpet_area ?? 0,
     builtupArea: r.builtup_area ?? 0,
-    status: r.status || ' - ',
+    status: (r.is_public && (!r.status || r.status === ' - '))
+      ? 'Available'
+      : (r.status || 'Pending Review'),
     leadSource: r.lead_source || ' - ',
     purchaseMonth: r.purchase_month ?? ' - ',
     purchaseYear: r.purchase_year ?? ' - ',
@@ -1711,6 +1713,7 @@ const PropertiesPage = () => {
     () => [
       { id: 'all', label: 'All Properties', count: properties.length, color: 'blue' },
       { id: 'available', label: 'Available', count: properties.filter(p => p.status === 'Available').length, color: 'green' },
+      { id: 'pending_review', label: 'Pending Review', count: properties.filter(p => p.status === 'Pending Review').length, color: 'amber' },
       { id: 'linked_seller', label: 'Linked Seller', count: properties.filter(p => isSellerLinked(p)).length, color: 'teal' },
       { id: 'unlinked_seller', label: 'Unlinked Properties', count: properties.filter(p => !isSellerLinked(p)).length, color: 'amber' },
       { id: 'public', label: 'Public Listings', count: properties.filter(p => p.isPublic).length, color: 'indigo' },
@@ -1720,7 +1723,7 @@ const PropertiesPage = () => {
         label: 'New Listings',
         count: properties.filter(p => {
           const ls = p.leadSource || '';
-          return ls === 'seller_portal' || ls.includes('seller_portal');
+          return ls === 'seller_portal' || ls.includes('seller_portal') || ls === 'REX AI Chatbot' || ls.includes('Chatbot');
         }).length,
         color: 'orange'
       },
@@ -1761,6 +1764,7 @@ const PropertiesPage = () => {
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'available' && p.status === 'Available') ||
+        (activeTab === 'pending_review' && p.status === 'Pending Review') ||
         (activeTab === 'linked_seller' && isSellerLinked(p)) ||
         (activeTab === 'unlinked_seller' && !isSellerLinked(p)) ||
         (activeTab === 'sold' && p.status === 'Sold') ||
@@ -1768,7 +1772,7 @@ const PropertiesPage = () => {
         (activeTab === 'public' && p.isPublic) ||
         (activeTab === 'private' && !p.isPublic) ||
         (activeTab === 'hot' && (Number(p.hotLeads) || 0) > 2) ||
-        (activeTab === 'new_listing' && (p.leadSource === 'seller_portal' || (p.leadSource || '').includes('seller_portal')));
+        (activeTab === 'new_listing' && (p.leadSource === 'seller_portal' || (p.leadSource || '').includes('seller_portal') || p.leadSource === 'REX AI Chatbot' || (p.leadSource || '').includes('Chatbot')));
       const matchesExecutive =
         filters.assignedExecutive === 'all' ||
         (filters.assignedExecutive === '__unassigned__' && !p.assignedTo?.id) ||
@@ -2313,7 +2317,11 @@ const PropertiesPage = () => {
 
       if (response.success) {
         setProperties(prev => prev.map(p =>
-          selectedProperties.includes(p.id) ? { ...p, isPublic: true } : p
+          selectedProperties.includes(p.id) ? {
+            ...p,
+            isPublic: true,
+            status: (p.status === 'Pending Review' || !p.status || p.status === ' - ') ? 'Available' : p.status,
+          } : p
         ));
         setSelectedProperties([]);
         toast.success(`${response.data.summary.successful} properties marked as public`);
@@ -4253,6 +4261,7 @@ const PropertiesPage = () => {
 function getStatusBadge(status: string, compact: boolean = false) {
   const cfg: any = {
     'Available': { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', compactLabel: 'Available', icon: compact ? '●' : '🟢' },
+    'Pending Review': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pending Review', compactLabel: 'Pending Review', icon: compact ? '●' : '🟡' },
     'Sold': { bg: 'bg-red-100', text: 'text-red-600', label: 'Sold', compactLabel: 'Sold', icon: compact ? '●' : '🔴' },
     'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Under Negotiation', compactLabel: 'Under Negotiation', icon: compact ? '●' : '🟡' },
     'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'On Hold', compactLabel: 'On Hold', icon: compact ? '●' : '⚫' },

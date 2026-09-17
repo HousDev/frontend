@@ -1,0 +1,62 @@
+[
+  {
+    "location_name": "Wakad",
+    "society_name": "Rohan Tarang",
+    "unit_type": "2 BHK",
+    "carpet_area": 760,
+    "final_price": 7600000,
+    "floor": 6,
+    "total_floors": 14,
+    "furnishing": "Semi-Furnished",
+    "city_name": "Pune",
+    "status": "active"
+  },
+  {
+    "location_name": "Baner",
+    "society_name": "VTP Verve",
+    "unit_type": "3 BHK",
+    "carpet_area": 1100,
+    "final_price": 12800000,
+    "floor": 9,
+    "total_floors": 18,
+    "furnishing": "Unfurnished",
+    "city_name": "Pune",
+    "status": "active"
+  },
+  {
+    "location_name": "Hinjewadi",
+    "society_name": "Megapolis Smart Homes",
+    "unit_type": "2 BHK",
+    "carpet_area": 690,
+    "final_price": 5800000,
+    "floor": 4,
+    "total_floors": 12,
+    "furnishing": "Semi-Furnished",
+    "city_name": "Pune",
+    "status": "active"
+  },
+  {
+    "location_name": "Kharadi",
+    "society_name": "Gera World of Joy",
+    "unit_type": "2 BHK",
+    "carpet_area": 750,
+    "final_price": 7900000,
+    "floor": 11,
+    "total_floors": 22,
+    "furnishing": "Unfurnished",
+    "city_name": "Pune",
+    "status": "active"
+  },
+  {
+    "location_name": "Ravet",
+    "society_name": "Pharande Puneville",
+    "unit_type": "2 BHK",
+    "carpet_area": 740,
+    "final_price": 6300000,
+    "floor": 5,
+    "total_floors": 16,
+    "furnishing": "Unfurnished",
+    "city_name": "Pune",
+    "status": "active"
+  }
+]

@@ -380,13 +380,14 @@ const StagesTab: React.FC<StagesTabProps> = ({
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: string; label: string }> = {
       'Available': { bg: '#10b98110', text: '#10b981', icon: '🟢', label: 'Available' },
+      'Pending Review': { bg: '#f59e0b10', text: '#d97706', icon: '🟡', label: 'Pending Review' },
       'Sold': { bg: '#ef444410', text: '#ef4444', icon: '🔵', label: 'Sold' },
       'Under Negotiation': { bg: '#f59e0b10', text: '#f59e0b', icon: '🟡', label: 'Under Negotiation' },
       'On Hold': { bg: '#64748b10', text: '#64748b', icon: '⚫', label: 'On Hold' },
       'Finalization': { bg: '#8b5cf610', text: '#8b5cf6', icon: '🟣', label: 'Finalization' }
     };
 
-    const config = statusConfig[status] || statusConfig['Available'];
+    const config = statusConfig[status] || { bg: '#64748b10', text: '#64748b', icon: '•', label: status || 'Pending Review' };
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: config.bg, color: config.text }}>
         {config.icon} {config.label}

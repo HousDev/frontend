@@ -870,13 +870,14 @@ const PropertyViewPage: React.FC<PropertyViewPageProps> = ({
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: string; label: string }> = {
       'Available': { bg: 'bg-green-100', text: 'text-green-700', icon: '🟢', label: 'Available' },
+      'Pending Review': { bg: 'bg-amber-100', text: 'text-amber-700', icon: '🟡', label: 'Pending Review' },
       'Sold': { bg: 'bg-blue-100', text: 'text-blue-700', icon: '🔵', label: 'Sold' },
       'Under Negotiation': { bg: 'bg-orange-100', text: 'text-orange-700', icon: '🟡', label: 'Under Negotiation' },
       'On Hold': { bg: 'bg-gray-100', text: 'text-gray-700', icon: '⚫', label: 'On Hold' },
       'Finalization': { bg: 'bg-purple-100', text: 'text-purple-700', icon: '🟣', label: 'Finalization' }
     };
 
-    const config = statusConfig[status] || statusConfig['Available'];
+    const config = statusConfig[status] || { bg: 'bg-gray-100', text: 'text-gray-700', icon: '•', label: status || 'Pending Review' };
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${config.bg} ${config.text}`}>
         {config.icon} {config.label}

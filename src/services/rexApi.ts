@@ -40,6 +40,8 @@ export interface RexPropertyCardData {
   location?: string | null;
   society?: string | null;
   price: number;
+  price_display?: string | null;
+  listing_type?: string | null;
   photos?: string[];
   is_featured?: boolean;
   is_premium?: boolean;
@@ -76,6 +78,8 @@ export interface RexChatResponse {
   session_uuid: string;
   intent: string;
   show_buyer_filter?: boolean;
+  show_tenant_filter?: boolean;
+  show_owner_wizard?: boolean;
   show_seller_wizard?: boolean;
   show_visit_scheduler?: boolean;
   visit?: RexVisitData;
@@ -177,6 +181,38 @@ export const rexApi = {
     pagination?: RexPaginationInfo;
     property?: RexPropertyCardData;
     lead_id?: number | null;
+    executive_card?: {
+      executiveName: string;
+      executiveFirstName?: string;
+      executivePhone?: string;
+      executiveEmail?: string;
+      executiveRole?: string;
+      propertyTitle?: string;
+      propertyId?: number | string;
+      propertySlug?: string;
+      propertyPrice?: number | string;
+      conversationId?: number | string | null;
+    };
+    property_status?: any;
+    message?: string;
+    rental_owner_card?: {
+      ownerId?: number | null;
+      ownerName: string;
+      ownerPhone?: string | null;
+      ownerWhatsapp?: string | null;
+      ownerEmail?: string | null;
+      propertyTitle?: string;
+      propertyId?: number | string;
+      monthlyRent?: number | string;
+      securityDeposit?: number | string;
+      location?: string;
+      verifiedBadge?: boolean;
+    };
+    is_registered?: boolean;
+    first_name?: string;
+    last_name?: string;
+    user?: any;
+    [key: string]: any;
   }> {
     const headers: Record<string, string> = {};
     if (guest_uuid) {
