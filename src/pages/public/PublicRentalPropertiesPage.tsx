@@ -1445,7 +1445,6 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                   className="relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold bg-white/20 text-white hover:bg-white/30"
                 >
                   <span>Buy</span>
-                  <AnimatedCountBadge count={buyCount} />
                 </button>
 
                 <button

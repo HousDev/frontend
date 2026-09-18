@@ -1039,7 +1039,6 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     aria-pressed={transactionType === "buy"}
                   >
                     <span>Buy</span>
-                    <AnimatedCountBadge count={buyCount} />
                   </button>
 
                   <button

@@ -4,6 +4,16 @@ import PhoneInput from 'react-phone-input-2';
 import { X, Upload, Plus, FileText, Trash2, Edit, ArrowRight, ArrowLeft, CheckCircle2, ChevronDown, User, Mail, Phone, Building2, MapPin, DollarSign, Camera, FileCheck, Clock, Star, Key } from 'lucide-react';
 
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import {
+  getSubtypeOptions,
+  getUnitTypeOptions,
+  getBedroomOptions,
+  getBathroomOptions,
+  getFloorOptions,
+  extractNumber,
+  calculateCascadingUpdates,
+  sortNumericOptions,
+} from '@/lib/propertyCascading';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Dropdown from '@/components/ui/Dropdown';
@@ -215,26 +225,6 @@ function getScrollParents(node: Element | null): Element[] {
 }
 
 const SafeDropdown: React.FC<any> = (props) => <Dropdown {...props} />;
-const sortNumericOptions = (options: MasterOption[] = []) => {
-  return [...options].sort((a, b) => {
-    const textA = (a.label || a.value || '').trim();
-    const textB = (b.label || b.value || '').trim();
-    const matchA = textA.match(/^(\d+(?:\.\d+)?)/);
-    const matchB = textB.match(/^(\d+(?:\.\d+)?)/);
-    const numA = matchA ? parseFloat(matchA[1]) : NaN;
-    const numB = matchB ? parseFloat(matchB[1]) : NaN;
-    const isNumA = !isNaN(numA);
-    const isNumB = !isNaN(numB);
-
-    if (isNumA && isNumB) {
-      if (numA !== numB) return numA - numB;
-      return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
-    }
-    if (isNumA) return -1;
-    if (isNumB) return 1;
-    return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
-  });
-};
 /* ─────────────────────────────────────────────────────────────
    MULTI-SELECT DROPDOWN
 ───────────────────────────────────────────────────────────── */
@@ -737,8 +727,23 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
 
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
     if (field === 'leadSource' && leadSourceLocked) return;
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const cascading = calculateCascadingUpdates(field as string, value, masterOptions);
+    if (field === 'totalFloors') {
+      const maxFloorStr = extractNumber(value);
+      const curFloorStr = extractNumber(formData.floor);
+      if (maxFloorStr && curFloorStr) {
+        const max = parseInt(maxFloorStr, 10);
+        const cur = parseInt(curFloorStr, 10);
+        if (!isNaN(max) && !isNaN(cur) && cur > max) {
+          cascading.floor = '';
+        }
+      }
+    }
+    setFormData((prev) => ({ ...prev, ...cascading }));
     if (errors[field as string]) setErrors((prev) => ({ ...prev, [field as string]: '' }));
+    Object.keys(cascading).forEach((k) => {
+      if (errors[k]) setErrors((prev) => ({ ...prev, [k]: '' }));
+    });
   };
 
   const handleInputChange = (field: keyof PropertyFormData, value: any) => {
@@ -1165,36 +1170,42 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
         </div>
         <div>
           <label className={LBL}>Subtype <span className="text-red-400">*</span></label>
-          <SafeDropdown placeholder="Select subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
+          <SafeDropdown
+            placeholder="Select subtype"
+            options={getSubtypeOptions(
+              getOptions('property subtype'),
+              formData.propertyType,
+              getLabelFromValue(getOptions('property type'), formData.propertyType)
+            )}
+            value={formData.propertySubtype}
+            onChange={handleDropdownChange('propertySubtype')}
+            className="w-full"
+          />
           {errors.propertySubtype && <p className="text-red-400 text-[10px] mt-0.5">{errors.propertySubtype}</p>}
         </div>
         <div>
           <label className={LBL}>Unit Type</label>
-          <SafeDropdown placeholder="Unit type" options={sortNumericOptions(getOptions('unit type'))} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
-        </div>
-        <div>
-          <label className={LBL}>Wing</label>
-          <input type="text" placeholder="A / B" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
-        </div>
-        <div>
-          <label className={LBL}>Unit No.</label>
-          <input type="text" placeholder="304" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
-        </div>
-        <div>
-          <label className={LBL}>Floor</label>
-          <SafeDropdown placeholder="Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
-        </div>
-        <div>
-          <label className={LBL}>Total Floors</label>
-          <SafeDropdown placeholder="Total" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+          <SafeDropdown
+            placeholder="Unit type"
+            options={getUnitTypeOptions(
+              getOptions('unit type'),
+              formData.propertyType,
+              formData.propertySubtype,
+              getLabelFromValue(getOptions('property type'), formData.propertyType),
+              getLabelFromValue(getOptions('property subtype'), formData.propertySubtype)
+            )}
+            value={formData.unitType}
+            onChange={handleDropdownChange('unitType')}
+            className="w-full"
+          />
         </div>
         <div>
           <label className={LBL}>Bedrooms</label>
-          <SafeDropdown placeholder="BHK" options={sortNumericOptions(getOptions('bedrooms'))} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
+          <SafeDropdown placeholder="BHK" options={getBedroomOptions(getOptions('bedrooms'))} value={formData.bedrooms || ''} onChange={handleDropdownChange('bedrooms')} className="w-full" />
         </div>
         <div>
           <label className={LBL}>Bathrooms</label>
-          <SafeDropdown placeholder="Baths" options={sortNumericOptions(getOptions('bathrooms'))} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
+          <SafeDropdown placeholder="Baths" options={getBathroomOptions(getOptions('bathrooms'))} value={formData.bathrooms || ''} onChange={handleDropdownChange('bathrooms')} className="w-full" />
         </div>
         <div>
           <label className={LBL}>Balcony</label>
@@ -1212,6 +1223,33 @@ const PublicSellPropertyForm: React.FC<PublicSellPropertyFormProps> = ({
             onChange={handleDropdownChange('dryBalcony')}
             className="w-full"
           />
+        </div>
+        <div>
+          <label className={LBL}>Total Floors</label>
+          <SafeDropdown placeholder="Total" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+        </div>
+        <div>
+          <label className={LBL}>Floor</label>
+          <SafeDropdown
+            placeholder="Floor"
+            options={getFloorOptions(
+              getOptions('floor'),
+              formData.totalFloors,
+              getLabelFromValue(getOptions('total floors'), formData.totalFloors)
+            )}
+            value={formData.floor}
+            onChange={handleDropdownChange('floor')}
+            className="w-full"
+            searchable
+          />
+        </div>
+        <div>
+          <label className={LBL}>Wing</label>
+          <input type="text" placeholder="A / B" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
+        </div>
+        <div>
+          <label className={LBL}>Unit No.</label>
+          <input type="text" placeholder="304" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
         </div>
         <div>
           <label className={LBL}>Facing</label>

@@ -587,6 +587,7 @@ export const documentsGeneratedAPI = {
     const res = await api.get(`/documents-generated/${id}/download`, {
       params: { page: pageType },
       responseType: 'blob',
+      timeout: 120000,
     });
 
     const blob = new Blob([res.data], { type: 'application/pdf' });
@@ -625,7 +626,7 @@ export const documentsGeneratedAPI = {
           filenamePrefix: options?.filenamePrefix || "documents",
         },
       },
-      { responseType: "blob" }
+      { responseType: "blob", timeout: 180000 }
     );
 
     const blob: Blob = res.data;
@@ -656,7 +657,7 @@ export const documentsGeneratedAPI = {
           filenamePrefix: options?.filenamePrefix || "documents",
         },
       },
-      { responseType: "blob" }
+      { responseType: "blob", timeout: 180000 }
     );
 
     const blob: Blob = res.data;
@@ -679,6 +680,7 @@ export const documentsGeneratedAPI = {
   savePdf: async (id: string | number, params?: { page?: 'a4' | 'legal' }) => {
     const res = await api.post(`/documents-generated/${id}/save-pdf`, {}, {
       params: { page: params?.page || 'a4' },
+      timeout: 120000,
     });
     return res.data;
   },
@@ -694,6 +696,7 @@ export const documentsGeneratedAPI = {
   ) => {
     const res = await api.get(`/documents-generated/${id}/final-pdf`, {
       responseType: "blob",
+      timeout: 120000,
     });
     const blob: Blob = res.data;
     const disp =
@@ -709,6 +712,7 @@ export const documentsGeneratedAPI = {
   openFinalPdf: async (id: number | string) => {
     const res = await api.get(`/documents-generated/${id}/final-pdf`, {
       responseType: "blob",
+      timeout: 120000,
     });
     const blobUrl = URL.createObjectURL(res.data);
     window.open(blobUrl, "_blank", "noopener,noreferrer");
@@ -727,6 +731,7 @@ export const documentsGeneratedAPI = {
       const res = await api.get(`/documents-generated/documents/${id}/preview.pdf`, {
         params: { page },
         responseType: 'blob',
+        timeout: 120000,
       });
       
       const blob = new Blob([res.data], { type: 'application/pdf' });

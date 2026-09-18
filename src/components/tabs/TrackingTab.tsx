@@ -22,6 +22,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import DocumentEditModal from '../creation/DocumentEditModal';
 import DocumentDeleteModal from '../creation/DocumentDeleteModal';
@@ -883,7 +884,7 @@ const TrackingTab = () => {
 
     } catch (err: any) {
       console.error("Final PDF download failed:", err);
-      alert(err?.message || "Final PDF download failed");
+      toast.error(err?.message || "Final PDF download failed");
     } finally {
       setDownloadingId(null);
     }
@@ -1791,8 +1792,17 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                               <button onClick={() => handleShareDocument(doc)} className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg" title="Share Document">
                                 <Share size={12} />
                               </button>
-                              <button onClick={() => handleDownloadDocument(doc)} className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg" title="Download PDF">
-                                <Download size={12} />
+                              <button
+                                onClick={() => handleDownloadDocument(doc)}
+                                disabled={downloadingId === doc.id}
+                                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg disabled:opacity-50"
+                                title="Download PDF"
+                              >
+                                {downloadingId === doc.id ? (
+                                  <Loader2 size={12} className="animate-spin text-purple-600" />
+                                ) : (
+                                  <Download size={12} />
+                                )}
                               </button>
 
                               <div className="relative group">
@@ -2026,9 +2036,15 @@ focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-x
                 </button>
                 <button
                   onClick={() => handleDownloadDocument(doc)}
-                  className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                  disabled={downloadingId === doc.id}
+                  className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+                  title="Download PDF"
                 >
-                  <Download size={14} />
+                  {downloadingId === doc.id ? (
+                    <Loader2 size={14} className="animate-spin text-purple-600" />
+                  ) : (
+                    <Download size={14} />
+                  )}
                 </button>
               </div>
             </div>

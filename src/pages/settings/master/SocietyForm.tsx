@@ -563,9 +563,6 @@ interface ImageItem {
   const [searchSocietyTerm, setSearchSocietyTerm] = useState("");
   const [showSocietyDropdown, setShowSocietyDropdown] = useState(false);
   const [societyOptions, setSocietyOptions] = useState<MasterOption[]>([]);
-  const [filteredSocietyOptions, setFilteredSocietyOptions] = useState<
-    MasterOption[]
-  >([]);
   const societyInputRef = useRef<HTMLInputElement>(null);
   const societyDropdownRef = useRef<HTMLDivElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -610,7 +607,6 @@ interface ImageItem {
         label: s.societyName,
       }));
       setSocietyOptions(societyOpts);
-      setFilteredSocietyOptions(societyOpts);
     } catch (error) {
       console.error("Error loading master data:", error);
     } finally {
@@ -618,12 +614,22 @@ interface ImageItem {
     }
   };
 
-  // Filter society options based on search
-  useEffect(() => {
-    const filtered = societyOptions.filter((opt) =>
-      opt.label.toLowerCase().includes(searchSocietyTerm.toLowerCase()),
-    );
-    setFilteredSocietyOptions(filtered);
+  // Ultra-fast instant memoized search with word-by-word matching
+  const filteredSocietyOptions = useMemo(() => {
+    const rawSearch = (searchSocietyTerm || "").toLowerCase().trim();
+    if (!rawSearch) return societyOptions.slice(0, 50);
+
+    const words = rawSearch.split(/\s+/).filter(Boolean);
+    const results: MasterOption[] = [];
+    for (let i = 0; i < societyOptions.length; i++) {
+      const opt = societyOptions[i];
+      const label = (opt.label || "").toLowerCase();
+      if (words.every((word) => label.includes(word))) {
+        results.push(opt);
+        if (results.length >= 60) break; // Limit to 60 for instant 60fps rendering
+      }
+    }
+    return results;
   }, [searchSocietyTerm, societyOptions]);
 
   // Close dropdown when clicking outside
@@ -945,6 +951,7 @@ interface ImageItem {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === "societyName") {
       setSearchSocietyTerm(value);
+      setShowSocietyDropdown(true);
     }
     if (errors[name as keyof SocietyFormData]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -1471,42 +1478,49 @@ if (newFiles.length > 0) {
                   name="societyName"
                   value={searchSocietyTerm}
                   onChange={handleInputChange}
-                  onClick={() => {
-                    setFilteredSocietyOptions(societyOptions);
-                    setShowSocietyDropdown(true);
-                  }}
+                  onFocus={() => setShowSocietyDropdown(true)}
+                  onClick={() => setShowSocietyDropdown(true)}
                   className={
                     getInputClassName("societyName") + " text-xs py-1.5 px-2.5"
                   }
+                  placeholder="Type or search society name..."
                   autoComplete="off"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowSocietyDropdown(true)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                  onClick={() => {
+                    setShowSocietyDropdown((prev) => !prev);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <Search size={13} className="text-gray-400" />
+                  <Search size={13} />
                 </button>
               </div>
-              {showSocietyDropdown && filteredSocietyOptions.length > 0 && (
+              {showSocietyDropdown && (
                 <div
                   ref={societyDropdownRef}
                   className="absolute z-50 w-full mt-0.5 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
                 >
-                  {filteredSocietyOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleSocietySelect(option)}
-                      className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-orange-50 transition-colors flex items-center gap-1.5"
-                    >
-                      <Building2
-                        size={12}
-                        className="text-gray-400 flex-shrink-0"
-                      />
-                      {option.label}
-                    </button>
-                  ))}
+                  {filteredSocietyOptions.length > 0 ? (
+                    filteredSocietyOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSocietySelect(option)}
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-orange-50 transition-colors flex items-center gap-1.5"
+                      >
+                        <Building2
+                          size={12}
+                          className="text-gray-400 flex-shrink-0"
+                        />
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    ))
+                  ) : searchSocietyTerm.trim() ? (
+                    <div className="px-3 py-2 text-xs text-gray-400 italic">
+                      No matching society found for "{searchSocietyTerm}"
+                    </div>
+                  ) : null}
                 </div>
               )}
               {errors.societyName && (

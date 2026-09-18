@@ -9,20 +9,20 @@ interface AnimatedCountBadgeProps {
 export const AnimatedCountBadge: React.FC<AnimatedCountBadgeProps> = ({
   count,
   className = '',
-  showPing = true,
 }) => {
   const [displayCount, setDisplayCount] = useState<number>(0);
-  const [flipState, setFlipState] = useState<number>(0); // 0: "122 NEW", 1: "🔥 LIVE"
+  const prevCountRef = React.useRef<number>(0);
 
   // Rolling counter on mount/change
   useEffect(() => {
     if (!count || count <= 0) {
       setDisplayCount(0);
+      prevCountRef.current = 0;
       return;
     }
 
-    let start = 0;
-    const duration = 600; // ms
+    const start = prevCountRef.current;
+    const duration = 500; // ms
     const startTime = performance.now();
 
     const animate = (currentTime: number) => {
@@ -34,19 +34,12 @@ export const AnimatedCountBadge: React.FC<AnimatedCountBadgeProps> = ({
 
       if (progress < 1) {
         requestAnimationFrame(animate);
+      } else {
+        prevCountRef.current = count;
       }
     };
 
     requestAnimationFrame(animate);
-  }, [count]);
-
-  // Subtle alternate text flip every 3.5 seconds
-  useEffect(() => {
-    if (!count || count <= 0) return;
-    const interval = setInterval(() => {
-      setFlipState((prev) => (prev === 0 ? 1 : 0));
-    }, 3500);
-    return () => clearInterval(interval);
   }, [count]);
 
   if (!count || count <= 0) return null;
@@ -54,56 +47,34 @@ export const AnimatedCountBadge: React.FC<AnimatedCountBadgeProps> = ({
   return (
     <>
       <style>{`
-        @keyframes badgeSoftPulse {
-          0%, 100% {
-            transform: scale(1);
-            box-shadow: 0 2px 10px rgba(22, 163, 74, 0.6), 0 0 0 0 rgba(34, 197, 94, 0.5);
+        @keyframes badgeAppearDisappear {
+          0% {
+            opacity: 0;
+            transform: scale(0.88) translateY(3px);
           }
-          50% {
-            transform: scale(1.04);
-            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.85), 0 0 0 3px rgba(34, 197, 94, 0.25);
+          15%, 80% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+          95%, 100% {
+            opacity: 0;
+            transform: scale(0.88) translateY(-3px);
           }
         }
-        .badge-live-pulse {
-          animation: badgeSoftPulse 2.8s ease-in-out infinite;
+        .badge-appear-loop {
+          animation: badgeAppearDisappear 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
         }
       `}</style>
 
       <span
-        className={`absolute -top-2.5 -right-3 z-20 flex items-center justify-center select-none pointer-events-none ${className}`}
+        className={`absolute -top-2.5 -right-14 sm:-right-16 z-20 inline-flex items-center justify-center select-none pointer-events-none ${className}`}
       >
-        {/* 🌟 Radiant Radar Pulse */}
-        {showPing && (
-          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping pointer-events-none" />
-        )}
-
-        {/* 🌟 Glowing Pill Badge with Text Flip */}
+        {/* Simple Flat Rectangular Badge (No Border Radius) */}
         <span
-          className="relative badge-live-pulse inline-flex items-center justify-center h-[19px] px-2 rounded-full text-white text-[9.5px] sm:text-[10px] font-black tracking-tight border-[1.5px] border-white leading-none whitespace-nowrap overflow-hidden transition-all duration-500"
-          style={{
-            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 60%, #15803d 100%)',
-          }}
+          className="badge-appear-loop inline-flex items-center gap-1 h-[19px] px-1.5 rounded-none bg-[#E6761D] text-white text-[9.5px] font-medium tracking-normal border border-white/50 shadow-sm leading-none whitespace-nowrap"
         >
-          {/* Shimmer Highlight */}
-          <span className="absolute inset-x-0 top-0 h-[45%] bg-white/30 rounded-t-full pointer-events-none" />
-
-          {/* Animated Flip Text Container */}
-          <span className="relative z-10 flex items-center gap-1 transition-all duration-500">
-            {flipState === 0 ? (
-              <span className="flex items-center gap-0.5 animate-fadeIn">
-                <span className="tabular-nums font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
-                  {displayCount}
-                </span>
-                <span className="font-extrabold uppercase text-[8px] sm:text-[8.5px] tracking-tight text-white/95">
-                  NEW
-                </span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-0.5 animate-fadeIn text-[8.5px] sm:text-[9px] font-black uppercase text-amber-200 drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
-                🔥 LIVE
-              </span>
-            )}
-          </span>
+          <span className="tabular-nums font-semibold">{displayCount}</span>
+          <span className="font-medium">Newly Added</span>
         </span>
       </span>
     </>

@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Upload, Plus, FileText, Trash2, Edit, ChevronDown, Image, GripVertical, Search, Phone, MapPin, Check, User } from 'lucide-react';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
+import {
+  getSubtypeOptions,
+  getUnitTypeOptions,
+  getBedroomOptions,
+  getBathroomOptions,
+  getFloorOptions,
+  extractNumber,
+  calculateCascadingUpdates,
+  sortNumericOptions,
+} from '@/lib/propertyCascading';
 import Modal from '@/components/ui/Modal';
 import Dropdown from '@/components/ui/Dropdown';
 import { propertiesAPI } from '@/lib/propertiesAPI';
@@ -728,27 +738,6 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   const CURRENT_YEAR = now.getFullYear();
   const CURRENT_MONTH = now.getMonth() + 1;
 
-  const sortNumericOptions = (options: MasterOption[] = []) => {
-    return [...options].sort((a, b) => {
-      const textA = (a.label || a.value || '').trim();
-      const textB = (b.label || b.value || '').trim();
-      const matchA = textA.match(/^(\d+(?:\.\d+)?)/);
-      const matchB = textB.match(/^(\d+(?:\.\d+)?)/);
-      const numA = matchA ? parseFloat(matchA[1]) : NaN;
-      const numB = matchB ? parseFloat(matchB[1]) : NaN;
-      const isNumA = !isNaN(numA);
-      const isNumB = !isNaN(numB);
-
-      if (isNumA && isNumB) {
-        if (numA !== numB) return numA - numB;
-        return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
-      }
-      if (isNumA) return -1;
-      if (isNumB) return 1;
-      return textA.localeCompare(textB, undefined, { numeric: true, sensitivity: 'base' });
-    });
-  };
-
   const [formData, setFormData] = useState<PropertyFormData>(() => ({
     seller: '',
     propertyType: '',
@@ -1205,8 +1194,23 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
   };
 
   const handleDropdownChange = (field: keyof PropertyFormData) => (value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const cascading = calculateCascadingUpdates(field as string, value, masterOptions);
+    if (field === 'totalFloors') {
+      const maxFloorStr = extractNumber(value);
+      const curFloorStr = extractNumber(formData.floor);
+      if (maxFloorStr && curFloorStr) {
+        const max = parseInt(maxFloorStr, 10);
+        const cur = parseInt(curFloorStr, 10);
+        if (!isNaN(max) && !isNaN(cur) && cur > max) {
+          cascading.floor = '';
+        }
+      }
+    }
+    setFormData(prev => ({ ...prev, ...cascading }));
     if (errors[field as string]) setErrors(prev => ({ ...prev, [field as string]: '' }));
+    Object.keys(cascading).forEach((k) => {
+      if (errors[k]) setErrors(prev => ({ ...prev, [k]: '' }));
+    });
 
     if (field === 'society') {
       // 🆕 societyDetails.imageUrls is now {url,label}[] — pull .url before normalizing
@@ -1969,28 +1973,38 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
               <SafeDropdown placeholder="Select Property Type" options={getOptions('property type')} value={formData.propertyType} onChange={handleDropdownChange('propertyType')} className="w-full" />
             </Field>
             <Field label="Property Subtype" required error={errors.propertySubtype}>
-              <SafeDropdown placeholder="Select Property Subtype" options={getOptions('property subtype')} value={formData.propertySubtype} onChange={handleDropdownChange('propertySubtype')} className="w-full" />
+              <SafeDropdown
+                placeholder="Select Property Subtype"
+                options={getSubtypeOptions(
+                  getOptions('property subtype'),
+                  formData.propertyType,
+                  getLabelFromValue(getOptions('property type'), formData.propertyType)
+                )}
+                value={formData.propertySubtype}
+                onChange={handleDropdownChange('propertySubtype')}
+                className="w-full"
+              />
             </Field>
             <Field label="Unit Type" required error={errors.unitType}>
-              <SafeDropdown placeholder="Select Unit Type" options={sortNumericOptions(getOptions('unit type'))} value={formData.unitType} onChange={handleDropdownChange('unitType')} className="w-full" />
-            </Field>
-            <Field label="Wing">
-              <input type="text" placeholder="Wing name/number" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
-            </Field>
-            <Field label="Unit No">
-              <input type="text" placeholder="Unit/Flat no" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
-            </Field>
-            <Field label="Floor">
-              <SafeDropdown placeholder="Select Floor" options={sortNumericOptions(getOptions('floor'))} value={formData.floor} onChange={handleDropdownChange('floor')} className="w-full" searchable />
-            </Field>
-            <Field label="Total Floors">
-              <SafeDropdown placeholder="Select Total Floors" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+              <SafeDropdown
+                placeholder="Select Unit Type"
+                options={getUnitTypeOptions(
+                  getOptions('unit type'),
+                  formData.propertyType,
+                  formData.propertySubtype,
+                  getLabelFromValue(getOptions('property type'), formData.propertyType),
+                  getLabelFromValue(getOptions('property subtype'), formData.propertySubtype)
+                )}
+                value={formData.unitType}
+                onChange={handleDropdownChange('unitType')}
+                className="w-full"
+              />
             </Field>
             <Field label="Bedrooms">
-              <SafeDropdown placeholder="Select Bedrooms" options={sortNumericOptions(getOptions('bedrooms'))} value={formData.bedrooms} onChange={handleDropdownChange('bedrooms')} className="w-full" />
+              <SafeDropdown placeholder="Select Bedrooms" options={getBedroomOptions(getOptions('bedrooms'))} value={formData.bedrooms} onChange={handleDropdownChange('bedrooms')} className="w-full" />
             </Field>
             <Field label="Bathrooms">
-              <SafeDropdown placeholder="Select Bathrooms" options={sortNumericOptions(getOptions('bathrooms'))} value={formData.bathrooms} onChange={handleDropdownChange('bathrooms')} className="w-full" />
+              <SafeDropdown placeholder="Select Bathrooms" options={getBathroomOptions(getOptions('bathrooms'))} value={formData.bathrooms} onChange={handleDropdownChange('bathrooms')} className="w-full" />
             </Field>
             <Field label="Balcony">
               <SafeDropdown placeholder="Select Balcony" options={sortNumericOptions(getOptions('balcony'))} value={formData.balcony} onChange={handleDropdownChange('balcony')} className="w-full" />
@@ -2006,6 +2020,29 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({
                 onChange={handleDropdownChange('dryBalcony')}
                 className="w-full"
               />
+            </Field>
+            <Field label="Total Floors">
+              <SafeDropdown placeholder="Select Total Floors" options={sortNumericOptions(getOptions('total floors'))} value={formData.totalFloors} onChange={handleDropdownChange('totalFloors')} className="w-full" searchable />
+            </Field>
+            <Field label="Floor">
+              <SafeDropdown
+                placeholder="Select Floor"
+                options={getFloorOptions(
+                  getOptions('floor'),
+                  formData.totalFloors,
+                  getLabelFromValue(getOptions('total floors'), formData.totalFloors)
+                )}
+                value={formData.floor}
+                onChange={handleDropdownChange('floor')}
+                className="w-full"
+                searchable
+              />
+            </Field>
+            <Field label="Wing">
+              <input type="text" placeholder="Wing name/number" value={formData.wing} onChange={(e) => handleInputChange('wing', e.target.value)} className={INP} />
+            </Field>
+            <Field label="Unit No">
+              <input type="text" placeholder="Unit/Flat no" value={formData.unitNo} onChange={(e) => handleInputChange('unitNo', e.target.value)} className={INP} />
             </Field>
             <Field label="Facing">
               <SafeDropdown placeholder="Select Facing" options={getOptions('facing')} value={formData.facing} onChange={handleDropdownChange('facing')} className="w-full" />

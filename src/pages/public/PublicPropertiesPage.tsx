@@ -1501,7 +1501,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   aria-pressed={transactionType === "buy"}
                 >
                   <span>Buy</span>
-                  <AnimatedCountBadge count={buyCount} />
                 </button>
 
                 <button
