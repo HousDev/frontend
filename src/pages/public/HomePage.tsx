@@ -500,11 +500,25 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             const priceVal = p.monthly_rent || p.budget || p.price || p.amount;
             const price = priceVal ? Number(priceVal) : undefined;
 
+            const isRentalProp = transactionType === 'rent' || Boolean(
+              p.monthly_rent ||
+              p.expected_rent ||
+              p.listing_type === 'rent' ||
+              p.transaction_type === 'rent' ||
+              (p.property_id && String(p.property_id).startsWith('RENT'))
+            );
+
             return {
               id: p.id,
-              propertyId: (p.property_id && String(p.property_id).trim()) || `REX${String(p.id ?? '').padStart(4, '0')}`,
+              propertyId: (p.property_id && String(p.property_id).trim()) || (isRentalProp ? `RENT-${p.id ?? ''}` : `REX${String(p.id ?? '').padStart(4, '0')}`),
               title: (p.title || `${unitType ? unitType + ' ' : ''}${p.property_type_name || p.property_type || ''}`).trim(),
               price,
+              monthly_rent: p.monthly_rent ?? (isRentalProp ? price : undefined),
+              expected_rent: p.expected_rent ?? (isRentalProp ? price : undefined),
+              listing_type: p.listing_type || (isRentalProp ? 'rent' : 'sell'),
+              transaction_type: p.transaction_type || (isRentalProp ? 'rent' : 'buy'),
+              isRental: isRentalProp,
+              is_rental: isRentalProp,
               bedrooms: Number(p.bedrooms) || undefined,
               bathrooms: Number(p.bathrooms) || undefined,
               square_feet: totalArea,
@@ -865,39 +879,34 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   };
 
   const handleNavigateToProperty = async (property: any) => {
+    const isRental = Boolean(
+      property.isRental ||
+      property.is_rental ||
+      property.monthly_rent ||
+      property.expected_rent ||
+      property.listing_type === 'rent' ||
+      property.transaction_type === 'rent' ||
+      property.propertyId?.startsWith('RENT') ||
+      String(property.id).startsWith('RENT') ||
+      transactionType === 'rent'
+    );
+    const pathPrefix = isRental ? 'rentals' : 'properties';
+
     // Check if guest view limit is exceeded
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
-      const isRental = Boolean(
-        property.monthly_rent ||
-        property.expected_rent ||
-        property.listing_type === 'rent' ||
-        property.transaction_type === 'rent' ||
-        property.propertyId?.startsWith('RENT') ||
-        String(property.id).startsWith('RENT')
-      );
-      const pathPrefix = isRental ? 'rentals' : 'properties';
-      const redirectUrl = property.slug ? `/${pathPrefix}/${encodeURIComponent(String(property.slug))}` : '/properties';
+      const redirectUrl = property.slug ? `/${pathPrefix}/${encodeURIComponent(String(property.slug))}` : `/${pathPrefix}`;
       navigate(`/register?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
     const slug = property.slug;
     const id = property.id;
-    const isRental = Boolean(
-      property.monthly_rent ||
-      property.expected_rent ||
-      property.listing_type === 'rent' ||
-      property.transaction_type === 'rent' ||
-      property.propertyId?.startsWith('RENT') ||
-      String(property.id).startsWith('RENT')
-    );
     if (!slug) {
       console.warn('Attempted to navigate to property without slug:', id);
       return;
     }
     if (viewedProperties.has(id)) {
-      const pathPrefix = isRental ? 'rentals' : 'properties';
       let dest = `/${pathPrefix}/${encodeURIComponent(String(slug))}`;
       if (filterToken) {
         const finalParamKey = filterParamKey || 'tf';
@@ -939,13 +948,11 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       } catch (err) {
         console.warn('sendPropertyEvent failed (we will still navigate):', err);
       }
-      const pathPrefix = isRental ? 'rentals' : 'properties';
       let dest = `/${pathPrefix}/${encodeURIComponent(String(slug))}`;
       if (finalToken) dest += `?${encodeURIComponent(finalParamKey)}=${encodeURIComponent(finalToken)}`;
       navigate(dest);
     } catch (err) {
       console.error('handleNavigateToProperty unexpected error:', err);
-      const pathPrefix = isRental ? 'rentals' : 'properties';
       navigate(`/${pathPrefix}/${encodeURIComponent(String(slug))}`);
     }
   };
@@ -1530,9 +1537,9 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
           )}
           <div className="text-center mt-4">
-            <Link to={transactionType === 'rent' ? '/properties?transaction=rent' : '/properties'}>
+            <Link to={transactionType === 'rent' ? '/rentals' : '/properties'}>
               <button
-                onClick={() => onPageChange && onPageChange('properties')}
+                onClick={() => onPageChange && onPageChange(transactionType === 'rent' ? 'rentals' : 'properties')}
                 className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white px-4 py-2 rounded-xl font-medium transition-colors duration-300"
               >
                 View All Properties
