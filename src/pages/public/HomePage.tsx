@@ -177,6 +177,32 @@ const isPublicProp = (p: any): boolean => {
   return !!flag;
 };
 
+const parseDateToMs = (dateVal: any): number | null => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) return dateVal.getTime();
+  if (typeof dateVal === 'number') return dateVal;
+  if (typeof dateVal === 'string') {
+    const normalized = dateVal.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/, '$1T$2');
+    const parsed = new Date(normalized).getTime();
+    if (!isNaN(parsed)) return parsed;
+    const fallback = new Date(dateVal).getTime();
+    if (!isNaN(fallback)) return fallback;
+  }
+  return null;
+};
+
+// Check if property was created/published within the last N days (default 3 days)
+const isNewlyAddedProp = (p: any, daysThreshold = 3): boolean => {
+  const dateVal = p?.created_at || p?.createdAt || p?.publication_date || p?.date_added;
+  const propTime = parseDateToMs(dateVal);
+  if (!propTime) return false;
+  const now = Date.now();
+  const diffMs = now - propTime;
+  const maxDiffMs = daysThreshold * 24 * 60 * 60 * 1000;
+  // Allow future timestamps up to 24 hours (for client/server timezone offset) and within 3 days
+  return diffMs >= -86400000 && diffMs <= maxDiffMs;
+};
+
 const isFeaturedProp = (p: any, tags: string[] = []): boolean => {
   const tagList = Array.isArray(tags) && tags.length > 0 ? tags : (Array.isArray(p?.tags) ? p.tags : []);
   const hasTag = tagList.some((t: string) => {
@@ -226,6 +252,8 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const [masters, setMasters] = useState<Record<string, MasterOption[]>>({});
   const [buyCount, setBuyCount] = useState<number>(0);
   const [rentCount, setRentCount] = useState<number>(0);
+  const [newlyAddedBuyCount, setNewlyAddedBuyCount] = useState<number>(0);
+  const [newlyAddedRentCount, setNewlyAddedRentCount] = useState<number>(0);
 
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -235,7 +263,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
 
   const [isValuationOpen, setIsValuationOpen] = useState(false);
 
-  // ✅ Pre-fetch total public counts for both Buy and Rent
+  // ✅ Pre-fetch total public counts & 3-day newly added counts for both Buy and Rent
   useEffect(() => {
     let isMounted = true;
     const fetchCounts = async () => {
@@ -248,11 +276,15 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         if (!isMounted) return;
         if (buyRes.status === 'fulfilled') {
           const raw = Array.isArray(buyRes.value?.data) ? buyRes.value.data : (Array.isArray(buyRes.value) ? buyRes.value : []);
-          setBuyCount(raw.filter(isPublicProp).length);
+          const publicProps = raw.filter(isPublicProp);
+          setBuyCount(publicProps.length);
+          setNewlyAddedBuyCount(publicProps.filter(p => isNewlyAddedProp(p, 3)).length);
         }
         if (rentRes.status === 'fulfilled') {
           const raw = Array.isArray(rentRes.value?.data) ? rentRes.value.data : (Array.isArray(rentRes.value) ? rentRes.value : []);
-          setRentCount(raw.filter(isPublicProp).length);
+          const publicProps = raw.filter(isPublicProp);
+          setRentCount(publicProps.length);
+          setNewlyAddedRentCount(publicProps.filter(p => isNewlyAddedProp(p, 3)).length);
         }
       } catch (e) {
         console.warn('Failed to load initial buy/rent counts:', e);
@@ -426,8 +458,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         setRawProperties(rawList);
         if (transactionType === 'rent') {
           setRentCount(rawList.length);
+          setNewlyAddedRentCount(rawList.filter((p: any) => isNewlyAddedProp(p, 3)).length);
         } else {
           setBuyCount(rawList.length);
+          setNewlyAddedBuyCount(rawList.filter((p: any) => isNewlyAddedProp(p, 3)).length);
         }
 
         // ⬇️ Bulk fetch tags for all raw properties BEFORE filtering
@@ -1031,7 +1065,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
               {/* Row: Buy/Rent + PropertyType */}
               <div className="grid grid-cols-1  gap-1 md:gap-2 mb-4 items-center justify-center text-center">
                 {/* Buy / Rent */}
-                <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-2">
+                <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1062,7 +1096,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                     aria-pressed={transactionType === "rent"}
                   >
                     <span>Rent</span>
-                    <AnimatedCountBadge count={rentCount} />
+                    <AnimatedCountBadge count={newlyAddedRentCount} totalCount={rentCount} />
                   </button>
                 </div>
 
