@@ -64,7 +64,33 @@ export function can(user: User | null | undefined, key: string): boolean {
   const action = parts[1];
 
   const mod = (user.module_permissions as any)[resource];
-  if (!mod) return false;
+  if (mod && mod[action]) return true;
 
-  return !!mod[action];
+  // Cross-check aliases for Settings & Master Data
+  if (resource === "settings_master" && action === "manage") {
+    const sMod = (user.module_permissions as any)["settings"];
+    if (sMod?.manage_master || sMod?.manage_general) return true;
+  }
+  if (resource === "settings_master" && action === "import") {
+    const sMod = (user.module_permissions as any)["settings"];
+    if (sMod?.import_data || sMod?.manage_master || sMod?.manage_general) return true;
+  }
+  if (resource === "settings_master" && action === "export") {
+    const sMod = (user.module_permissions as any)["settings"];
+    if (sMod?.export_data || sMod?.manage_master || sMod?.manage_general) return true;
+  }
+  if (resource === "settings" && action === "manage_master") {
+    const smMod = (user.module_permissions as any)["settings_master"];
+    if (smMod?.manage) return true;
+  }
+  if (resource === "settings" && action === "manage_variable_center") {
+    const smMod = (user.module_permissions as any)["settings_master"];
+    if (smMod?.manage) return true;
+  }
+  if (resource === "system" && action === "manage") {
+    const sMod = (user.module_permissions as any)["settings"];
+    if (sMod?.manage_general || sMod?.manage_rbac) return true;
+  }
+
+  return false;
 }

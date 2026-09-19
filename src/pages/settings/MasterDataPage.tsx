@@ -2423,9 +2423,9 @@ export default function MasterDataPage(): JSX.Element {
     }
   }, [showFilters, appliedFilters]);
 
-  const canManageMaster = can(user, "settings_master.manage");
-  const canImportMaster = can(user, "settings_master.import");
-  const canExportMaster = can(user, "settings_master.export");
+  const canManageMaster = can(user, "settings_master.manage") || can(user, "settings.manage_master") || can(user, "settings.manage_general");
+  const canImportMaster = can(user, "settings_master.import") || can(user, "settings.import_data") || can(user, "settings.manage_master");
+  const canExportMaster = can(user, "settings_master.export") || can(user, "settings.export_data") || can(user, "settings.manage_master");
 
   if (!canManageMaster) {
     return (
