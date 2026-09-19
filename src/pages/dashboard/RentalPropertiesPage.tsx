@@ -1514,7 +1514,11 @@ export function RentalPropertiesPage() {
     const viewId = sp.get('view');
     if (viewId && !currentPropertyView) {
       const p = properties.find(pp => String(pp.id) === viewId || String(pp.propertyId) === viewId);
-      if (p) setCurrentPropertyView(p);
+      if (p) {
+        setCurrentPropertyView(p);
+      } else if (viewId) {
+        setCurrentPropertyView({ id: viewId });
+      }
     }
   }, [loading, properties]);
 

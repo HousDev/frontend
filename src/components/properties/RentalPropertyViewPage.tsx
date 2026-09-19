@@ -125,6 +125,107 @@ const formatCurrency = (amount: number | string | undefined | null) => {
   return `₹${n.toLocaleString('en-IN')}`;
 };
 
+export const normalizeRentalProperty = (p: any): UIRentalProperty => {
+  if (!p) return p;
+
+  const parseArray = (val: any) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return val.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  };
+
+  const parsePhotos = (val: any) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [val];
+      } catch {
+        return [val];
+      }
+    }
+    return [];
+  };
+
+  const sellerName = p.seller?.name || p.owner?.name || p.owner_name || p.seller_name || (typeof p.seller === 'string' ? p.seller : '') || (typeof p.owner === 'string' ? p.owner : '');
+  const sellerId = p.seller?.id || p.owner?.id || p.owner_id || p.seller_id || '';
+  const sellerPhone = p.seller?.phone || p.owner?.phone || p.owner_phone || p.seller_phone || '';
+  const sellerEmail = p.seller?.email || p.owner?.email || p.owner_email || p.seller_email || '';
+
+  const assignedName = p.assignedTo?.name || p.assigned_to_name || p.assigned_executive_name || p.executive_name || p.assigned_executive || (typeof p.assignedTo === 'string' ? p.assignedTo : '');
+  const assignedId = p.assignedTo?.id || p.assigned_to || '';
+  const assignedPhone = p.assignedTo?.phone || p.assigned_to_phone || '';
+  const assignedEmail = p.assignedTo?.email || p.assigned_to_email || '';
+
+  return {
+    ...p,
+    id: p.id,
+    propertyId: p.propertyId || p.property_id || (p.id ? `RENT-${p.id}` : ''),
+    title: p.title || [p.property_type_name || p.type || 'Rental', p.subtype || p.property_subtype_name, p.society_name || p.society || p.location_name || p.location].filter(Boolean).join(' - ') || 'Rental Property',
+    type: p.type || p.propertyType || p.property_type_name || p.property_type || '',
+    subtype: p.subtype || p.propertySubtype || p.property_subtype_name || p.property_subtype || '',
+    unitType: p.unitType || p.unit_type || '',
+    wing: p.wing || '',
+    unitNo: p.unitNo || p.unit_no || '',
+    furnishing: p.furnishing || '',
+    facing: p.facing || '',
+    balcony: p.balcony != null && p.balcony !== '' ? p.balcony : '',
+    dryBalcony: p.dryBalcony || p.dry_balcony || 'No',
+    dry_balcony: p.dry_balcony || p.dryBalcony || 'No',
+    bedrooms: p.bedrooms != null && p.bedrooms !== '' ? p.bedrooms : '',
+    bathrooms: p.bathrooms != null && p.bathrooms !== '' ? p.bathrooms : '',
+    parkingType: p.parkingType || p.parking_type || '',
+    parkingQty: p.parkingQty != null && p.parkingQty !== '' ? p.parkingQty : (p.parking_qty != null && p.parking_qty !== '' ? p.parking_qty : ''),
+    city: p.city || p.city_name || '',
+    location: p.location || p.location_name || '',
+    society: p.society || p.society_name || '',
+    floor: p.floor != null && p.floor !== '' ? p.floor : '',
+    totalFloors: p.totalFloors != null && p.totalFloors !== '' ? p.totalFloors : (p.total_floors != null && p.total_floors !== '' ? p.total_floors : ''),
+    carpetArea: p.carpetArea != null && p.carpetArea !== '' ? p.carpetArea : (p.carpet_area != null && p.carpet_area !== '' ? p.carpet_area : ''),
+    builtupArea: p.builtupArea != null && p.builtupArea !== '' ? p.builtupArea : (p.builtup_area != null && p.builtup_area !== '' ? p.builtup_area : ''),
+    status: p.status || 'Available',
+    leadSource: p.leadSource || p.lead_source || '',
+    source_url: p.source_url || p.sourceUrl || '',
+    address: p.address || '',
+    description: p.description || '',
+    listing_type: p.listing_type || 'rent',
+    monthly_rent: p.monthly_rent != null && p.monthly_rent !== '' ? p.monthly_rent : (p.monthlyRent != null && p.monthlyRent !== '' ? p.monthlyRent : (p.budget != null ? p.budget : '')),
+    security_deposit: p.security_deposit != null && p.security_deposit !== '' ? p.security_deposit : (p.securityDeposit != null && p.securityDeposit !== '' ? p.securityDeposit : ''),
+    maintenance_extra: p.maintenance_extra === 1 || p.maintenance_extra === '1' || p.maintenance_extra === true,
+    maintenance_charge: p.maintenance_charge != null && p.maintenance_charge !== '' ? p.maintenance_charge : (p.maintenanceCharge != null && p.maintenanceCharge !== '' ? p.maintenanceCharge : ''),
+    preferred_tenants: p.preferred_tenants || p.preferredTenants || '',
+    lock_in_period: p.lock_in_period || p.lockInPeriod || '',
+    agreement_duration: p.agreement_duration || p.agreementDuration || '',
+    available_from: p.available_from || p.availableFrom || '',
+    isPublic: p.isPublic !== undefined ? !!p.isPublic : (p.is_public !== undefined ? !!p.is_public : false),
+    photos: parsePhotos(p.photos),
+    amenities: parseArray(p.amenities),
+    furnishingItems: parseArray(p.furnishingItems || p.furnishing_items),
+    nearby_places: parseArray(p.nearby_places),
+    seller: {
+      id: sellerId,
+      name: sellerName,
+      phone: sellerPhone,
+      email: sellerEmail,
+    },
+    assignedTo: {
+      id: assignedId,
+      name: assignedName,
+      phone: assignedPhone,
+      email: assignedEmail,
+    },
+  };
+};
+
 const buildInitialData = (p: any) => ({
   id: p.id,
   seller: p.owner?.name || p.owner_name || p.seller?.name || p.seller_name || '',
@@ -562,25 +663,33 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               {/* Landlord - Blue */}
               <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Landlord</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property.seller?.name || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {(property as any).seller?.name || (property as any).owner?.name || (property as any).owner_name || (property as any).seller_name || (typeof (property as any).seller === 'string' ? (property as any).seller : '') || (typeof (property as any).owner === 'string' ? (property as any).owner : '') || "-"}
+                </div>
               </div>
               
               {/* Property Type - Purple */}
               <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Property Type</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.type || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.type || (property as any)?.propertyType || (property as any)?.property_type_name || (property as any)?.property_type || "-"}
+                </div>
               </div>
               
               {/* Property Subtype - Pink */}
               <div className="p-1.5 rounded" style={{ background: '#ec489910', border: '1px solid #ec489920' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#ec4899' }}>Property Subtype</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.subtype || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.subtype || (property as any)?.propertySubtype || (property as any)?.property_subtype_name || (property as any)?.property_subtype || "-"}
+                </div>
               </div>
               
               {/* Unit Type - Green */}
               <div className="p-1.5 rounded" style={{ background: '#10b98110', border: '1px solid #10b98120' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#10b981' }}>Unit Type</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.unitType || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.unitType || (property as any)?.unit_type || "-"}
+                </div>
               </div>
               
               {/* Wing - Cyan */}
@@ -592,7 +701,9 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               {/* Unit No - Teal */}
               <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Unit No</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.unitNo || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.unitNo || (property as any)?.unit_no || "-"}
+                </div>
               </div>
               
               {/* Furnishing - Amber */}
@@ -610,105 +721,137 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               {/* Bedrooms - Red */}
               <div className="p-1.5 rounded" style={{ background: '#ef444410', border: '1px solid #ef444420' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#ef4444' }}>Bedrooms</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.bedrooms || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.bedrooms != null && property?.bedrooms !== '' ? property.bedrooms : "-"}
+                </div>
               </div>
               
               {/* Bathrooms - Rose */}
               <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Bathrooms</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.bathrooms || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.bathrooms != null && property?.bathrooms !== '' ? property.bathrooms : "-"}
+                </div>
               </div>
               
               {/* Balcony - Yellow */}
               <div className="p-1.5 rounded" style={{ background: '#eab30810', border: '1px solid #eab30820' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#eab308' }}>Balcony</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.balcony || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.balcony != null && property?.balcony !== '' ? property.balcony : "-"}
+                </div>
               </div>
               
               {/* Dry Balcony - Amber */}
               <div className="p-1.5 rounded" style={{ background: '#f59e0b10', border: '1px solid #f59e0b20' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#f59e0b' }}>Dry Balcony</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.dryBalcony || property?.dry_balcony || "No"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.dryBalcony || (property as any)?.dry_balcony || "No"}
+                </div>
               </div>
               
               {/* Society - Indigo */}
               <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Society</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.society || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.society || (property as any)?.society_name || "-"}
+                </div>
               </div>
               
               {/* City - Sky */}
               <div className="p-1.5 rounded" style={{ background: '#0ea5e910', border: '1px solid #0ea5e920' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#0ea5e9' }}>City</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.city || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.city || (property as any)?.city_name || "-"}
+                </div>
               </div>
               
               {/* Location - Lime */}
               <div className="p-1.5 rounded" style={{ background: '#84cc1610', border: '1px solid #84cc1620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#84cc16' }}>Location</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.location || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.location || (property as any)?.location_name || "-"}
+                </div>
               </div>
 
               {/* Floor - Stone */}
               <div className="p-1.5 rounded" style={{ background: '#78716c10', border: '1px solid #78716c20' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#78716c' }}>Floor</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.floor || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.floor != null && property?.floor !== '' ? property.floor : "-"}
+                </div>
               </div>
               
               {/* Total Floors - Zinc */}
               <div className="p-1.5 rounded" style={{ background: '#71717a10', border: '1px solid #71717a20' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#71717a' }}>Total Floors</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.totalFloors || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.totalFloors != null && property?.totalFloors !== '' ? property.totalFloors : ((property as any)?.total_floors != null && (property as any)?.total_floors !== '' ? (property as any).total_floors : "-")}
+                </div>
               </div>
               
               {/* Carpet Area - Emerald */}
               <div className="p-1.5 rounded" style={{ background: '#05966910', border: '1px solid #05966920' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#059669' }}>Carpet Area</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.carpetArea ? `${property.carpetArea} sq ft` : "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {(property?.carpetArea || (property as any)?.carpet_area) ? `${property.carpetArea || (property as any).carpet_area} sq ft` : "-"}
+                </div>
               </div>
               
               {/* Built-up Area - Violet */}
               <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Built-up Area</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.builtupArea ? `${property.builtupArea} sq ft` : "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {(property?.builtupArea || (property as any)?.builtup_area) ? `${property.builtupArea || (property as any).builtup_area} sq ft` : "-"}
+                </div>
               </div>
 
               {/* Monthly Rent - Orange Theme */}
               <div className="p-1.5 rounded" style={{ background: `${O}10`, border: `1px solid ${O}20` }}>
                 <div className="text-[8px] font-medium" style={{ color: O }}>Monthly Rent</div>
-                <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.monthly_rent || property?.budget)}/mo</div>
+                <div className="font-medium" style={{ color: O }}>
+                  {formatCurrency(property?.monthly_rent || (property as any)?.monthlyRent || (property as any)?.budget)}/mo
+                </div>
               </div>
 
               {/* Security Deposit - Orange Dark */}
               <div className="p-1.5 rounded" style={{ background: `${O}15`, border: `1px solid ${O}30` }}>
                 <div className="text-[8px] font-medium" style={{ color: O }}>Security Deposit</div>
-                <div className="font-medium" style={{ color: O }}>{formatCurrency(property?.security_deposit)}</div>
+                <div className="font-medium" style={{ color: O }}>
+                  {formatCurrency(property?.security_deposit || (property as any)?.securityDeposit)}
+                </div>
               </div>
 
               {/* Preferred Tenants - Purple */}
               <div className="p-1.5 rounded" style={{ background: '#8b5cf610', border: '1px solid #8b5cf620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#8b5cf6' }}>Preferred Tenants</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.preferred_tenants || "Any"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.preferred_tenants || (property as any)?.preferredTenants || "Any"}
+                </div>
               </div>
 
               {/* Lock-in Period - Cyan */}
               <div className="p-1.5 rounded" style={{ background: '#06b6d410', border: '1px solid #06b6d420' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#06b6d4' }}>Lock-in Period</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.lock_in_period ? `${property.lock_in_period} Months` : "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {(property?.lock_in_period || (property as any)?.lockInPeriod) ? `${property.lock_in_period || (property as any).lockInPeriod} Months` : "-"}
+                </div>
               </div>
 
               {/* Agreement Duration - Teal */}
               <div className="p-1.5 rounded" style={{ background: '#14b8a610', border: '1px solid #14b8a620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#14b8a6' }}>Agreement Duration</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.agreement_duration ? `${property.agreement_duration} Months` : "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {(property?.agreement_duration || (property as any)?.agreementDuration) ? `${property.agreement_duration || (property as any).agreementDuration} Months` : "-"}
+                </div>
               </div>
 
               {/* Available From - Blue */}
               <div className="p-1.5 rounded" style={{ background: '#3b82f610', border: '1px solid #3b82f620' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#3b82f6' }}>Available From</div>
                 <div className="font-medium truncate" style={{ color: N }}>
-                  {property?.available_from
-                    ? new Date(property.available_from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                  {(property?.available_from || (property as any)?.availableFrom)
+                    ? new Date(property.available_from || (property as any).availableFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                     : "Immediate"}
                 </div>
               </div>
@@ -716,20 +859,22 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
               {/* Lead Source - Rose */}
               <div className="p-1.5 rounded" style={{ background: '#f43f5e10', border: '1px solid #f43f5e20' }}>
                 <div className="text-[8px] font-medium" style={{ color: '#f43f5e' }}>Lead Source</div>
-                <div className="font-medium truncate" style={{ color: N }}>{property?.leadSource || "-"}</div>
+                <div className="font-medium truncate" style={{ color: N }}>
+                  {property?.leadSource || (property as any)?.lead_source || "-"}
+                </div>
               </div>
 
               {/* Source URL - Indigo */}
-              {property?.source_url && (
+              {(property?.source_url || (property as any)?.sourceUrl) && (
                 <div className="p-1.5 rounded" style={{ background: '#6366f110', border: '1px solid #6366f120' }}>
                   <div className="text-[8px] font-medium" style={{ color: '#6366f1' }}>Source URL</div>
                   <div className="font-medium truncate" style={{ color: N }}>
                     <a
-                      href={property.source_url}
+                      href={property.source_url || (property as any).sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-650 hover:text-blue-800 underline inline-flex items-center gap-0.5 cursor-pointer font-semibold"
-                      title={property.source_url}
+                      title={property.source_url || (property as any).sourceUrl}
                     >
                       Open Source Link ↗
                     </a>
@@ -760,7 +905,7 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
           )}
 
           {/* Amenities & Furnishing Items */}
-          {((property.amenities && property.amenities.length > 0) || (property.furnishingItems && property.furnishingItems.length > 0)) && (
+          {((property.amenities && property.amenities.length > 0) || (property.furnishingItems && property.furnishingItems.length > 0) || ((property as any).furnishing_items && (property as any).furnishing_items.length > 0)) && (
             <div className="bg-white rounded-lg border p-2.5 space-y-3" style={{ borderColor: BD }}>
               {property.amenities && property.amenities.length > 0 && (
                 <div>
@@ -773,11 +918,11 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
                 </div>
               )}
 
-              {property.furnishingItems && property.furnishingItems.length > 0 && (
+              {(property.furnishingItems || (property as any).furnishing_items) && (property.furnishingItems?.length > 0 || (property as any).furnishing_items?.length > 0) && (
                 <div>
                   <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: N }}>Furnishing Items Included</h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {property.furnishingItems.map((f: string, i: number) => (
+                    {(property.furnishingItems || (property as any).furnishing_items).map((f: string, i: number) => (
                       <FurnishingPill key={i} name={f} />
                     ))}
                   </div>
@@ -791,10 +936,10 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
         <div className="w-full xl:w-72 space-y-3 flex-shrink-0">
           {/* Landlord / Owner Details Card */}
           {(() => {
-            const ownerName = (property as any).owner?.name || (typeof (property as any).seller === 'object' ? (property as any).seller?.name : null) || null;
-            const ownerPhone = (property as any).owner?.phone || (typeof (property as any).seller === 'object' ? (property as any).seller?.phone : null) || null;
-            const ownerEmail = (property as any).owner?.email || (typeof (property as any).seller === 'object' ? (property as any).seller?.email : null) || null;
-            const ownerLocation = (property as any).owner?.location || (property as any).location || null;
+            const ownerName = (property as any).owner?.name || (property as any).owner_name || (property as any).seller?.name || (property as any).seller_name || (typeof (property as any).seller === 'string' ? (property as any).seller : null) || (typeof (property as any).owner === 'string' ? (property as any).owner : null) || null;
+            const ownerPhone = (property as any).owner?.phone || (property as any).owner_phone || (property as any).seller?.phone || (property as any).seller_phone || null;
+            const ownerEmail = (property as any).owner?.email || (property as any).owner_email || (property as any).seller?.email || (property as any).seller_email || null;
+            const ownerLocation = (property as any).owner?.location || (property as any).location || (property as any).location_name || null;
 
             return (
               <div className="rounded-lg p-2.5 animate-fade-in" style={{ background: 'linear-gradient(135deg, #3b82f608 0%, #3b82f615 100%)', border: '1px solid #3b82f630' }}>
@@ -827,28 +972,36 @@ const RentalOverviewTab = ({ property, onUpdate, onOpenGallery }: any) => {
           })()}
 
           {/* Assigned Executive Card */}
-          <div className="rounded-lg p-2.5 animate-fade-in" style={{ background: 'linear-gradient(135deg, #e67e2208 0%, #e67e2215 100%)', border: '1px solid #e67e2230' }}>
-            <div className="flex items-center gap-1.5 mb-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#e67e2220' }}>
-                <User size={12} style={{ color: O }} />
+          {(() => {
+            const execName = (property as any).assignedTo?.name || (property as any).assigned_to_name || (property as any).assigned_executive_name || (property as any).executive_name || (property as any).assigned_executive || (typeof (property as any).assignedTo === 'string' ? (property as any).assignedTo : null) || null;
+            const execPhone = (property as any).assignedTo?.phone || (property as any).assigned_to_phone || null;
+            const execEmail = (property as any).assignedTo?.email || (property as any).assigned_to_email || null;
+
+            return (
+              <div className="rounded-lg p-2.5 animate-fade-in" style={{ background: 'linear-gradient(135deg, #e67e2208 0%, #e67e2215 100%)', border: '1px solid #e67e2230' }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#e67e2220' }}>
+                    <User size={12} style={{ color: O }} />
+                  </div>
+                  <h3 className="text-[11px] font-bold" style={{ color: O }}>Executive Information</h3>
+                </div>
+                <div className="space-y-1.5 text-[10px]">
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                    <User size={10} style={{ color: O }} />
+                    <span className="font-semibold" style={{ color: N }}>{execName || "-"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                    <Phone size={10} style={{ color: O }} />
+                    <span style={{ color: MU }}>{execPhone || "Not Available"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
+                    <Mail size={10} style={{ color: O }} />
+                    <span style={{ color: MU }}>{execEmail || "Not Available"}</span>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-[11px] font-bold" style={{ color: O }}>Executive Information</h3>
-            </div>
-            <div className="space-y-1.5 text-[10px]">
-              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
-                <User size={10} style={{ color: O }} />
-                <span className="font-semibold" style={{ color: N }}>{property.assignedTo?.name || "-"}</span>
-              </div>
-              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
-                <Phone size={10} style={{ color: O }} />
-                <span style={{ color: MU }}>{property.assignedTo?.phone || "Not Available"}</span>
-              </div>
-              <div className="flex items-center gap-1.5 p-1 rounded" style={{ background: '#e67e2208' }}>
-                <Mail size={10} style={{ color: O }} />
-                <span style={{ color: MU }}>{property.assignedTo?.email || "Not Available"}</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -870,13 +1023,13 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
   const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
   const [showTenantMatching, setShowTenantMatching] = useState(false);
   const [showMediaModal, setShowMediaModal] = useState(false);
-  const [propertyData, setPropertyData] = useState<UIRentalProperty>(property);
+  const [propertyData, setPropertyData] = useState<UIRentalProperty>(() => normalizeRentalProperty(property));
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
 
   useEffect(() => {
     if (property) {
-      setPropertyData(property);
+      setPropertyData(normalizeRentalProperty(property));
     }
   }, [property]);
 
@@ -886,7 +1039,9 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
       try {
         const res = await rentalPropertiesAPI.getProperty(String(property.id));
         if (res && res.success && res.data) {
-          setPropertyData(res.data);
+          const norm = normalizeRentalProperty(res.data);
+          setPropertyData(norm);
+          onUpdateProperty?.(norm);
         }
       } catch (err) {
         console.error("Failed to fetch full property details:", err);
@@ -952,7 +1107,7 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   {(() => {
                     const p: any = propertyData;
-                    const idText = p.propertyId || `RENT-${p.id}`;
+                    const idText = p.propertyId || (p.id ? `RENT-${p.id}` : '');
                     const typeName = p.type || p.propertyType || p.property_type_name;
                     const subtypeName = p.subtype || p.propertySubtype || p.property_subtype_name;
                     const unitTypeName = p.unitType || p.unit_type;
@@ -1033,8 +1188,9 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
           <RentalOverviewTab
             property={propertyData}
             onUpdate={(updated: any) => {
-              setPropertyData(updated);
-              onUpdateProperty?.(updated);
+              const norm = normalizeRentalProperty(updated);
+              setPropertyData(norm);
+              onUpdateProperty?.(norm);
             }}
             onOpenGallery={() => setShowMediaModal(true)}
           />
@@ -1093,9 +1249,10 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
             // Reload fresh data from server
             try {
               const res = await rentalPropertiesAPI.getProperty(String(propertyData.id));
-              if (res.success && res.data) {
-                setPropertyData(res.data);
-                onUpdateProperty?.(res.data);
+              if (res && res.success && res.data) {
+                const norm = normalizeRentalProperty(res.data);
+                setPropertyData(norm);
+                onUpdateProperty?.(norm);
               }
             } catch {
               // silently fail - data will refresh on next load
@@ -1110,7 +1267,7 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
           isOpen={showMediaModal}
           onClose={() => setShowMediaModal(false)}
           property={propertyData as any}
-          onUpdate={(updated: any) => setPropertyData(prev => ({ ...prev, ...updated }))}
+          onUpdate={(updated: any) => setPropertyData(prev => normalizeRentalProperty({ ...prev, ...updated }))}
         />
       )}
 
@@ -1122,7 +1279,7 @@ const RentalPropertyViewPage: React.FC<RentalPropertyViewPageProps> = ({
           property={propertyData as any}
           onStatusUpdate={(data: any) => {
             const newStatus = data?.status || propertyData.status;
-            const updated = { ...propertyData, status: newStatus };
+            const updated = normalizeRentalProperty({ ...propertyData, status: newStatus });
             setPropertyData(updated);
             onUpdateProperty?.(updated);
             fetchStatusHistory();
