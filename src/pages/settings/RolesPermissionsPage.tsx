@@ -2526,6 +2526,19 @@ const sellerGroup: PermissionGroup = {
     perm("sl_13", "seller", "assign", "Assign Seller", "Assign sellers to agents"),
   ],
 };
+const ownerGroup: PermissionGroup = {
+  label: "Owner",
+  resource: "owner",
+  permissions: [
+    perm("ow_1", "owner", "create", "Create Owner", "Add new owner records"),
+    perm("ow_4", "owner", "read", "Read Owner", "View owner details"),
+    perm("ow_2", "owner", "update", "Update Owner", "Edit owner records"),
+    perm("ow_3", "owner", "delete", "Delete Owner", "Delete owner records"),
+    perm("ow_5", "owner", "import", "Import Owner", "Import owners from file"),
+    perm("ow_6", "owner", "export", "Export Owner", "Export owners to file"),
+    perm("ow_7", "owner", "assign", "Assign Owner", "Assign owners to agents"),
+  ],
+};
 const propertyGroup: PermissionGroup = {
   label: "Property",
   resource: "property",
@@ -2539,6 +2552,19 @@ const propertyGroup: PermissionGroup = {
     perm("pr_6", "property", "assign", "Assign Property", "Assign properties to agents"),
     perm("pr_pub", "property", "publish", "Publish Property", "Publish property listings"),
     perm("pr_2", "property", "download_brochure", "Download Brochure", "Download property brochure"),
+  ],
+};
+const tenantGroup: PermissionGroup = {
+  label: "Tenant",
+  resource: "tenant",
+  permissions: [
+    perm("tn_1", "tenant", "create", "Create Tenant", "Add new tenant records"),
+    perm("tn_4", "tenant", "read", "Read Tenant", "View tenant details"),
+    perm("tn_2", "tenant", "update", "Update Tenant", "Edit tenant records"),
+    perm("tn_3", "tenant", "delete", "Delete Tenant", "Delete tenant records"),
+    perm("tn_5", "tenant", "import", "Import Tenant", "Import tenants from file"),
+    perm("tn_6", "tenant", "export", "Export Tenant", "Export tenants to file"),
+    perm("tn_7", "tenant", "assign", "Assign Tenant", "Assign tenants to agents"),
   ],
 };
 
@@ -2732,7 +2758,7 @@ const PERMISSION_SECTIONS: PermissionSection[] = [
   {
     section: "CRM",
     icon: <Users className="h-4 w-4" />,
-    groups: [leadGroup, buyerGroup, sellerGroup, propertyGroup],
+    groups: [leadGroup, buyerGroup, sellerGroup, ownerGroup, propertyGroup, tenantGroup],
     showSectionSelectAll: true,
   },
   {
@@ -2824,7 +2850,9 @@ const resourceMeta: Record<string, { color: string; bg: string; headerBg: string
   lead: { color: "text-orange-800", bg: "bg-orange-50", headerBg: "bg-orange-100 border-orange-200" },
   buyer: { color: "text-purple-800", bg: "bg-purple-50", headerBg: "bg-purple-100 border-purple-200" },
   seller: { color: "text-rose-800", bg: "bg-rose-50", headerBg: "bg-rose-100 border-rose-200" },
+  owner: { color: "text-amber-800", bg: "bg-amber-50", headerBg: "bg-amber-100 border-amber-200" },
   property: { color: "text-emerald-800", bg: "bg-emerald-50", headerBg: "bg-emerald-100 border-emerald-200" },
+  tenant: { color: "text-teal-800", bg: "bg-teal-50", headerBg: "bg-teal-100 border-teal-200" },
   document_center: { color: "text-indigo-800", bg: "bg-indigo-50", headerBg: "bg-indigo-100 border-indigo-200" },
   template_center: { color: "text-violet-800", bg: "bg-violet-50", headerBg: "bg-violet-100 border-violet-200" },
   account: { color: "text-blue-800", bg: "bg-blue-50", headerBg: "bg-blue-100 border-blue-200" },

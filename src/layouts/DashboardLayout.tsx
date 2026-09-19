@@ -583,7 +583,7 @@ const DashboardLayout = () => {
             href: "/dashboard/owners",
             icon: KeyRound,
             colorClass: navTextClass,
-            required: "owner.read",
+            required: ["owner.read", "seller.read"],
           },
           {
             name: "Properties",
@@ -597,7 +597,7 @@ const DashboardLayout = () => {
             href: "/dashboard/tenants",
             icon: Users,
             colorClass: navTextClass,
-            required: "property.read",
+            required: ["tenant.read", "property.read", "buyer.read"],
           },
           // {
           //   name: "Contact Messages",
