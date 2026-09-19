@@ -30,6 +30,8 @@ import Swal from 'sweetalert2';
 
 import * as XLSX from 'xlsx';
 import { FaWhatsapp } from 'react-icons/fa6';
+import { formatAssignedDate } from '@/lib/helpers';
+import AssignedDateCell from '@/components/common/AssignedDateCell';
 
 // Resale Theme Colors
 const RESALE = {
@@ -56,6 +58,7 @@ interface Lead {
   status: string;
   stage?: string;
   created_at: string;
+  assigned_at?: string;
   notes: string;
   assigned_executive?: string;
   assigned_executive_name?: string;
@@ -459,8 +462,8 @@ const LeadsPage: React.FC = () => {
     });
 
     results = results.sort((a, b) => {
-      const dA = new Date(a.created_at).getTime();
-      const dB = new Date(b.created_at).getTime();
+      const dA = new Date(a.assigned_at || a.created_at).getTime();
+      const dB = new Date(b.assigned_at || b.created_at).getTime();
       if (f.sortOrder === 'asc') return dA - dB;
       return dB - dA;
     });
@@ -1656,7 +1659,10 @@ const LeadsPage: React.FC = () => {
                           STATUS
                         </th>
                         <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
-                          CREATED / ASSIGNED
+                          ASSIGNED TO
+                        </th>
+                        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
+                          ASSIGNED DATE
                         </th>
                         <th className="px-2 py-1.5 text-center text-[10px] font-bold text-black uppercase tracking-wider whitespace-nowrap">
                           ACTIONS
@@ -1736,13 +1742,14 @@ const LeadsPage: React.FC = () => {
                         <th className="px-1.5 py-0.5">
                           <input
                             type="text"
-                            placeholder="Search date/assigned…"
+                            placeholder="Search assigned…"
                             value={colSearch.created}
                             onChange={e => setColSearch(p => ({ ...p, created: e.target.value }))}
                             style={colSearchInputStyle}
-                            className="text-[9px] w-28"
+                            className="text-[9px] w-24"
                           />
                         </th>
+                        <th className="px-1.5 py-0.5" />
                         <th className="px-1.5 py-0.5" />
                       </tr>
                     </thead>
@@ -1925,23 +1932,21 @@ const LeadsPage: React.FC = () => {
                             </span>
                           </td>
 
-                          {/* CREATED / ASSIGNED */}
+                          {/* ASSIGNED TO */}
                           <td className="px-2 py-1">
-                            <div className="space-y-0.5">
-                              {lead.assigned_executive_name ? (
-                                <div className="flex items-center gap-1">
-                                  <User size={9} className="flex-shrink-0" style={{ color: RESALE.orange }} />
-                                  <span className="font-medium text-[9px] text-gray-700">{lead.assigned_executive_name}</span>
-                                </div>
-                              ) : (
-                                <div className="text-[9px] text-gray-400 italic">Unassigned</div>
-                              )}
+                            {lead.assigned_executive_name ? (
                               <div className="flex items-center gap-1">
-                                <Clock size={9} className="text-gray-400 flex-shrink-0" />
-                                <span className="text-[9px] text-gray-600">{formatDate(lead.created_at)}</span>
+                                <User size={9} className="flex-shrink-0" style={{ color: RESALE.orange }} />
+                                <span className="font-medium text-[9px] text-gray-700">{lead.assigned_executive_name}</span>
                               </div>
+                            ) : (
+                              <div className="text-[9px] text-gray-400 italic">Unassigned</div>
+                            )}
+                          </td>
 
-                            </div>
+                          {/* ASSIGNED DATE */}
+                          <td className="px-2 py-1">
+                            <AssignedDateCell date={lead.assigned_executive ? (lead.assigned_at || lead.created_at) : null} />
                           </td>
 
                           {/* ACTIONS */}

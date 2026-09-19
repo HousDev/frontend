@@ -27,11 +27,8 @@ import TenantFollowupModal from "@/components/tenants/TenantFollowupModal";
 import LinkRentalPropertyModal from "@/components/tenants/LinkRentalPropertyModal";
 import TableLoader from "@/components/ui/TableLoader";
 import Pagination from "@/components/ui/Pagination";
-
-
-
-
-
+import { formatAssignedDate } from "@/lib/helpers";
+import AssignedDateCell from "@/components/common/AssignedDateCell";
 
 interface Tenant {
   id: number;
@@ -54,6 +51,7 @@ interface Tenant {
   owner_name?: string;
   assigned_to?: number | string;
   assigned_to_name?: string;
+  assigned_at?: string;
   created_at?: string;
 }
 
@@ -754,8 +752,10 @@ export default function TenantsPage() {
                       <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Budget</th>
                       <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "12%" }}>Location</th>
                       <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "13%" }}>Linked Property</th>
-                      <th className="px-3 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "9%" }}>Status</th>
-                      <th className="px-3 py-1.5 text-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "11%" }}>Actions</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "8%" }}>Status</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>ASSIGNED TO</th>
+                      <th className="px-3 py-1.5 text-left bg-gray-50 border-r border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "12%" }}>ASSIGNED DATE</th>
+                      <th className="px-3 py-1.5 text-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-600 uppercase tracking-wider" style={{ width: "10%" }}>Actions</th>
                     </tr>
                     {/* Search Fields */}
                     <tr className="bg-gray-100">
@@ -809,6 +809,8 @@ export default function TenantsPage() {
                           className="w-full px-2 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal text-center"
                         />
                       </th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
+                      <th className="px-2 py-0.5 border-r border-b border-gray-200 bg-gray-100"></th>
                       <th className="px-2 py-0.5 border-b border-gray-200 bg-gray-100"></th>
                     </tr>
                   </thead>
@@ -993,9 +995,22 @@ export default function TenantsPage() {
                             <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded-full border ${getStatusColor(t.status)}`}>
                               {t.status}
                             </span>
-                            {t.assigned_to_name && (
-                              <div className="text-[9px] text-gray-400 mt-0.5 font-medium truncate">Exec: {t.assigned_to_name}</div>
+                          </td>
+
+                          {/* ASSIGNED TO */}
+                          <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
+                            {t.assigned_to_name ? (
+                              <span className="text-[10px] font-semibold text-slate-800 truncate block">
+                                {t.assigned_to_name}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">Unassigned</span>
                             )}
+                          </td>
+
+                          {/* ASSIGNED DATE */}
+                          <td className="px-3 py-2 border-r border-b border-gray-200 overflow-hidden">
+                            <AssignedDateCell date={t.assigned_to ? ((t as any).assigned_at || t.created_at) : null} />
                           </td>
 
                           <td className="px-3 py-2 text-center border-b border-gray-200 bg-white">

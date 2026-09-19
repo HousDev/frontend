@@ -60,6 +60,8 @@ import * as XLSX from 'xlsx';
 import { SiWhatsapp } from "react-icons/si";
 import { useProperties } from "@/hooks/properties";
 import { propertiesAPI } from "@/lib/propertiesAPI";
+import { formatAssignedDate } from "@/lib/helpers";
+import AssignedDateCell from "@/components/common/AssignedDateCell";
 
 
 // Resale Theme Colors (matching LeadsPage)
@@ -147,6 +149,7 @@ type UISeller = {
   totalVisits: number;
   lastActivity: string | null;
   created_at: string | null;
+  assigned_at?: string | null;
   notifications: number;
   currentStage: string;
   stageProgress: number;
@@ -209,6 +212,7 @@ export const mapApiSellerToUI = (api: any): UISeller => ({
     api.activities?.[0]?.created_at ||
     null,
   created_at: api.created_at || null,
+  assigned_at: api.assigned_at || null,
   created_by: api.created_by ?? api.created_by_id ?? null,
   created_by_name: api.created_by_name ?? api.created_by_user?.name ?? null,
   created_by_user: api.created_by_user ?? (api.created_by_name ? { name: api.created_by_name } : null),
@@ -2242,6 +2246,7 @@ table tbody td {
                         <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">PERFORMANCE</th>
                         <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
                         <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
+                        <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED DATE</th>
                       </tr>
 
                       {/* ROW 2: Column Search - STICKY TOO */}
@@ -2296,6 +2301,7 @@ table tbody td {
                             className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
                           />
                         </th>
+                        <th className="px-1.5 py-0.5 bg-gray-100" />
                       </tr>
                     </thead>
 
@@ -2592,24 +2598,19 @@ table tbody td {
                             </div>
                           </td>
 
-                          {/* ASSIGNED TO - LAST COLUMN */}
+                          {/* ASSIGNED TO */}
                           <td className="px-2 py-1">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <div className="font-semibold text-gray-900 text-[10px]">
-                                  {seller.assigned_to_name
-                                    ? seller.assigned_to_name
-                                      .replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
-                                    : "Unassigned"}
-                                </div>
-                              </div>
-
-                              {/* {seller.assigned_to_email && (
-      <div className="text-[8px] text-gray-500 truncate max-w-[130px] pl-7">
-        {seller.assigned_to_email}
-      </div>
-    )} */}
+                            <div className="font-semibold text-gray-900 text-[10px] whitespace-nowrap">
+                              {seller.assigned_to_name
+                                ? seller.assigned_to_name
+                                  .replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")
+                                : "Unassigned"}
                             </div>
+                          </td>
+
+                          {/* ASSIGNED DATE */}
+                          <td className="px-2 py-1">
+                            <AssignedDateCell date={seller.assigned_to_name && seller.assigned_to_name !== "Unassigned" ? ((seller as any).assigned_at || seller.created_at) : null} />
                           </td>
                         </tr>
                       ))}

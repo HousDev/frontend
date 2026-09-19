@@ -15,7 +15,8 @@ import { can } from '@/utils/permission';
 import { getMasterDropdownOptions } from '@/lib/useMasterData';
 import { usersAPI } from '@/lib/api';
 import viewsAPI from '@/lib/viewAPI';
-import { getImageUrl } from '@/lib/helpers';
+import { getImageUrl, formatAssignedDate } from '@/lib/helpers';
+import AssignedDateCell from '@/components/common/AssignedDateCell';
 import RentalPropertyFormModal from './components/RentalPropertyFormModal';
 import RentalPropertyFilterModal, { RentalPropertyFilters } from './RentalPropertyFilterModal';
 import ImportRentalPropertiesModal from '../../components/properties/ImportRentalPropertiesModal';
@@ -52,6 +53,7 @@ interface UIProperty {
   leadSource?: string;
   hotLeads?: number;
   created_at?: string;
+  assigned_at?: string;
   type?: string;
   subtype?: string;
   unitType?: string;
@@ -863,6 +865,7 @@ export function RentalPropertiesPage() {
           leadSource: p.lead_source || '',
           hotLeads: p.hotLeads || 0,
           created_at: p.created_at,
+          assigned_at: p.assigned_at,
           photos: p.photos || [],
           floor: p.floor || '',
           totalFloors: p.total_floors || '',
@@ -2235,6 +2238,7 @@ export function RentalPropertiesPage() {
                         <th className="p-3">Status</th>
                         <th className="p-3">Visibility</th>
                         <th className="p-3">Executive</th>
+                        <th className="p-3">Assigned Date</th>
                         <th className="p-3 text-center">Actions</th>
                       </tr>
                     </thead>
@@ -2270,7 +2274,7 @@ export function RentalPropertiesPage() {
                             <td className="p-3">
                               {getStatusBadge(p.status)}
                             </td>
-                            <td className="p-3">
+                             <td className="p-3">
                               <button
                                 onClick={() => handleToggleSingleVisibility(p)}
                                 className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors ${p.isPublic
@@ -2281,7 +2285,12 @@ export function RentalPropertiesPage() {
                                 {p.isPublic ? 'Public' : 'Private'}
                               </button>
                             </td>
-                            <td className="p-3 font-semibold text-gray-600">{p.assignedTo?.name || 'Unassigned'}</td>
+                            <td className="p-3 font-semibold text-gray-600 whitespace-nowrap text-[10px]">
+                              {p.assignedTo?.name || 'Unassigned'}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <AssignedDateCell date={p.assignedTo?.name && p.assignedTo.name !== 'Unassigned' && p.assignedTo.name !== 'Executive' ? (p.assigned_at || p.created_at) : null} />
+                            </td>
                             <td className="p-3">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button

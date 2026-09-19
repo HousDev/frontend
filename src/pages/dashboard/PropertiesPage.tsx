@@ -21,7 +21,8 @@ import PropertyFormModal from './components/PropertyFormModal';
 import { getMasterDropdownOptions, MasterOption } from '@/lib/useMasterData';
 import Swal from 'sweetalert2';
 
-import { getImageUrl } from "@/lib/helpers";
+import { getImageUrl, formatAssignedDate } from "@/lib/helpers";
+import AssignedDateCell from '@/components/common/AssignedDateCell';
 
 import PropertyFilterModal from './PropertyFilterModal';
 import PropertyBulkBrochureModal from '@/components/properties/PropertyBulkBrochureModal';
@@ -105,6 +106,7 @@ interface UIProperty {
   interestedBuyers: number;
   hotLeads: number;
   created_at?: string;
+  assigned_at?: string;
   updated_at?: string;
   isPublic: boolean;
   publicViews: number;
@@ -880,6 +882,7 @@ function normalizeProperty(r: any, idx: number): UIProperty {
     interestedBuyers: toNum(r.interested_buyers ?? 0),
     hotLeads: toNum(r.hot_leads ?? 0),
     created_at: r.created_at,
+    assigned_at: r.assigned_at,
     updated_at: r.updated_at,
     isPublic: Boolean(r.is_public ?? false),
     publicViews: toNum(r.public_views ?? 0),
@@ -2738,7 +2741,7 @@ const PropertiesPage = () => {
 
   // Calculate column span based on permissions
   const getColSpan = () => {
-    let colSpan = 7; // Base columns without actions and checkbox
+    let colSpan = 8; // Base columns without actions and checkbox
     if (canUpdate || canDelete || canAssign || canBulkDelete) {
       colSpan += 1; // Add checkbox column
     }
@@ -3642,6 +3645,7 @@ const PropertiesPage = () => {
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Specifications</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status & Stage</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Assigned To</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Assigned Date</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Performance</th>
                         {(canUpdate || canDelete || canAssign) && (
                           <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Actions</th>
@@ -3759,7 +3763,7 @@ const PropertiesPage = () => {
                           <td className="px-2 sm:px-3 py-2">
                             <div className="min-w-[80px] sm:min-w-[100px]">
                               {p.assignedTo && p.assignedTo.name && p.assignedTo.name.trim() !== "" ? (
-                                <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-50 text-blue-700 rounded-md text-[9px] sm:text-[10px] whitespace-nowrap">
+                                <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-50 text-blue-700 rounded-md text-[9px] sm:text-[10px] whitespace-nowrap w-fit">
                                   <UserCheck size={8} className="sm:hidden" />
                                   <UserCheck size={10} className="hidden sm:block" />
                                   <span className="font-medium truncate max-w-[70px] sm:max-w-[100px]">{p.assignedTo.name}</span>
@@ -3776,6 +3780,9 @@ const PropertiesPage = () => {
                                 </button>
                               )}
                             </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <AssignedDateCell date={p.assignedTo && p.assignedTo.name && p.assignedTo.name.trim() !== "" ? (p.assigned_at || p.created_at) : null} />
                           </td>
                           <td className="px-3 py-3">
                             <div className="space-y-0.5 text-[10px] text-gray-500 whitespace-nowrap">

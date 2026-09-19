@@ -21,6 +21,8 @@ import { usersAPI } from "@/lib/api";
 import { can } from "@/utils/permission";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import { formatAssignedDate } from "@/lib/helpers";
+import AssignedDateCell from "@/components/common/AssignedDateCell";
 
 const RESALE = {
   navy: "#f3f4f6",
@@ -49,6 +51,7 @@ type UIOwner = {
   assigned_to_name: string;
   notes: string;
   created_at: string | null;
+  assigned_at?: string | null;
   properties: any[];
   followups: any[];
   activities: any[];
@@ -82,6 +85,7 @@ const mapApiOwnerToUI = (api: any): UIOwner => ({
   assigned_to_name: safe(api.assigned_to_name, "Unassigned"),
   notes: safe(api.notes, ""),
   created_at: api.created_at || null,
+  assigned_at: api.assigned_at || null,
   properties: api.properties || [],
   followups: api.followups || [],
   activities: api.activities || [],
@@ -1224,6 +1228,9 @@ export const OwnersPage: React.FC = () => {
                 <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">
                   ASSIGNED TO
                 </th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">
+                  ASSIGNED DATE
+                </th>
               </tr>
 
               {/* Row 2: Column Search */}
@@ -1284,14 +1291,16 @@ export const OwnersPage: React.FC = () => {
                     className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white font-normal"
                   />
                 </th>
+                <th className="px-1.5 py-0.5 bg-gray-100" /> {/* ASSIGNED DATE */}
               </tr>
             </thead>
+
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
-                <TableLoader colSpan={10} message="Loading owners..." />
+                <TableLoader colSpan={11} message="Loading owners..." />
               ) : paginatedOwners.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-12 text-center text-gray-500 font-semibold">No owners found.</td>
+                  <td colSpan={11} className="p-12 text-center text-gray-500 font-semibold">No owners found.</td>
                 </tr>
               ) : (
                 paginatedOwners.map((o, index) => {
@@ -1499,6 +1508,11 @@ export const OwnersPage: React.FC = () => {
                       {/* ASSIGNED TO */}
                       <td className="px-2 py-1 text-[9px] text-gray-800 font-semibold whitespace-nowrap">
                         {o.assigned_to_name ? o.assigned_to_name.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.)?\s+/i, "") : "Unassigned"}
+                      </td>
+
+                      {/* ASSIGNED DATE */}
+                      <td className="px-2 py-1 whitespace-nowrap">
+                        <AssignedDateCell date={o.assigned_to_name && o.assigned_to_name !== "Unassigned" ? ((o as any).assigned_at || o.created_at) : null} />
                       </td>
                     </tr>
                   );

@@ -36,6 +36,8 @@ import { filterBuyersByRole } from '@/utils/roleBasedBuyerFilter';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Pagination from '@/components/ui/Pagination';
 import * as XLSX from 'xlsx';
+import { formatAssignedDate } from '@/lib/helpers';
+import AssignedDateCell from '@/components/common/AssignedDateCell';
 
 
 type Executive = {
@@ -107,6 +109,7 @@ type UIBuyer = {
   totalVisits: number;
   lastActivity: string | null;
   created_at: string | null;
+  assigned_at?: string | null;
   created_by?: string | number | null;
   created_by_user?: any;
   created_by_name?: string | null;
@@ -621,6 +624,7 @@ const BuyersPage = () => {
       totalVisits: toNumOrNull(b.totalVisits) ?? 0,
       lastActivity: b.lastActivity ?? b.updated_at ?? null,
       created_at: createdAt || new Date().toISOString(),
+      assigned_at: b.assigned_at ?? null,
       created_by: b.created_by ?? null,
       created_by_user: b.created_by_user || null,
       created_user_first_name: b.created_user_first_name || b.created_by_first_name || null,
@@ -1311,7 +1315,7 @@ const BuyersPage = () => {
   };
 
   const getColSpan = () => {
-    let colSpan = 8;
+    let colSpan = 9;
     if (canUpdate || canDelete || canAssign || canBulkDelete) colSpan += 1;
     if (shouldShowActionsColumn) colSpan += 1;
     return colSpan;
@@ -1916,6 +1920,7 @@ const BuyersPage = () => {
                         <th className="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">MANAGE</th>
                       )}
                       <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED TO</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap bg-gray-50">ASSIGNED DATE</th>
                     </tr>
 
                     {/* ── ROW 2: Column Search ── */}
@@ -1949,12 +1954,9 @@ const BuyersPage = () => {
                         className="px-1.5 py-0.5 bg-gray-100"
                         style={isDesktop ? {
                           position: 'sticky',
-                          left: (() => {
-                            let left = 0;
-                            if (canUpdate || canDelete || canAssign || canBulkDelete) left += 28;
-                            if (shouldShowActionsColumn) left += 125;
-                            return `${left}px`;
-                          })(),
+                          left: shouldShowActionsColumn
+                            ? ((canUpdate || canDelete || canAssign || canBulkDelete) ? '56px' : '28px')
+                            : ((canUpdate || canDelete || canAssign || canBulkDelete) ? '28px' : 0),
                           zIndex: 31,
                         } : {}}
                       >
@@ -1971,7 +1973,7 @@ const BuyersPage = () => {
                       <th className="px-1.5 py-0.5 bg-gray-100">
                         <input
                           type="text"
-                          placeholder="Search phone/email..."
+                          placeholder="Search contact..."
                           value={colSearch.phoneWhatsapp}
                           onChange={e => setColSearch(p => ({ ...p, phoneWhatsapp: e.target.value }))}
                           className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
@@ -1982,29 +1984,21 @@ const BuyersPage = () => {
                       <th className="px-1.5 py-0.5 bg-gray-100">
                         <input
                           type="text"
-                          placeholder="Search location..."
+                          placeholder="Search budget/loc..."
                           value={colSearch.emailLocation}
                           onChange={e => setColSearch(p => ({ ...p, emailLocation: e.target.value }))}
                           className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
                         />
                       </th>
 
-                      {/* BUSINESS INFO search */}
-                      <th className="px-1.5 py-0.5 bg-gray-100">
-                        <input
-                          type="text"
-                          placeholder="Search source/priority..."
-                          value={colSearch.business}
-                          onChange={e => setColSearch(p => ({ ...p, business: e.target.value }))}
-                          className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
-                        />
-                      </th>
+                      {/* BUSINESS INFO - empty */}
+                      <th className="px-1.5 py-0.5 bg-gray-100" />
 
                       {/* REQUIREMENT search */}
                       <th className="px-1.5 py-0.5 bg-gray-100">
                         <input
                           type="text"
-                          placeholder="Search requirement..."
+                          placeholder="Search req..."
                           value={colSearch.requirements}
                           onChange={e => setColSearch(p => ({ ...p, requirements: e.target.value }))}
                           className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
@@ -2052,6 +2046,9 @@ const BuyersPage = () => {
                           className="w-full px-1.5 py-0.5 text-[9px] border border-gray-300 rounded bg-white"
                         />
                       </th>
+
+                      {/* ASSIGNED DATE - empty */}
+                      <th className="px-1.5 py-0.5 bg-gray-100" />
                     </tr>
                   </thead>
 
@@ -2420,14 +2417,14 @@ const BuyersPage = () => {
                             </td>
                           )}
 
-                          {/* LAST COL: ASSIGNED TO */}
+                          {/* ASSIGNED TO */}
                           <td className="px-2 py-1">
                             {buyer.assigned_executive ? (
-                              <div className="flex items-center gap-2 whitespace-nowrap">
-                                <div className="font-semibold text-gray-900 text-[10px]">
+                              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="font-semibold text-gray-900 text-[10px]">
                                   {execName
                                     ?.replace(/^(Mr\.?|Mrs\.?|Ms\.?|Miss\.?|Dr\.?)\s+/i, "")}
-                                </div>
+                                </span>
                                 {isCurrentUser && (
                                   <span className="text-[7px] bg-green-100 text-green-700 px-1 rounded">
                                     You
@@ -2439,6 +2436,11 @@ const BuyersPage = () => {
                                 Not assigned
                               </span>
                             )}
+                          </td>
+
+                          {/* ASSIGNED DATE */}
+                          <td className="px-2 py-1">
+                            <AssignedDateCell date={buyer.assigned_executive ? (buyer.assigned_at || buyer.created_at) : null} />
                           </td>
 
                         </tr>

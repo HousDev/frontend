@@ -116,4 +116,31 @@ export function getImageUrl(raw?: any, fallback: string = DEFAULT_PROPERTY_IMAGE
   return origin + path;
 }
 
+/**
+ * Format assigned_at date for UI badges and table columns
+ */
+export function formatAssignedDate(rawDate?: string | Date | null): { text: string; isToday: boolean; isYesterday: boolean } {
+  if (!rawDate) return { text: "—", isToday: false, isYesterday: false };
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return { text: String(rawDate), isToday: false, isYesterday: false };
 
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (isToday) {
+    return { text: `Today, ${timeStr}`, isToday: true, isYesterday: false };
+  }
+  if (isYesterday) {
+    return { text: `Yesterday, ${timeStr}`, isToday: false, isYesterday: true };
+  }
+
+  const dateStr = d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  const yearStr = d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : '';
+  return { text: `${dateStr}${yearStr}, ${timeStr}`, isToday: false, isYesterday: false };
+}
