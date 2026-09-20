@@ -1,11 +1,6 @@
 // frontend/src/pages/dashboard/ActivitiesPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Users,
-  PhoneCall,
-  UserCheck,
-  CheckCircle2,
-} from "lucide-react";
+import { Timer, Users, ListChecks, UserCheck, PhoneCall, CheckCircle2 } from "lucide-react";
 import { reportAPI } from "@/lib/reportAPI";
 import {
   PRINT_BRAND_STYLE,
@@ -15,9 +10,16 @@ import {
 } from "@/lib/printUtils";
 import { SmartFilterDrawer, SmartFilterParams } from "@/components/reports/SmartFilterDrawer";
 import { ReportTable, ColumnDef, StatusPill } from "@/components/reports/ReportTable";
+import AdminDailyWorkTracker from "@/components/activity/AdminDailyWorkTracker";
+
+// ── Brand tokens ───────────────────────────────────────
+const NAVY = "#0B3854";
+const NAVY_SOFT = "#11507A";
+const ORANGE = "#E6761D";
+const CARD_SHADOW = "0 1px 2px rgba(11,56,84,0.06), 0 4px 12px -6px rgba(11,56,84,0.10)";
 
 export const ActivitiesPage: React.FC = () => {
-  const [activeView, setActiveView] = useState<"user_breakdown" | "activity_logs">("user_breakdown");
+  const [activeView, setActiveView] = useState<"user_breakdown" | "activity_logs" | "daily_work_tracker">("daily_work_tracker");
   const [loading, setLoading] = useState<boolean>(true);
 
   // Stats & Data State
@@ -30,8 +32,9 @@ export const ActivitiesPage: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
   const [activeStatusPill, setActiveStatusPill] = useState<string>("all");
 
-  // Fetch Activity Report Data
+  // Fetch Activity Report Data — only needed for the breakdown / logs views
   const fetchActivityReport = useCallback(async () => {
+    if (activeView === "daily_work_tracker") return;
     setLoading(true);
     try {
       const res = await reportAPI.getActivityReport(filters);
@@ -43,7 +46,7 @@ export const ActivitiesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, activeView]);
 
   useEffect(() => {
     fetchActivityReport();
@@ -118,15 +121,15 @@ export const ActivitiesPage: React.FC = () => {
       searchPlaceholder: "Search executive...",
       render: (row) => (
         <div className="flex items-center gap-1.5 whitespace-nowrap min-w-[200px]">
-          <span className="font-bold text-gray-900">{row.user_name || "N/A"}</span>
-          <span className="text-[10px] text-gray-400 font-medium capitalize">({row.role || "Executive"})</span>
+          <span className="font-semibold text-[#0B3854]">{row.user_name || "N/A"}</span>
+          <span className="text-[10px] text-slate-400 font-medium capitalize">({row.role || "Executive"})</span>
         </div>
       ),
     },
     {
       key: "assigned_leads",
       header: "TOTAL ASSIGNED",
-      render: (row) => <span className="font-extrabold text-gray-900 text-xs">{row.assigned_leads || 0}</span>,
+      render: (row) => <span className="font-bold text-[#0B3854] text-xs">{row.assigned_leads || 0}</span>,
     },
     {
       key: "general_leads",
@@ -135,11 +138,11 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const cnt = Number(row.general_leads || 0);
         return cnt > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
             {cnt} Client
           </span>
         ) : (
-          <span className="text-gray-400 font-medium">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
@@ -150,11 +153,11 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const cnt = Number(row.buyer_leads || 0);
         return cnt > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-800 border border-blue-200">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#0B3854]/[0.07] text-[#0B3854] border border-[#0B3854]/15">
             {cnt} Buyer
           </span>
         ) : (
-          <span className="text-gray-400 font-medium">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
@@ -165,11 +168,11 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const cnt = Number(row.seller_leads || 0);
         return cnt > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
             {cnt} Seller
           </span>
         ) : (
-          <span className="text-gray-400 font-medium">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
@@ -180,11 +183,11 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const cnt = Number(row.owner_leads || 0);
         return cnt > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#E6761D]/10 text-[#B85A10] border border-[#E6761D]/25">
             {cnt} Owner
           </span>
         ) : (
-          <span className="text-gray-400 font-medium">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
@@ -195,18 +198,18 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const cnt = Number(row.tenant_leads || 0);
         return cnt > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
             {cnt} Tenant
           </span>
         ) : (
-          <span className="text-gray-400 font-medium">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
     {
       key: "followups_count",
       header: "FOLLOW-UPS TAKEN",
-      render: (row) => <span className="font-extrabold text-purple-700">{row.followups_count || 0}</span>,
+      render: (row) => <span className="font-bold text-[#11507A]">{row.followups_count || 0}</span>,
     },
     {
       key: "overdue_followups",
@@ -214,40 +217,40 @@ export const ActivitiesPage: React.FC = () => {
       render: (row) => {
         const overdue = Number(row.overdue_followups || 0);
         return overdue > 0 ? (
-          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
             {overdue} Overdue
           </span>
         ) : (
-          <span className="text-gray-400 font-semibold">0</span>
+          <span className="text-slate-300 font-medium">0</span>
         );
       },
     },
     {
       key: "contacted_leads",
       header: "CONTACTED LEADS",
-      render: (row) => <span className="font-bold text-blue-700">{row.contacted_leads || 0}</span>,
+      render: (row) => <span className="font-semibold text-sky-700">{row.contacted_leads || 0}</span>,
     },
     {
       key: "interested_leads",
       header: "INTERESTED PROSPECTS",
-      render: (row) => <span className="font-bold text-emerald-600">{row.interested_leads || 0}</span>,
+      render: (row) => <span className="font-semibold text-emerald-600">{row.interested_leads || 0}</span>,
     },
     {
       key: "not_interested_leads",
       header: "NOT INTERESTED",
-      render: (row) => <span className="font-medium text-rose-600">{row.not_interested_leads || 0}</span>,
+      render: (row) => <span className="font-medium text-rose-500">{row.not_interested_leads || 0}</span>,
     },
     {
       key: "last_activity_at",
       header: "LAST LOGGED ACTIVITY",
       render: (row) => {
         const ts = row.last_activity_at;
-        if (!ts || ts.startsWith("1970")) return <span className="text-gray-400 italic">No Activity Yet</span>;
+        if (!ts || ts.startsWith("1970")) return <span className="text-slate-400 italic">No Activity Yet</span>;
         const d = new Date(ts);
         const isToday = new Date().toDateString() === d.toDateString();
         return (
           <div>
-            <div className="font-semibold text-gray-800 text-[11px]">
+            <div className="font-medium text-slate-700 text-[11px]">
               {isToday ? "Today, " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
             </div>
           </div>
@@ -265,15 +268,15 @@ export const ActivitiesPage: React.FC = () => {
         const rate = assigned > 0 ? (interested / assigned) * 100 : 0;
 
         if (overdue > 0) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800">Needs Action</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">Needs Action</span>;
         }
         if (rate >= 25 || (followups > 10 && interested > 2)) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">Top Performer</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Top Performer</span>;
         }
         if (followups > 0) {
-          return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">Active Staff</span>;
+          return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#0B3854]/[0.07] text-[#0B3854] border border-[#0B3854]/15">Active Staff</span>;
         }
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-700">Pending Log</span>;
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">Pending Log</span>;
       },
     },
   ];
@@ -286,7 +289,7 @@ export const ActivitiesPage: React.FC = () => {
       searchPlaceholder: "Search staff...",
       render: (row) => (
         <div className="flex items-center gap-1.5 whitespace-nowrap min-w-[200px]">
-          <span className="font-bold text-gray-900">{row.user_name || "Staff Member"}</span>
+          <span className="font-semibold text-[#0B3854]">{row.user_name || "Staff Member"}</span>
         </div>
       ),
     },
@@ -296,16 +299,16 @@ export const ActivitiesPage: React.FC = () => {
       searchPlaceholder: "Search action...",
       render: (row) => {
         const t = (row.type || "").toLowerCase();
-        let badge = "bg-blue-50 text-blue-800 border-blue-200";
+        let badge = "bg-[#0B3854]/[0.07] text-[#0B3854] border-[#0B3854]/15";
         if (t.includes("wa") || t.includes("whatsapp")) {
-          badge = "bg-emerald-50 text-emerald-800 border-emerald-200";
+          badge = "bg-emerald-50 text-emerald-700 border-emerald-200";
         } else if (t.includes("visit") || t.includes("meet") || t.includes("site")) {
-          badge = "bg-purple-50 text-purple-800 border-purple-200";
+          badge = "bg-sky-50 text-sky-700 border-sky-200";
         } else if (t.includes("follow")) {
-          badge = "bg-amber-50 text-amber-800 border-amber-200";
+          badge = "bg-[#E6761D]/10 text-[#B85A10] border-[#E6761D]/25";
         }
         return (
-          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${badge} whitespace-nowrap`}>
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${badge} whitespace-nowrap`}>
             {row.type || "Activity"}
           </span>
         );
@@ -317,16 +320,16 @@ export const ActivitiesPage: React.FC = () => {
       searchPlaceholder: "Search lead...",
       render: (row) => {
         const tag = row.lead_type_tag || "Lead";
-        let tagBg = "bg-slate-100 text-slate-700 border-slate-300";
-        if (tag.includes("Buyer")) tagBg = "bg-blue-50 text-blue-800 border-blue-200";
-        if (tag.includes("Seller")) tagBg = "bg-emerald-50 text-emerald-800 border-emerald-200";
-        if (tag.includes("Owner")) tagBg = "bg-amber-50 text-amber-800 border-amber-200";
-        if (tag.includes("Tenant")) tagBg = "bg-indigo-50 text-indigo-800 border-indigo-200";
+        let tagBg = "bg-slate-100 text-slate-600 border-slate-200";
+        if (tag.includes("Buyer")) tagBg = "bg-[#0B3854]/[0.07] text-[#0B3854] border-[#0B3854]/15";
+        if (tag.includes("Seller")) tagBg = "bg-emerald-50 text-emerald-700 border-emerald-200";
+        if (tag.includes("Owner")) tagBg = "bg-[#E6761D]/10 text-[#B85A10] border-[#E6761D]/25";
+        if (tag.includes("Tenant")) tagBg = "bg-sky-50 text-sky-700 border-sky-200";
 
         return (
           <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className="font-bold text-gray-900">{row.target_lead_name || "Client Lead"}</span>
-            <span className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold border ${tagBg}`}>
+            <span className="font-semibold text-slate-800">{row.target_lead_name || "Client Lead"}</span>
+            <span className={`px-1.5 py-px rounded text-[9px] font-semibold border ${tagBg}`}>
               {tag}
             </span>
           </div>
@@ -337,7 +340,7 @@ export const ActivitiesPage: React.FC = () => {
       key: "description",
       header: "REMARK / DETAILS",
       searchPlaceholder: "Search remark...",
-      render: (row) => <span className="text-gray-700 font-medium text-[11px] truncate max-w-xs">{row.description || "N/A"}</span>,
+      render: (row) => <span className="text-slate-600 font-medium text-[11px] truncate max-w-xs">{row.description || "N/A"}</span>,
     },
     {
       key: "status",
@@ -345,11 +348,11 @@ export const ActivitiesPage: React.FC = () => {
       searchPlaceholder: "Search status...",
       render: (row) => {
         const s = (row.status || "completed").toLowerCase();
-        let color = "bg-blue-100 text-blue-800";
-        if (s.includes("qualif") || s.includes("interest") || s.includes("done") || s.includes("completed")) color = "bg-emerald-100 text-emerald-800";
-        else if (s.includes("progress") || s.includes("pending")) color = "bg-amber-100 text-amber-800";
-        else if (s.includes("not") || s.includes("lost") || s.includes("reject")) color = "bg-rose-100 text-rose-800";
-        return <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${color} whitespace-nowrap`}>{row.status || "Logged"}</span>;
+        let color = "bg-[#0B3854]/[0.07] text-[#0B3854] border-[#0B3854]/15";
+        if (s.includes("qualif") || s.includes("interest") || s.includes("done") || s.includes("completed")) color = "bg-emerald-50 text-emerald-700 border-emerald-200";
+        else if (s.includes("progress") || s.includes("pending")) color = "bg-[#E6761D]/10 text-[#B85A10] border-[#E6761D]/25";
+        else if (s.includes("not") || s.includes("lost") || s.includes("reject")) color = "bg-rose-50 text-rose-700 border-rose-200";
+        return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color} whitespace-nowrap`}>{row.status || "Logged"}</span>;
       },
     },
     {
@@ -357,7 +360,7 @@ export const ActivitiesPage: React.FC = () => {
       header: "LOGGED TIMESTAMP",
       render: (row) => {
         const d = row.created_at || row.scheduled_date;
-        return d ? <span className="font-semibold text-gray-800 text-[11px] whitespace-nowrap">{new Date(d).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span> : "N/A";
+        return d ? <span className="font-medium text-slate-700 text-[11px] whitespace-nowrap">{new Date(d).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span> : "N/A";
       },
     },
   ];
@@ -373,30 +376,30 @@ export const ActivitiesPage: React.FC = () => {
 
     const rows = activeView === "user_breakdown"
       ? displayUserSummary.map((u) => [
-          `"${u.user_name || "N/A"}"`,
-          `"${u.role || "Executive"}"`,
-          `"${u.department || "Sales"}"`,
-          u.assigned_leads || 0,
-          u.general_leads || 0,
-          u.buyer_leads || 0,
-          u.seller_leads || 0,
-          u.owner_leads || 0,
-          u.tenant_leads || 0,
-          u.followups_count || 0,
-          u.overdue_followups || 0,
-          u.contacted_leads || 0,
-          u.interested_leads || 0,
-          `"${Number(u.overdue_followups || 0) > 0 ? "Needs Action" : "Active Staff"}"`,
-        ])
+        `"${u.user_name || "N/A"}"`,
+        `"${u.role || "Executive"}"`,
+        `"${u.department || "Sales"}"`,
+        u.assigned_leads || 0,
+        u.general_leads || 0,
+        u.buyer_leads || 0,
+        u.seller_leads || 0,
+        u.owner_leads || 0,
+        u.tenant_leads || 0,
+        u.followups_count || 0,
+        u.overdue_followups || 0,
+        u.contacted_leads || 0,
+        u.interested_leads || 0,
+        `"${Number(u.overdue_followups || 0) > 0 ? "Needs Action" : "Active Staff"}"`,
+      ])
       : activityLogs.map((l) => [
-          `"${l.user_name || "Staff Member"}"`,
-          `"${l.type || "Activity"}"`,
-          `"${l.target_lead_name || "Client Lead"}"`,
-          `"${l.lead_type_tag || "Lead"}"`,
-          `"${(l.description || "").replace(/"/g, '""')}"`,
-          `"${l.status || "Completed"}"`,
-          `"${l.created_at || ""}"`,
-        ]);
+        `"${l.user_name || "Staff Member"}"`,
+        `"${l.type || "Activity"}"`,
+        `"${l.target_lead_name || "Client Lead"}"`,
+        `"${l.lead_type_tag || "Lead"}"`,
+        `"${(l.description || "").replace(/"/g, '""')}"`,
+        `"${l.status || "Completed"}"`,
+        `"${l.created_at || ""}"`,
+      ]);
 
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -483,110 +486,117 @@ export const ActivitiesPage: React.FC = () => {
     triggerIframePrint(printHTML, "Activities Audit Trail");
   };
 
+  const isDailyTracker = activeView === "daily_work_tracker";
+
+  const tabBtnClass = (active: boolean) =>
+    `px-3.5 py-1.5 text-[11.5px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${active ? "text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+    }`;
+
   return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto bg-slate-50 min-h-screen">
-      {/* Top Banner & Header Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Executives</div>
-            <div className="text-xl font-black text-slate-900 mt-0.5">{totalExecutiveUsers}</div>
-            <div className="text-[10px] text-gray-400 font-medium">Active team members</div>
+    <div className="w-full space-y-2.5">
+      {/* ── Top Stats Cards ── only relevant to the breakdown / logs views */}
+      {!isDailyTracker && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="bg-white px-3.5 py-2.5 rounded-lg flex items-center justify-between" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
+            <div>
+              <div className="text-[9.5px] font-semibold text-slate-500 uppercase tracking-wider">Total Executives</div>
+              <div className="text-lg font-bold mt-0.5" style={{ color: NAVY }}>{totalExecutiveUsers}</div>
+              <div className="text-[9.5px] text-slate-400 font-medium">Active team members</div>
+            </div>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${NAVY}1a` }}>
+              <Users className="w-4 h-4" style={{ color: NAVY }} />
+            </div>
           </div>
-          <div className="p-2.5 rounded-full bg-indigo-50 text-indigo-600">
-            <Users className="w-5 h-5" />
+
+          <div className="bg-white px-3.5 py-2.5 rounded-lg flex items-center justify-between" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
+            <div>
+              <div className="text-[9.5px] font-semibold text-slate-500 uppercase tracking-wider">Assigned Leads</div>
+              <div className="text-lg font-bold mt-0.5" style={{ color: NAVY }}>{totalAssignedLeads}</div>
+              <div className="text-[9.5px] text-slate-400 font-medium">Total distributed leads</div>
+            </div>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${NAVY_SOFT}1a` }}>
+              <UserCheck className="w-4 h-4" style={{ color: NAVY_SOFT }} />
+            </div>
+          </div>
+
+          <div className="bg-white px-3.5 py-2.5 rounded-lg flex items-center justify-between" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
+            <div>
+              <div className="text-[9.5px] font-semibold text-slate-500 uppercase tracking-wider">Completed Calls</div>
+              <div className="text-lg font-bold mt-0.5" style={{ color: NAVY }}>{totalCallsDone || safeStats.call_count || 0}</div>
+              <div className="text-[9.5px] text-slate-400 font-medium">Phone calls done</div>
+            </div>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${ORANGE}1a` }}>
+              <PhoneCall className="w-4 h-4" style={{ color: ORANGE }} />
+            </div>
+          </div>
+
+          <div className="bg-white px-3.5 py-2.5 rounded-lg flex items-center justify-between" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
+            <div>
+              <div className="text-[9.5px] font-semibold text-slate-500 uppercase tracking-wider">Interested Leads</div>
+              <div className="text-lg font-bold mt-0.5" style={{ color: NAVY }}>{totalInterestedLeads}</div>
+              <div className="text-[9.5px] text-emerald-600 font-medium">Qualified prospects</div>
+            </div>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Assigned Leads</div>
-            <div className="text-xl font-black text-indigo-950 mt-0.5">{totalAssignedLeads}</div>
-            <div className="text-[10px] text-gray-400 font-medium">Total distributed leads</div>
-          </div>
-          <div className="p-2.5 rounded-full bg-blue-50 text-blue-600">
-            <UserCheck className="w-5 h-5" />
-          </div>
-        </div>
+      {/* ── Tab Switcher ── */}
+      {!isDailyTracker && <div className="bg-white px-2.5 py-2 rounded-lg flex flex-wrap items-center gap-2" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
+        <button
+          type="button"
+          onClick={() => setActiveView("daily_work_tracker")}
+          className={tabBtnClass(false)}
+        >
+          Daily Work Tracker
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveView("user_breakdown");
+            setActiveStatusPill("all");
+          }}
+          className={tabBtnClass(activeView === "user_breakdown")}
+          style={activeView === "user_breakdown" ? { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` } : undefined}
+        >
+          Lead Execution Breakdown
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveView("activity_logs");
+            setActiveStatusPill("logs");
+          }}
+          className={tabBtnClass(activeView === "activity_logs")}
+          style={activeView === "activity_logs" ? { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` } : undefined}
+        >
+          Activity Feed
+        </button>
+      </div>}
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Completed Calls</div>
-            <div className="text-xl font-black text-purple-950 mt-0.5">{totalCallsDone || safeStats.call_count || 0}</div>
-            <div className="text-[10px] text-gray-400 font-medium">Phone calls done</div>
-          </div>
-          <div className="p-2.5 rounded-full bg-purple-50 text-purple-600">
-            <PhoneCall className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Interested Leads</div>
-            <div className="text-xl font-black text-emerald-950 mt-0.5">{totalInterestedLeads}</div>
-            <div className="text-[10px] text-emerald-600 font-medium">Qualified prospects</div>
-          </div>
-          <div className="p-2.5 rounded-full bg-emerald-50 text-emerald-600">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Mode View Toggle */}
-      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView("user_breakdown");
-              setActiveStatusPill("all");
-            }}
-            className={`px-4 py-2 text-xs font-extrabold rounded-lg transition-all ${
-              activeView === "user_breakdown"
-                ? "bg-indigo-900 text-white shadow-2xs"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            Executive Lead Execution Breakdown
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView("activity_logs");
-              setActiveStatusPill("logs");
-            }}
-            className={`px-4 py-2 text-xs font-extrabold rounded-lg transition-all ${
-              activeView === "activity_logs"
-                ? "bg-indigo-900 text-white shadow-2xs"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            Chronological Activity Feed
-          </button>
-        </div>
-
-        <div className="text-xs font-semibold text-gray-500">
-          {activeView === "user_breakdown" ? "Showing Per-User Lead Execution & Call Metrics" : "Chronological Audit Log of All User Actions"}
-        </div>
-      </div>
-
-      {/* Main Interactive Table */}
-      <ReportTable
-        title={activeView === "user_breakdown" ? "Executive Activity Summary" : "Activity Logs"}
-        columns={activeView === "user_breakdown" ? userColumns : logColumns}
-        data={activeView === "user_breakdown" ? displayUserSummary : activityLogs}
-        statusPills={statusPills}
-        activeStatusPill={activeStatusPill}
-        onSelectStatusPill={handleSelectStatusPill}
-        onOpenFilters={() => setIsFilterOpen(true)}
-        onExport={handleExportCSV}
-        onRefresh={fetchActivityReport}
-        onPrint={handlePrintPDF}
-        pagination={{ page: 1, limit: 100, totalRecords: activeView === "user_breakdown" ? displayUserSummary.length : activityLogs.length, totalPages: 1 }}
-        onPageChange={() => {}}
-        onLimitChange={() => {}}
-        loading={loading}
-      />
+      {/* Main View Content */}
+      {activeView === "daily_work_tracker" ? (
+        <AdminDailyWorkTracker activeView={activeView} onActiveViewChange={setActiveView} />
+      ) : (
+        <ReportTable
+          title={activeView === "user_breakdown" ? "Executive Activity Summary" : "Activity Logs"}
+          columns={activeView === "user_breakdown" ? userColumns : logColumns}
+          data={activeView === "user_breakdown" ? displayUserSummary : activityLogs}
+          statusPills={statusPills}
+          activeStatusPill={activeStatusPill}
+          onSelectStatusPill={handleSelectStatusPill}
+          onOpenFilters={() => setIsFilterOpen(true)}
+          onExport={handleExportCSV}
+          onRefresh={fetchActivityReport}
+          onPrint={handlePrintPDF}
+          pagination={{ page: 1, limit: 100, totalRecords: activeView === "user_breakdown" ? displayUserSummary.length : activityLogs.length, totalPages: 1 }}
+          onPageChange={() => { }}
+          onLimitChange={() => { }}
+          loading={loading}
+        />
+      )}
 
       {/* Smart Filter Drawer */}
       <SmartFilterDrawer

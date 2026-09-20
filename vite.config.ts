@@ -36,8 +36,7 @@ export default defineConfig({
     allowedHosts: ['resaleexpert.in', 'localhost'],
     proxy: {
       "/api": {
-        // target: "http://localhost:3000",
-        target: "https://resaleexpert.in", // for server
+        target: "http://localhost:3000",
         changeOrigin: true,
       },
       "/uploads": {

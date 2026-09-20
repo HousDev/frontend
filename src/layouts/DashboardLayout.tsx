@@ -50,6 +50,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { cn } from "@/lib/utils";
 import ActivityTrackerModal from "./ActivityTrackerModal";
+import { ActivityTrackerProvider, useActivityTracker } from "../context/ActivityTrackerContext";
+import ActivityVerificationModal from "../components/activity/ActivityVerificationModal";
+import LogoutConfirmationModal from "../components/activity/LogoutConfirmationModal";
+import SmartBreakTimerOverlay from "../components/activity/SmartBreakTimerOverlay";
 import NotificationPanel from "./NotificationPanel";
 import { notificationAPI } from "@/lib/notificationAPI";
 import UserProfileMenu from "./UserProfileMenu";
@@ -192,7 +196,15 @@ type NavigationDropdown = {
 
 type NavigationItem = NavigationSingle | NavigationDropdown;
 
-const DashboardLayout = () => {
+const DashboardLayoutContent = () => {
+  const {
+    sessionTimeFormatted,
+    workTimeFormatted,
+    currentState,
+    activeBreak,
+    breakHistory,
+    openActivityModal: triggerActivityTrackerModal,
+  } = useActivityTracker();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [sessionTime, setSessionTime] = useState("00:00:00");
@@ -249,6 +261,37 @@ const DashboardLayout = () => {
   const prevWhatsappCountRef = useRef<number>(0);
 
   const navTextClass = `text-[${COLORS.primary.main}]`;
+
+  // ── DYNAMIC EFFICIENCY (same formula as ActivityTrackerModal) ──
+  const efficiencyScore = useMemo(() => {
+    const items = Array.isArray(breakHistory) ? breakHistory : [];
+    if (items.length === 0) return 100; // no breaks => perfect
+
+    let total = 0;
+    let counted = 0;
+
+    items.forEach((b: any) => {
+      const actualSeconds = Number(b?.actual_duration ?? b?.actualDuration ?? 0);
+      const allocatedMinutes = Number(b?.allocated_duration ?? b?.allocatedDuration ?? 0);
+      const allocatedSeconds = allocatedMinutes * 60;
+
+      if (allocatedSeconds <= 0) return; // skip if no allocation data
+
+      const eff =
+        actualSeconds <= allocatedSeconds
+          ? 100
+          : Math.max(0, Math.min(100, Math.round((allocatedSeconds / actualSeconds) * 100)));
+
+      total += eff;
+      counted += 1;
+    });
+
+    if (counted === 0) return 100;
+    return Math.round(total / counted);
+  }, [breakHistory]);
+
+  const efficiencyLabel = efficiencyScore >= 90 ? "Stable" : efficiencyScore >= 75 ? "Watch" : "Review";
+  const efficiencyColor = efficiencyScore >= 90 ? "#16a34a" : efficiencyScore >= 75 ? "#eab308" : "#ef4444";
 
   const userCan = useCallback(
     (perm?: PermissionKey | PermissionKey[]) => {
@@ -1201,8 +1244,11 @@ const DashboardLayout = () => {
   }, []);
 
   const openActivityModal = useCallback(
-    () => setActivityModalOpen(true),
-    []
+    () => {
+      setActivityModalOpen(true);
+      if (triggerActivityTrackerModal) triggerActivityTrackerModal();
+    },
+    [triggerActivityTrackerModal]
   );
   const closeActivityModal = useCallback(
     () => setActivityModalOpen(false),
@@ -1625,34 +1671,52 @@ const DashboardLayout = () => {
                 <button
                   onClick={openActivityModal}
                   title="Activity tracker"
-                  className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 transition-all shadow-sm"
+                  className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg transition-all shadow-sm ${
+                    currentState === "BREAK"
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200"
+                  }`}
                   type="button"
                 >
-                  <Clock className="h-3.5 w-3.5 text-orange-600" />
-                  <span className="text-slate-700 text-xs font-semibold">
-                    {sessionTime}
-                  </span>
+                  {currentState === "BREAK" ? (
+                    <>
+                      <Coffee className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+                      <span className="text-amber-800 text-xs font-bold">
+                        ON BREAK ({workTimeFormatted})
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-3.5 w-3.5 text-orange-600" />
+                      <span className="text-slate-700 text-xs font-semibold">
+                        {workTimeFormatted || "00:00:00"}
+                      </span>
+                    </>
+                  )}
                 </button>
 
+                {/* ✅ DYNAMIC SCORE (was hardcoded "100%") */}
                 <button
-                  title="Activity progress"
+                  onClick={openActivityModal}
+                  title={`Activity score: ${efficiencyScore}% (${efficiencyLabel})`}
                   className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 transition-all shadow-sm"
                   type="button"
                 >
                   <Activity className="h-3.5 w-3.5 text-orange-600" />
-                  <span className="text-slate-700 text-xs font-semibold">
-                    100%
+                  <span className="text-xs font-semibold" style={{ color: efficiencyColor }}>
+                    {efficiencyScore}%
                   </span>
                 </button>
 
                 <button
+                  onClick={openActivityModal}
                   title="Coffee breaks"
                   className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 transition-all shadow-sm"
                   type="button"
                 >
                   <Coffee className="h-3.5 w-3.5 text-orange-600" />
                   <span className="text-slate-700 text-xs font-semibold">
-                    10
+                    {breakHistory.length}
                   </span>
                 </button>
               </div>
@@ -1689,27 +1753,33 @@ const DashboardLayout = () => {
                       >
                         <Clock className="h-3.5 w-3.5 text-orange-600" />
                         <span className="text-xs font-medium text-slate-700">
-                          {sessionTime}
+                          {currentState === "BREAK" ? `ON BREAK (${workTimeFormatted})` : workTimeFormatted || "00:00:00"}
                         </span>
                       </button>
                       <button
-                        onClick={() => setMobileTimersOpen(false)}
+                        onClick={() => {
+                          setMobileTimersOpen(false);
+                          openActivityModal();
+                        }}
                         className="w-full flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-orange-50 transition-colors"
                         type="button"
                       >
                         <Activity className="h-3.5 w-3.5 text-orange-600" />
-                        <span className="text-xs font-medium text-slate-700">
-                          100%
+                        <span className="text-xs font-medium" style={{ color: efficiencyColor }}>
+                          {efficiencyScore}% · {efficiencyLabel}
                         </span>
                       </button>
                       <button
-                        onClick={() => setMobileTimersOpen(false)}
+                        onClick={() => {
+                          setMobileTimersOpen(false);
+                          openActivityModal();
+                        }}
                         className="w-full flex items-center space-x-2 px-2 py-2 rounded-md hover:bg-orange-50 transition-colors"
                         type="button"
                       >
                         <Coffee className="h-3.5 w-3.5 text-orange-600" />
                         <span className="text-xs font-medium text-slate-700">
-                          10
+                          Breaks: {breakHistory.length}
                         </span>
                       </button>
                     </div>
@@ -1767,6 +1837,9 @@ const DashboardLayout = () => {
         onStartBreak={startBreak}
         onEndBreak={endBreak}
         loginTime={loginTime}
+        employeeName={user ? `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim() || (user as any).username || 'Employee' : 'Employee'}
+        employeeId={String((user as any)?.id || '')}
+        department={(user as any)?.department || (user as any)?.role || 'Unassigned'}
       />
 
       <style>{`
@@ -1790,6 +1863,17 @@ const DashboardLayout = () => {
         .custom-main-scrollbar::-webkit-scrollbar-thumb:hover { background: #f97316; }
       `}</style>
     </div>
+  );
+};
+
+const DashboardLayout = () => {
+  return (
+    <ActivityTrackerProvider>
+      <DashboardLayoutContent />
+      <ActivityVerificationModal />
+      <LogoutConfirmationModal />
+      <SmartBreakTimerOverlay />
+    </ActivityTrackerProvider>
   );
 };
 

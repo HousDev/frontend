@@ -519,10 +519,7 @@ const ContactUsPage: React.FC = () => {
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 mb-3 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Have Questions?</span>
-            </div>
+           
             <h2 className="text-3xl md:text-4xl font-extrabold text-[#0f172a] tracking-tight">
               Frequently Asked <span className="text-[#2563eb]">Questions</span>
             </h2>
