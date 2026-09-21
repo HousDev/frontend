@@ -133,6 +133,38 @@ const isPublicProp = (p: any): boolean => {
   );
 };
 
+const parseDateToMs = (dateVal: any): number | null => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) return dateVal.getTime();
+  if (typeof dateVal === 'number') return dateVal;
+  if (typeof dateVal === 'string') {
+    const normalized = dateVal.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/, '$1T$2');
+    const parsed = new Date(normalized).getTime();
+    if (!isNaN(parsed)) return parsed;
+    const fallback = new Date(dateVal).getTime();
+    if (!isNaN(fallback)) return fallback;
+  }
+  return null;
+};
+
+// Check if property was created/published within the last N days (default 3 days)
+const isNewlyAddedProp = (p: any, daysThreshold = 3): boolean => {
+  const dateVal = p?.created_at || p?.createdAt || p?.publication_date || p?.date_added;
+  const propTime = parseDateToMs(dateVal);
+  if (!propTime) return false;
+  const now = Date.now();
+  const diffMs = now - propTime;
+  const maxDiffMs = daysThreshold * 24 * 60 * 60 * 1000;
+  // Allow future timestamps up to 24 hours (for client/server timezone offset) and within 3 days
+  return diffMs >= -86400000 && diffMs <= maxDiffMs;
+};
+
+// Calculate newly added properties count strictly within last N days (default 3 days)
+const getNewlyAddedCount = (props: any[], daysThreshold = 3): number => {
+  if (!Array.isArray(props) || props.length === 0) return 0;
+  return props.filter((p) => isNewlyAddedProp(p, daysThreshold)).length;
+};
+
 const formatCurrency = (amount: number | string) => {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) return ' - ';
@@ -522,6 +554,8 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('');
   const [buyCount, setBuyCount] = useState<number>(0);
   const [rentCount, setRentCount] = useState<number>(0);
+  const [newlyAddedBuyCount, setNewlyAddedBuyCount] = useState<number>(0);
+  const [newlyAddedRentCount, setNewlyAddedRentCount] = useState<number>(0);
 
   // Pre-fetch buy/rent counts for tab buttons
   useEffect(() => {
@@ -535,11 +569,15 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
         if (!isMounted) return;
         if (buyRes.status === 'fulfilled') {
           const raw = Array.isArray(buyRes.value?.data) ? buyRes.value.data : (Array.isArray(buyRes.value) ? buyRes.value : []);
-          setBuyCount(raw.filter(isPublicProp).length);
+          const publicProps = raw.filter(isPublicProp);
+          setBuyCount(publicProps.length);
+          setNewlyAddedBuyCount(getNewlyAddedCount(publicProps, 3));
         }
         if (rentRes.status === 'fulfilled') {
           const raw = Array.isArray(rentRes.value?.data) ? rentRes.value.data : (Array.isArray(rentRes.value) ? rentRes.value : []);
-          setRentCount(raw.filter(isPublicProp).length);
+          const publicProps = raw.filter(isPublicProp);
+          setRentCount(publicProps.length);
+          setNewlyAddedRentCount(getNewlyAddedCount(publicProps, 3));
         }
       } catch (e) {
         console.warn('Failed to load buy/rent counts in PublicRentalPropertiesPage:', e);
@@ -1453,7 +1491,7 @@ const PublicRentalPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }
                   className="relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold bg-[#E6761D] text-white shadow-md"
                 >
                   <span>Rent</span>
-                  <AnimatedCountBadge totalCount={rentCount} />
+                  <AnimatedCountBadge count={newlyAddedRentCount} totalCount={rentCount} />
                 </button>
               </div>
 
