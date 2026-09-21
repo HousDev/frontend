@@ -203,38 +203,10 @@ const isNewlyAddedProp = (p: any, daysThreshold = 3): boolean => {
   return diffMs >= -86400000 && diffMs <= maxDiffMs;
 };
 
-// Calculate newly added properties count with smart fallback (shows latest batch if no properties in past 3 days)
-const getNewlyAddedCountWithFallback = (props: any[], daysThreshold = 3): number => {
+// Calculate newly added properties count strictly within last N days (default 3 days)
+const getNewlyAddedCount = (props: any[], daysThreshold = 3): number => {
   if (!Array.isArray(props) || props.length === 0) return 0;
-
-  // 1. Check properties created within last 3 days
-  const recent3Days = props.filter((p) => isNewlyAddedProp(p, daysThreshold));
-  if (recent3Days.length > 0) {
-    return recent3Days.length;
-  }
-
-  // 2. Smart Fallback: Count properties from the latest added batch
-  const sorted = [...props].sort((a, b) => {
-    const timeA = parseDateToMs(a?.created_at || a?.createdAt || a?.publication_date || a?.date_added) || 0;
-    const timeB = parseDateToMs(b?.created_at || b?.createdAt || b?.publication_date || b?.date_added) || 0;
-    return timeB - timeA;
-  });
-
-  const latestTime = parseDateToMs(
-    sorted[0]?.created_at || sorted[0]?.createdAt || sorted[0]?.publication_date || sorted[0]?.date_added
-  );
-  if (!latestTime) {
-    return Math.min(props.length, 2);
-  }
-
-  // Count properties created within 24 hours of the most recent property
-  const latestBatch = sorted.filter((p) => {
-    const t = parseDateToMs(p?.created_at || p?.createdAt || p?.publication_date || p?.date_added);
-    if (!t) return false;
-    return Math.abs(latestTime - t) <= 24 * 60 * 60 * 1000;
-  });
-
-  return latestBatch.length > 0 ? latestBatch.length : Math.min(props.length, 1);
+  return props.filter((p) => isNewlyAddedProp(p, daysThreshold)).length;
 };
 
 const isFeaturedProp = (p: any, tags: string[] = []): boolean => {
@@ -312,13 +284,13 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           const raw = Array.isArray(buyRes.value?.data) ? buyRes.value.data : (Array.isArray(buyRes.value) ? buyRes.value : []);
           const publicProps = raw.filter(isPublicProp);
           setBuyCount(publicProps.length);
-          setNewlyAddedBuyCount(getNewlyAddedCountWithFallback(publicProps, 3));
+          setNewlyAddedBuyCount(getNewlyAddedCount(publicProps, 3));
         }
         if (rentRes.status === 'fulfilled') {
           const raw = Array.isArray(rentRes.value?.data) ? rentRes.value.data : (Array.isArray(rentRes.value) ? rentRes.value : []);
           const publicProps = raw.filter(isPublicProp);
           setRentCount(publicProps.length);
-          setNewlyAddedRentCount(getNewlyAddedCountWithFallback(publicProps, 3));
+          setNewlyAddedRentCount(getNewlyAddedCount(publicProps, 3));
         }
       } catch (e) {
         console.warn('Failed to load initial buy/rent counts:', e);
@@ -492,10 +464,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         setRawProperties(rawList);
         if (transactionType === 'rent') {
           setRentCount(rawList.length);
-          setNewlyAddedRentCount(getNewlyAddedCountWithFallback(rawList, 3));
+          setNewlyAddedRentCount(getNewlyAddedCount(rawList, 3));
         } else {
           setBuyCount(rawList.length);
-          setNewlyAddedBuyCount(getNewlyAddedCountWithFallback(rawList, 3));
+          setNewlyAddedBuyCount(getNewlyAddedCount(rawList, 3));
         }
 
         // ⬇️ Bulk fetch tags for all raw properties BEFORE filtering
