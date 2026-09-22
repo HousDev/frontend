@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
     X,
     Coffee,
@@ -17,8 +17,10 @@ import {
     Activity as ActivityIcon,
     Target,
     Clock,
-    TrendingUp,        // ✅ NEW
-    Award,             // ✅ NEW
+    TrendingUp,
+    Award,
+    Volume2,
+    VolumeX,
 } from "lucide-react";
 import BreakTypesModal from "./BreakTypeModal";
 import { useActivityTracker } from "../context/ActivityTrackerContext";
@@ -41,8 +43,8 @@ const WARN = "#eab308";
 const DANGER = "#ef4444";
 const TEXT = "#0f2333";
 const MUTED = "#5f7386";
-const CREDIT = "#10b981";   // ✅ NEW - Green for credit
-const HALFDAY = "#f59e0b";  // ✅ NEW - Amber for half-day
+const CREDIT = "#10b981";
+const HALFDAY = "#f59e0b";
 
 const MONO =
     "'IBM Plex Mono','SF Mono',ui-monospace,Menlo,Consolas,monospace";
@@ -92,9 +94,8 @@ type Props = {
     avatarUrl?: string;
     expectedHours?: number;
     breakLimitMinutes?: number;
-    // ✅ NEW PROPS for credit system
-    expectedWorkHours?: number;      // Work hours excluding break (default 7h)
-    halfDayThresholdHours?: number;  // Half-day threshold (default 4h)
+    expectedWorkHours?: number;
+    halfDayThresholdHours?: number;
 };
 
 const toSeconds = (value?: string): number => {
@@ -113,7 +114,6 @@ const formatDuration = (totalSeconds: number): string => {
     return `${h}h ${m}m`;
 };
 
-// ✅ NEW: Format credit with decimal hours
 const formatCredit = (totalSeconds: number): string => {
     const s = Math.max(0, Math.round(totalSeconds));
     const h = Math.floor(s / 3600);
@@ -288,6 +288,28 @@ const MiniStat: React.FC<{ label: string; value: string; color?: string }> = ({ 
     </div>
 );
 
+// ── Audio helper: fade volume smoothly ─────────────────
+const fadeAudio = (
+    audio: HTMLAudioElement,
+    to: number,
+    duration = 500,
+    onDone?: () => void
+) => {
+    const from = audio.volume;
+    const start = performance.now();
+    const step = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const v = from + (to - from) * t;
+        audio.volume = Math.max(0, Math.min(1, v));
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else if (onDone) {
+            onDone();
+        }
+    };
+    requestAnimationFrame(step);
+};
+
 const ActivityTrackerModal: React.FC<Props> = ({
     isOpen,
     onClose,
@@ -298,7 +320,6 @@ const ActivityTrackerModal: React.FC<Props> = ({
     avatarUrl,
     expectedHours = 8,
     breakLimitMinutes = 60,
-    // ✅ NEW DEFAULTS
     expectedWorkHours = 7,
     halfDayThresholdHours = 4,
 }) => {
@@ -324,6 +345,26 @@ const ActivityTrackerModal: React.FC<Props> = ({
     const [breakFromDate, setBreakFromDate] = useState(today);
     const [breakToDate, setBreakToDate] = useState(today);
     const [rangeBreaks, setRangeBreaks] = useState<any[]>([]);
+
+    // ── 🔊 Background tracking music ───────────────────
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [isMuted, setIsMuted] = useState(false);
+    const TARGET_VOLUME = 0.35;
+
+    // Initialize audio once on mount
+    useEffect(() => {
+        const audio = new Audio("/background.mp3");
+        audio.loop = true;
+        audio.volume = 0; // start silent; fade in when playing
+        audio.preload = "auto";
+        audioRef.current = audio;
+
+        return () => {
+            audio.pause();
+            audio.src = "";
+            audioRef.current = null;
+        };
+    }, []);
 
     const [nowTick, setNowTick] = useState(() => new Date());
     useEffect(() => {
@@ -375,6 +416,53 @@ const ActivityTrackerModal: React.FC<Props> = ({
     const isOnBreak = currentState === "BREAK" || activeBreak !== null;
     const isWorking = isSessionActive && !isOnBreak && currentState !== "IDLE" && currentState !== "ACTIVITY_CHECK";
 
+    // ── 🔊 Play / pause background music based on state ─
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const shouldPlay = isWorking && isOpen && !isMuted;
+
+        if (shouldPlay) {
+            // If paused or ended, restart at 0 volume and fade in
+            if (audio.paused) {
+                audio.volume = 0;
+                audio.play()
+                    .then(() => fadeAudio(audio, TARGET_VOLUME, 600))
+                    .catch((err) => {
+                        // Autoplay was blocked (user hasn't interacted yet).
+                        // This is expected on first render before any click.
+                        console.warn("Tracking audio blocked by browser:", err?.name);
+                    });
+            } else {
+                // Already playing — just ensure target volume
+                fadeAudio(audio, TARGET_VOLUME, 400);
+            }
+        } else {
+            // Fade out then pause
+            if (!audio.paused) {
+                fadeAudio(audio, 0, 400, () => {
+                    // Only pause if still not supposed to play
+                    if (audioRef.current === audio) audio.pause();
+                });
+            } else {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        }
+    }, [isWorking, isOpen, isMuted]);
+
+    // Stop audio if modal closes entirely
+    useEffect(() => {
+        if (!isOpen) {
+            const audio = audioRef.current;
+            if (audio && !audio.paused) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        }
+    }, [isOpen]);
+
     const handleSelectBreakFromModal = (breakType: string, details: any) => {
         startBreak(breakType, details.duration, details);
         setIsBreakTypesOpen(false);
@@ -409,19 +497,15 @@ const ActivityTrackerModal: React.FC<Props> = ({
     const breakPct = breakLimitSeconds > 0 ? (breakSeconds / breakLimitSeconds) * 100 : 0;
     const isBreakOverLimit = breakSeconds > breakLimitSeconds;
 
-    // ✅ NEW: TIME CREDIT CALCULATIONS
-    const expectedWorkSeconds = expectedWorkHours * 3600; // 7h default
-    const halfDaySeconds = halfDayThresholdHours * 3600;  // 4h default
+    const expectedWorkSeconds = expectedWorkHours * 3600;
+    const halfDaySeconds = halfDayThresholdHours * 3600;
 
-    // Credit = Worked - Expected Work (only positive counts)
     const creditSeconds = Math.max(0, workedSeconds - expectedWorkSeconds);
     const creditHours = creditSeconds / 3600;
 
-    // Half-day eligibility
     const isHalfDayEligible = workedSeconds >= halfDaySeconds;
     const halfDayProgress = Math.min(100, (workedSeconds / halfDaySeconds) * 100);
 
-    // Deficit (if worked less than expected)
     const deficitSeconds = Math.max(0, expectedWorkSeconds - workedSeconds);
 
     const todayLabel = new Date().toLocaleDateString([], {
@@ -592,6 +676,16 @@ const ActivityTrackerModal: React.FC<Props> = ({
                             <span style={{ fontFamily: MONO }}>{liveClock}</span>
                         </span>
 
+                        {/* 🔊 Mute toggle */}
+                        <button
+                            onClick={() => setIsMuted((m) => !m)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+                            title={isMuted ? "Unmute tracking sound" : "Mute tracking sound"}
+                            aria-label={isMuted ? "Unmute tracking sound" : "Mute tracking sound"}
+                        >
+                            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                        </button>
+
                         <button
                             onClick={onClose}
                             className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors text-white/60 hover:text-white"
@@ -747,9 +841,7 @@ const ActivityTrackerModal: React.FC<Props> = ({
                             </div>
                         </div>
 
-                        {/* ✅ NEW: TIME CREDIT & HALF-DAY SECTION */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                            {/* Time Credit Card */}
                             <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
@@ -801,7 +893,6 @@ const ActivityTrackerModal: React.FC<Props> = ({
                                 </div>
                             </div>
 
-                            {/* Half-Day Advantage Card */}
                             <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
