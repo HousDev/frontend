@@ -1281,9 +1281,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">Price Trends</h3>
-                  <div className="text-xs text-gray-500">
-                    Pune <span className="font-medium text-green-600">{marketHeatData.priceTrend || '+12.5%'}</span>
+                  <div className="text-xs text-gray-600 font-medium">
+                    {marketHeatData.priceTrendLocality || 'Wakad'} <span className="text-green-600 font-semibold">{marketHeatData.priceTrend || '+8.5% YoY'}</span>
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Resale comps & search signals</p>
                 </div>
               </div>
             </div>
@@ -1296,9 +1297,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">Best ROI</h3>
-                  <div className="text-xs text-gray-500">
-                    {marketHeatData.bestRoiLocality || 'Hinjewadi'} <span className="font-medium text-blue-600">{marketHeatData.bestRoiValue || '18.2%'}</span>
+                  <div className="text-xs text-gray-600 font-medium">
+                    {marketHeatData.bestRoiLocality || 'Hinjewadi'} <span className="text-blue-600 font-semibold">{marketHeatData.bestRoiValue || '18.4% (3-Yr)'}</span>
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Rental yield + capital growth</p>
                 </div>
               </div>
             </div>
@@ -1311,11 +1313,12 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">Market Heat</h3>
-                  <div className="text-xs">
+                  <div className="text-xs mt-0.5">
                     <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 text-[11px] font-medium">
                       {marketHeatData.marketHeatLocality || 'Wakad'} · {marketHeatData.marketHeatStatus || 'Hot'}
                     </span>
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Google Trends Index: {marketHeatData.searchVolumeScore || 100}/100</p>
                 </div>
               </div>
             </div>
@@ -1328,9 +1331,10 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">AI Score</h3>
-                  <div className="text-xs text-gray-500">
-                    Avg <span className="font-medium text-orange-600">{marketHeatData.avgAiScore || '94/100'}</span>
+                  <div className="text-xs text-gray-600 font-medium">
+                    {marketHeatData.avgAiScoreLocality || 'Top Localities'} <span className="text-orange-600 font-semibold">{marketHeatData.avgAiScore || '96/100'}</span>
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Overall investment attractiveness</p>
                 </div>
               </div>
             </div>

@@ -437,7 +437,7 @@ export const LoggedInReportTab: React.FC<LoggedInReportTabProps> = ({
   ];
 
   return (
-    <div className="space-y-3.5">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* High-density Logged-In Report Table */}
       <ReportTable
         title="Logged-In Session Audit Logs"

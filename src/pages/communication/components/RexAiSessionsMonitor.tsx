@@ -617,7 +617,7 @@ export const RexAiSessionsMonitor: React.FC = () => {
                     {lastMsg && (
                       <p className={`text-[11px] line-clamp-1 italic mt-1 ${isNewMessage ? "text-slate-900 font-semibold not-italic" : "text-slate-500"}`}>
                         <span className="font-semibold text-slate-700 not-italic">
-                          {lastMsg.sender === "rex" ? "REX: " : "Client: "}
+                          {(lastMsg.sender === "rex" || (lastMsg.sender as string) === "bot") ? "REX: " : "Client: "}
                         </span>
                         {lastMsg.text}
                       </p>
@@ -812,7 +812,7 @@ export const RexAiSessionsMonitor: React.FC = () => {
                   </div>
                 ) : (
                   selectedSession.message_history.map((msg: any, index: number) => {
-                    const isUser = msg.sender === "user";
+                    const isUser = msg.sender === "user" || msg.sender === "client";
                     const sellerData = msg.sellerConfirmedCard?.data || msg.sellerProperty;
                     const prevMsg = index > 0 ? selectedSession.message_history[index - 1] : null;
                     const prevTime = prevMsg?.timestamp || (prevMsg as any)?.created_at;

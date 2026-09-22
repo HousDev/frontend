@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Send,
   X,
+  Minus,
   Minimize2,
   Maximize2,
   RefreshCw,
@@ -36,6 +37,7 @@ import {
 } from "lucide-react";
 
 import ChatbotLogo from "@/assets/images/RE.png";
+import RexAvatar from "@/assets/images/rex_avatar.jpg";
 import whatsapp_bg from "@/assets/images/whatsapp_bg.png";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -1527,6 +1529,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     return false;
   });
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   // Clean Navigation Mode: "rex_ai" (AI search & persona) | "property_chat" (Dedicated Executive Chat) | "inquiries_list" (All Conversations List)
   const [chatMode, setChatMode] = useState<"rex_ai" | "property_chat" | "inquiries_list">(() => {
@@ -1549,6 +1553,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     }
     return "buyer";
   });
+
+  // Cached user geolocation coordinates for nearby property searches
+  const [userLocationCoords, setUserLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // In-Chat Conversational Authentication State Machine
   const [inChatAuthStage, setInChatAuthStage] = useState<InChatAuthStage>(() => {
@@ -1691,6 +1698,24 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     localStorage.setItem(REX_WIDGET_OPEN_KEY, isOpen ? "true" : "false");
   }, [isOpen]);
 
+  // UI-only: greeting bubble next to the launcher avatar
+  const [teaserReady, setTeaserReady] = useState(false);
+  const [teaserDismissed, setTeaserDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      const t = setTimeout(() => setTeaserReady(true), 1000);
+      return () => clearTimeout(t);
+    } else {
+      setTeaserReady(false);
+    }
+  }, [isOpen]);
+
+  const dismissTeaser = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setTeaserDismissed(true);
+  }, []);
+
   // If user is already authenticated, clear any pending in-chat auth stage
   useEffect(() => {
     if (isAuthenticated) {
@@ -1702,6 +1727,17 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       }
     }
   }, [isAuthenticated, inChatAuthStage]);
+
+  // Auto-heal inChatAuthStage if no active OTP card exists in aiMessages
+  useEffect(() => {
+    if (inChatAuthStage === "verifying_otp") {
+      const hasOtpCard = aiMessages.some((m) => m.inChatOtp);
+      if (!hasOtpCard) {
+        setInChatAuthStage("idle");
+        localStorage.removeItem(REX_AUTH_STAGE_KEY);
+      }
+    }
+  }, [inChatAuthStage, aiMessages]);
 
   // Unified Chat Input & Attachment States
   const [inputText, setInputText] = useState("");
@@ -1859,6 +1895,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     setInChatAuthData({});
     setSelectedPersona("buyer");
     setAiMessages([initialGreeting]);
+    setShowRestartConfirm(false);
   };
 
   /* -------------------------- Guest UUID Resolution ------------------------- */
@@ -1901,12 +1938,20 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   const filteredInquiries = useMemo(() => {
     if (!inquirySearch.trim()) return allConversations;
     const q = inquirySearch.toLowerCase().trim();
-    return allConversations.filter(
-      (c) =>
-        (c.property_title && c.property_title.toLowerCase().includes(q)) ||
-        (c.property_location && c.property_location.toLowerCase().includes(q)) ||
-        (c.executive_first_name && c.executive_first_name.toLowerCase().includes(q))
-    );
+    const words = q.split(/\s+/).filter(Boolean);
+
+    return allConversations.filter((c) => {
+      const rawTitle = (c.property_title || "").toLowerCase();
+      const cleanedTitle = cleanPropertyTitle(c.property_title, c.property_location).toLowerCase();
+      const location = (c.property_location || "").toLowerCase();
+      const firstName = (c.executive_first_name || "").toLowerCase();
+      const lastName = (c.executive_last_name || "").toLowerCase();
+      const fullName = `${firstName} ${lastName}`.trim();
+      const lastMsg = (c.last_message_text || "").toLowerCase();
+
+      const combined = `${rawTitle} ${cleanedTitle} ${location} ${fullName} ${firstName} ${lastName} ${lastMsg}`;
+      return words.every((word) => combined.includes(word));
+    });
   }, [allConversations, inquirySearch]);
 
   /* ----------------------- Load Session on Initialization -------------------- */
@@ -2629,6 +2674,28 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       },
     };
     setAiMessages((prev) => [...prev, callReqMsg]);
+    rexApi.performAction({
+      action: "save_message",
+      payload: {
+        messages: [
+          {
+            id: `u_req_click_${Date.now()}`,
+            sender: "user",
+            text: "Request Callback",
+            timestamp: new Date().toISOString(),
+          },
+          callReqMsg,
+        ],
+        persona: selectedPersona || "buyer",
+      },
+      session_uuid: sessionUuid,
+      guest_uuid: getGuestUuid(),
+    }).then((r) => {
+      if (r.session_uuid && !sessionUuid) {
+        setSessionUuid(r.session_uuid);
+        localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+      }
+    }).catch(() => {});
   };
 
   const handleCancelCallRequest = (msgId: string) => {
@@ -2637,7 +2704,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
   const handleSubmitCallRequest = async (data: CallRequestData, msgId: string) => {
     try {
-      await rexApi.performAction({
+      const res = await rexApi.performAction({
         action: "create_call_request_lead",
         payload: {
           phone: data.phone,
@@ -2650,6 +2717,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
         session_uuid: sessionUuid,
         guest_uuid: getGuestUuid(),
       });
+
+      if (res?.session_uuid && !sessionUuid) {
+        setSessionUuid(res.session_uuid);
+        localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
+      }
 
       // Mark card as disabled/completed
       setAiMessages((prev) =>
@@ -2673,6 +2745,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
               : ["Explore 2 BHK in Pune", "Book Site Visit", "Properties under ₹80L", "Filter Properties"],
         };
         setAiMessages((prev) => [...prev, confirmMsg]);
+
+        // Save submitted callback details & bot confirmation to REX AI session
+        rexApi.performAction({
+          action: "save_message",
+          payload: {
+            messages: [
+              {
+                id: `u_call_data_${Date.now()}`,
+                sender: "user",
+                text: `Callback Request Submitted:\n• Name: ${data.name}\n• Phone: +91 ${data.phone}\n• Preferred Time: ${data.timing}`,
+                timestamp: new Date().toISOString(),
+              },
+              confirmMsg,
+            ],
+            persona: selectedPersona || "buyer",
+            profile: {
+              name: data.name,
+              phone: data.phone,
+            },
+          },
+          session_uuid: res?.session_uuid || sessionUuid,
+          guest_uuid: getGuestUuid(),
+        }).catch(() => {});
       }, 350);
     } catch (err: any) {
       console.error("Submit Call Request error:", err);
@@ -4029,6 +4124,18 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           };
           setAiMessages((prev) => [...prev, botMsg]);
           setIsAiTyping(false);
+
+          rexApi.performAction({
+            action: "save_message",
+            payload: { messages: [userMsg, botMsg], persona: "tenant" },
+            session_uuid: sessionUuid,
+            guest_uuid: getGuestUuid(),
+          }).then((r) => {
+            if (r.session_uuid && !sessionUuid) {
+              setSessionUuid(r.session_uuid);
+              localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+            }
+          }).catch(() => {});
         }, 350);
         return;
       }
@@ -4051,6 +4158,18 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           };
           setAiMessages((prev) => [...prev, botMsg]);
           setIsAiTyping(false);
+
+          rexApi.performAction({
+            action: "save_message",
+            payload: { messages: [userMsg, botMsg], persona: "buyer" },
+            session_uuid: sessionUuid,
+            guest_uuid: getGuestUuid(),
+          }).then((r) => {
+            if (r.session_uuid && !sessionUuid) {
+              setSessionUuid(r.session_uuid);
+              localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+            }
+          }).catch(() => {});
         }, 350);
         return;
       }
@@ -4073,6 +4192,18 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           };
           setAiMessages((prev) => [...prev, botMsg]);
           setIsAiTyping(false);
+
+          rexApi.performAction({
+            action: "save_message",
+            payload: { messages: [userMsg, botMsg], persona: "broker" },
+            session_uuid: sessionUuid,
+            guest_uuid: getGuestUuid(),
+          }).then((r) => {
+            if (r.session_uuid && !sessionUuid) {
+              setSessionUuid(r.session_uuid);
+              localStorage.setItem(REX_SESSION_STORAGE_KEY, r.session_uuid);
+            }
+          }).catch(() => {});
         }, 350);
         return;
       }
@@ -4085,6 +4216,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           email: user?.email,
           society_name: rexRequirements.society_name,
           persona: selectedPersona || "seller",
+          userMessage: text,
         },
         session_uuid: sessionUuid,
         guest_uuid: getGuestUuid(),
@@ -4102,11 +4234,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
             persona: selectedPersona || "seller",
           } : undefined,
           sellerExecutiveCard: res.executive_card ? {
-            executiveName: res.executive_card.executiveName,
-            executiveFirstName: res.executive_card.executiveFirstName,
-            executivePhone: res.executive_card.executivePhone,
-            executiveEmail: res.executive_card.executiveEmail,
-            executiveRole: res.executive_card.executiveRole,
+            executiveName: res.executive_card.executiveName || 'Executive Desk',
             propertyTitle: res.executive_card.propertyTitle,
             propertyId: res.executive_card.propertyId,
             propertySlug: res.executive_card.propertySlug,
@@ -4119,6 +4247,13 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           setSessionUuid(res.session_uuid);
           localStorage.setItem(REX_SESSION_STORAGE_KEY, res.session_uuid);
         }
+
+        rexApi.performAction({
+          action: "save_message",
+          payload: { messages: [userMsg, botMsg], persona: selectedPersona || "seller" },
+          session_uuid: res.session_uuid || sessionUuid,
+          guest_uuid: getGuestUuid(),
+        }).catch(() => {});
       }).catch((err) => {
         console.error("get_property_executive error:", err);
         const botMsg: AIMessage = {
@@ -4913,21 +5048,28 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       const guestUuid = getGuestUuid();
 
       // Check for live browser coordinates if user asked for nearby areas / near me
-      let browserCoords: { latitude: number; longitude: number } | null = null;
+      let browserCoords: { latitude: number; longitude: number } | null = userLocationCoords || null;
       if (
-        lower.includes("nearby") ||
-        lower.includes("near me") ||
-        lower.includes("around me") ||
-        lower.includes("near location") ||
-        lower.includes("closest")
+        !browserCoords &&
+        (lower.includes("nearby") ||
+          lower.includes("near me") ||
+          lower.includes("around me") ||
+          lower.includes("near location") ||
+          lower.includes("closest") ||
+          lower.includes("current location") ||
+          lower.includes("explore nearby"))
       ) {
         if (typeof window !== "undefined" && navigator?.geolocation) {
           try {
             browserCoords = await new Promise((resolve) => {
               navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                (pos) => {
+                  const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                  setUserLocationCoords(coords);
+                  resolve(coords);
+                },
                 () => resolve(null),
-                { timeout: 3500, enableHighAccuracy: false, maximumAge: 300000 }
+                { timeout: 8000, enableHighAccuracy: true, maximumAge: 300000 }
               );
             });
           } catch {
@@ -5185,27 +5327,57 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   /* -------------------------------- Rendering ------------------------------- */
   return (
     <aside aria-label="Resale Expert Real Estate Assistant">
-      {/* Floating Trigger Button */}
-      {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
-          <button
-            onClick={() => {
-              setIsOpen(true);
-              setIsMinimized(false);
-              setChatMode("rex_ai");
-            }}
-            className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-[#0f2b3d] text-white shadow-[0_8px_30px_rgba(15,43,61,0.35)] hover:bg-[#163e58] hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-white/20 cursor-pointer"
-            title="Chat with REX Real Estate Assistant"
-          >
-            <MessageSquare size={26} className="text-white drop-shadow-sm group-hover:scale-110 transition-transform duration-200" />
-            {totalUnreadInquiries > 0 ? (
-              <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md border-2 border-white">
-                {totalUnreadInquiries}
-              </span>
-            ) : (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
+      {/* Floating Launcher: avatar + greeting teaser */}
+      {!(isMobile && isOpen) && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3 pointer-events-auto">
+          {!isOpen && teaserReady && !teaserDismissed && (
+            <div className="relative mb-2.5 animate-in fade-in slide-in-from-right-3 duration-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(true);
+                  setChatMode("rex_ai");
+                }}
+                className="group relative block max-w-[215px] text-left bg-gradient-to-r from-[#0f2b3d] to-[#163e58] text-white text-[13px] font-bold leading-snug rounded-2xl px-4 py-2.5 shadow-[0_8px_25px_rgba(15,43,61,0.32)] transition-all cursor-pointer hover:scale-[1.02] active:scale-95"
+              >
+                <span>Hello! 👋 I am REX here to help you.</span>
+                {/* Pointer tail pointing right to the avatar button */}
+                <span className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 rounded-[2px] bg-[#163e58] group-hover:bg-[#1b4b6b] transition-colors" />
+              </button>
+              
+            </div>
+          )}
+
+          <div className="relative">
+            {!isOpen && (
+              <span className="absolute inset-0 rounded-full bg-[#0f2b3d]/20 animate-ping pointer-events-none" />
             )}
-          </button>
+            <button
+              onClick={() => {
+                if (isOpen) {
+                  setIsOpen(false);
+                  return;
+                }
+                setIsOpen(true);
+                setChatMode("rex_ai");
+              }}
+              className="group relative flex items-center justify-center w-16 h-16 rounded-full bg-white border border-slate-200 shadow-[0_8px_30px_rgba(15,43,61,0.28)] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden p-0.5"
+              title={isOpen ? "Close chat" : "Chat with REX Real Estate Assistant"}
+            >
+              <img
+                src={RexAvatar}
+                alt="REX"
+                className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform duration-200"
+              />
+              {totalUnreadInquiries > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md border-2 border-white">
+                  {totalUnreadInquiries}
+                </span>
+              ) : (
+                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -5216,30 +5388,55 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           style={{ overscrollBehavior: "contain" }}
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
-          className={`fixed z-50 flex flex-col bg-white shadow-[0_12px_45px_rgba(0,0,0,0.18)] border border-slate-200 transition-all duration-200 overflow-hidden ${
+          className={`fixed z-50 flex flex-col bg-white shadow-[0_12px_40px_rgba(15,43,61,0.25)] border border-slate-200 transition-all duration-300 ease-in-out overflow-hidden ${
             isMobile
               ? "inset-x-2 bottom-2 top-14 rounded-2xl"
-              : isMinimized
-              ? "bottom-6 right-6 w-80 h-[52px] rounded-2xl"
-              : "bottom-6 right-6 w-[410px] h-[640px] max-h-[88vh] rounded-2xl"
+              : isExpanded
+              ? "bottom-[96px] right-6 w-[560px] max-w-[calc(100vw-36px)] h-[660px] max-h-[calc(100vh-120px)] rounded-2xl"
+              : "bottom-[96px] right-6 w-[365px] sm:w-[375px] h-[505px] max-h-[82vh] rounded-2xl"
           }`}
         >
+          {/* Restart Confirmation Modal (SIA Inspired) */}
+          {showRestartConfirm && (
+            <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-6 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-[320px] text-center transform animate-in zoom-in-95 duration-200 border border-slate-100">
+                <h3 className="text-[18px] font-bold text-slate-800 leading-snug mb-1.5">
+                  Want to restart this conversation?
+                </h3>
+                <p className="text-[13.5px] text-slate-500 font-medium mb-6">
+                  Let's make a fresh start.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleResetChat}
+                    className="flex-1 py-2.5 px-5 rounded-xl bg-[#00d284] hover:bg-[#00be76] text-white font-bold text-[14px] transition-all active:scale-95 shadow-xs cursor-pointer"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRestartConfirm(false)}
+                    className="flex-1 py-2.5 px-5 rounded-xl bg-[#ff5666] hover:bg-[#eb4354] text-white font-bold text-[14px] transition-all active:scale-95 shadow-xs cursor-pointer"
+                  >
+                    No
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
-          <div className={`bg-white text-slate-900 px-3.5 flex items-center justify-between shrink-0 shadow-2xs ${
-            isMinimized ? "h-[50px] py-0" : "border-b border-slate-200 py-2.5"
-          }`}>
-            <div className="flex items-center gap-2.5 min-w-0">
-              {/* Header Title / Avatar based on chatMode */}
+          <div className="bg-[#0f2b3d] text-white px-3.5 h-[48px] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
               {chatMode === "inquiries_list" ? (
                 <div>
-                  <h2 className="font-bold text-[13px] leading-tight text-slate-900">
-                    Property Conversations
-                  </h2>
-                  {!isMinimized && <p className="text-[11px] text-slate-500 font-medium">All Direct Inquiries</p>}
+                  <h2 className="font-bold text-[14px] leading-tight">Property Conversations</h2>
+                  <p className="text-[10px] text-white/70 font-medium">All Direct Inquiries</p>
                 </div>
               ) : chatMode === "property_chat" ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="relative w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                  <div className="relative w-8 h-8 rounded-full bg-white/15 border border-white/30 flex items-center justify-center shrink-0">
                     {activeConversation?.executive_avatar ? (
                       <img
                         src={activeConversation.executive_avatar}
@@ -5247,54 +5444,48 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      <span className="text-[#0f2b3d] font-bold text-[13px]">
+                      <span className="text-white font-bold text-[12px]">
                         {activeExecutiveFirstName[0] ? activeExecutiveFirstName[0].toUpperCase() : "E"}
                       </span>
                     )}
-                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full" />
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 border-2 border-[#0f2b3d] rounded-full" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="font-semibold text-[13px] leading-tight text-slate-900 truncate">
+                    <h2 className="font-semibold text-[13px] leading-tight truncate">
                       {activeExecutiveFirstName}
                     </h2>
-                    {!isMinimized && (
-                      <p className="text-[11px] text-emerald-600 font-medium leading-tight truncate">
-                        {executiveTyping ? "typing..." : "Property Executive • Online"}
-                      </p>
-                    )}
+                    <p className="text-[10px] text-emerald-300 font-medium leading-tight truncate">
+                      {executiveTyping ? "typing..." : "Property Executive • Online"}
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-2.5">
-                  <div className="relative w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center overflow-hidden shadow-2xs">
-                    <img src={ChatbotLogo} alt="REX AI" className="w-5 h-5 object-contain" />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full" />
+                <div className="flex items-center gap-2">
+                  <div className="relative w-7 h-7 rounded-full overflow-hidden border border-white/30 shrink-0">
+                    <img src={RexAvatar} alt="REX AI" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 border border-[#0f2b3d] rounded-full" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="font-bold text-[13px] leading-tight text-slate-900">REX Support</h2>
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded-full">
-                        AI Agent
-                      </span>
-                    </div>
-                    {!isMinimized && <p className="text-[11px] text-slate-500 font-medium">Real Estate Assistant • 24/7</p>}
+                    <h2 className="font-bold text-[14.5px] leading-tight tracking-wide">REX AI</h2>
+                    <p className="text-[10px] text-white/70 font-medium leading-tight">
+                      Real Estate Assistant • 24/7
+                    </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-1 shrink-0 text-slate-500">
-              {chatMode === "rex_ai" && !isMinimized && (
+            <div className="flex items-center gap-0.5 shrink-0 text-white">
+              {chatMode === "rex_ai" && (
                 <button
-                  onClick={handleResetChat}
-                  className="p-1.5 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors cursor-pointer text-slate-500"
-                  title="Start New REX AI Conversation"
+                  onClick={() => setShowRestartConfirm(true)}
+                  className="p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
+                  title="Restart conversation"
                 >
-                  <RefreshCw size={15} />
+                  <RefreshCw size={16} />
                 </button>
               )}
 
-              {/* Inquiries List View Button (Relatable messages icon) */}
               {isAuthenticated && allConversations.length > 0 && chatMode !== "inquiries_list" && (
                 <button
                   onClick={() => {
@@ -5302,12 +5493,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                     setPropertyDetailsVisible(false);
                     setPropertyVisitSchedulerVisible(false);
                   }}
-                  className="relative p-1.5 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors cursor-pointer text-slate-600"
+                  className="relative p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
                   title="All Property Conversations"
                 >
-                  <MessageSquareText size={17} className="text-[#0f2b3d]" />
+                  <MessageSquareText size={17} />
                   {totalUnreadInquiries > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 bg-rose-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-0.5 bg-rose-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-[#0f2b3d] animate-pulse">
                       {totalUnreadInquiries}
                     </span>
                   )}
@@ -5317,25 +5508,35 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
               {chatMode === "property_chat" && activeExecutivePhone && (
                 <a
                   href={`tel:${activeExecutivePhone}`}
-                  className="p-1.5 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-white/15 rounded-md transition-colors"
                   title="Call Executive"
                 >
-                  <Phone size={15} />
+                  <Phone size={16} />
                 </a>
               )}
-              <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1.5 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
-                title={isMinimized ? "Maximize" : "Minimize"}
-              >
-                {isMinimized ? <Maximize2 size={15} /> : <Minimize2 size={15} />}
-              </button>
+
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
+                title="Minimize"
+              >
+                <Minus size={16} />
+              </button>
+
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
+                title={isExpanded ? "Exit full screen" : "Full screen"}
+              >
+                {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
                 title="Close"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -5346,15 +5547,26 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
               {chatMode === "inquiries_list" ? (
                 <div className="flex-1 flex flex-col bg-white overflow-hidden">
                   <div className="p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
-                    <div className="relative">
-                      <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                    <div className="relative flex items-center">
+                      <Search size={15} className="absolute left-3 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
                         value={inquirySearch}
                         onChange={(e) => setInquirySearch(e.target.value)}
                         placeholder="Search your property inquiries..."
-                        className="w-full pl-9 pr-3 py-1.5 text-[12px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0f2b3d]"
+                        style={{ color: "#0f172a", backgroundColor: "#ffffff" }}
+                        className="w-full pl-9 pr-8 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 font-medium bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0f2b3d] focus:border-[#0f2b3d]"
                       />
+                      {inquirySearch && (
+                        <button
+                          type="button"
+                          onClick={() => setInquirySearch("")}
+                          className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                          title="Clear search"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -5364,8 +5576,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                       onClick={() => setChatMode("rex_ai")}
                       className="w-full p-3 flex items-center gap-3 bg-emerald-50/40 hover:bg-emerald-50 text-left rounded-xl transition-colors mb-1 border border-emerald-100 cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white border border-emerald-200 flex items-center justify-center shrink-0 shadow-2xs">
-                        <img src={ChatbotLogo} alt="REX AI" className="w-6 h-6 object-contain" />
+                      <div className="w-10 h-10 rounded-full bg-white border border-emerald-200 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                        <img src={RexAvatar} alt="REX AI" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-[13px] text-slate-900 leading-tight">
@@ -5880,7 +6092,8 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                       value={inputText}
                       onChange={(e) => handleTypingChange(e.target.value)}
                       placeholder={`Message ${activeExecutiveFirstName}...`}
-                      className="flex-1 px-4 py-2 text-[13px] text-slate-900 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400 focus:bg-white placeholder:text-slate-400 font-medium transition-all"
+                      style={{ color: "#0f172a" }}
+                      className="flex-1 px-4 py-2 text-[13px] text-slate-900 focus:text-slate-900 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400 focus:bg-white placeholder:text-slate-400 font-medium transition-all"
                     />
 
                     <button
@@ -5894,50 +6107,43 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                 </div>
               ) : (
                 /* MODE 3: REX AI ASSISTANT STREAM (Discovery, Persona, Auth, Carousels) */
-                <div
-                  className="flex-1 flex flex-col min-h-0 relative"
-                  style={{
-                    backgroundImage: REX_CHAT_THEME_BG,
-                    backgroundColor: "#efeae2",
-                    backgroundRepeat: "repeat",
-                    backgroundSize: "180px 180px",
-                  }}
-                >
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    {aiMessages.map((m) => {
+                <div className="flex-1 flex flex-col min-h-0 relative bg-white">
+                  <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-3">
+                    {aiMessages.map((m, mIdx) => {
                       const isUser = m.sender === "user";
 
                       return (
                         <div
                           key={m.id}
-                          className={`flex items-start gap-2 ${
-                            isUser ? "justify-end" : "justify-start"
-                          }`}
+                          className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}
                         >
                           {!isUser && (
-                            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-2xs mt-0.5">
+                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-2xs">
                               <img
-                                src={ChatbotLogo}
+                                src={RexAvatar}
                                 alt="REX"
-                                className="w-4 h-4 object-contain"
+                                className="w-full h-full object-cover"
                               />
                             </div>
                           )}
 
-                          <div
-                            className={`max-w-[88%] rounded-2xl p-3 text-[13px] leading-relaxed shadow-2xs ${
-                              isUser
-                                ? "bg-[#d9fdd3] text-slate-900 border border-[#c4eec0] rounded-tr-sm"
-                                : m.isError
-                                ? "bg-rose-50 border border-rose-200 text-rose-700 rounded-tl-sm"
-                                : "bg-white border border-slate-200/90 text-slate-800 rounded-tl-sm"
-                            }`}
-                          >
-                            {isUser ? (
-                              <p className="whitespace-pre-wrap">{m.text}</p>
-                            ) : (
-                              <FormattedChatMessage text={m.text} />
-                            )}
+                          <div className={`text-[13px] leading-relaxed ${isUser ? "max-w-[85%]" : "w-full"}`}>
+                            {/* Text bubble (cards / chips render below it, outside the gray bubble) */}
+                            <div
+                              className={
+                                isUser
+                                  ? "bg-[#0f2b3d] text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-2xs"
+                                  : m.isError
+                                  ? "w-fit max-w-[92%] bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl rounded-tl-md px-4 py-3"
+                                  : "w-fit max-w-[92%] bg-slate-100 text-slate-700 rounded-2xl rounded-tl-md px-4 py-3"
+                              }
+                            >
+                              {isUser ? (
+                                <p className="whitespace-pre-wrap">{m.text}</p>
+                              ) : (
+                                <FormattedChatMessage text={m.text} />
+                              )}
+                            </div>
 
                             {/* Inline In-Chat Auth / Registration Card */}
                             {m.inChatAuthForm && !isAuthenticated && (
@@ -6430,97 +6636,101 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                               </div>
                             )}
 
-                            {/* Suggestions Chips without emojis */}
-                            {m.suggestions && m.suggestions.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-1.5">
-                                {m.suggestions
-                                  .filter((sug) => {
-                                    if (m.id === "initial_welcome") return true;
-                                    const low = sug.toLowerCase();
-                                    if (selectedPersona === "seller") {
-                                      return (
-                                        !low.includes("rent in") &&
-                                        !low.includes("rental") &&
-                                        !low.includes("tenant") &&
-                                        !low.includes("site visit") &&
-                                        !low.includes("book visit") &&
-                                        !low.includes("schedule visit") &&
-                                        !low.includes("explore 2 bhk") &&
-                                        !low.includes("properties under") &&
-                                        !low.includes("find ") &&
-                                        !low.includes("buy flat") &&
-                                        !low.includes("buy property")
-                                      );
-                                    }
-                                    if (selectedPersona === "owner") {
-                                      return (
-                                        !low.includes("site visit") &&
-                                        !low.includes("book visit") &&
-                                        !low.includes("schedule visit") &&
-                                        !low.includes("resale") &&
-                                        !low.includes("buy ") &&
-                                        !low.includes("buyer") &&
-                                        !low.includes("properties under") &&
-                                        !low.includes("find ")
-                                      );
-                                    }
-                                    if (selectedPersona === "tenant") {
-                                      return (
-                                        !low.includes("site visit") &&
-                                        !low.includes("schedule") &&
-                                        !low.includes("resale") &&
-                                        !low.includes("valuation") &&
-                                        !low.includes("sell") &&
-                                        !low.includes("buyer")
-                                      );
-                                    }
-                                    if (selectedPersona === "buyer") {
-                                      return (
-                                        !low.includes("rent in") &&
-                                        !low.includes("rental") &&
-                                        !low.includes("tenant") &&
-                                        !low.includes("list property") &&
-                                        !low.includes("sell property")
-                                      );
-                                    }
-                                    return true;
-                                  })
-                                  .map((sug, i) => {
-                                  const textLower = sug.toLowerCase();
-                                  const isVisit = textLower.includes("visit") || textLower.includes("schedule") || textLower.includes("book");
-                                  const isExec = textLower.includes("executive") || textLower.includes("agent") || textLower.includes("call") || textLower.includes("talk");
-                                  const isSearch = textLower.includes("bhk") || textLower.includes("pune") || textLower.includes("budget") || textLower.includes("flat") || textLower.includes("property");
+                            {/* Suggestion chips: outlined pills, 2-column grid */}
+                            {m.suggestions && m.suggestions.length > 0 && (() => {
+                              const hasUserRepliedAfter = aiMessages.slice(mIdx + 1).some((nextMsg) => nextMsg.sender === "user");
+                              const isSuggestionsDisabled = hasUserRepliedAfter || isSending || isAiTyping;
 
-                                  return (
-                                    <button
-                                      key={i}
-                                      onClick={() => handleSendMessage(sug)}
-                                      className={`px-3 py-1.5 text-[11.5px] rounded-full font-semibold transition-all text-left cursor-pointer shadow-xs active:scale-95 border ${
-                                        isVisit
-                                          ? "bg-gradient-to-r from-orange-50 to-amber-50 text-orange-950 border-orange-200 hover:from-orange-100 hover:to-amber-100 hover:border-orange-300 hover:shadow-xs"
-                                          : isExec
-                                          ? "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-950 border-emerald-200 hover:from-emerald-100 hover:to-teal-100 hover:border-emerald-300 hover:shadow-xs"
-                                          : isSearch
-                                          ? "bg-gradient-to-r from-sky-50 to-indigo-50 text-sky-950 border-sky-200 hover:from-sky-100 hover:to-indigo-100 hover:border-sky-300 hover:shadow-xs"
-                                          : "bg-white hover:bg-slate-50 text-slate-800 border-slate-200 hover:border-slate-300 hover:shadow-xs"
-                                      }`}
-                                    >
-                                      <span>{cleanDisplayText(sug)}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
+                              return (
+                                <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                                  {m.suggestions
+                                    .filter((sug) => {
+                                      if (m.id === "initial_welcome") return true;
+                                      const low = sug.toLowerCase();
+                                      if (selectedPersona === "seller") {
+                                        return (
+                                          !low.includes("rent in") &&
+                                          !low.includes("rental") &&
+                                          !low.includes("tenant") &&
+                                          !low.includes("site visit") &&
+                                          !low.includes("book visit") &&
+                                          !low.includes("schedule visit") &&
+                                          !low.includes("explore 2 bhk") &&
+                                          !low.includes("properties under") &&
+                                          !low.includes("find ") &&
+                                          !low.includes("buy flat") &&
+                                          !low.includes("buy property")
+                                        );
+                                      }
+                                      if (selectedPersona === "owner") {
+                                        return (
+                                          !low.includes("site visit") &&
+                                          !low.includes("book visit") &&
+                                          !low.includes("schedule visit") &&
+                                          !low.includes("resale") &&
+                                          !low.includes("buy ") &&
+                                          !low.includes("buyer") &&
+                                          !low.includes("properties under") &&
+                                          !low.includes("find ")
+                                        );
+                                      }
+                                      if (selectedPersona === "tenant") {
+                                        return (
+                                          !low.includes("site visit") &&
+                                          !low.includes("schedule") &&
+                                          !low.includes("resale") &&
+                                          !low.includes("valuation") &&
+                                          !low.includes("sell") &&
+                                          !low.includes("buyer")
+                                        );
+                                      }
+                                      if (selectedPersona === "buyer") {
+                                        return (
+                                          !low.includes("rent in") &&
+                                          !low.includes("rental") &&
+                                          !low.includes("tenant") &&
+                                          !low.includes("list property") &&
+                                          !low.includes("sell property")
+                                        );
+                                      }
+                                      return true;
+                                    })
+                                    .map((sug, i) => (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        disabled={isSuggestionsDisabled}
+                                        onClick={() => {
+                                          if (!isSuggestionsDisabled) {
+                                            handleSendMessage(sug);
+                                          }
+                                        }}
+                                        className={`px-3 py-2 text-[12px] leading-snug font-bold text-center rounded-xl border transition-all break-words [&:last-child:nth-child(odd)]:col-span-2 ${
+                                          isSuggestionsDisabled
+                                            ? "border-[#0f2b3d] text-slate-400 bg-[#edf1f5] cursor-not-allowed pointer-events-none shadow-none"
+                                            : "border-[#0f2b3d] text-[#0f2b3d] bg-white hover:bg-[#0f2b3d] hover:text-white active:scale-95 cursor-pointer shadow-2xs"
+                                        }`}
+                                      >
+                                        {cleanDisplayText(sug)}
+                                      </button>
+                                    ))}
+                                </div>
+                              );
+                            })()}
 
-                            {/* Message Timestamp */}
-                            <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-slate-400">
+                            {/* Message Timestamp (below the bubble) */}
+                            <div
+                              className={`flex items-center gap-1 mt-1 text-[10px] text-slate-400 ${
+                                isUser ? "justify-end" : "justify-start"
+                              }`}
+                            >
                               <span>
                                 {new Date(m.timestamp).toLocaleTimeString([], {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 })}
                               </span>
-                              {isUser && <CheckCheck size={13} className="text-emerald-500 inline" />}
+                              {isUser && <CheckCheck size={12} className="text-emerald-500 inline" />}
                             </div>
                           </div>
                         </div>
@@ -6528,18 +6738,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                     })}
 
                     {isAiTyping && (
-                      <div className="flex items-start gap-2 my-1 animate-fadeIn">
-                        <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-2xs mt-0.5">
-                          <img
-                            src={ChatbotLogo}
-                            alt="REX"
-                            className="w-4 h-4 object-contain"
-                          />
+                      <div className="flex flex-col items-start gap-1 animate-fadeIn">
+                        <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-2xs">
+                          <img src={RexAvatar} alt="REX" className="w-full h-full object-cover" />
                         </div>
-                        <div className="bg-white border border-slate-200/90 rounded-2xl rounded-tl-sm px-4 py-3 shadow-2xs flex items-center gap-1.5 w-fit">
-                          <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
-                          <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
-                          <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" />
+                        <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-3.5 py-2 flex items-center gap-1.5 w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
                         </div>
                       </div>
                     )}
@@ -6547,62 +6753,77 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                     <div ref={aiMessagesEndRef} />
                   </div>
 
-                  {/* AI Input Form */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }}
-                    className="p-2.5 bg-white border-t border-slate-200 flex flex-col gap-1.5 shrink-0 shadow-2xs"
-                  >
-                    {inChatAuthStage === "asking_phone" && (
-                      <div className="flex justify-between items-center px-2 text-[10px] text-slate-500 font-medium">
-                        <span>Mobile Number (10 digits)</span>
-                        <span
-                          className={
-                            inputText.length === 10
-                              ? "text-emerald-600 font-bold"
-                              : "text-amber-600 font-semibold"
+                  {/* Footer: powered-by line + input row */}
+                  <div className="shrink-0 bg-white">
+                    <p className="text-center text-[10px] text-slate-400 pb-1">
+                      Powered by <span className="font-semibold text-slate-500">Resale Expert</span>
+                    </p>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }}
+                      className="px-2.5 py-2 border-t border-slate-200 flex flex-col gap-1"
+                    >
+                      {inChatAuthStage === "asking_phone" && (
+                        <div className="flex justify-between items-center px-1.5 text-[10px] text-slate-500 font-medium">
+                          <span>Mobile Number (10 digits)</span>
+                          <span
+                            className={
+                              inputText.length === 10
+                                ? "text-emerald-600 font-bold"
+                                : "text-amber-600 font-semibold"
+                            }
+                          >
+                            {inputText.length}/10 digits {inputText.length === 10 ? "✓" : ""}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 w-full">
+                        <span className="w-7 h-7 rounded-full bg-[#0f2b3d] text-white flex items-center justify-center shrink-0">
+                          <MessageSquare size={13} />
+                        </span>
+
+                        <input
+                          ref={inputRef}
+                          type={inChatAuthStage === "asking_phone" ? "tel" : "text"}
+                          maxLength={inChatAuthStage === "asking_phone" ? 10 : undefined}
+                          inputMode={inChatAuthStage === "asking_phone" ? "numeric" : undefined}
+                          value={inputText}
+                          onChange={(e) => handleTypingChange(e.target.value)}
+                          disabled={inChatAuthStage === "verifying_otp"}
+                          placeholder={inputPlaceholderText}
+                          style={{ color: "#0f172a" }}
+                          className="flex-1 min-w-0 px-2 py-1.5 text-[13px] text-slate-900 focus:text-slate-900 bg-transparent border-0 focus:outline-none focus:ring-0 placeholder:text-slate-400 font-medium disabled:opacity-50"
+                        />
+
+                        <button
+                          type="submit"
+                          disabled={
+                            !inputText.trim() ||
+                            isSending ||
+                            isAiTyping ||
+                            inChatAuthStage === "verifying_otp" ||
+                            (inChatAuthStage === "asking_phone" && inputText.length !== 10)
+                          }
+                          className="w-8 h-8 rounded-full bg-[#0f2b3d] hover:bg-[#163e58] disabled:bg-slate-200 disabled:text-slate-400 text-white flex items-center justify-center transition-all shrink-0 active:scale-95 cursor-pointer"
+                          title={
+                            inChatAuthStage === "asking_phone" && inputText.length !== 10
+                              ? "Please enter all 10 digits"
+                              : "Send"
                           }
                         >
-                          {inputText.length}/10 digits {inputText.length === 10 ? "✓" : ""}
-                        </span>
+                          {isSending || isAiTyping ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Send size={13} />
+                          )}
+                        </button>
                       </div>
-                    )}
-
-                    <div className="flex items-center gap-1.5 w-full">
-                      <input
-                        ref={inputRef}
-                        type={inChatAuthStage === "asking_phone" ? "tel" : "text"}
-                        maxLength={inChatAuthStage === "asking_phone" ? 10 : undefined}
-                        inputMode={inChatAuthStage === "asking_phone" ? "numeric" : undefined}
-                        value={inputText}
-                        onChange={(e) => handleTypingChange(e.target.value)}
-                        disabled={inChatAuthStage === "verifying_otp"}
-                        placeholder={inputPlaceholderText}
-                        className="flex-1 px-4 py-2 text-[13px] text-slate-900 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-slate-400 focus:bg-white placeholder:text-slate-400 font-medium transition-all disabled:opacity-50"
-                      />
-
-                      <button
-                        type="submit"
-                        disabled={
-                          !inputText.trim() ||
-                          isSending ||
-                          isAiTyping ||
-                          inChatAuthStage === "verifying_otp" ||
-                          (inChatAuthStage === "asking_phone" && inputText.length !== 10)
-                        }
-                        className="w-9 h-9 rounded-full bg-[#0f2b3d] hover:bg-[#163e58] disabled:bg-slate-200 disabled:text-slate-400 text-white flex items-center justify-center transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
-                        title={inChatAuthStage === "asking_phone" && inputText.length !== 10 ? "Please enter all 10 digits" : "Send"}
-                      >
-                        {isSending || isAiTyping ? (
-                          <Loader2 size={15} className="animate-spin" />
-                        ) : (
-                          <Send size={15} />
-                        )}
-                      </button>
-                    </div>
-                  </form>
+                    </form>
+                  </div>
                 </div>
               )}
             </>
