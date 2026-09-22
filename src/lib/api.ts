@@ -526,6 +526,64 @@ export const apiClient = {
 
 
 
+export const workSessionAPI = {
+  getEmployeeDailyUpdates: async (employeeId?: number, date?: string, fromDate?: string, toDate?: string) => {
+    const response = await api.get("/work-sessions/daily-updates", {
+      params: {
+        ...(employeeId ? { employeeId } : {}),
+        ...(date ? { date } : {}),
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
+      },
+    });
+    return response.data;
+  },
+  getAdminDailyUpdates: async (date?: string, fromDate?: string, toDate?: string) => {
+    const params: Record<string, string> = {};
+    if (date) params.date = date;
+    if (fromDate) params.fromDate = fromDate;
+    if (toDate) params.toDate = toDate;
+    const response = await api.get("/work-sessions/admin/daily-updates", { params });
+    return response.data;
+  },
+  setEmployeeTarget: async (payload: { employeeId: number; targetDate?: string; targetHours?: number; targetSeconds?: number }) => {
+    const response = await api.post("/work-sessions/target", payload);
+    return response.data;
+  },
+  getBreakTypes: async (employeeId?: number) => {
+    const response = await api.get("/work-sessions/break-types", {
+      params: employeeId ? { employeeId } : {},
+    });
+    return response.data;
+  },
+  getEmployeeBreakHistory: async (employeeId?: number, fromDate?: string, toDate?: string) => {
+    const response = await api.get("/work-sessions/breaks/employee-history", {
+      params: {
+        ...(employeeId ? { employeeId } : {}),
+        ...(fromDate ? { fromDate } : {}),
+        ...(toDate ? { toDate } : {}),
+      },
+    });
+    return response.data;
+  },
+  getAdminBreakTypes: async () => {
+    const response = await api.get("/work-sessions/admin/break-types");
+    return response.data;
+  },
+  createBreakType: async (payload: any) => {
+    const response = await api.post("/work-sessions/admin/break-types", payload);
+    return response.data;
+  },
+  updateBreakType: async (id: number | string, payload: any) => {
+    const response = await api.put(`/work-sessions/admin/break-types/${id}`, payload);
+    return response.data;
+  },
+  deleteBreakType: async (id: number | string) => {
+    const response = await api.delete(`/work-sessions/admin/break-types/${id}`);
+    return response.data;
+  },
+};
+
 export { reportAPI } from "./reportAPI";
 
 export default api;

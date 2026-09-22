@@ -1,575 +1,75 @@
-    // import React, { useState, useEffect, useCallback } from "react";
-    // import {
-    //     X,
-    //     Clock,
-    //     Activity,
-    //     Coffee,
-    //     User,
-    //     TrendingUp,
-    //     Play,
-    //     Square,
-    // } from "lucide-react";
-    // import BreakTypesModal from "./BreakTypeModal";
-
-    // type BreakDetails = {
-    //     meetingNotes?: string;
-    //     meetingPurpose?: string;
-    //     [key: string]: any;
-    // };
-
-    // type ActivityItem = {
-    //     type: "start_session" | "end_session" | "start_break" | "end_break";
-    //     timestamp: number;
-    //     time: string;
-    //     label: string;
-    //     breakType?: string;
-    //     details?: string;
-    //     [key: string]: any;
-    // };
-
-    // type BreakHistoryItem = {
-    //     number: number;
-    //     type: string;
-    //     startTime: string;
-    //     endTime: string;
-    //     duration: string;
-    //     details: string;
-    //     efficiency: string;
-    // };
-
-    // type Props = {
-    //     isOpen: boolean;
-    //     onClose: () => void;
-    //     sessionTime: string;
-    //     workTime: string;
-    //     isOnBreak: boolean;
-    //     onStartBreak: (breakType: string, breakDetails: BreakDetails) => void;
-    //     onEndBreak: () => void;
-    //     loginTime?: number | null;
-    // };
-
-    // const ActivityTrackerModal: React.FC<Props> = ({
-    //     isOpen,
-    //     onClose,
-    //     sessionTime,
-    //     workTime,
-    //     isOnBreak,
-    //     onStartBreak,
-    //     onEndBreak,
-    //     loginTime,
-    // }) => {
-    //     const [activityHistory, setActivityHistory] = useState<ActivityItem[]>([]);
-    //     const [breakHistory, setBreakHistory] = useState<BreakHistoryItem[]>([]);
-    //     const [isBreakTypesOpen, setIsBreakTypesOpen] = useState(false);
-    //     const [totalBreakDuration, setTotalBreakDuration] = useState(0);
-    //     const [isSessionActive, setIsSessionActive] = useState(false);
-
-    //     const formatDuration = useCallback((seconds: number): string => {
-    //         const hours = Math.floor(seconds / 3600);
-    //         const minutes = Math.floor((seconds % 3600) / 60);
-    //         const secs = seconds % 60;
-
-    //         if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
-    //         if (minutes > 0) return `${minutes}m ${secs}s`;
-    //         return `${secs}s`;
-    //     }, []);
-
-    //     // Auto-start session when modal opens
-    //     useEffect(() => {
-    //         if (isOpen) {
-    //             const sessionStatus = localStorage.getItem("sessionActive");
-    //             if (sessionStatus !== "true") {
-    //                 handleStartSession();
-    //             } else {
-    //                 setIsSessionActive(true);
-    //             }
-    //         }
-    //     }, [isOpen]);
-
-    //     useEffect(() => {
-    //         if (isOpen) {
-    //             try {
-    //                 const history: ActivityItem[] = JSON.parse(
-    //                     localStorage.getItem("activityHistory") || "[]"
-    //                 );
-    //                 setActivityHistory(history.slice(-3));
-
-    //                 const breaks: BreakHistoryItem[] = [];
-    //                 let breakCount = 1;
-    //                 let totalBreaks = 0;
-
-    //                 for (let i = 0; i < history.length; i++) {
-    //                     if (history[i].type === "start_break") {
-    //                         const endBreak = history.find(
-    //                             (item, index) => index > i && item.type === "end_break"
-    //                         );
-    //                         if (endBreak) {
-    //                             const duration = Math.floor(
-    //                                 (endBreak.timestamp - history[i].timestamp) / 1000
-    //                             );
-    //                             totalBreaks += duration;
-
-    //                             breaks.push({
-    //                                 number: breakCount++,
-    //                                 type: history[i].breakType || "Regular Break",
-    //                                 startTime: history[i].time,
-    //                                 endTime: endBreak.time,
-    //                                 duration: formatDuration(duration),
-    //                                 details: history[i].details || "Standard break",
-    //                                 efficiency: calculateEfficiency(duration),
-    //                             });
-    //                         }
-    //                     }
-    //                 }
-
-    //                 setBreakHistory(breaks);
-    //                 setTotalBreakDuration(totalBreaks);
-
-    //                 const sessionStatus = localStorage.getItem("sessionActive");
-    //                 setIsSessionActive(sessionStatus === "true");
-    //             } catch (error) {
-    //                 console.error("Error loading activity history:", error);
-    //             }
-    //         }
-    //     }, [isOpen, formatDuration]);
-
-    //     const calculateEfficiency = (duration: number): string => {
-    //         if (duration <= 300) return "95%";
-    //         if (duration <= 900) return "85%";
-    //         return "75%";
-    //     };
-
-    //     const handleStartSession = () => {
-    //         const sessionData: ActivityItem = {
-    //             type: "start_session",
-    //             timestamp: Date.now(),
-    //             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    //             label: "Started new session",
-    //         };
-
-    //         const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-    //         history.push(sessionData);
-    //         localStorage.setItem("activityHistory", JSON.stringify(history));
-    //         localStorage.setItem("sessionActive", "true");
-    //         localStorage.setItem("sessionStartTime", Date.now().toString());
-
-    //         setIsSessionActive(true);
-    //         setActivityHistory((prev) => [...prev.slice(-2), sessionData]);
-    //     };
-
-    //     const handleEndSession = () => {
-    //         const sessionData: ActivityItem = {
-    //             type: "end_session",
-    //             timestamp: Date.now(),
-    //             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    //             label: "Ended session",
-    //         };
-
-    //         const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-    //         history.push(sessionData);
-    //         localStorage.setItem("activityHistory", JSON.stringify(history));
-    //         localStorage.setItem("sessionActive", "false");
-
-    //         setIsSessionActive(false);
-    //         setActivityHistory((prev) => [...prev.slice(-2), sessionData]);
-    //     };
-
-    //     const handleStartBreak = (breakType: string, breakDetails: BreakDetails) => {
-    //         const breakData: ActivityItem = {
-    //             type: "start_break",
-    //             breakType,
-    //             details: breakDetails.meetingNotes || breakDetails.meetingPurpose || "",
-    //             timestamp: Date.now(),
-    //             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    //             label: `Started ${breakType} break`,
-    //             ...breakDetails,
-    //         };
-
-    //         const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-    //         history.push(breakData);
-    //         localStorage.setItem("activityHistory", JSON.stringify(history));
-
-    //         onStartBreak(breakType, breakDetails);
-    //         setIsBreakTypesOpen(false);
-    //     };
-
-    //     const handleEndBreak = () => {
-    //         const endBreakData: ActivityItem = {
-    //             type: "end_break",
-    //             timestamp: Date.now(),
-    //             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    //             label: "Ended break",
-    //         };
-
-    //         const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-    //         history.push(endBreakData);
-    //         localStorage.setItem("activityHistory", JSON.stringify(history));
-
-    //         onEndBreak();
-    //     };
-
-    //     if (!isOpen) return null;
-
-    //     return (
-    //         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    //             <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-    //                 {/* Header */}
-    //                 <div className="flex items-center justify-between p-6 border-b">
-    //                     <h2 className="text-2xl font-bold text-gray-900">
-    //                         Smart Time Tracking & Analytics
-    //                     </h2>
-    //                     <div className="flex items-center space-x-3">
-    //                         {/* New Session - Shows status */}
-    //                         <button
-    //                             onClick={handleStartSession}
-    //                             disabled={isSessionActive}
-    //                             className={`flex items-center space-x-2 px-4 py-2 text-white text-sm rounded-lg transition-colors shadow-sm font-medium ${isSessionActive
-    //                                     ? 'bg-green-500 cursor-not-allowed'
-    //                                     : 'bg-blue-500 hover:bg-blue-600'
-    //                                 }`}
-    //                         >
-    //                             <Play className="h-3 w-3" />
-    //                             <span>{isSessionActive ? 'Session Active' : 'New Session'}</span>
-    //                         </button>
-
-    //                         {/* Smart Break / End Break Button */}
-    //                         <button
-    //                             onClick={() => {
-    //                                 if (isOnBreak) {
-    //                                     handleEndBreak();
-    //                                 } else {
-    //                                     setIsBreakTypesOpen(true);
-    //                                 }
-    //                             }}
-    //                             className={`flex items-center space-x-2 px-4 py-2 text-white text-sm rounded-lg transition-colors shadow-sm font-medium ${isOnBreak
-    //                                 ? "bg-red-500 hover:bg-red-600"
-    //                                 : "bg-orange-500 hover:bg-orange-600"
-    //                                 }`}
-    //                         >
-    //                             <Coffee className="h-3 w-3" />
-    //                             <span>{isOnBreak ? "End Break" : "Smart Break"}</span>
-    //                         </button>
-
-    //                         {/* End Session */}
-    //                         <button
-    //                             onClick={handleEndSession}
-    //                             disabled={!isSessionActive}
-    //                             className={`flex items-center space-x-2 px-4 py-2 text-white text-sm rounded-lg transition-colors shadow-sm font-medium ${isSessionActive
-    //                                     ? 'bg-red-500 hover:bg-red-600'
-    //                                     : 'bg-gray-400 cursor-not-allowed'
-    //                                 }`}
-    //                         >
-    //                             <Square className="h-3 w-3" />
-    //                             <span>End Session</span>
-    //                         </button>
-
-    //                         {/* Close Modal */}
-    //                         <button
-    //                             onClick={onClose}
-    //                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-    //                         >
-    //                             <X className="h-5 w-5 text-gray-500" />
-    //                         </button>
-    //                     </div>
-    //                 </div>
-
-    //                 {/* Session Status Indicator */}
-    //                 {isSessionActive && (
-    //                     <div className="px-6 py-2 bg-green-50 border-b border-green-200">
-    //                         <div className="flex items-center space-x-2">
-    //                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-    //                             <span className="text-sm text-green-700 font-medium">
-    //                                 Session is running...
-    //                             </span>
-    //                         </div>
-    //                     </div>
-    //                 )}
-
-    //                 {/* Stats Cards */}
-    //                 <div className="p-3 grid grid-cols-6 gap-4">
-    //                     {/* Total Session */}
-    //                     <div className="bg-white border-l-4 border-l-blue-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex justify-between mb-3">
-    //                             <Clock className="h-4 w-4 text-blue-400" />
-    //                             <span className="text-[10px] text-gray-500">
-    //                                 Login:{" "}
-    //                                 {loginTime
-    //                                     ? new Date(loginTime).toLocaleTimeString([], {
-    //                                         hour: "2-digit",
-    //                                         minute: "2-digit",
-    //                                     })
-    //                                     : "--:--"}
-    //                             </span>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">
-    //                             {sessionTime}
-    //                         </div>
-    //                         <div className="text-xs text-gray-500">Total Session</div>
-    //                     </div>
-
-    //                     {/* Active Work Time */}
-    //                     <div className="bg-white border-l-4 border-l-green-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex items-center space-x-2 mb-3">
-    //                             <TrendingUp className="h-5 w-5 text-green-500" />
-    //                             <div className={`w-2 h-2 rounded-full ${isSessionActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">
-    //                             {workTime}
-    //                         </div>
-    //                         <div className="text-xs text-gray-500">Active Work Time</div>
-    //                     </div>
-
-    //                     {/* Break Time */}
-    //                     <div className="bg-white border-l-4 border-l-orange-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex items-center space-x-2 mb-3">
-    //                             <Coffee className="h-5 w-5 text-orange-500" />
-    //                             <span className="text-xs text-gray-500">
-    //                                 {breakHistory.length} breaks
-    //                             </span>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">
-    //                             {formatDuration(totalBreakDuration)}
-    //                         </div>
-    //                         <div className="text-xs text-gray-500">Break Time</div>
-    //                     </div>
-
-    //                     {/* Activity Types */}
-    //                     <div className="bg-white border-l-4 border-l-purple-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex items-center space-x-2 mb-3">
-    //                             <Activity className="h-5 w-5 text-purple-500" />
-    //                             <span className="text-xs text-gray-500">Today</span>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">
-    //                             {activityHistory.length}
-    //                         </div>
-    //                         <div className="text-xs text-gray-500">Activity Types</div>
-    //                     </div>
-
-    //                     {/* Productivity Score */}
-    //                     <div className="bg-white border-l-4 border-l-blue-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex items-center space-x-2 mb-3">
-    //                             <User className="h-5 w-5 text-blue-500" />
-    //                             <span className="text-xs text-green-500 font-medium">
-    //                                 Excellent
-    //                             </span>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">100%</div>
-    //                         <div className="text-xs text-gray-500">Productivity Score</div>
-    //                     </div>
-
-    //                     {/* Session Status */}
-    //                     <div className="bg-white border-l-4 border-l-red-400 border border-gray-200 rounded-xl p-4">
-    //                         <div className="flex items-center space-x-2 mb-3">
-    //                             <User className="h-5 w-5 text-red-500" />
-    //                             <span className={`text-xs font-medium ${isSessionActive ? 'text-green-500' : 'text-red-500'}`}>
-    //                                 {isSessionActive ? 'ACTIVE' : 'INACTIVE'}
-    //                             </span>
-    //                         </div>
-    //                         <div className="text-sm font-bold text-gray-900 mb-1">
-    //                             {isSessionActive ? 'Running' : 'Stopped'}
-    //                         </div>
-    //                         <div className="text-xs text-gray-500">Session Status</div>
-    //                     </div>
-    //                 </div>
-
-    //                 {/* Recent Activities / Smart Break / Insights */}
-    //                 <div className="p-6 pt-0 grid grid-cols-3 gap-6 max-h-80 overflow-hidden">
-    //                     {/* Recent Activities Card */}
-    //                     <div className="bg-white border border-gray-200 rounded-xl">
-    //                         <div className="p-4 border-b">
-    //                             <h3 className="text-lg font-semibold text-gray-900">
-    //                                 Recent Activities
-    //                             </h3>
-    //                         </div>
-    //                         <div className="p-4 space-y-3 overflow-y-auto">
-    //                             {activityHistory.length > 0 ? (
-    //                                 activityHistory.map((activity, index) => (
-    //                                     <div key={index} className="flex items-start space-x-3">
-    //                                         <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === 'start_session' ? 'bg-green-500' :
-    //                                                 activity.type === 'end_session' ? 'bg-red-500' :
-    //                                                     'bg-blue-500'
-    //                                             }`}></div>
-    //                                         <div className="flex-1 min-w-0">
-    //                                             <p className="text-sm font-medium text-gray-900">
-    //                                                 {activity.label}
-    //                                             </p>
-    //                                             <p className="text-xs text-gray-500">{activity.time}</p>
-    //                                         </div>
-    //                                         <div className="text-xs text-gray-400">
-    //                                             {activity.type === 'start_session' ? 'Started' :
-    //                                                 activity.type === 'end_session' ? 'Ended' : 'Active'}
-    //                                         </div>
-    //                                     </div>
-    //                                 ))
-    //                             ) : (
-    //                                 <div className="text-center text-gray-500 py-8">
-    //                                     <Activity className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-    //                                     <p className="text-sm">No recent activities</p>
-    //                                 </div>
-    //                             )}
-    //                         </div>
-    //                     </div>
-
-    //                     {/* Activity Analysis */}
-    //                     <div className="bg-white border border-gray-200 rounded-xl">
-    //                         <div className="p-4 border-b">
-    //                             <h3 className="text-lg font-semibold text-gray-900">
-    //                                 Activity Breakdown
-    //                             </h3>
-    //                         </div>
-    //                         <div className="p-4 flex items-center justify-center h-32">
-    //                             {breakHistory.length > 0 ? (
-    //                                 <p className="text-sm text-gray-700">
-    //                                     {breakHistory.length} breaks taken today
-    //                                 </p>
-    //                             ) : (
-    //                                 <div className="text-center text-gray-500">
-    //                                     <Coffee className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-    //                                     <p className="text-sm">No Activity Breakdown today</p>
-    //                                 </div>
-    //                             )}
-    //                         </div>
-    //                     </div>
-
-    //                     {/* Activity Insights */}
-    //                     <div className="bg-white border border-gray-200 rounded-xl p-4">
-    //                         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-    //                             Activity Insights
-    //                         </h3>
-    //                         <div className="space-y-2 text-sm text-gray-700">
-    //                             <p>📈 Productivity: <span className="font-semibold">High</span></p>
-    //                             <p>⏳ Avg Break Duration: <span className="font-semibold">{breakHistory.length > 0 ? breakHistory[0].duration : "0s"}</span></p>
-    //                             <p>⚡ Efficiency Trend: <span className="font-semibold">Stable</span></p>
-    //                             <p>🎯 Session: <span className={`font-semibold ${isSessionActive ? 'text-green-600' : 'text-red-600'}`}>
-    //                                 {isSessionActive ? 'Active' : 'Inactive'}
-    //                             </span></p>
-    //                         </div>
-    //                     </div>
-    //                 </div>
-
-    //                 {/* Break History Table */}
-    //                 <div className="p-6 pt-0">
-    //                     <div className="bg-white rounded-xl shadow-sm">
-    //                         <div className="p-4 border-b border-gray-100">
-    //                             <h3 className="text-lg font-semibold text-gray-900">
-    //                                 Smart Break History
-    //                             </h3>
-    //                         </div>
-    //                         <div className="overflow-x-auto">
-    //                             <table className="w-full">
-    //                                 <thead className="bg-gray-50 border-b border-gray-200">
-    //                                     <tr>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Break #
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Type
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Start Time
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             End Time
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Duration
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Details
-    //                                         </th>
-    //                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-    //                                             Efficiency
-    //                                         </th>
-    //                                     </tr>
-    //                                 </thead>
-    //                                 <tbody className="bg-white">
-    //                                     {breakHistory.length > 0 ? (
-    //                                         breakHistory.map((breakItem, index) => (
-    //                                             <tr
-    //                                                 key={index}
-    //                                                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-    //                                             >
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-    //                                                     {breakItem.number}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-    //                                                     {breakItem.type}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-    //                                                     {breakItem.startTime}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-    //                                                     {breakItem.endTime}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-    //                                                     {breakItem.duration}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-    //                                                     {breakItem.details}
-    //                                                 </td>
-    //                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-    //                                                     {breakItem.efficiency}
-    //                                                 </td>
-    //                                             </tr>
-    //                                         ))
-    //                                     ) : (
-    //                                         <tr>
-    //                                             <td colSpan={7} className="px-6 py-16 text-center">
-    //                                                 <div className="flex flex-col items-center justify-center space-y-3">
-    //                                                     <Coffee className="h-12 w-12 text-gray-300" />
-    //                                                     <p className="text-sm text-gray-500 font-medium">
-    //                                                         No breaks taken today
-    //                                                     </p>
-    //                                                 </div>
-    //                                             </td>
-    //                                         </tr>
-    //                                     )}
-    //                                 </tbody>
-    //                             </table>
-    //                         </div>
-    //                     </div>
-    //                 </div>
-    //             </div>
-
-    //             {/* Break Types Modal */}
-    //             {isBreakTypesOpen && (
-    //                 <BreakTypesModal
-    //                     isOpen={isBreakTypesOpen}
-    //                     onClose={() => setIsBreakTypesOpen(false)}
-    //                     onSelectBreak={handleStartBreak}
-    //                 />
-    //             )}
-    //         </div>
-    //     );
-    // };
-
-    // export default ActivityTrackerModal;
-
-
-
-    import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     X,
-    Clock,
-    Activity,
     Coffee,
-    User,
-    TrendingUp,
     Play,
+    Pause,
     Square,
-    BarChart2,
-    Zap,
     Timer,
     ListChecks,
+    User,
+    Building2,
+    CalendarDays,
+    AlertTriangle,
+    ShieldCheck,
+    Laptop,
+    PauseCircle,
+    Activity as ActivityIcon,
+    Target,
+    Clock,
+    TrendingUp,        // ✅ NEW
+    Award,             // ✅ NEW
 } from "lucide-react";
 import BreakTypesModal from "./BreakTypeModal";
+import { useActivityTracker } from "../context/ActivityTrackerContext";
+import EmployeeDailyUpdateView from "../components/activity/EmployeeDailyUpdateView";
+import { workSessionAPI } from "@/lib/api";
 
-// ESALE Theme
-const N = "#0f2b3d";
-const O = "#e67e22";
-const BG = "#f8fafc";
-const BD = "#e2e8f0";
-const MU = "#5a7184";
+// ── ESALE console tokens (UNCHANGED) ───────────────────
+const BEZEL = "#0B3854";
+const BEZEL_SOFT = "#11507A";
+const BEZEL_DEEP = "#082C43";
+const BEZEL_LINE = "rgba(255,255,255,0.10)";
+const SCREEN = "#eef3f8";
+const MODULE = "#ffffff";
+const MODULE_LINE = "#dbe4ee";
+const ACCENT = "#ff7a1a";
+const ACTIVE = "#16a34a";
+const IDLE = "#8b5cf6";
+const BREAKC = "#0ea5e9";
+const WARN = "#eab308";
+const DANGER = "#ef4444";
+const TEXT = "#0f2333";
+const MUTED = "#5f7386";
+const CREDIT = "#10b981";   // ✅ NEW - Green for credit
+const HALFDAY = "#f59e0b";  // ✅ NEW - Amber for half-day
+
+const MONO =
+    "'IBM Plex Mono','SF Mono',ui-monospace,Menlo,Consolas,monospace";
+
+const CARD_SHADOW = "0 1px 2px rgba(11,56,84,0.06), 0 8px 24px -12px rgba(11,56,84,0.18)";
+
+const CARD_STYLE: React.CSSProperties = {
+    background: MODULE,
+    border: `1px solid ${MODULE_LINE}`,
+    boxShadow: CARD_SHADOW,
+};
+
+// ── Live-motion keyframes (scoped with att- prefix) ────
+const LIVE_CSS = `
+@keyframes att-wave { 0%,100% { transform: scaleY(.18); } 50% { transform: scaleY(1); } }
+@keyframes att-blink { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
+@keyframes att-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(220%); } }
+@keyframes att-breathe { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.att-shimmer::after {
+    content: ""; position: absolute; inset: 0; width: 45%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    animation: att-shimmer 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .att-wave-bar, .att-colon, .att-shimmer::after, .att-breathe { animation: none !important; }
+}
+`;
 
 type BreakDetails = {
     meetingNotes?: string;
@@ -577,433 +77,1045 @@ type BreakDetails = {
     [key: string]: any;
 };
 
-type ActivityItem = {
-    type: "start_session" | "end_session" | "start_break" | "end_break";
-    timestamp: number;
-    time: string;
-    label: string;
-    breakType?: string;
-    details?: string;
-    [key: string]: any;
-};
-
-type BreakHistoryItem = {
-    number: number;
-    type: string;
-    startTime: string;
-    endTime: string;
-    duration: string;
-    details: string;
-    efficiency: string;
-};
-
 type Props = {
     isOpen: boolean;
     onClose: () => void;
-    sessionTime: string;
-    workTime: string;
-    isOnBreak: boolean;
-    onStartBreak: (breakType: string, breakDetails: BreakDetails) => void;
-    onEndBreak: () => void;
+    sessionTime?: string;
+    workTime?: string;
+    isOnBreak?: boolean;
+    onStartBreak?: (breakType: string, breakDetails: BreakDetails) => void;
+    onEndBreak?: () => void;
     loginTime?: number | null;
+    employeeName?: string;
+    employeeId?: string;
+    department?: string;
+    avatarUrl?: string;
+    expectedHours?: number;
+    breakLimitMinutes?: number;
+    // ✅ NEW PROPS for credit system
+    expectedWorkHours?: number;      // Work hours excluding break (default 7h)
+    halfDayThresholdHours?: number;  // Half-day threshold (default 4h)
 };
 
-// Section heading component matching BuyerFormModal style
-const SectionHeading = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
-    <h3 className="text-[11px] font-bold mb-2 flex items-center gap-1.5" style={{ color: N }}>
-        <Icon size={12} style={{ color: O }} />
-        {title}
-    </h3>
+const toSeconds = (value?: string): number => {
+    if (!value) return 0;
+    const parts = value.split(":").map((p) => parseInt(p, 10));
+    if (parts.some((p) => Number.isNaN(p))) return 0;
+    return parts.reduceRight((acc, p, i, arr) => acc + p * Math.pow(60, arr.length - 1 - i), 0);
+};
+
+const formatDuration = (totalSeconds: number): string => {
+    const s = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h <= 0) return `${m}m`;
+    if (m <= 0) return `${h}h`;
+    return `${h}h ${m}m`;
+};
+
+// ✅ NEW: Format credit with decimal hours
+const formatCredit = (totalSeconds: number): string => {
+    const s = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${h}h ${m}m`;
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const getInitials = (name: string) =>
+    name
+        .trim()
+        .split(/\s+/)
+        .map((n) => n[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+
+const formatBreakDetails = (detailsStr: string) => {
+    if (!detailsStr || detailsStr === "—") return null;
+
+    let parsed: any = null;
+    try {
+        parsed = typeof detailsStr === 'string' ? JSON.parse(detailsStr) : detailsStr;
+    } catch (e) {
+        return <span className="text-[10.5px]" style={{ color: MUTED }}>{detailsStr}</span>;
+    }
+
+    const entries = Object.entries(parsed).filter(([_, v]) => v !== "" && v !== null && v !== undefined);
+
+    if (entries.length === 0) return null;
+
+    const labelMap: Record<string, string> = {
+        clientName: "Client",
+        property: "Property",
+        meetingNotes: "Notes",
+        customDuration: "Duration",
+        duration: "Duration",
+        priority: "Priority",
+        meetingPurpose: "Purpose",
+        meetingWith: "With",
+        meetingType: "Type",
+    };
+
+    return (
+        <div className="flex flex-wrap gap-1 mt-0.5">
+            {entries.map(([key, value]) => {
+                if (key === 'customDuration' && value === detailsStr) return null;
+
+                const label = labelMap[key] || key;
+                const val = String(value);
+
+                return (
+                    <span
+                        key={key}
+                        className="inline-flex items-center gap-1 px-1.5 py-[1px] rounded-md text-[9.5px] font-medium"
+                        style={{
+                            background: hexToRgba(BEZEL, 0.05),
+                            color: MUTED,
+                            border: `1px solid ${MODULE_LINE}`
+                        }}
+                    >
+                        <span className="font-semibold" style={{ color: TEXT }}>{label}:</span>
+                        <span className="truncate max-w-[110px]">{val}</span>
+                    </span>
+                );
+            })}
+        </div>
+    );
+};
+
+// ── Small building blocks ──────────────────────────────
+
+const LiveDot: React.FC<{ color: string; live?: boolean }> = ({ color, live = false }) => (
+    <span className="relative flex w-2 h-2 shrink-0">
+        {live && (
+            <span className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-70" style={{ background: color }} />
+        )}
+        <span className="relative inline-flex w-2 h-2 rounded-full" style={{ background: color }} />
+    </span>
 );
 
-// Compact stat card
-const StatCard = ({
-    icon: Icon,
-    label,
-    value,
-    sub,
-    accent,
-    pulse,
-}: {
-    icon: React.ElementType;
+const LiveWave: React.FC<{ active: boolean }> = ({ active }) => (
+    <div className="flex items-end gap-[3px] h-7" aria-hidden="true">
+        {Array.from({ length: 22 }).map((_, i) => (
+            <span
+                key={i}
+                className="att-wave-bar w-[3px] h-full rounded-full origin-bottom"
+                style={{
+                    background: ACCENT,
+                    opacity: active ? 0.35 + (i / 22) * 0.65 : 0.22,
+                    transform: active ? undefined : "scaleY(0.18)",
+                    animation: active
+                        ? `att-wave ${(0.9 + (i % 7) * 0.16).toFixed(2)}s ease-in-out ${((i * 0.07) % 1).toFixed(2)}s infinite`
+                        : "none",
+                    transition: "opacity 0.4s ease",
+                }}
+            />
+        ))}
+    </div>
+);
+
+const BudgetBar: React.FC<{ pct: number; color: string; overColor?: string; over?: boolean; live?: boolean }> = ({
+    pct,
+    color,
+    overColor = DANGER,
+    over = false,
+    live = false,
+}) => (
+    <div className="h-[7px] w-full rounded-full overflow-hidden" style={{ background: hexToRgba(BEZEL, 0.09) }}>
+        <div
+            className={`h-full rounded-full relative overflow-hidden ${live && !over ? "att-shimmer" : ""}`}
+            style={{
+                width: `${Math.min(100, Math.max(0, pct))}%`,
+                background: over ? overColor : color,
+                transition: "width 0.6s ease",
+            }}
+        />
+    </div>
+);
+
+const StatTile: React.FC<{
+    icon: React.ReactNode;
     label: string;
     value: string;
-    sub?: string;
     accent: string;
-    pulse?: boolean;
-}) => (
-    <div
-        className="rounded-lg p-2.5 flex flex-col gap-1"
-        style={{ background: BG, border: `1px solid ${BD}`, borderLeft: `3px solid ${accent}` }}
-    >
-        <div className="flex items-center justify-between">
-            <Icon size={12} style={{ color: accent }} />
-            {pulse && <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />}
+    pct?: number;
+    pctLabel?: string;
+    live?: boolean;
+}> = ({ icon, label, value, accent, pct, pctLabel, live }) => (
+    <div className="rounded-xl px-2.5 py-2 flex flex-col justify-between gap-1.5 min-w-0" style={CARD_STYLE}>
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: hexToRgba(accent, 0.12) }}>
+                    {icon}
+                </span>
+                <p className="text-[10.5px] font-semibold truncate" style={{ color: MUTED }}>{label}</p>
+            </div>
+            {pctLabel && (
+                <span className="text-[10px] font-bold shrink-0" style={{ color: accent, fontFamily: MONO }}>{pctLabel}</span>
+            )}
         </div>
-        <p className="text-sm font-bold leading-none" style={{ color: N }}>{value}</p>
-        <p className="text-[9px] font-medium" style={{ color: MU }}>{label}</p>
-        {sub && <p className="text-[8px]" style={{ color: MU }}>{sub}</p>}
+        <div>
+            <p className="text-[16px] font-bold leading-none" style={{ fontFamily: MONO, color: TEXT }}>{value}</p>
+            <div className="mt-1.5 h-[3px] w-full rounded-full overflow-hidden" style={{ background: hexToRgba(accent, 0.12) }}>
+                <div
+                    className={`h-full rounded-full relative overflow-hidden ${live ? "att-shimmer" : ""}`}
+                    style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%`, background: accent, transition: "width 0.6s ease" }}
+                />
+            </div>
+        </div>
+    </div>
+);
+
+const IconChip: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
+    <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: hexToRgba(color, 0.14) }}>
+        {children}
+    </span>
+);
+
+const MiniStat: React.FC<{ label: string; value: string; color?: string }> = ({ label, value, color = TEXT }) => (
+    <div className="rounded-lg px-2 py-1.5 min-w-0" style={{ background: hexToRgba(BEZEL, 0.04), border: `1px solid ${MODULE_LINE}` }}>
+        <p className="text-[9.5px] font-medium truncate" style={{ color: MUTED }}>{label}</p>
+        <p className="text-[12px] font-bold leading-none mt-1 truncate" style={{ fontFamily: MONO, color }}>{value}</p>
     </div>
 );
 
 const ActivityTrackerModal: React.FC<Props> = ({
     isOpen,
     onClose,
-    sessionTime,
-    workTime,
-    isOnBreak,
-    onStartBreak,
-    onEndBreak,
     loginTime,
+    employeeName = "Employee",
+    employeeId,
+    department = "Unassigned",
+    avatarUrl,
+    expectedHours = 8,
+    breakLimitMinutes = 60,
+    // ✅ NEW DEFAULTS
+    expectedWorkHours = 7,
+    halfDayThresholdHours = 4,
 }) => {
-    const [activityHistory, setActivityHistory] = useState<ActivityItem[]>([]);
-    const [breakHistory, setBreakHistory] = useState<BreakHistoryItem[]>([]);
+    const {
+        session,
+        activeBreak,
+        currentState,
+        sessionTimeFormatted,
+        workTimeFormatted,
+        idleTimeFormatted,
+        breakTimeFormatted,
+        recentActivities,
+        breakHistory,
+        startSession,
+        startBreak,
+        endBreak,
+        triggerLogoutModal,
+    } = useActivityTracker();
+
     const [isBreakTypesOpen, setIsBreakTypesOpen] = useState(false);
-    const [totalBreakDuration, setTotalBreakDuration] = useState(0);
-    const [isSessionActive, setIsSessionActive] = useState(false);
+    const [activeModalTab, setActiveModalTab] = useState<"tracker" | "daily_updates">("tracker");
+    const today = new Date().toISOString().split("T")[0];
+    const [breakFromDate, setBreakFromDate] = useState(today);
+    const [breakToDate, setBreakToDate] = useState(today);
+    const [rangeBreaks, setRangeBreaks] = useState<any[]>([]);
 
-    const formatDuration = useCallback((seconds: number): string => {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
-        if (minutes > 0) return `${minutes}m ${secs}s`;
-        return `${secs}s`;
-    }, []);
-
+    const [nowTick, setNowTick] = useState(() => new Date());
     useEffect(() => {
-        if (isOpen) {
-            const sessionStatus = localStorage.getItem("sessionActive");
-            if (sessionStatus !== "true") {
-                handleStartSession();
-            } else {
-                setIsSessionActive(true);
-            }
-        }
+        if (!isOpen) return;
+        const id = setInterval(() => setNowTick(new Date()), 1000);
+        return () => clearInterval(id);
     }, [isOpen]);
+    const liveClock = nowTick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
-    useEffect(() => {
-        if (isOpen) {
-            try {
-                const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-                setActivityHistory(history.slice(-3));
-
-                const breaks: BreakHistoryItem[] = [];
-                let breakCount = 1;
-                let totalBreaks = 0;
-
-                for (let i = 0; i < history.length; i++) {
-                    if (history[i].type === "start_break") {
-                        const endBreak = history.find((item, index) => index > i && item.type === "end_break");
-                        if (endBreak) {
-                            const duration = Math.floor((endBreak.timestamp - history[i].timestamp) / 1000);
-                            totalBreaks += duration;
-                            breaks.push({
-                                number: breakCount++,
-                                type: history[i].breakType || "Regular Break",
-                                startTime: history[i].time,
-                                endTime: endBreak.time,
-                                duration: formatDuration(duration),
-                                details: history[i].details || "Standard break",
-                                efficiency: calculateEfficiency(duration),
-                            });
-                        }
-                    }
-                }
-
-                setBreakHistory(breaks);
-                setTotalBreakDuration(totalBreaks);
-                setIsSessionActive(localStorage.getItem("sessionActive") === "true");
-            } catch (error) {
-                console.error("Error loading activity history:", error);
-            }
-        }
-    }, [isOpen, formatDuration]);
-
-    const calculateEfficiency = (duration: number): string => {
-        if (duration <= 300) return "95%";
-        if (duration <= 900) return "85%";
-        return "75%";
-    };
-
-    const handleStartSession = () => {
-        const sessionData: ActivityItem = {
-            type: "start_session",
-            timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            label: "Started new session",
+    const composition = useMemo(() => {
+        const active = toSeconds(workTimeFormatted);
+        const idle = toSeconds(idleTimeFormatted);
+        const brk = toSeconds(breakTimeFormatted);
+        const total = active + idle + brk;
+        const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
+        return {
+            active,
+            idle,
+            brk,
+            total,
+            activePct: pct(active),
+            idlePct: pct(idle),
+            breakPct: pct(brk),
         };
-        const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-        history.push(sessionData);
-        localStorage.setItem("activityHistory", JSON.stringify(history));
-        localStorage.setItem("sessionActive", "true");
-        localStorage.setItem("sessionStartTime", Date.now().toString());
-        setIsSessionActive(true);
-        setActivityHistory((prev) => [...prev.slice(-2), sessionData]);
-    };
+    }, [workTimeFormatted, idleTimeFormatted, breakTimeFormatted]);
 
-    const handleEndSession = () => {
-        const sessionData: ActivityItem = {
-            type: "end_session",
-            timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            label: "Ended session",
-        };
-        const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-        history.push(sessionData);
-        localStorage.setItem("activityHistory", JSON.stringify(history));
-        localStorage.setItem("sessionActive", "false");
-        setIsSessionActive(false);
-        setActivityHistory((prev) => [...prev.slice(-2), sessionData]);
-    };
+    const R = 36;
+    const CIRC = 2 * Math.PI * R;
+    const ring = useMemo(() => {
+        const segs = [
+            { color: ACCENT, val: composition.active },
+            { color: BREAKC, val: composition.brk },
+            { color: IDLE, val: composition.idle },
+        ];
+        if (composition.total <= 0) return [{ color: MODULE_LINE, len: CIRC, offset: 0 }];
+        const GAP = 2;
+        let cursor = 0;
+        return segs
+            .filter((s) => s.val > 0)
+            .map((s) => {
+                const len = Math.max((s.val / composition.total) * CIRC - GAP, 0);
+                const seg = { color: s.color, len, offset: -cursor };
+                cursor += (s.val / composition.total) * CIRC;
+                return seg;
+            });
+    }, [composition]);
 
-    const handleStartBreak = (breakType: string, breakDetails: BreakDetails) => {
-        const breakData: ActivityItem = {
-            type: "start_break",
-            breakType,
-            details: breakDetails.meetingNotes || breakDetails.meetingPurpose || "",
-            timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            label: `Started ${breakType} break`,
-            ...breakDetails,
-        };
-        const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-        history.push(breakData);
-        localStorage.setItem("activityHistory", JSON.stringify(history));
-        onStartBreak(breakType, breakDetails);
+    const isSessionActive = session !== null && currentState !== "COMPLETED";
+    const isOnBreak = currentState === "BREAK" || activeBreak !== null;
+    const isWorking = isSessionActive && !isOnBreak && currentState !== "IDLE" && currentState !== "ACTIVITY_CHECK";
+
+    const handleSelectBreakFromModal = (breakType: string, details: any) => {
+        startBreak(breakType, details.duration, details);
         setIsBreakTypesOpen(false);
     };
 
-    const handleEndBreak = () => {
-        const endBreakData: ActivityItem = {
-            type: "end_break",
-            timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            label: "Ended break",
-        };
-        const history: ActivityItem[] = JSON.parse(localStorage.getItem("activityHistory") || "[]");
-        history.push(endBreakData);
-        localStorage.setItem("activityHistory", JSON.stringify(history));
-        onEndBreak();
+    const getStatusLabel = () => {
+        if (!isSessionActive) return "Stopped";
+        if (currentState === "BREAK") return "On break";
+        if (currentState === "IDLE") return "Idle";
+        if (currentState === "ACTIVITY_CHECK") return "Verification required";
+        return "Live session";
     };
+
+    const getStatusColor = () => {
+        if (!isSessionActive) return DANGER;
+        if (currentState === "BREAK") return ACCENT;
+        if (currentState === "IDLE") return IDLE;
+        if (currentState === "ACTIVITY_CHECK") return WARN;
+        return ACTIVE;
+    };
+
+    const statusColor = getStatusColor();
+
+    const workedSeconds = toSeconds(workTimeFormatted);
+    const expectedSeconds = expectedHours * 3600;
+    const workPct = expectedSeconds > 0 ? (workedSeconds / expectedSeconds) * 100 : 0;
+    const overtimeSeconds = Math.max(0, workedSeconds - expectedSeconds);
+    const remainingSeconds = Math.max(0, expectedSeconds - workedSeconds);
+
+    const breakSeconds = toSeconds(breakTimeFormatted);
+    const breakLimitSeconds = breakLimitMinutes * 60;
+    const breakPct = breakLimitSeconds > 0 ? (breakSeconds / breakLimitSeconds) * 100 : 0;
+    const isBreakOverLimit = breakSeconds > breakLimitSeconds;
+
+    // ✅ NEW: TIME CREDIT CALCULATIONS
+    const expectedWorkSeconds = expectedWorkHours * 3600; // 7h default
+    const halfDaySeconds = halfDayThresholdHours * 3600;  // 4h default
+
+    // Credit = Worked - Expected Work (only positive counts)
+    const creditSeconds = Math.max(0, workedSeconds - expectedWorkSeconds);
+    const creditHours = creditSeconds / 3600;
+
+    // Half-day eligibility
+    const isHalfDayEligible = workedSeconds >= halfDaySeconds;
+    const halfDayProgress = Math.min(100, (workedSeconds / halfDaySeconds) * 100);
+
+    // Deficit (if worked less than expected)
+    const deficitSeconds = Math.max(0, expectedWorkSeconds - workedSeconds);
+
+    const todayLabel = new Date().toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+    });
+
+    const displayId = employeeId || (session as any)?.employee_id || "—";
+
+    const timeParts = (sessionTimeFormatted || "00:00:00").split(":");
+    const timeLabels = timeParts.length === 3 ? ["hrs", "min", "sec"] : timeParts.length === 2 ? ["min", "sec"] : [];
+
+    React.useEffect(() => {
+        let cancelled = false;
+        const loadBreaks = async () => {
+            try {
+                const response = await workSessionAPI.getEmployeeBreakHistory(
+                    employeeId ? Number(employeeId) : undefined,
+                    breakFromDate || today,
+                    breakToDate || breakFromDate || today,
+                );
+                if (!cancelled && response?.success && Array.isArray(response.breaks)) {
+                    setRangeBreaks(response.breaks);
+                }
+            } catch (error) {
+                console.error("Failed to fetch employee break history:", error);
+                if (!cancelled) setRangeBreaks([]);
+            }
+        };
+
+        loadBreaks();
+        return () => { cancelled = true; };
+    }, [employeeId, breakFromDate, breakToDate, today]);
+
+    const displayedBreaks = rangeBreaks.map((breakItem, index) => {
+        const actualSeconds = Number(breakItem.actual_duration || 0);
+        const allocatedSeconds = Number(breakItem.allocated_duration || 0) * 60;
+
+        const efficiency = allocatedSeconds > 0
+            ? (actualSeconds <= allocatedSeconds
+                ? 100
+                : Math.max(0, Math.min(100, Math.round((allocatedSeconds / actualSeconds) * 100))))
+            : Number.parseInt(String(breakItem.efficiency || "0"), 10) || 0;
+
+        const efficiencyLabel = efficiency >= 90 ? "Stable" : efficiency >= 75 ? "Watch" : "Review";
+        const startedAt = breakItem.started_at ? new Date(breakItem.started_at) : null;
+        const endedAt = breakItem.ended_at ? new Date(breakItem.ended_at) : null;
+        const validStart = startedAt && !Number.isNaN(startedAt.getTime());
+        const validEnd = endedAt && !Number.isNaN(endedAt.getTime());
+
+        return {
+            ...breakItem,
+            type: breakItem.break_type || "Break",
+            startTime: validStart ? startedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--",
+            endTime: validEnd ? endedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--",
+            dateLabel: validStart ? startedAt.toLocaleDateString([], { day: "2-digit", month: "short" }) : "—",
+            duration: `${Math.round(actualSeconds / 60)}m`,
+            efficiency: `${efficiency}%`,
+            efficiencyLabel,
+            details: breakItem.details || "Standard break",
+        };
+    });
+
+    const setBreakRange = (from: string, to: string) => {
+        setBreakFromDate(from || to || today);
+        setBreakToDate(to || from || today);
+    };
+    const isBreakToday = breakFromDate === today && breakToDate === today;
 
     if (!isOpen) return null;
 
     return (
         <div
-            className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4"
-            style={{ background: "rgba(15,43,61,0.6)", backdropFilter: "blur(4px)" }}
+            className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-3"
+            style={{ background: "rgba(4,24,38,0.70)", backdropFilter: "blur(6px)" }}
         >
+            <style>{LIVE_CSS}</style>
+
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
-                style={{ border: `1px solid ${BD}` }}
+                className="rounded-2xl w-full max-w-[900px] max-h-[94vh] flex flex-col overflow-hidden"
+                style={{
+                    border: `1px solid ${BEZEL_LINE}`,
+                    background: BEZEL,
+                    boxShadow: "0 30px 70px -20px rgba(4,24,38,0.65), 0 0 0 1px rgba(255,255,255,0.03)",
+                }}
             >
-                {/* ── Header ── */}
-                <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between shrink-0" style={{ background: N }}>
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-lg" style={{ background: `${O}20` }}>
-                            <Timer size={14} style={{ color: O }} />
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-white">Smart Time Tracking</h2>
-                            <p className="text-[9px] text-white/60">Session analytics & break management</p>
+                <div
+                    className="h-[2px] w-full shrink-0"
+                    style={{ background: `linear-gradient(90deg, transparent 0%, ${ACCENT} 35%, ${hexToRgba(ACCENT, 0.4)} 70%, transparent 100%)` }}
+                />
+
+                <div
+                    className="px-4 py-2 flex items-center justify-between gap-3 shrink-0 flex-wrap"
+                    style={{ background: `linear-gradient(135deg, ${BEZEL} 0%, ${BEZEL_SOFT} 100%)`, borderBottom: `1px solid ${BEZEL_LINE}` }}
+                >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                            style={{
+                                background: hexToRgba(ACCENT, 0.18),
+                                border: `1px solid ${hexToRgba(ACCENT, 0.42)}`,
+                                boxShadow: `0 0 16px -4px ${hexToRgba(ACCENT, 0.55)}`,
+                            }}
+                        >
+                            <Timer size={16} style={{ color: ACCENT }} />
+                        </span>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-[14px] font-semibold text-white leading-none whitespace-nowrap">Smart Time Tracking</h2>
+                                <span
+                                    className="hidden sm:flex items-center gap-1.5 text-[9.5px] font-bold px-2 py-[3px] rounded-full"
+                                    style={{ color: statusColor, background: hexToRgba(statusColor, 0.18), border: `1px solid ${hexToRgba(statusColor, 0.3)}` }}
+                                >
+                                    <LiveDot color={statusColor} live={isSessionActive} />
+                                    {getStatusLabel().toUpperCase()}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                {avatarUrl ? (
+                                    <img
+                                        src={avatarUrl}
+                                        alt={employeeName}
+                                        className="rounded-full object-cover shrink-0"
+                                        style={{ width: 18, height: 18, border: `1.5px solid ${hexToRgba(ACCENT, 0.5)}` }}
+                                    />
+                                ) : (
+                                    <div
+                                        className="rounded-full flex items-center justify-center shrink-0 text-[8px] font-bold"
+                                        style={{ width: 18, height: 18, background: hexToRgba(ACCENT, 0.18), color: ACCENT, border: `1.5px solid ${hexToRgba(ACCENT, 0.5)}` }}
+                                    >
+                                        {getInitials(employeeName)}
+                                    </div>
+                                )}
+                                <p className="text-[11.5px] font-semibold truncate leading-none text-white/95">{employeeName}</p>
+                                <span className="text-white/25">&middot;</span>
+                                <span className="flex items-center gap-1 text-[10.5px] text-white/60"><User size={10} /> <span style={{ fontFamily: MONO }}>{displayId}</span></span>
+                                <span className="text-white/25">&middot;</span>
+                                <span className="flex items-center gap-1 text-[10.5px] text-white/60"><Building2 size={10} /> {department}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        {/* Session Active */}
-                        <button
-                            onClick={handleStartSession}
-                            disabled={isSessionActive}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white rounded-lg transition-all disabled:opacity-60"
-                            style={{ background: isSessionActive ? "#22c55e" : "#3b82f6" }}
-                        >
-                            <Play size={10} />
-                            <span className="hidden sm:inline">{isSessionActive ? "Active session" : "New Session"}</span>
-                        </button>
 
-                        {/* Smart Break / End Break */}
-                        <button
-                            onClick={() => isOnBreak ? handleEndBreak() : setIsBreakTypesOpen(true)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white rounded-lg transition-all"
-                            style={{ background: isOnBreak ? "#ef4444" : O }}
-                        >
-                            <Coffee size={10} />
-                            <span className="hidden sm:inline">{isOnBreak ? "End Break" : "Smart Break"}</span>
-                        </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: "rgba(255,255,255,0.07)", border: `1px solid ${BEZEL_LINE}` }}>
+                            <button
+                                onClick={() => setActiveModalTab("tracker")}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                                style={{ color: activeModalTab === "tracker" ? "#fff" : "rgba(255,255,255,0.65)", background: activeModalTab === "tracker" ? ACCENT : "transparent", boxShadow: activeModalTab === "tracker" ? `0 2px 8px -2px ${hexToRgba(ACCENT, 0.6)}` : "none" }}
+                            >
+                                <ActivityIcon size={12} />
+                                Live Session
+                            </button>
+                            <button
+                                onClick={() => setActiveModalTab("daily_updates")}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                                style={{ color: activeModalTab === "daily_updates" ? "#fff" : "rgba(255,255,255,0.65)", background: activeModalTab === "daily_updates" ? ACCENT : "transparent", boxShadow: activeModalTab === "daily_updates" ? `0 2px 8px -2px ${hexToRgba(ACCENT, 0.6)}` : "none" }}
+                            >
+                                <CalendarDays size={12} />
+                                Daily Updates
+                            </button>
+                        </div>
+                        <span className="hidden md:flex items-center gap-1.5 text-[10.5px] font-medium px-2.5 py-1 rounded-lg text-white/70" style={{ background: "rgba(255,255,255,0.07)", border: `1px solid ${BEZEL_LINE}` }}>
+                            <CalendarDays size={11} />
+                            {todayLabel}
+                            <span className="text-white/25">|</span>
+                            <Clock size={11} />
+                            <span style={{ fontFamily: MONO }}>{liveClock}</span>
+                        </span>
 
-                        {/* End Session */}
                         <button
-                            onClick={handleEndSession}
-                            disabled={!isSessionActive}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white rounded-lg transition-all disabled:opacity-40"
-                            style={{ background: "#ef4444" }}
+                            onClick={onClose}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors text-white/60 hover:text-white"
                         >
-                            <Square size={10} />
-                            <span className="hidden sm:inline">End Session</span>
-                        </button>
-
-                        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white ml-1">
-                            <X size={16} />
+                            <X size={14} />
                         </button>
                     </div>
                 </div>
 
-                {/* Session running bar */}
-                {isSessionActive && (
-                    <div className="px-4 py-1.5 flex items-center gap-2 shrink-0" style={{ background: "#f0fdf4", borderBottom: "1px solid #bbf7d0" }}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[10px] font-medium text-green-700">
-                            Session running · Login {loginTime ? new Date(loginTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
-                        </span>
+                {activeModalTab === "daily_updates" ? (
+                    <div className="p-3 overflow-y-auto flex-1 min-h-0" style={{ background: SCREEN }}>
+                        <EmployeeDailyUpdateView employeeId={employeeId ? Number(employeeId) : undefined} />
+                    </div>
+                ) : (
+                    <div className="overflow-y-auto flex-1 min-h-0 p-2.5 space-y-2.5" style={{ background: SCREEN, scrollbarWidth: "thin" }}>
+                        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-2.5 items-stretch">
+                            <div
+                                className="rounded-xl px-4 py-3 flex flex-col justify-between gap-3 relative overflow-hidden"
+                                style={{ background: `linear-gradient(135deg, ${BEZEL} 0%, ${BEZEL_SOFT} 100%)`, boxShadow: CARD_SHADOW }}
+                            >
+                                <div
+                                    className="pointer-events-none absolute inset-0"
+                                    style={{
+                                        backgroundImage:
+                                            "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+                                        backgroundSize: "24px 24px",
+                                        maskImage: "linear-gradient(180deg, rgba(0,0,0,0.9), transparent 90%)",
+                                        WebkitMaskImage: "linear-gradient(180deg, rgba(0,0,0,0.9), transparent 90%)",
+                                    }}
+                                />
+                                <div
+                                    className="pointer-events-none absolute inset-0"
+                                    style={{ background: `radial-gradient(80% 130% at 100% 0%, ${hexToRgba(ACCENT, 0.24)} 0%, transparent 55%)` }}
+                                />
+
+                                <div className="relative flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 text-[11px] font-medium text-white/70">
+                                        <LiveDot color={statusColor} live={isSessionActive} />
+                                        Session elapsed
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                            onClick={startSession}
+                                            disabled={isSessionActive}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:cursor-default"
+                                            style={{ background: isSessionActive ? hexToRgba(ACTIVE, 0.22) : ACCENT, color: isSessionActive ? "#4ade80" : "#fff", boxShadow: isSessionActive ? "none" : `0 4px 12px -4px ${hexToRgba(ACCENT, 0.7)}` }}
+                                        >
+                                            <Play size={11} fill={isSessionActive ? "#4ade80" : "#fff"} />
+                                            {isSessionActive ? "Active" : "Start"}
+                                        </button>
+                                        <button
+                                            onClick={() => (isOnBreak ? endBreak() : setIsBreakTypesOpen(true))}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:brightness-110"
+                                            style={{ background: isOnBreak ? ACCENT : "rgba(255,255,255,0.10)", color: "#fff", border: `1px solid ${isOnBreak ? "transparent" : "rgba(255,255,255,0.16)"}` }}
+                                        >
+                                            <Pause size={11} />
+                                            {isOnBreak ? "End Break" : "Break"}
+                                        </button>
+                                        <button
+                                            onClick={() => { onClose(); triggerLogoutModal(); }}
+                                            disabled={!isSessionActive}
+                                            className="flex items-center justify-center w-7 h-7 rounded-lg transition-all disabled:opacity-30 disabled:cursor-default hover:brightness-110"
+                                            style={{ background: "rgba(255,255,255,0.10)", color: "#fff", border: "1px solid rgba(255,255,255,0.16)" }}
+                                            title="End session"
+                                        >
+                                            <Square size={10} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="relative flex items-end justify-between gap-3 flex-wrap">
+                                    <div className="flex items-start gap-1">
+                                        {timeParts.map((part, i) => (
+                                            <React.Fragment key={i}>
+                                                {i > 0 && (
+                                                    <span
+                                                        className="att-colon text-[22px] font-bold leading-none mt-2 text-white/50"
+                                                        style={{ fontFamily: MONO, animation: isWorking ? "att-blink 1s steps(1) infinite" : "none" }}
+                                                    >
+                                                        :
+                                                    </span>
+                                                )}
+                                                <div className="flex flex-col items-center">
+                                                    <div
+                                                        className="rounded-lg px-2 py-1.5 min-w-[48px] text-center text-[26px] font-bold leading-none text-white"
+                                                        style={{
+                                                            fontFamily: MONO,
+                                                            background: "rgba(255,255,255,0.08)",
+                                                            border: `1px solid ${BEZEL_LINE}`,
+                                                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                                                        }}
+                                                    >
+                                                        {part}
+                                                    </div>
+                                                    {timeLabels[i] && (
+                                                        <span className="text-[9.5px] font-medium mt-1 text-white/45 leading-none">{timeLabels[i]}</span>
+                                                    )}
+                                                </div>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-1 pb-3">
+                                        <LiveWave active={isWorking} />
+                                        <span
+                                            className="att-breathe text-[10px] font-semibold leading-none"
+                                            style={{
+                                                color: isWorking ? ACCENT : "rgba(255,255,255,0.45)",
+                                                animation: isWorking ? "att-breathe 2s ease-in-out infinite" : "none",
+                                            }}
+                                        >
+                                            {isWorking ? "Tracking activity" : getStatusLabel()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <StatTile
+                                    icon={<Laptop size={12} style={{ color: ACCENT }} />}
+                                    label="Active"
+                                    value={workTimeFormatted}
+                                    accent={ACCENT}
+                                    pct={composition.activePct}
+                                    pctLabel={`${composition.activePct}%`}
+                                    live={isWorking}
+                                />
+                                <StatTile
+                                    icon={<Coffee size={12} style={{ color: BREAKC }} />}
+                                    label="Break"
+                                    value={breakTimeFormatted}
+                                    accent={BREAKC}
+                                    pct={composition.breakPct}
+                                    pctLabel={`${composition.breakPct}%`}
+                                    live={isOnBreak}
+                                />
+                                <StatTile
+                                    icon={<PauseCircle size={12} style={{ color: IDLE }} />}
+                                    label="Idle"
+                                    value={idleTimeFormatted}
+                                    accent={IDLE}
+                                    pct={composition.idlePct}
+                                    pctLabel={`${composition.idlePct}%`}
+                                    live={isSessionActive && currentState === "IDLE"}
+                                />
+                                <StatTile
+                                    icon={<Target size={12} style={{ color: ACTIVE }} />}
+                                    label="Score"
+                                    value="100%"
+                                    accent={ACTIVE}
+                                    pct={100}
+                                />
+                            </div>
+                        </div>
+
+                        {/* ✅ NEW: TIME CREDIT & HALF-DAY SECTION */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                            {/* Time Credit Card */}
+                            <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
+                                        <IconChip color={CREDIT}><TrendingUp size={11} style={{ color: CREDIT }} /></IconChip>
+                                        Time Credit
+                                    </h3>
+                                    <span className="text-[10px] font-bold px-2 py-[2px] rounded-full" style={{
+                                        color: creditSeconds > 0 ? CREDIT : MUTED,
+                                        background: hexToRgba(creditSeconds > 0 ? CREDIT : MUTED, 0.12)
+                                    }}>
+                                        {creditSeconds > 0 ? `+${formatCredit(creditSeconds)}` : "No credit yet"}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Expected work</span>
+                                        <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>{expectedWorkHours}h 0m</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Actual worked</span>
+                                        <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>{formatCredit(workedSeconds)}</span>
+                                    </div>
+                                    <div className="h-[1px] w-full" style={{ background: MODULE_LINE }} />
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Credit earned</span>
+                                        <span className="text-[13px] font-bold" style={{ fontFamily: MONO, color: creditSeconds > 0 ? CREDIT : MUTED }}>
+                                            {creditSeconds > 0 ? `+${formatCredit(creditSeconds)}` : "0h 0m"}
+                                        </span>
+                                    </div>
+                                    {deficitSeconds > 0 && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Deficit</span>
+                                            <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: DANGER }}>
+                                                -{formatCredit(deficitSeconds)}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-2.5 pt-2" style={{ borderTop: `1px solid ${MODULE_LINE}` }}>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[10px] font-medium" style={{ color: MUTED }}>Credit progress</span>
+                                        <span className="text-[10px] font-bold" style={{ fontFamily: MONO, color: CREDIT }}>
+                                            {creditHours.toFixed(1)}h
+                                        </span>
+                                    </div>
+                                    <BudgetBar pct={Math.min(100, (creditSeconds / expectedWorkSeconds) * 100)} color={CREDIT} live={creditSeconds > 0} />
+                                </div>
+                            </div>
+
+                            {/* Half-Day Advantage Card */}
+                            <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
+                                        <IconChip color={HALFDAY}><Award size={11} style={{ color: HALFDAY }} /></IconChip>
+                                        Half-Day Advantage
+                                    </h3>
+                                    <span className="text-[10px] font-bold px-2 py-[2px] rounded-full" style={{
+                                        color: isHalfDayEligible ? HALFDAY : MUTED,
+                                        background: hexToRgba(isHalfDayEligible ? HALFDAY : MUTED, 0.12)
+                                    }}>
+                                        {isHalfDayEligible ? "Eligible" : "Not eligible"}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Threshold required</span>
+                                        <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>{halfDayThresholdHours}h 0m</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Current progress</span>
+                                        <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>{formatCredit(workedSeconds)}</span>
+                                    </div>
+                                    <div className="h-[1px] w-full" style={{ background: MODULE_LINE }} />
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Status</span>
+                                        <span className="text-[13px] font-bold" style={{ fontFamily: MONO, color: isHalfDayEligible ? HALFDAY : MUTED }}>
+                                            {isHalfDayEligible ? "Half-day available" : "Keep working"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="mt-2.5 pt-2" style={{ borderTop: `1px solid ${MODULE_LINE}` }}>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[10px] font-medium" style={{ color: MUTED }}>Half-day progress</span>
+                                        <span className="text-[10px] font-bold" style={{ fontFamily: MONO, color: HALFDAY }}>
+                                            {Math.round(halfDayProgress)}%
+                                        </span>
+                                    </div>
+                                    <BudgetBar pct={halfDayProgress} color={HALFDAY} live={isWorking} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-2.5 items-stretch">
+                            <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
+                                        <IconChip color={ACCENT}><ListChecks size={11} style={{ color: ACCENT }} /></IconChip>
+                                        Today&apos;s Activity
+                                    </h3>
+                                    <span className="text-[10.5px] font-medium" style={{ color: MUTED, fontFamily: MONO }}>
+                                        {formatDuration(composition.total)} tracked
+                                    </span>
+                                </div>
+
+                                <div className="h-2 w-full rounded-full overflow-hidden flex gap-[2px]" style={{ background: hexToRgba(BEZEL, 0.08) }}>
+                                    {composition.activePct > 0 && (
+                                        <div
+                                            className={`relative overflow-hidden ${isWorking ? "att-shimmer" : ""}`}
+                                            style={{ width: `${composition.activePct}%`, background: ACCENT, transition: "width 0.6s ease" }}
+                                        />
+                                    )}
+                                    {composition.breakPct > 0 && <div style={{ width: `${composition.breakPct}%`, background: BREAKC, transition: "width 0.6s ease" }} />}
+                                    {composition.idlePct > 0 && <div style={{ width: `${composition.idlePct}%`, background: IDLE, transition: "width 0.6s ease" }} />}
+                                </div>
+
+                                {recentActivities.length > 0 && (
+                                    <div className="relative mt-2.5 pt-2" style={{ borderTop: `1px solid ${MODULE_LINE}` }}>
+                                        <div className="absolute left-[5px] top-[18px] bottom-[10px] w-px" style={{ background: MODULE_LINE }} />
+                                        <div>
+                                            {recentActivities.slice(0, 4).map((activity, index) => {
+                                                const dotColor = activity.type.includes("start") || activity.type.includes("PASSED")
+                                                    ? ACTIVE
+                                                    : activity.type.includes("end") || activity.type.includes("TIMEOUT")
+                                                        ? DANGER
+                                                        : activity.type.includes("BREAK")
+                                                            ? ACCENT
+                                                            : BREAKC;
+                                                return (
+                                                    <div key={index} className="relative flex items-center gap-2.5 py-1">
+                                                        <span className="relative flex w-[11px] h-[11px] shrink-0">
+                                                            {index === 0 && isSessionActive && (
+                                                                <span className="absolute inline-flex h-full w-full rounded-full animate-ping opacity-60" style={{ background: dotColor }} />
+                                                            )}
+                                                            <span className="relative inline-flex w-[11px] h-[11px] rounded-full" style={{ background: dotColor, border: `2px solid ${MODULE}`, boxShadow: `0 0 0 1px ${hexToRgba(dotColor, 0.35)}` }} />
+                                                        </span>
+                                                        <p className="text-[11.5px] font-medium truncate flex-1" style={{ color: TEXT }}>{activity.label}</p>
+                                                        <p className="text-[10px] font-medium shrink-0 px-1.5 py-[1px] rounded-md" style={{ color: MUTED, fontFamily: MONO, background: hexToRgba(BEZEL, 0.05) }}>{activity.time}</p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-xl px-3.5 py-3 flex flex-col justify-center gap-2.5" style={CARD_STYLE}>
+                                <div className="flex items-center gap-3.5">
+                                    <div className="relative shrink-0" style={{ width: 84, height: 84 }}>
+                                        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                                            <circle cx="50" cy="50" r={R} fill="none" stroke={hexToRgba(BEZEL, 0.08)} strokeWidth="8" />
+                                            {ring.map((seg, i) => (
+                                                <circle
+                                                    key={i}
+                                                    cx="50" cy="50" r={R}
+                                                    fill="none"
+                                                    stroke={seg.color}
+                                                    strokeWidth="8"
+                                                    strokeLinecap="round"
+                                                    strokeDasharray={`${seg.len} ${CIRC - seg.len}`}
+                                                    strokeDashoffset={seg.offset}
+                                                    style={{ transition: "stroke-dasharray 0.6s ease" }}
+                                                />
+                                            ))}
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-[15px] font-bold leading-none" style={{ fontFamily: MONO, color: TEXT }}>100%</span>
+                                            <span className="text-[9px] font-medium mt-0.5" style={{ color: MUTED }}>score</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 space-y-2 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Efficiency</span>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: ACTIVE, background: hexToRgba(ACTIVE, 0.12) }}>Stable</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Avg break</span>
+                                            <span className="text-[11.5px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>
+                                                {breakHistory.length > 0 ? breakHistory[0].duration : "—"}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Session</span>
+                                            <span className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: statusColor, background: hexToRgba(statusColor, 0.12) }}>
+                                                <LiveDot color={statusColor} live={isSessionActive} />
+                                                {getStatusLabel()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    <MiniStat label={`Focused ${composition.activePct}%`} value={formatDuration(composition.active)} color={ACCENT} />
+                                    <MiniStat label={`Break ${composition.breakPct}%`} value={formatDuration(composition.brk)} color={BREAKC} />
+                                    <MiniStat label={`Idle ${composition.idlePct}%`} value={formatDuration(composition.idle)} color={IDLE} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-2.5 items-stretch">
+                            <div className="rounded-xl px-3.5 py-3 flex flex-col" style={CARD_STYLE}>
+                                <div className="flex items-center justify-between mb-2.5">
+                                    <h3 className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: TEXT }}>
+                                        <IconChip color={ACCENT}><ShieldCheck size={11} style={{ color: ACCENT }} /></IconChip>
+                                        Shift Compliance
+                                    </h3>
+                                    <span className="text-[9px] font-bold px-2 py-[3px] rounded-full" style={{ color: isBreakOverLimit ? DANGER : ACTIVE, background: hexToRgba(isBreakOverLimit ? DANGER : ACTIVE, 0.12) }}>
+                                        {isBreakOverLimit ? "OVER BUDGET" : "ON SCHEDULE"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-3 flex-1 justify-center">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Worked vs. expected ({expectedHours}h shift)</span>
+                                            <span className="text-[12px] font-bold" style={{ fontFamily: MONO, color: TEXT }}>{Math.min(100, Math.round(workPct))}%</span>
+                                        </div>
+                                        <BudgetBar pct={workPct} color={ACTIVE} live={isWorking} />
+                                        <p className="text-[10.5px] mt-1 font-medium" style={{ color: MUTED }}>
+                                            {overtimeSeconds > 0 ? (
+                                                <span style={{ color: WARN, fontWeight: 600 }}>+{formatDuration(overtimeSeconds)} overtime</span>
+                                            ) : (
+                                                <>{formatDuration(remainingSeconds)} remaining</>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[10.5px] font-medium" style={{ color: MUTED }}>Break usage (limit {breakLimitMinutes}m)</span>
+                                            <span className="text-[12px] font-bold" style={{ fontFamily: MONO, color: isBreakOverLimit ? DANGER : TEXT }}>{Math.round(breakPct)}%</span>
+                                        </div>
+                                        <BudgetBar pct={breakPct} color={ACCENT} over={isBreakOverLimit} live={isOnBreak} />
+                                        <p className="text-[10.5px] mt-1 font-medium flex items-center gap-1" style={{ color: isBreakOverLimit ? DANGER : MUTED }}>
+                                            {isBreakOverLimit ? (
+                                                <><AlertTriangle size={10} /> Exceeded by {formatDuration(breakSeconds - breakLimitSeconds)}</>
+                                            ) : (
+                                                <>{formatDuration(Math.max(0, breakLimitSeconds - breakSeconds))} remaining</>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl overflow-hidden flex flex-col" style={CARD_STYLE}>
+                                <div className="px-3.5 py-2.5" style={{ background: `linear-gradient(135deg, ${BEZEL} 0%, ${BEZEL_SOFT} 100%)` }}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: hexToRgba(ACCENT, 0.18) }}>
+                                            <Coffee size={11} style={{ color: ACCENT }} />
+                                        </span>
+                                        <h3 className="text-[12px] font-semibold text-white whitespace-nowrap">Smart Breaks</h3>
+                                        <span className="ml-auto text-[10px] font-medium text-white/70 px-2 py-[2px] rounded-full whitespace-nowrap" style={{ background: "rgba(255,255,255,0.09)" }}>
+                                            {displayedBreaks.length} {isBreakToday ? "today" : "in range"}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                        <input
+                                            type="date"
+                                            value={breakFromDate}
+                                            onChange={(event) => setBreakRange(event.target.value, breakToDate)}
+                                            className="flex-1 min-w-[110px] rounded-md border border-white/10 bg-white/10 px-1.5 py-[3px] text-[10.5px] text-white outline-none focus:border-white/30"
+                                            style={{ colorScheme: "dark" }}
+                                        />
+                                        <span className="text-[10px] text-white/60">to</span>
+                                        <input
+                                            type="date"
+                                            value={breakToDate}
+                                            onChange={(event) => setBreakRange(breakFromDate, event.target.value)}
+                                            className="flex-1 min-w-[110px] rounded-md border border-white/10 bg-white/10 px-1.5 py-[3px] text-[10.5px] text-white outline-none focus:border-white/30"
+                                            style={{ colorScheme: "dark" }}
+                                        />
+                                        {!isBreakToday && (
+                                            <button type="button" onClick={() => setBreakRange(today, today)} className="rounded-md border border-white/15 bg-white/10 hover:bg-white/20 transition-colors px-2 py-[3px] text-[10.5px] font-semibold text-white">
+                                                Today
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", maxHeight: "190px" }}>
+                                    {displayedBreaks.length > 0 ? (
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="sticky top-0 z-10">
+                                                <tr>
+                                                    <th className="px-3.5 py-1.5 text-[9.5px] font-bold uppercase tracking-wide" style={{ color: MUTED, background: "#f6f9fc", borderBottom: `1px solid ${MODULE_LINE}` }}>Type & Details</th>
+                                                    <th className="px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-wide" style={{ color: MUTED, background: "#f6f9fc", borderBottom: `1px solid ${MODULE_LINE}` }}>Time</th>
+                                                    <th className="px-2.5 py-1.5 text-[9.5px] font-bold uppercase tracking-wide text-right" style={{ color: MUTED, background: "#f6f9fc", borderBottom: `1px solid ${MODULE_LINE}` }}>Dur</th>
+                                                    <th className="px-3.5 py-1.5 text-[9.5px] font-bold uppercase tracking-wide text-right" style={{ color: MUTED, background: "#f6f9fc", borderBottom: `1px solid ${MODULE_LINE}` }}>Eff</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {displayedBreaks.map((b, i) => {
+                                                    const effColor = b.efficiencyLabel === "Stable" ? ACTIVE : b.efficiencyLabel === "Watch" ? WARN : DANGER;
+                                                    return (
+                                                        <tr key={i} className="transition-colors hover:bg-[#f6f9fc]" style={{ borderBottom: i < displayedBreaks.length - 1 ? `1px solid ${MODULE_LINE}` : "none" }}>
+                                                            <td className="px-3.5 py-2 align-top">
+                                                                <div className="flex items-start gap-2">
+                                                                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[5px]" style={{ background: effColor }} />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[11.5px] font-semibold capitalize leading-tight" style={{ color: TEXT }}>{b.type}</p>
+                                                                        {b.details && b.details !== "—" ? (
+                                                                            formatBreakDetails(b.details)
+                                                                        ) : (
+                                                                            <p className="text-[10px] mt-0.5" style={{ color: MUTED }}>No additional details</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-2.5 py-2 align-top">
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-[10.5px] font-medium whitespace-nowrap" style={{ color: TEXT, fontFamily: MONO }}>
+                                                                        {b.startTime}&ndash;{b.endTime}
+                                                                    </span>
+                                                                    <span className="text-[9.5px] font-medium leading-none" style={{ color: MUTED }}>
+                                                                        {b.dateLabel}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-2.5 py-2 align-top text-right">
+                                                                <span className="text-[11.5px] font-bold" style={{ color: TEXT, fontFamily: MONO }}>{b.duration}</span>
+                                                            </td>
+                                                            <td className="px-3.5 py-2 align-top text-right">
+                                                                <span className="text-[9.5px] font-bold px-1.5 py-[2px] rounded-full whitespace-nowrap" style={{ color: effColor, background: hexToRgba(effColor, 0.12) }}>{b.efficiencyLabel} {b.efficiency}</span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    ) : (
+                                        <div className="px-4 py-5 text-center">
+                                            <span className="mx-auto mb-1.5 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: hexToRgba(BREAKC, 0.12) }}>
+                                                <Coffee size={14} style={{ color: BREAKC }} />
+                                            </span>
+                                            <p className="text-[11px] font-medium" style={{ color: MUTED }}>{isBreakToday ? "No breaks taken today" : "No breaks found in this range"}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
-                {/* ── Body ── */}
-                <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3" style={{ scrollbarWidth: "thin" }}>
-
-                    {/* Stats Grid */}
-                    <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                        <SectionHeading icon={BarChart2} title="Session Overview" />
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                            <StatCard icon={Clock} label="Total Session" value={sessionTime} accent="#3b82f6"
-                                sub={loginTime ? `Login: ${new Date(loginTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : undefined} />
-                            <StatCard icon={TrendingUp} label="Active Work time" value={workTime} accent="#22c55e" pulse={isSessionActive} />
-                            <StatCard icon={Coffee} label="Break Time" value={formatDuration(totalBreakDuration)} accent={O}
-                                sub={`${breakHistory.length} break${breakHistory.length !== 1 ? "s" : ""}`} />
-                            <StatCard icon={Activity} label="Activities" value={String(activityHistory.length)} accent="#8b5cf6" sub="Today" />
-                            <StatCard icon={Zap} label="Productivity score" value="100%" accent="#06b6d4" sub="Excellent" />
-                            <StatCard icon={User} label="Session status" value={isSessionActive ? "Running" : "Stopped"} accent={isSessionActive ? "#22c55e" : "#ef4444"}
-                                pulse={isSessionActive} />
-                        </div>
-                    </div>
-
-                    {/* Two column: Activities + Breakdown + Insights */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-                        {/* Recent Activities */}
-                        <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                            <SectionHeading icon={ListChecks} title="Recent Activities" />
-                            <div className="space-y-2 max-h-32 overflow-y-auto">
-                                {activityHistory.length > 0 ? (
-                                    activityHistory.map((activity, index) => (
-                                        <div key={index} className="flex items-start gap-2">
-                                            <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${activity.type === "start_session" ? "bg-green-500" : activity.type === "end_session" ? "bg-red-500" : "bg-blue-500"}`} />
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-medium truncate" style={{ color: N }}>{activity.label}</p>
-                                                <p className="text-[9px]" style={{ color: MU }}>{activity.time}</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-4">
-                                        <Activity size={20} className="mx-auto mb-1 opacity-20" />
-                                        <p className="text-[9px]" style={{ color: MU }}>No recent activities</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Activity Breakdown */}
-                        <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                            <SectionHeading icon={BarChart2} title="Activity Breakdown" />
-                            <div className="flex items-center justify-center h-24">
-                                {breakHistory.length > 0 ? (
-                                    <p className="text-[10px]" style={{ color: MU }}>{breakHistory.length} breaks taken today</p>
-                                ) : (
-                                    <div className="text-center">
-                                        <Coffee size={20} className="mx-auto mb-1 opacity-20" />
-                                        <p className="text-[9px]" style={{ color: MU }}>No activity breakdown today</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Insights */}
-                        <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                            <SectionHeading icon={Zap} title="Activity Insights" />
-                            <div className="space-y-1.5">
-                                {[
-                                    { emoji: "📈", label: "Productivity", value: "High" },
-                                    { emoji: "⏳", label: "Avg Break Duration", value: breakHistory.length > 0 ? breakHistory[0].duration : "0s" },
-                                    { emoji: "⚡", label: "Efficiency Trend", value: "Stable" },
-                                    { emoji: "🎯", label: "Session", value: isSessionActive ? "Active" : "Inactive", color: isSessionActive ? "#22c55e" : "#ef4444" },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between">
-                                        <span className="text-[9px]" style={{ color: MU }}>{item.emoji} {item.label}</span>
-                                        <span className="text-[9px] font-semibold" style={{ color: item.color || N }}>{item.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Break History Table */}
-                    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${BD}` }}>
-                        <div className="px-3 py-2" style={{ background: N }}>
-                            <h3 className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                                <Coffee size={11} style={{ color: O }} />
-                                Smart Break History
-                            </h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr style={{ background: BG, borderBottom: `1px solid ${BD}` }}>
-                                        {["#", "Type", "Start", "End", "Duration", "Details", "Efficiency"].map((h) => (
-                                            <th key={h} className="px-3 py-2 text-left text-[9px] font-bold uppercase tracking-wider" style={{ color: MU }}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y" style={{ borderColor: BD }}>
-                                    {breakHistory.length > 0 ? (
-                                        breakHistory.map((b, i) => (
-                                            <tr key={i} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-3 py-2 text-[10px] font-medium" style={{ color: N }}>{b.number}</td>
-                                                <td className="px-3 py-2 text-[10px]" style={{ color: MU }}>{b.type}</td>
-                                                <td className="px-3 py-2 text-[10px]" style={{ color: MU }}>{b.startTime}</td>
-                                                <td className="px-3 py-2 text-[10px]" style={{ color: MU }}>{b.endTime}</td>
-                                                <td className="px-3 py-2 text-[10px] font-medium" style={{ color: N }}>{b.duration}</td>
-                                                <td className="px-3 py-2 text-[10px]" style={{ color: MU }}>{b.details}</td>
-                                                <td className="px-3 py-2 text-[10px] font-bold text-green-600">{b.efficiency}</td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={7} className="px-3 py-8 text-center">
-                                                <Coffee size={24} className="mx-auto mb-2 opacity-20" />
-                                                <p className="text-[10px]" style={{ color: MU }}>No breaks taken today</p>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Footer ── */}
-                <div className="px-4 sm:px-5 py-2.5 border-t flex items-center justify-between gap-2 shrink-0" style={{ borderColor: BD, background: BG }}>
-                    <div className="flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${isSessionActive ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
-                        <span className="text-[9px]" style={{ color: MU }}>
-                            {isSessionActive ? "Session is active" : "Session not started"}
+                <div className="px-4 py-1.5 flex items-center justify-between gap-2 shrink-0" style={{ background: BEZEL_DEEP, borderTop: `1px solid ${BEZEL_LINE}` }}>
+                    <div className="flex items-center gap-2">
+                        <LiveDot color={isSessionActive ? ACTIVE : "rgba(255,255,255,0.3)"} live={isSessionActive} />
+                        <span className="text-[10.5px] font-medium text-white/60">
+                            {isSessionActive ? `Session active (${currentState})` : "Session not started"}
                         </span>
                     </div>
                     <button
                         onClick={onClose}
-                        className="px-3 py-1.5 text-[10px] font-medium rounded-lg transition-all hover:opacity-80"
-                        style={{ border: `1px solid ${BD}`, color: N }}
+                        className="px-3.5 py-1 text-[11px] font-semibold rounded-lg transition-all hover:bg-white/10 text-white"
+                        style={{ border: `1px solid ${BEZEL_LINE}` }}
                     >
                         Close
                     </button>
                 </div>
             </div>
-
             {isBreakTypesOpen && (
                 <BreakTypesModal
                     isOpen={isBreakTypesOpen}
                     onClose={() => setIsBreakTypesOpen(false)}
-                    onSelectBreak={handleStartBreak}
+                    onSelectBreak={handleSelectBreakFromModal}
+                    employeeId={employeeId}
                 />
             )}
         </div>

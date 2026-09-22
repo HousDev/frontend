@@ -1,374 +1,6 @@
-// import React, { useState, ReactNode, ChangeEvent } from "react";
-// import {
-//     Coffee,
-//     Utensils,
-//     Users,
-//     MapPinned,
-//     Building,
-//     FileText,
-//     User,
-//     TrendingUp,
-//     Play,
-//     X,
-// } from "lucide-react";
-
-// /* ------------------ Modal ------------------ */
-// interface ModalProps {
-//     isOpen: boolean;
-//     onClose: () => void;
-//     children: ReactNode;
-// }
-// const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
-//     if (!isOpen) return null;
-
-//     return (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-//             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
-//                 {children}
-//             </div>
-//         </div>
-//     );
-// };
-
-// /* ------------------ InputField ------------------ */
-// interface InputFieldProps {
-//     label: string;
-//     type?: string;
-//     value: string | number;
-//     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-//     placeholder?: string;
-// }
-// const InputField: React.FC<InputFieldProps> = ({
-//     label,
-//     type = "text",
-//     value,
-//     onChange,
-//     placeholder,
-// }) => (
-//     <div>
-//         <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-//         <input
-//             type={type}
-//             value={value}
-//             onChange={onChange}
-//             placeholder={placeholder}
-//             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-//         />
-//     </div>
-// );
-
-// /* ------------------ SelectField ------------------ */
-// interface SelectFieldProps {
-//     label: string;
-//     value: string;
-//     onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
-//     options: string[];
-//     placeholder?: string;
-// }
-// const SelectField: React.FC<SelectFieldProps> = ({
-//     label,
-//     value,
-//     onChange,
-//     options,
-//     placeholder,
-// }) => (
-//     <div>
-//         <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-//         <select
-//             value={value}
-//             onChange={onChange}
-//             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-//         >
-//             <option value="">{placeholder}</option>
-//             {options.map((opt) => (
-//                 <option key={opt} value={opt}>
-//                     {opt}
-//                 </option>
-//             ))}
-//         </select>
-//     </div>
-// );
-
-// /* ------------------ BreakTypesModal ------------------ */
-// interface BreakCustomDetails {
-//     clientName: string;
-//     property: string;
-//     meetingNotes: string;
-//     customDuration: string;
-//     priority: string;
-//     meetingWith: string;
-//     meetingPurpose: string;
-// }
-
-// interface BreakTypesModalProps {
-//     isOpen?: boolean;
-//     onClose?: () => void;
-//     onSelectBreak?: (breakType: string, details: BreakCustomDetails & { duration: string | number }) => void;
-// }
-
-// interface BreakCategory {
-//     id: string;
-//     label: string;
-//     icon: React.ElementType;
-//     duration: number;
-//     productivity: number;
-// }
-
-// const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
-//     isOpen = true,
-//     onClose = () => { },
-//     onSelectBreak = () => { },
-// }) => {
-//     const [selectedBreakType, setSelectedBreakType] = useState<string>("");
-//     const [breakCustomDetails, setBreakCustomDetails] = useState<BreakCustomDetails>({
-//         clientName: "",
-//         property: "",
-//         meetingNotes: "",
-//         customDuration: "",
-//         priority: "medium",
-//         meetingWith: "",
-//         meetingPurpose: "",
-//     });
-
-//     const clients = ["John Doe", "Jane Smith", "Michael Johnson"];
-//     const properties = ["Sunrise Apartments", "Green Villa", "Ocean View Flats"];
-
-//     const breakCategories: BreakCategory[] = [
-//         { id: "lunch", label: "Lunch Break", icon: Utensils, duration: 60, productivity: 0 },
-//         { id: "personal", label: "Personal Break", icon: User, duration: 20, productivity: 0 },
-//         { id: "tea", label: "Tea Break", icon: Coffee, duration: 15, productivity: 0.1 },
-//         { id: "documentation", label: "Documentation", icon: FileText, duration: 20, productivity: 0.7 },
-//         { id: "market_research", label: "Market Research", icon: TrendingUp, duration: 30, productivity: 0.7 },
-//         { id: "meeting", label: "New Client Meeting", icon: Users, duration: 45, productivity: 0.8 },
-//         { id: "site_visit", label: "Buyer Site Visit", icon: MapPinned, duration: 120, productivity: 1.0 },
-//         { id: "property_visit", label: "Seller Property Visit", icon: Building, duration: 90, productivity: 0.9 },
-//     ];
-
-//     const resetDetails = () =>
-//         setBreakCustomDetails({
-//             clientName: "",
-//             property: "",
-//             meetingNotes: "",
-//             customDuration: "",
-//             priority: "medium",
-//             meetingWith: "",
-//             meetingPurpose: "",
-//         });
-
-//     const handleBreakTypeSelect = (breakType: string) => {
-//         setSelectedBreakType(breakType);
-//         resetDetails();
-//     };
-
-//     const handleBreakStart = () => {
-//         if (!selectedBreakType) return;
-
-//         const category = breakCategories.find(cat => cat.id === selectedBreakType);
-//         const breakDetails = {
-//             ...breakCustomDetails,
-//             duration: breakCustomDetails.customDuration || category?.duration || 0
-//         };
-
-//         onSelectBreak(selectedBreakType, breakDetails);
-//         resetDetails();
-//         setSelectedBreakType("");
-//         onClose();
-//     };
-
-//     const renderBreakDetails = () => {
-//         const category = breakCategories.find((cat) => cat.id === selectedBreakType);
-//         if (!category) return null;
-
-//         const needsClientInfo = ["site_visit", "property_visit", "documentation"].includes(selectedBreakType);
-//         const needsLocation = ["site_visit", "property_visit"].includes(selectedBreakType);
-//         const needsNotes = ["personal", "documentation", "market_research"].includes(selectedBreakType);
-
-//         return (
-//             <div className="space-y-4">
-//                 {needsClientInfo && (
-//                     <SelectField
-//                         label="Client Name*"
-//                         value={breakCustomDetails.clientName}
-//                         onChange={(e) =>
-//                             setBreakCustomDetails((prev) => ({ ...prev, clientName: e.target.value }))
-//                         }
-//                         options={clients}
-//                         placeholder="Select client"
-//                     />
-//                 )}
-
-//                 {needsLocation && (
-//                     <SelectField
-//                         label="Property*"
-//                         value={breakCustomDetails.property}
-//                         onChange={(e) =>
-//                             setBreakCustomDetails((prev) => ({ ...prev, property: e.target.value }))
-//                         }
-//                         options={properties}
-//                         placeholder="Select property"
-//                     />
-//                 )}
-
-//                 {needsNotes && (
-//                     <div>
-//                         <label className="block text-sm font-medium text-gray-700 mb-2">
-//                             Notes (Optional)
-//                         </label>
-//                         <textarea
-//                             value={breakCustomDetails.meetingNotes}
-//                             onChange={(e) =>
-//                                 setBreakCustomDetails((prev) => ({ ...prev, meetingNotes: e.target.value }))
-//                             }
-//                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-//                             rows={3}
-//                             placeholder="Add notes or details"
-//                         />
-//                     </div>
-//                 )}
-
-//                 {selectedBreakType === "meeting" && (
-//                     <>
-//                         <InputField
-//                             label="Meeting With*"
-//                             value={breakCustomDetails.meetingWith}
-//                             onChange={(e) =>
-//                                 setBreakCustomDetails((prev) => ({ ...prev, meetingWith: e.target.value }))
-//                             }
-//                             placeholder="e.g., Team Meeting, Client Discussion"
-//                         />
-
-//                         <InputField
-//                             label="Meeting Purpose"
-//                             value={breakCustomDetails.meetingPurpose}
-//                             onChange={(e) =>
-//                                 setBreakCustomDetails((prev) => ({ ...prev, meetingPurpose: e.target.value }))
-//                             }
-//                             placeholder="e.g., Strategy Discussion, Deal Review"
-//                         />
-//                     </>
-//                 )}
-
-//                 <div className="grid grid-cols-2 gap-4">
-//                     <InputField
-//                         label="Duration (minutes)"
-//                         type="number"
-//                         value={breakCustomDetails.customDuration}
-//                         onChange={(e) =>
-//                             setBreakCustomDetails((prev) => ({ ...prev, customDuration: e.target.value }))
-//                         }
-//                         placeholder={category.duration.toString()}
-//                     />
-
-//                     <SelectField
-//                         label="Priority"
-//                         value={breakCustomDetails.priority}
-//                         onChange={(e) =>
-//                             setBreakCustomDetails((prev) => ({ ...prev, priority: e.target.value }))
-//                         }
-//                         options={["low", "medium", "high", "urgent"]}
-//                         placeholder="Select priority"
-//                     />
-//                 </div>
-//             </div>
-//         );
-//     };
-
-//     return (
-//         <Modal isOpen={isOpen} onClose={onClose}>
-//             <div className="p-6 space-y-6">
-//                 {/* Header */}
-//                 <div className="flex items-center justify-between">
-//                     <h2 className="text-xl font-semibold text-gray-900">Start Smart Break</h2>
-//                     <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
-//                         <X className="w-5 h-5 text-gray-500" />
-//                     </button>
-//                 </div>
-
-//                 {/* Break Type Selection */}
-//                 <div>
-//                     <h3 className="text-base font-medium text-gray-700 mb-4">Select Break Type</h3>
-//                     <div className="grid grid-cols-2 gap-4">
-//                         {breakCategories.map((category) => {
-//                             const IconComponent = category.icon;
-//                             const isSelected = selectedBreakType === category.id;
-//                             return (
-//                                 <button
-//                                     key={category.id}
-//                                     type="button"
-//                                     onClick={() => handleBreakTypeSelect(category.id)}
-//                                     className={`p-4 rounded-xl border-2 transition-all text-left ${isSelected
-//                                         ? "border-orange-400 bg-orange-50"
-//                                         : "border-gray-200 hover:border-gray-300 bg-white"
-//                                         }`}
-//                                 >
-//                                     <div className="flex items-center justify-between">
-//                                         <div className="flex items-center gap-3">
-//                                             <IconComponent className="w-5 h-5 text-gray-700" />
-//                                             <h4 className="font-medium text-gray-900">{category.label}</h4>
-//                                         </div>
-//                                         <div className="flex flex-col items-end text-sm">
-//                                             <span className="text-gray-500">~{category.duration}m</span>
-//                                             {category.productivity > 0 ? (
-//                                                 <span className="text-green-600 font-medium">
-//                                                     +{Math.round(category.productivity * 100)}% productive
-//                                                 </span>
-//                                             ) : (
-//                                                 <span className="text-gray-400">No productivity</span>
-//                                             )}
-//                                         </div>
-//                                     </div>
-//                                 </button>
-//                             );
-//                         })}
-//                     </div>
-//                 </div>
-
-//                 {/* Break Details */}
-//                 {selectedBreakType && (
-//                     <div>
-//                         <h3 className="text-base font-medium text-gray-700 mb-3">
-//                             Activity Details - {breakCategories.find((cat) => cat.id === selectedBreakType)?.label}
-//                         </h3>
-//                         <div className="bg-gray-50 rounded-lg p-4">{renderBreakDetails()}</div>
-//                     </div>
-//                 )}
-
-//                 {/* Actions */}
-//                 <div className="flex justify-end gap-3">
-//                     <button
-//                         type="button"
-//                         onClick={onClose}
-//                         className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
-//                     >
-//                         Cancel
-//                     </button>
-//                     <button
-//                         type="button"
-//                         onClick={handleBreakStart}
-//                         disabled={!selectedBreakType}
-//                         className={`px-6 py-2 rounded-lg font-medium transition ${selectedBreakType
-//                             ? "bg-orange-500 hover:bg-orange-600 text-white"
-//                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
-//                             }`}
-//                     >
-//                         {!selectedBreakType ? (
-//                             "Select Activity Type"
-//                         ) : (
-//                             <div className="flex items-center gap-2">
-//                                 <Play className="w-4 h-4" /> Start Activity
-//                             </div>
-//                         )}
-//                     </button>
-//                 </div>
-//             </div>
-//         </Modal>
-//     );
-// };
-
-// export default BreakTypesModal;
-
-
-import React, { useState, ReactNode, ChangeEvent } from "react";
+import React, { useState, useEffect, useCallback, ReactNode, ChangeEvent } from "react";
+import { useActivityTracker } from "../context/ActivityTrackerContext";
+import { workSessionAPI } from "@/lib/api";
 import {
     Coffee,
     Utensils,
@@ -385,14 +17,55 @@ import {
     Calendar,
     Tag,
     Star,
+    RefreshCw,
+    Sparkles,
+    CheckCircle2,
+    AlertCircle,
+    Info,
 } from "lucide-react";
 
-// ESALE Theme
+// ESALE Theme Colors
 const N = "#0f2b3d";
 const O = "#e67e22";
 const BG = "#f8fafc";
 const BD = "#e2e8f0";
 const MU = "#5a7184";
+
+// Icon resolver helper for dynamic master data
+const getBreakIcon = (iconName?: string) => {
+    switch ((iconName || "").toLowerCase()) {
+        case "coffee":
+        case "tea":
+            return Coffee;
+        case "utensils":
+        case "lunch":
+        case "food":
+            return Utensils;
+        case "user":
+        case "personal":
+            return User;
+        case "filetext":
+        case "file":
+        case "documentation":
+            return FileText;
+        case "trendingup":
+        case "trending":
+        case "market_research":
+            return TrendingUp;
+        case "users":
+        case "meeting":
+            return Users;
+        case "mappinned":
+        case "location":
+        case "site_visit":
+            return MapPinned;
+        case "building":
+        case "property_visit":
+            return Building;
+        default:
+            return Coffee;
+    }
+};
 
 // Section heading component matching ActivityTrackerModal style
 const SectionHeading = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
@@ -408,6 +81,9 @@ const BreakTypeCard = ({
     label,
     duration,
     productivity,
+    dailyLimit,
+    usedToday,
+    remainingToday,
     isSelected,
     onClick,
 }: {
@@ -415,31 +91,49 @@ const BreakTypeCard = ({
     label: string;
     duration: number;
     productivity: number;
+    dailyLimit?: number;
+    usedToday?: number;
+    remainingToday?: number | null;
     isSelected: boolean;
     onClick: () => void;
 }) => (
     <button
         type="button"
         onClick={onClick}
-        className={`p-2 rounded-lg border transition-all text-left ${isSelected
-            ? "border-orange-400 bg-orange-50"
-            : "border-gray-200 hover:border-gray-300 bg-white"
-            }`}
+        className={`p-2 rounded-lg border transition-all text-left relative overflow-hidden ${
+            isSelected
+                ? "border-orange-400 bg-orange-50 shadow-xs"
+                : "border-gray-200 hover:border-gray-300 bg-white"
+        }`}
     >
         <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-                <Icon size={14} style={{ color: isSelected ? O : MU }} className="shrink-0" />
-                <span className="text-[11px] font-medium truncate" style={{ color: N }}>{label}</span>
+                <div
+                    className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                    style={{ background: isSelected ? `${O}20` : "#f1f5f9" }}
+                >
+                    <Icon size={13} style={{ color: isSelected ? O : MU }} />
+                </div>
+                <div className="min-w-0">
+                    <span className="text-[11px] font-bold truncate block" style={{ color: N }}>
+                        {label}
+                    </span>
+                    {dailyLimit !== undefined && dailyLimit > 0 && (
+                        <span className="text-[8.5px] font-semibold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
+                            {usedToday || 0}/{dailyLimit} used ({remainingToday ?? (dailyLimit - (usedToday || 0))} left)
+                        </span>
+                    )}
+                </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
                 <div className="flex items-center gap-0.5">
                     <Clock size={8} style={{ color: MU }} />
-                    <span className="text-[9px]" style={{ color: MU }}>{duration}m</span>
+                    <span className="text-[9px] font-semibold" style={{ color: MU }}>{duration}m</span>
                 </div>
                 {productivity > 0 && (
                     <div className="flex items-center gap-0.5">
                         <Star size={8} style={{ color: "#22c55e" }} />
-                        <span className="text-[9px] text-green-600">+{Math.round(productivity * 100)}%</span>
+                        <span className="text-[9px] font-bold text-green-600">+{Math.round(productivity * 100)}%</span>
                     </div>
                 )}
                 <ChevronRight size={12} style={{ color: isSelected ? O : MU }} />
@@ -473,7 +167,7 @@ const CompactInputField = ({
             value={value}
             onChange={onChange}
             placeholder={placeholder}
-            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500 font-medium"
             style={{ borderColor: BD, background: BG }}
         />
     </div>
@@ -502,7 +196,7 @@ const CompactSelectField = ({
         <select
             value={value}
             onChange={onChange}
-            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500 font-medium"
             style={{ borderColor: BD, background: BG }}
         >
             <option value="">{placeholder}</option>
@@ -536,13 +230,13 @@ const CompactTextarea = ({
             onChange={onChange}
             placeholder={placeholder}
             rows={rows}
-            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+            className="w-full border rounded-lg px-2 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none font-medium"
             style={{ borderColor: BD, background: BG }}
         />
     </div>
 );
 
-/* ------------------ Modal ------------------ */
+/* ------------------ Modal Wrapper ------------------ */
 interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -557,7 +251,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
             style={{ background: "rgba(15,43,61,0.6)", backdropFilter: "blur(4px)" }}
         >
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
                 style={{ border: `1px solid ${BD}` }}
             >
                 {children}
@@ -566,8 +260,27 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
     );
 };
 
-/* ------------------ BreakTypesModal ------------------ */
-interface BreakCustomDetails {
+/* ------------------ Dynamic Break Type Interface ------------------ */
+export interface DynamicBreakType {
+    id: number | string;
+    break_key: string;
+    label: string;
+    name?: string;
+    icon?: string;
+    duration: number;
+    productivity: number;
+    daily_limit: number;
+    used_today: number;
+    remaining_today: number | null;
+    is_limit_reached: boolean;
+    requires_client?: boolean;
+    requires_location?: boolean;
+    requires_notes?: boolean;
+    is_active?: boolean;
+    display_order?: number;
+}
+
+export interface BreakCustomDetails {
     clientName: string;
     property: string;
     meetingNotes: string;
@@ -581,22 +294,29 @@ interface BreakTypesModalProps {
     isOpen?: boolean;
     onClose?: () => void;
     onSelectBreak?: (breakType: string, details: BreakCustomDetails & { duration: string | number }) => void;
-}
-
-interface BreakCategory {
-    id: string;
-    label: string;
-    icon: React.ElementType;
-    duration: number;
-    productivity: number;
+    employeeId?: number | string;
 }
 
 const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
     isOpen = true,
-    onClose = () => { },
-    onSelectBreak = () => { },
+    onClose = () => {},
+    onSelectBreak = () => {},
+    employeeId,
 }) => {
+    let breakHistoryList: any[] = [];
+    try {
+        const tracker = useActivityTracker();
+        if (tracker && tracker.breakHistory) {
+            breakHistoryList = tracker.breakHistory;
+        }
+    } catch {
+        breakHistoryList = [];
+    }
+
+    const [breakTypes, setBreakTypes] = useState<DynamicBreakType[]>([]);
+    const [loadingTypes, setLoadingTypes] = useState<boolean>(true);
     const [selectedBreakType, setSelectedBreakType] = useState<string>("");
+    const [showExhausted, setShowExhausted] = useState<boolean>(false);
     const [breakCustomDetails, setBreakCustomDetails] = useState<BreakCustomDetails>({
         clientName: "",
         property: "",
@@ -607,19 +327,30 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
         meetingPurpose: "",
     });
 
-    const clients = ["John Doe", "Jane Smith", "Michael Johnson"];
-    const properties = ["Sunrise Apartments", "Green Villa", "Ocean View Flats"];
+    const clients = ["John Doe", "Jane Smith", "Michael Johnson", "Amit Patel", "Rahul Sharma"];
+    const properties = ["Sunrise Apartments", "Green Villa", "Ocean View Flats", "Palm Grove 3BHK", "Skyline Tower"];
 
-    const breakCategories: BreakCategory[] = [
-        { id: "lunch", label: "Lunch Break", icon: Utensils, duration: 60, productivity: 0 },
-        { id: "personal", label: "Personal Break", icon: User, duration: 20, productivity: 0 },
-        { id: "tea", label: "Tea Break", icon: Coffee, duration: 15, productivity: 0.1 },
-        { id: "documentation", label: "Documentation", icon: FileText, duration: 20, productivity: 0.7 },
-        { id: "market_research", label: "Market Research", icon: TrendingUp, duration: 30, productivity: 0.7 },
-        { id: "meeting", label: "New Client Meeting", icon: Users, duration: 45, productivity: 0.8 },
-        { id: "site_visit", label: "Buyer Site Visit", icon: MapPinned, duration: 120, productivity: 1.0 },
-        { id: "property_visit", label: "Seller Property Visit", icon: Building, duration: 90, productivity: 0.9 },
-    ];
+    // Fetch dynamic break types from Master Data / API
+    const fetchBreakTypes = useCallback(async () => {
+        setLoadingTypes(true);
+        try {
+            const empId = employeeId ? Number(employeeId) : undefined;
+            const res = await workSessionAPI.getBreakTypes(empId);
+            if (res?.success && Array.isArray(res.breakTypes)) {
+                setBreakTypes(res.breakTypes);
+            }
+        } catch (err) {
+            console.error("Failed to load master break types:", err);
+        } finally {
+            setLoadingTypes(false);
+        }
+    }, [employeeId]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchBreakTypes();
+        }
+    }, [isOpen, fetchBreakTypes]);
 
     const resetDetails = () =>
         setBreakCustomDetails({
@@ -632,18 +363,18 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
             meetingPurpose: "",
         });
 
-    const handleBreakTypeSelect = (breakType: string) => {
-        setSelectedBreakType(breakType);
+    const handleBreakTypeSelect = (breakKey: string) => {
+        setSelectedBreakType(breakKey);
         resetDetails();
     };
 
     const handleBreakStart = () => {
         if (!selectedBreakType) return;
 
-        const category = breakCategories.find(cat => cat.id === selectedBreakType);
+        const category = breakTypes.find((cat) => (cat.break_key || cat.id) === selectedBreakType);
         const breakDetails = {
             ...breakCustomDetails,
-            duration: breakCustomDetails.customDuration || category?.duration || 0
+            duration: breakCustomDetails.customDuration || category?.duration || 0,
         };
 
         onSelectBreak(selectedBreakType, breakDetails);
@@ -652,17 +383,29 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
         onClose();
     };
 
+    // Filter available vs limit-reached breaks
+    const availableBreakTypes = breakTypes.filter((b) => !b.is_limit_reached);
+    const limitReachedBreakTypes = breakTypes.filter((b) => b.is_limit_reached);
+
+    const getSelectedCategory = () =>
+        breakTypes.find((cat) => (cat.break_key || cat.id) === selectedBreakType);
+
     const renderBreakDetails = () => {
-        const category = breakCategories.find((cat) => cat.id === selectedBreakType);
+        const category = getSelectedCategory();
         if (!category) return null;
 
-        const needsClientInfo = ["site_visit", "property_visit", "documentation"].includes(selectedBreakType);
-        const needsLocation = ["site_visit", "property_visit"].includes(selectedBreakType);
-        const needsNotes = ["personal", "documentation", "market_research"].includes(selectedBreakType);
+        const needsClientInfo =
+            category.requires_client ||
+            ["site_visit", "property_visit", "documentation"].includes(category.break_key);
+        const needsLocation =
+            category.requires_location ||
+            ["site_visit", "property_visit"].includes(category.break_key);
+        const needsNotes =
+            category.requires_notes ||
+            ["personal", "documentation", "market_research"].includes(category.break_key);
 
         return (
             <div className="space-y-3">
-                {/* Two column grid for compact layout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {needsClientInfo && (
                         <CompactSelectField
@@ -690,7 +433,7 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                         />
                     )}
 
-                    {selectedBreakType === "meeting" && (
+                    {category.break_key === "meeting" && (
                         <>
                             <CompactInputField
                                 label="Meeting With*"
@@ -748,8 +491,6 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
         );
     };
 
-    const getSelectedCategory = () => breakCategories.find((cat) => cat.id === selectedBreakType);
-
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
             {/* Header - Matching ActivityTrackerModal style */}
@@ -760,33 +501,111 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                     </div>
                     <div>
                         <h2 className="text-sm font-bold text-white">Start Smart Break</h2>
-                        <p className="text-[9px] text-white/60">Select activity type & track productivity</p>
+                        <p className="text-[9px] text-white/60">Dynamic Master Break Types & Daily Limit Tracker</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
-                    <X size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={fetchBreakTypes}
+                        title="Refresh break options"
+                        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+                    >
+                        <RefreshCw size={13} className={loadingTypes ? "animate-spin text-orange-400" : ""} />
+                    </button>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
+                        <X size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4" style={{ scrollbarWidth: "thin" }}>
-
-                {/* Break Type Selection - Compact Grid */}
+                {/* Break Type Selection - Loaded Dynamically from Master Data */}
                 <div className="rounded-lg p-2.5" style={{ background: BG, border: `1px solid ${BD}` }}>
-                    <SectionHeading icon={Tag} title="Select Break Type" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {breakCategories.map((category) => (
-                            <BreakTypeCard
-                                key={category.id}
-                                icon={category.icon}
-                                label={category.label}
-                                duration={category.duration}
-                                productivity={category.productivity}
-                                isSelected={selectedBreakType === category.id}
-                                onClick={() => handleBreakTypeSelect(category.id)}
-                            />
-                        ))}
+                    <div className="flex items-center justify-between mb-2">
+                        <SectionHeading icon={Tag} title="Select Break Type" />
+                        <span className="text-[9px] text-slate-400 font-medium">
+                            {availableBreakTypes.length} Available
+                            {limitReachedBreakTypes.length > 0 && ` • ${limitReachedBreakTypes.length} Limit Reached`}
+                        </span>
                     </div>
+
+                    {loadingTypes ? (
+                        <div className="py-6 text-center text-slate-400 space-y-2">
+                            <RefreshCw className="w-5 h-5 mx-auto animate-spin text-orange-500" />
+                            <p className="text-[10px] font-semibold">Loading available break types...</p>
+                        </div>
+                    ) : availableBreakTypes.length === 0 ? (
+                        <div className="py-6 px-4 text-center rounded-lg bg-amber-50/70 border border-amber-200 text-amber-800 space-y-1.5">
+                            <AlertCircle className="w-6 h-6 mx-auto text-amber-600" />
+                            <p className="text-xs font-bold">All Daily Break Limits Reached</p>
+                            <p className="text-[10px] text-amber-700">
+                                You have used the maximum allowed breaks for today according to master data settings.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {availableBreakTypes.map((category) => {
+                                const IconComponent = getBreakIcon(category.icon || category.break_key);
+                                const key = category.break_key || String(category.id);
+                                return (
+                                    <BreakTypeCard
+                                        key={key}
+                                        icon={IconComponent}
+                                        label={category.label || category.name || key}
+                                        duration={category.duration}
+                                        productivity={category.productivity}
+                                        dailyLimit={category.daily_limit}
+                                        usedToday={category.used_today}
+                                        remainingToday={category.remaining_today}
+                                        isSelected={selectedBreakType === key}
+                                        onClick={() => handleBreakTypeSelect(key)}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Limit reached hidden breaks toggle */}
+                    {limitReachedBreakTypes.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => setShowExhausted(!showExhausted)}
+                                className="text-[9.5px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition-colors"
+                            >
+                                <Info size={11} className="text-amber-500" />
+                                {showExhausted ? "Hide" : "View"} {limitReachedBreakTypes.length} option{limitReachedBreakTypes.length > 1 ? "s" : ""} hidden due to daily limit
+                            </button>
+
+                            {showExhausted && (
+                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 opacity-60">
+                                    {limitReachedBreakTypes.map((category) => {
+                                        const IconComponent = getBreakIcon(category.icon || category.break_key);
+                                        return (
+                                            <div
+                                                key={category.break_key || category.id}
+                                                className="p-2 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-between text-left"
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <IconComponent size={13} className="text-slate-400 shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <span className="text-[10.5px] font-semibold text-slate-600 block line-through">
+                                                            {category.label || category.name}
+                                                        </span>
+                                                        <span className="text-[8.5px] font-bold text-rose-700 bg-rose-100 px-1 py-0.2 rounded">
+                                                            Limit reached ({category.used_today}/{category.daily_limit} used)
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-400">Hidden</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Break Details - Only show when a break type is selected */}
@@ -796,8 +615,8 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                             <SectionHeading icon={Calendar} title="Activity Details" />
                             <div className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: O }} />
-                                <span className="text-[8px]" style={{ color: MU }}>
-                                    {getSelectedCategory()?.label}
+                                <span className="text-[8px] font-bold" style={{ color: MU }}>
+                                    {getSelectedCategory()?.label || getSelectedCategory()?.name}
                                 </span>
                             </div>
                         </div>
@@ -811,13 +630,13 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                         <SectionHeading icon={TrendingUp} title="Productivity Impact" />
                         <div className="grid grid-cols-2 gap-2">
                             <div className="flex items-center justify-between p-1.5 rounded" style={{ background: `${O}10` }}>
-                                <span className="text-[9px]" style={{ color: MU }}>Est. Productivity</span>
+                                <span className="text-[9px] font-semibold" style={{ color: MU }}>Est. Productivity</span>
                                 <span className="text-[10px] font-bold" style={{ color: O }}>
                                     +{Math.round((getSelectedCategory()?.productivity || 0) * 100)}%
                                 </span>
                             </div>
                             <div className="flex items-center justify-between p-1.5 rounded" style={{ background: `${N}05` }}>
-                                <span className="text-[9px]" style={{ color: MU }}>Time Investment</span>
+                                <span className="text-[9px] font-semibold" style={{ color: MU }}>Time Investment</span>
                                 <span className="text-[10px] font-bold" style={{ color: N }}>
                                     {breakCustomDetails.customDuration || getSelectedCategory()?.duration} min
                                 </span>
@@ -825,21 +644,67 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                         </div>
                     </div>
                 )}
+
+                {/* Smart Break History Table */}
+                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${BD}` }}>
+                    <div className="px-3 py-2 flex items-center justify-between" style={{ background: N }}>
+                        <h3 className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                            <Coffee size={11} style={{ color: O }} />
+                            Today&apos;s Break Log
+                        </h3>
+                        <span className="text-[9px] text-white/60">
+                            {breakHistoryList.length} break{breakHistoryList.length !== 1 ? "s" : ""} recorded
+                        </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-40" style={{ scrollbarWidth: "thin" }}>
+                        <table className="w-full">
+                            <thead>
+                                <tr style={{ background: BG, borderBottom: `1px solid ${BD}` }}>
+                                    {["#", "Type", "Start", "End", "Duration", "Details", "Efficiency"].map((h) => (
+                                        <th key={h} className="px-3 py-1.5 text-left text-[9px] font-bold uppercase tracking-wider" style={{ color: MU }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y" style={{ borderColor: BD }}>
+                                {breakHistoryList.length > 0 ? (
+                                    breakHistoryList.map((b, i) => (
+                                        <tr key={i} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-3 py-1.5 text-[10px] font-medium" style={{ color: N }}>{b.number || i + 1}</td>
+                                            <td className="px-3 py-1.5 text-[10px] font-semibold" style={{ color: MU }}>{b.type}</td>
+                                            <td className="px-3 py-1.5 text-[10px]" style={{ color: MU }}>{b.startTime}</td>
+                                            <td className="px-3 py-1.5 text-[10px]" style={{ color: MU }}>{b.endTime}</td>
+                                            <td className="px-3 py-1.5 text-[10px] font-medium" style={{ color: N }}>{b.duration}</td>
+                                            <td className="px-3 py-1.5 text-[10px]" style={{ color: MU }}>{b.details}</td>
+                                            <td className="px-3 py-1.5 text-[10px] font-bold text-green-600">{b.efficiency || "95%"}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={7} className="px-3 py-6 text-center">
+                                            <Coffee size={20} className="mx-auto mb-1 opacity-20" />
+                                            <p className="text-[10px] font-medium" style={{ color: MU }}>No breaks taken today</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {/* Footer - Matching ActivityTrackerModal style */}
             <div className="px-4 sm:px-5 py-2.5 border-t flex items-center justify-between gap-2 shrink-0" style={{ borderColor: BD, background: BG }}>
                 <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${selectedBreakType ? "bg-green-500" : "bg-gray-300"}`} />
-                    <span className="text-[9px]" style={{ color: MU }}>
-                        {selectedBreakType ? "Ready to start activity" : "Select an activity type"}
+                    <span className="text-[9px] font-medium" style={{ color: MU }}>
+                        {selectedBreakType ? "Ready to start activity" : "Select an activity type to start"}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-3 py-1.5 text-[10px] font-medium rounded-lg transition-all hover:opacity-80"
+                        className="px-3 py-1.5 text-[10px] font-semibold rounded-lg transition-all hover:bg-slate-200/70"
                         style={{ border: `1px solid ${BD}`, color: N }}
                     >
                         Cancel
@@ -848,10 +713,11 @@ const BreakTypesModal: React.FC<BreakTypesModalProps> = ({
                         type="button"
                         onClick={handleBreakStart}
                         disabled={!selectedBreakType}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1.5 ${selectedBreakType
-                            ? "text-white"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                            selectedBreakType
+                                ? "text-white shadow-xs hover:opacity-90"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        }`}
                         style={selectedBreakType ? { background: O } : {}}
                     >
                         <Play size={10} />

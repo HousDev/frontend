@@ -1,11 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActivityTracker } from "../context/ActivityTrackerContext";
 
 const UserProfileMenu: React.FC = () => {
     const { user, logout } = useAuth();
     const [open, setOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+
+    let activityTracker: ReturnType<typeof useActivityTracker> | null = null;
+    try {
+        activityTracker = useActivityTracker();
+    } catch {
+        activityTracker = null;
+    }
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -16,6 +24,17 @@ const UserProfileMenu: React.FC = () => {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleLogoutClick = () => {
+        setOpen(false);
+        if (activityTracker) {
+            activityTracker.triggerLogoutModal();
+        } else {
+            logout().finally(() => {
+                window.location.href = "/login";
+            });
+        }
+    };
 
     return (
         <div className="relative" ref={menuRef}>
@@ -91,16 +110,8 @@ const UserProfileMenu: React.FC = () => {
                         </li>
                         <li>
                             <button
-                                onClick={async () => {
-                                  try {
-                                    await logout();
-                                  } catch (e) {
-                                    console.error("Logout error:", e);
-                                  } finally {
-                                    window.location.href = "/login";
-                                  }
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                onClick={handleLogoutClick}
+                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
                             >
                                 <LogOut className="h-4 w-4 mr-2" />
                                 Logout

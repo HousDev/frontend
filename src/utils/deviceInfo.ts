@@ -62,26 +62,35 @@ export async function fetchIpLocation(): Promise<DeviceLocationResult> {
   } catch (_) {}
 
   return {
-    latitude: null,
-    longitude: null,
-    address: "Location Permission Denied",
+    latitude: 0,
+    longitude: 0,
+    address: "Location Permission Denied (Default Fallback)",
   };
 }
 
-// 3. Mandatory Pre-login Geolocation Request (Strict browser location, no IP fallback)
-export function requestMandatoryPreLoginLocation(timeoutMs = 10000): Promise<DeviceLocationResult> {
+// 3. Pre-login Geolocation Request (GPS first, IP fallback if denied/unavailable)
+export function requestMandatoryPreLoginLocation(timeoutMs = 5000): Promise<DeviceLocationResult> {
   return new Promise((resolve) => {
     if (typeof window === "undefined" || !navigator.geolocation) {
-      resolve({
-        latitude: null,
-        longitude: null,
-        error: "Geolocation is not supported by your browser or device.",
-      });
+      fetchIpLocation().then(resolve);
       return;
     }
 
+    let resolved = false;
+
+    const timer = setTimeout(async () => {
+      if (!resolved) {
+        resolved = true;
+        const ipLoc = await fetchIpLocation();
+        resolve(ipLoc);
+      }
+    }, timeoutMs);
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         let address = "";
@@ -92,25 +101,17 @@ export function requestMandatoryPreLoginLocation(timeoutMs = 10000): Promise<Dev
         }
         resolve({ latitude: lat, longitude: lng, address });
       },
-      (err) => {
-        let errorMsg = "Location access is required to log in. Please enable location permissions in your browser and try again.";
-        if (err.code === err.PERMISSION_DENIED) {
-          errorMsg = "Location permission was denied. You must allow location access in your browser to log in.";
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          errorMsg = "Location information is unavailable. Please turn on your device GPS / Location service and try again.";
-        } else if (err.code === err.TIMEOUT) {
-          errorMsg = "Location request timed out. Please make sure location access is enabled and try again.";
-        }
-        resolve({
-          latitude: null,
-          longitude: null,
-          error: errorMsg,
-        });
+      async (_) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        const ipLoc = await fetchIpLocation();
+        resolve(ipLoc);
       },
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: false,
         timeout: timeoutMs,
-        maximumAge: 0,
+        maximumAge: 60000,
       }
     );
   });
@@ -129,17 +130,9 @@ export function getDeviceId(): string {
 export function getBrowserSource(): string {
   if (typeof window === "undefined") return "Unknown Browser";
   const ua = navigator.userAgent;
-  let browser = "Chrome";
-  let os = "Windows";
-
-  if (ua.includes("Firefox")) browser = "Firefox";
-  else if (ua.includes("Edg")) browser = "Edge";
-  else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
-
-  if (ua.includes("Android")) os = "Android";
-  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
-  else if (ua.includes("Mac OS")) os = "macOS";
-  else if (ua.includes("Linux")) os = "Linux";
-
-  return `${browser} on ${os}`;
+  if (ua.includes("Chrome")) return "Google Chrome";
+  if (ua.includes("Firefox")) return "Mozilla Firefox";
+  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Apple Safari";
+  if (ua.includes("Edg")) return "Microsoft Edge";
+  return "Web Browser";
 }

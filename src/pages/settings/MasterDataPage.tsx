@@ -2301,6 +2301,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/utils/permission";
 import Pagination from "@/components/ui/Pagination";
 import { MastersAdmin } from "./master/MastersAdmin";
+import BreakMasterTab from "./master/BreakMasterTab";
 import { MasterData } from "@/lib/types";
 import { loadMasterData, defaultMasterData } from "@/lib/engine";
 
@@ -2341,6 +2342,7 @@ interface ItemsByTab {
   followupRules?: MasterItem[];
   connectedRemark?: MasterItem[];
   automationMaster?: MasterItem[];
+  breakMaster?: MasterItem[];
 }
 
 interface SocietyData {
@@ -2443,6 +2445,7 @@ export default function MasterDataPage(): JSX.Element {
     { id: "common", title: "Common Master" },
     { id: "society", title: "Society with locality" },
     { id: "followupRules", title: "Follow-up Rules" },
+    { id: "breakMaster", title: "Break Master" },
   ]);
 
   const [activeId, setActiveId] = useState<TabId>(() => {
@@ -2461,6 +2464,7 @@ export default function MasterDataPage(): JSX.Element {
     common: [],
     society: [],
     followupRules: [],
+    breakMaster: [],
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -2489,6 +2493,7 @@ export default function MasterDataPage(): JSX.Element {
   const isConnectedRemarkTab = activeId === "connectedRemark";
   const isSocietyTab = activeId === "society";
   const isAutomationMasterTab = activeId === "automationMaster";
+  const isBreakMasterTab = activeId === "breakMaster";
   const [selectedValueIds, setSelectedValueIds] = useState<string[]>([]);
 
   const [fuMasterData, setFuMasterData] = useState<MasterData>(defaultMasterData);
@@ -3821,7 +3826,7 @@ export default function MasterDataPage(): JSX.Element {
       <main className="p-1 sm:p-2">
         {currentView === "list" ? (
           <>
-            {!isAutomationMasterTab && !isFollowupRulesTab && (
+            {!isAutomationMasterTab && !isFollowupRulesTab && !isBreakMasterTab && (
               <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between mb-4 sm:mb-6">
 
                 {/* 🔹 MOBILE: Heading + Create button in same row */}
@@ -3967,6 +3972,8 @@ export default function MasterDataPage(): JSX.Element {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
                 <p className="mt-2 text-gray-500 text-sm">Loading...</p>
               </div>
+            ) : isBreakMasterTab ? (
+              <BreakMasterTab />
             ) : isFollowupRulesTab ? (
               <MastersAdmin master={fuMasterData} onChanged={refreshFuMasterData} />
             ) : isConnectedRemarkTab ? (
