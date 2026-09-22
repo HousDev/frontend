@@ -215,7 +215,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       if (res.data?.data) {
         setMarketHeatData(res.data.data);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
   const [currentPropertyView, setCurrentPropertyView] = useState<any | null>(null);
   const [viewedProperties, setViewedProperties] = useState<Set<number>>(new Set());

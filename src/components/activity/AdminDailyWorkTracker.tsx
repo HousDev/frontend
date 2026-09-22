@@ -27,9 +27,11 @@ import {
   CalendarDays,
   Activity,
   BarChart3,
-  CheckSquare,
-  Square as SquareIcon,
   MinusSquare,
+  Timer,
+  Sparkles,
+  Table2,
+  LineChart,
 } from "lucide-react";
 import { workSessionAPI } from "@/lib/api";
 import AdminBreakTypesMasterModal from "./AdminBreakTypesMasterModal";
@@ -41,6 +43,12 @@ const ORANGE = "#E6761D";
 const LINE = "#dbe4ee";
 const V_LINE = "#e8eef5";
 const CARD_SHADOW = "0 1px 2px rgba(11,56,84,0.06), 0 4px 12px -6px rgba(11,56,84,0.10)";
+const BRAND_GRADIENT = `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)`;
+
+// Chart palette
+const CHART_WORKED = "#11507A";
+const CHART_PRODUCTIVE = "#059669";
+const CHART_BREAK = "#E6761D";
 
 // ── Table layout ──
 const ROW_H = 52;
@@ -56,6 +64,27 @@ const STATUS_OPTIONS = [
   { value: "NOT_STARTED", label: "Not started" },
   { value: "PENDING", label: "Pending" },
 ];
+
+// ── Break-type colours (same type = same colour everywhere) ──
+const BREAK_PALETTE = ["#E6761D", "#11507A", "#059669", "#7c3aed", "#e11d48", "#0891b2", "#ca8a04", "#475569"];
+const getBreakColor = (type?: string) => {
+  const s = (type || "other").toLowerCase();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
+  return BREAK_PALETTE[h % BREAK_PALETTE.length];
+};
+
+const BREAK_DETAIL_LABELS: Record<string, string> = {
+  clientName: "Client",
+  property: "Property",
+  meetingNotes: "Notes",
+  meetingPurpose: "Purpose",
+  meetingWith: "With",
+  meetingType: "Type",
+  priority: "Priority",
+  duration: "Duration",
+  customDuration: "Duration",
+};
 
 const getPageNumbers = (total: number, current: number): (number | "...")[] => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
@@ -88,6 +117,80 @@ const formatSeconds = (seconds: number) => {
   return `${hours}:${minutes}:${remaining}`;
 };
 
+// ── Helper: Format seconds to "2h 23m" (easy to read) ──
+const formatHM = (seconds: number) => {
+  const total = Math.max(0, Math.round(seconds || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+};
+
+// ── Helper: Format seconds to compact "2h 23m" / "23m" ──
+const formatCompact = (seconds: number) => {
+  const total = Math.max(0, Math.round(seconds || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  if (h === 0) return `${m}m`;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+};
+
+// ── Helper: "HH:MM:SS" (or "HH:MM") → seconds ──
+const parseDuration = (value?: string | null): number => {
+  if (!value) return 0;
+  const parts = String(value).trim().split(":").map(Number);
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+  return 0;
+};
+
+const normType = (t?: string) => {
+  const s = (t || "Other").trim() || "Other";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+/** Local date → YYYY-MM-DD (no UTC shift) */
+const dateToKey = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/** YYYY-MM-DD → local Date */
+const keyToDate = (key: string): Date => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+const formatShort = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+
+const getISOWeek = (d: Date): number => {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+};
+
+type PresetId = "today" | "week" | "month" | "lastMonth";
+
+const getPresetRange = (id: PresetId): { from: string; to: string } => {
+  const now = new Date();
+  const today = dateToKey(now);
+  if (id === "today") return { from: today, to: today };
+  if (id === "week") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    return { from: dateToKey(start), to: today };
+  }
+  if (id === "month") {
+    return { from: dateToKey(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
+  }
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), 0);
+  return { from: dateToKey(start), to: dateToKey(end) };
+};
+
 /** Format a date-like value to DD-MM-YYYY */
 const formatDateDDMMYYYY = (value?: string | null): string => {
   if (!value) return "—";
@@ -104,9 +207,9 @@ const formatDateDDMMYYYY = (value?: string | null): string => {
   return `${d}-${m}-${y}`;
 };
 
-/** Format a time-like value to HH:MM (12-hour) */
-const formatSessionTime = (value?: string | null) => {
-  if (!value) return "Not ended";
+/** Format a time-like value to HH:MM. `emptyLabel` is shown when value is missing */
+const formatSessionTime = (value?: string | null, emptyLabel: string = "Not ended") => {
+  if (!value) return emptyLabel;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
@@ -118,25 +221,34 @@ const formatBreakDetails = (details?: string) => {
     const parsed = JSON.parse(details);
     if (!parsed || typeof parsed !== "object") return String(parsed);
 
-    const labels: Record<string, string> = {
-      clientName: "Client",
-      property: "Property",
-      meetingNotes: "Notes",
-      meetingPurpose: "Purpose",
-      meetingWith: "With",
-      meetingType: "Type",
-      priority: "Priority",
-      duration: "Duration",
-      customDuration: "Duration",
-    };
-
     const values = Object.entries(parsed)
       .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
-      .map(([key, value]) => `${labels[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase())}: ${String(value)}`);
+      .map(([key, value]) => `${BREAK_DETAIL_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase())}: ${String(value)}`);
 
     return values.length > 0 ? values.join(" | ") : "Completed break";
   } catch {
     return details;
+  }
+};
+
+/** Break details → label/value pairs (for readable chips on screen) */
+const parseBreakDetails = (details?: string): { label: string; value: string }[] => {
+  if (!details) return [];
+  try {
+    const parsed = JSON.parse(details);
+    if (!parsed || typeof parsed !== "object") return [{ label: "Note", value: String(parsed) }];
+    return Object.entries(parsed)
+      .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+      .map(([key, value]) => {
+        const isDuration = key === "duration" || key === "customDuration";
+        const raw = String(value);
+        return {
+          label: BREAK_DETAIL_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()),
+          value: isDuration && /^\d+(\.\d+)?$/.test(raw) ? `${raw} min` : raw,
+        };
+      });
+  } catch {
+    return [{ label: "Note", value: details }];
   }
 };
 
@@ -200,21 +312,338 @@ interface EmployeeDailyItem {
   status?: string;
 }
 
+type TypeSummary = Record<string, { count: number; seconds: number }>;
+
 interface MergedDayRow {
   dateKey: string;
   dateLabel: string;
+  weekday: string;
   daily?: EmployeeDailyItem;
   breaks: EmployeeBreakItem[];
   breakSeconds: number;
   breakCount: number;
+  workedSec: number;
+  totalBreakSec: number;
+  productiveSec: number;
+  status: string;
+  typeSummary: TypeSummary;
 }
 
-type ActivityView = "user_breakdown" | "activity_logs" | "daily_work_tracker";
+interface PeriodGroup {
+  key: string;
+  label: string;
+  sublabel: string;
+  days: MergedDayRow[];
+  workedSec: number;
+  breakSec: number;
+  productiveSec: number;
+  breakCount: number;
+  activeDays: number;
+  achievedDays: number;
+  behindDays: number;
+  typeSummary: TypeSummary;
+}
+
+type ActivityView = "user_breakdown" | "activity_logs" | "agent_execution" | "daily_work_tracker";
+type ReportView = "daily" | "weekly" | "monthly";
+type DisplayMode = "table" | "chart";
 
 interface AdminDailyWorkTrackerProps {
   activeView?: ActivityView;
   onActiveViewChange?: (view: ActivityView) => void;
 }
+
+// ── Small presentational pieces ─────────────────────────
+const TONES = {
+  slate: { bg: "#f8fafc", border: "#e2e8f0", color: "#334155" },
+  orange: { bg: "#fff7ed", border: "#fed7aa", color: "#B85A10" },
+  green: { bg: "#ecfdf5", border: "#a7f3d0", color: "#047857" },
+};
+
+const MetricPill: React.FC<{ value: string; tone: keyof typeof TONES }> = ({ value, tone }) => {
+  const t = TONES[tone];
+  return (
+    <span
+      className="inline-flex items-center justify-center min-w-[78px] rounded-lg px-2.5 py-1 font-mono font-semibold text-[11px]"
+      style={{ background: t.bg, border: `1px solid ${t.border}`, color: t.color }}
+    >
+      {value}
+    </span>
+  );
+};
+
+const BreakChip: React.FC<{ type: string; value: string; count?: number }> = ({ type, value, count }) => {
+  const color = getBreakColor(type);
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+      style={{ background: `${color}14`, border: `1px solid ${color}33`, color }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+      <span>{type}</span>
+      {count && count > 1 ? <span className="opacity-70">×{count}</span> : null}
+      <span className="font-mono text-slate-700">{value}</span>
+    </span>
+  );
+};
+
+const BreakChips: React.FC<{ summary: TypeSummary; max?: number }> = ({ summary, max = 3 }) => {
+  const entries = Object.entries(summary).sort((a, b) => b[1].seconds - a[1].seconds);
+  if (entries.length === 0) return <span className="text-[10px] text-slate-400">No breaks</span>;
+  const shown = entries.slice(0, max);
+  const rest = entries.length - shown.length;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map(([type, s]) => (
+        <BreakChip key={type} type={type} value={formatSeconds(s.seconds)} count={s.count} />
+      ))}
+      {rest > 0 && (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+          +{rest} more
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// Chart component — premium interactive grouped bar chart
+// ═══════════════════════════════════════════════════════════
+interface ChartDatum {
+  key: string;
+  label: string;
+  sublabel?: string;
+  workedSec: number;
+  productiveSec: number;
+  breakSec: number;
+  isPeak?: boolean;
+}
+
+const ReportBarChart: React.FC<{ data: ChartDatum[]; height?: number }> = ({ data, height = 340 }) => {
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  // SVG layout
+  const PADDING = { top: 26, right: 20, bottom: 56, left: 52 };
+  const MIN_BAR_GROUP = 56;
+  const MAX_BAR_GROUP = 120;
+
+  const innerWidth = Math.max(560, data.length * MIN_BAR_GROUP);
+  const svgWidth = innerWidth + PADDING.left + PADDING.right;
+  const svgHeight = height;
+  const plotW = innerWidth;
+  const plotH = svgHeight - PADDING.top - PADDING.bottom;
+
+  const maxVal = Math.max(
+    60,
+    ...data.map((d) => Math.max(d.workedSec, d.productiveSec, d.breakSec)),
+  );
+  // Round up to a nice step
+  const niceMax = (() => {
+    const stepChoices = [5 * 60, 10 * 60, 15 * 60, 30 * 60, 60 * 60, 2 * 3600, 4 * 3600, 6 * 3600, 8 * 3600, 12 * 3600, 24 * 3600];
+    for (const s of stepChoices) if (maxVal <= s) return s;
+    return Math.ceil(maxVal / 3600) * 3600;
+  })();
+
+  const groupWidth = Math.min(MAX_BAR_GROUP, Math.max(MIN_BAR_GROUP, plotW / Math.max(1, data.length)));
+  const barGap = 4;
+  const barWidth = Math.max(6, (groupWidth - 24 - barGap * 2) / 3);
+  const barsTotal = barWidth * 3 + barGap * 2;
+
+  const yTicks = 4;
+  const yScale = (v: number) => plotH - (v / niceMax) * plotH;
+
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => (niceMax / yTicks) * i);
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        width={svgWidth}
+        height={svgHeight}
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        className="block"
+        style={{ minWidth: "100%" }}
+      >
+        <defs>
+          <linearGradient id="barWorked" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_WORKED} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={CHART_WORKED} stopOpacity="0.72" />
+          </linearGradient>
+          <linearGradient id="barProd" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_PRODUCTIVE} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={CHART_PRODUCTIVE} stopOpacity="0.72" />
+          </linearGradient>
+          <linearGradient id="barBreak" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_BREAK} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={CHART_BREAK} stopOpacity="0.72" />
+          </linearGradient>
+        </defs>
+
+        {/* Horizontal grid lines + Y labels */}
+        <g transform={`translate(${PADDING.left}, ${PADDING.top})`}>
+          {yTickValues.map((v, i) => {
+            const y = yScale(v);
+            return (
+              <g key={i}>
+                <line x1={0} x2={plotW} y1={y} y2={y} stroke={i === 0 ? "#cbd5e1" : "#eef2f6"} strokeWidth={i === 0 ? 1 : 1} />
+                <text x={-10} y={y + 3.5} textAnchor="end" fontSize="9.5" fill="#94a3b8" fontFamily="ui-monospace, monospace">
+                  {formatCompact(v)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Bars */}
+          {data.map((d, i) => {
+            const x0 = i * (plotW / Math.max(1, data.length)) + (plotW / Math.max(1, data.length) - barsTotal) / 2;
+            const isHover = hovered === i;
+            const workedH = Math.max(0, (d.workedSec / niceMax) * plotH);
+            const prodH = Math.max(0, (d.productiveSec / niceMax) * plotH);
+            const breakH = Math.max(0, (d.breakSec / niceMax) * plotH);
+
+            const workedY = plotH - workedH;
+            const prodY = plotH - prodH;
+            const breakY = plotH - breakH;
+
+            return (
+              <g
+                key={d.key}
+                onMouseEnter={() => setHovered(i)}
+                onMouseLeave={() => setHovered(null)}
+                style={{ cursor: "pointer" }}
+              >
+                {/* Hover background */}
+                <rect
+                  x={x0 - 10}
+                  y={0}
+                  width={barsTotal + 20}
+                  height={plotH}
+                  fill={isHover ? "rgba(11,56,84,0.045)" : "transparent"}
+                  rx={6}
+                />
+
+                {/* Worked bar */}
+                <rect
+                  x={x0}
+                  y={workedY}
+                  width={barWidth}
+                  height={workedH}
+                  rx={3}
+                  fill="url(#barWorked)"
+                  opacity={hovered === null || isHover ? 1 : 0.55}
+                  style={{ transition: "opacity 150ms ease" }}
+                />
+                {/* Productive bar */}
+                <rect
+                  x={x0 + barWidth + barGap}
+                  y={prodY}
+                  width={barWidth}
+                  height={prodH}
+                  rx={3}
+                  fill="url(#barProd)"
+                  opacity={hovered === null || isHover ? 1 : 0.55}
+                  style={{ transition: "opacity 150ms ease" }}
+                />
+                {/* Break bar */}
+                <rect
+                  x={x0 + (barWidth + barGap) * 2}
+                  y={breakY}
+                  width={barWidth}
+                  height={breakH}
+                  rx={3}
+                  fill="url(#barBreak)"
+                  opacity={hovered === null || isHover ? 1 : 0.55}
+                  style={{ transition: "opacity 150ms ease" }}
+                />
+
+                {/* Peak star */}
+                {d.isPeak && (
+                  <g transform={`translate(${x0 + barsTotal / 2}, ${Math.min(workedY, prodY, breakY) - 10})`}>
+                    <circle r="7" fill={ORANGE} opacity="0.18" />
+                    <circle r="2.6" fill={ORANGE} />
+                  </g>
+                )}
+
+                {/* X label */}
+                <text
+                  x={x0 + barsTotal / 2}
+                  y={plotH + 16}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fontWeight="700"
+                  fill={isHover ? NAVY : "#475569"}
+                  fontFamily="ui-monospace, monospace"
+                >
+                  {d.label}
+                </text>
+                {d.sublabel && (
+                  <text
+                    x={x0 + barsTotal / 2}
+                    y={plotH + 30}
+                    textAnchor="middle"
+                    fontSize="8.5"
+                    fill="#94a3b8"
+                  >
+                    {d.sublabel}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Baseline */}
+          <line x1={0} x2={plotW} y1={plotH} y2={plotH} stroke="#cbd5e1" strokeWidth="1" />
+        </g>
+
+        {/* Tooltip */}
+        {hovered !== null && (() => {
+          const d = data[hovered];
+          const groupCenterX =
+            PADDING.left +
+            hovered * (plotW / Math.max(1, data.length)) +
+            plotW / Math.max(1, data.length) / 2;
+          const tooltipW = 176;
+          const tooltipH = 92;
+          const tx = Math.max(8, Math.min(svgWidth - tooltipW - 8, groupCenterX - tooltipW / 2));
+          const ty = PADDING.top + 6;
+          return (
+            <g pointerEvents="none">
+              <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx={10} fill="#0B3854" opacity="0.97" />
+              <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx={10} fill="none" stroke={ORANGE} strokeWidth="1" opacity="0.6" />
+              <text x={tx + 12} y={ty + 18} fontSize="10.5" fontWeight="700" fill="#fff">
+                {d.label}
+                {d.sublabel ? ` · ${d.sublabel}` : ""}
+              </text>
+              <g transform={`translate(${tx + 12}, ${ty + 28})`}>
+                <circle cx={4} cy={4} r={3.5} fill={CHART_WORKED} />
+                <text x={14} y={7} fontSize="9.5" fill="#cbd5e1">Worked</text>
+                <text x={tooltipW - 14} y={7} fontSize="10" fontWeight="700" fill="#fff" textAnchor="end" fontFamily="ui-monospace, monospace">
+                  {formatCompact(d.workedSec)}
+                </text>
+              </g>
+              <g transform={`translate(${tx + 12}, ${ty + 46})`}>
+                <circle cx={4} cy={4} r={3.5} fill={CHART_PRODUCTIVE} />
+                <text x={14} y={7} fontSize="9.5" fill="#cbd5e1">Productive</text>
+                <text x={tooltipW - 14} y={7} fontSize="10" fontWeight="700" fill="#fff" textAnchor="end" fontFamily="ui-monospace, monospace">
+                  {formatCompact(d.productiveSec)}
+                </text>
+              </g>
+              <g transform={`translate(${tx + 12}, ${ty + 64})`}>
+                <circle cx={4} cy={4} r={3.5} fill={CHART_BREAK} />
+                <text x={14} y={7} fontSize="9.5" fill="#cbd5e1">Break</text>
+                <text x={tooltipW - 14} y={7} fontSize="10" fontWeight="700" fill="#fff" textAnchor="end" fontFamily="ui-monospace, monospace">
+                  {formatCompact(d.breakSec)}
+                </text>
+              </g>
+              <text x={tx + 12} y={ty + tooltipH - 6} fontSize="8.5" fill="#94a3b8">
+                Productive: {d.workedSec ? Math.round((d.productiveSec / d.workedSec) * 100) : 0}% of worked time
+              </text>
+            </g>
+          );
+        })()}
+      </svg>
+    </div>
+  );
+};
 
 export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
   activeView = "daily_work_tracker",
@@ -231,6 +660,8 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [reportView, setReportView] = useState<ReportView>("daily");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("table");
 
   const printableRef = useRef<HTMLDivElement>(null);
 
@@ -271,7 +702,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
 
   const [breakMasterOpen, setBreakMasterOpen] = useState<boolean>(false);
 
-  // ── NEW: bulk selection & bulk delete ──
+  // ── bulk selection & bulk delete ──
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState<boolean>(false);
   const [bulkDeleting, setBulkDeleting] = useState<boolean>(false);
@@ -299,7 +730,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     setPage(1);
   }, [searchTerm, colSearches, fromDate, toDate, pageSize]);
 
-  // Clear selection when filters / date range change (avoid stale selection)
   useEffect(() => {
     setSelectedEmployeeIds(new Set());
   }, [searchTerm, colSearches, fromDate, toDate]);
@@ -342,7 +772,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     }
   };
 
-  // ── NEW: bulk selection helpers ──
   const toggleSelectEmployee = (id: number) => {
     setSelectedEmployeeIds((prev) => {
       const next = new Set(prev);
@@ -359,26 +788,21 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
       const allFilteredIds = filteredEmployeesRef.current.map((e) => e.employee_id);
       const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => prev.has(id));
       if (allSelected) {
-        // Deselect only filtered ones
         const next = new Set(prev);
         allFilteredIds.forEach((id) => next.delete(id));
         return next;
       }
-      // Select all filtered
       const next = new Set(prev);
       allFilteredIds.forEach((id) => next.add(id));
       return next;
     });
   };
 
-  // ── NEW: bulk delete handler (functional parity with single delete) ──
   const handleBulkDelete = async () => {
     if (selectedEmployeeIds.size === 0) return;
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedEmployeeIds);
-      // If workSessionAPI exposes a bulk endpoint in future, wire it here.
-      // For now, we mirror the single-delete behavior (local removal).
       console.log("Bulk deleting employees:", ids);
       setEmployees((prev) => prev.filter((e) => !selectedEmployeeIds.has(e.employee_id)));
       setBulkDeleteModalOpen(false);
@@ -415,7 +839,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     });
   }, [employees, searchTerm, colSearches]);
 
-  // ref mirror for header select-all (avoids stale closure issues)
   const filteredEmployeesRef = useRef<EmployeeItem[]>(filteredEmployees);
   useEffect(() => {
     filteredEmployeesRef.current = filteredEmployees;
@@ -427,6 +850,8 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     setSelectedEmployeeId(employee.employee_id);
     setShowEmployeePage(true);
     setExpandedDates(new Set());
+    setReportView("daily");
+    setDisplayMode("table");
   };
 
   const closeEmployeePage = () => {
@@ -438,14 +863,14 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
   };
 
   useEffect(() => {
-    if (!showEmployeePage || !selectedEmployee) return;
+    if (!showEmployeePage || selectedEmployeeId === null) return;
     let cancelled = false;
     const loadEmployeeBreaks = async () => {
       setEmployeeBreaksLoading(true);
       try {
-        const today = new Date().toISOString().split("T")[0];
+        const today = dateToKey(new Date());
         const res = await workSessionAPI.getEmployeeBreakHistory(
-          selectedEmployee.employee_id,
+          selectedEmployeeId,
           fromDate || today,
           toDate || fromDate || today,
         );
@@ -454,7 +879,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         }
 
         const dailyRes = await workSessionAPI.getEmployeeDailyUpdates(
-          selectedEmployee.employee_id,
+          selectedEmployeeId,
           undefined,
           fromDate || today,
           toDate || fromDate || today,
@@ -472,58 +897,197 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     };
     loadEmployeeBreaks();
     return () => { cancelled = true; };
-  }, [showEmployeePage, selectedEmployee, fromDate, toDate]);
+  }, [showEmployeePage, selectedEmployeeId, fromDate, toDate]);
 
-  const breakTypeSummary = employeeBreaks.reduce<Record<string, { count: number; seconds: number }>>((summary, item) => {
-    const type = item.break_type || "Other";
-    if (!summary[type]) summary[type] = { count: 0, seconds: 0 };
-    summary[type].count += 1;
-    summary[type].seconds += Number(item.actual_duration || 0);
-    return summary;
-  }, {});
+  const breakTypeSummary = useMemo(() => {
+    return employeeBreaks.reduce<TypeSummary>((summary, item) => {
+      const type = normType(item.break_type);
+      if (!summary[type]) summary[type] = { count: 0, seconds: 0 };
+      summary[type].count += 1;
+      summary[type].seconds += Number(item.actual_duration || 0);
+      return summary;
+    }, {});
+  }, [employeeBreaks]);
+
+  const breakTypeList = useMemo(
+    () => Object.entries(breakTypeSummary).sort((a, b) => b[1].seconds - a[1].seconds),
+    [breakTypeSummary],
+  );
 
   const mergedDayRows: MergedDayRow[] = useMemo(() => {
     const map = new Map<string, MergedDayRow>();
 
-    employeeDailyItems.forEach((d) => {
-      const key = toDateKey(d.date);
-      if (!key) return;
-      const existing = map.get(key);
-      if (existing) {
-        existing.daily = d;
-      } else {
-        map.set(key, {
+    const ensureRow = (key: string): MergedDayRow => {
+      let row = map.get(key);
+      if (!row) {
+        row = {
           dateKey: key,
-          dateLabel: formatDateDDMMYYYY(d.date),
-          daily: d,
+          dateLabel: formatDateDDMMYYYY(key),
+          weekday: "",
+          daily: undefined,
           breaks: [],
           breakSeconds: 0,
           breakCount: 0,
-        });
+          workedSec: 0,
+          totalBreakSec: 0,
+          productiveSec: 0,
+          status: "PENDING",
+          typeSummary: {},
+        };
+        map.set(key, row);
       }
+      return row;
+    };
+
+    employeeDailyItems.forEach((d) => {
+      const key = toDateKey(d.date);
+      if (!key) return;
+      ensureRow(key).daily = d;
     });
 
     employeeBreaks.forEach((b) => {
       const key = toDateKey(b.started_at) || toDateKey(b.ended_at);
       if (!key) return;
-      const existing = map.get(key);
-      if (existing) {
-        existing.breaks.push(b);
-        existing.breakSeconds += Number(b.actual_duration || 0);
-        existing.breakCount += 1;
-      } else {
-        map.set(key, {
-          dateKey: key,
-          dateLabel: formatDateDDMMYYYY(key),
-          breaks: [b],
-          breakSeconds: Number(b.actual_duration || 0),
-          breakCount: 1,
-        });
-      }
+      const row = ensureRow(key);
+      const dur = Number(b.actual_duration || 0);
+      const type = normType(b.break_type);
+      row.breaks.push(b);
+      row.breakSeconds += dur;
+      row.breakCount += 1;
+      if (!row.typeSummary[type]) row.typeSummary[type] = { count: 0, seconds: 0 };
+      row.typeSummary[type].count += 1;
+      row.typeSummary[type].seconds += dur;
     });
 
-    return Array.from(map.values()).sort((a, b) => (a.dateKey < b.dateKey ? 1 : -1));
+    return Array.from(map.values())
+      .map((row) => {
+        const daily = row.daily;
+        const workedSec = parseDuration(daily?.worked);
+        const totalBreakSec = daily?.break_time ? parseDuration(daily.break_time) : row.breakSeconds;
+        const productiveSec = daily?.productive ? parseDuration(daily.productive) : Math.max(0, workedSec - totalBreakSec);
+        return {
+          ...row,
+          weekday: keyToDate(row.dateKey).toLocaleDateString("en-GB", { weekday: "short" }),
+          workedSec,
+          totalBreakSec,
+          productiveSec,
+          status: daily?.status || "PENDING",
+        };
+      })
+      .sort((a, b) => (a.dateKey < b.dateKey ? 1 : -1));
   }, [employeeDailyItems, employeeBreaks]);
+
+  const periodGroups: PeriodGroup[] = useMemo(() => {
+    if (reportView === "daily") return [];
+    const map = new Map<string, PeriodGroup>();
+
+    mergedDayRows.forEach((row) => {
+      const dt = keyToDate(row.dateKey);
+      let key = "";
+      let label = "";
+      let sublabel = "";
+
+      if (reportView === "weekly") {
+        const start = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - ((dt.getDay() + 6) % 7));
+        const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+        key = dateToKey(start);
+        label = `${formatShort(start)} – ${formatShort(end)}`;
+        sublabel = `Week ${getISOWeek(start)} · ${end.getFullYear()}`;
+      } else {
+        key = row.dateKey.slice(0, 7);
+        label = dt.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      }
+
+      let g = map.get(key);
+      if (!g) {
+        g = {
+          key, label, sublabel, days: [],
+          workedSec: 0, breakSec: 0, productiveSec: 0, breakCount: 0,
+          activeDays: 0, achievedDays: 0, behindDays: 0, typeSummary: {},
+        };
+        map.set(key, g);
+      }
+      g.days.push(row);
+      g.workedSec += row.workedSec;
+      g.breakSec += row.totalBreakSec;
+      g.productiveSec += row.productiveSec;
+      g.breakCount += row.breakCount;
+      if (row.workedSec > 0) g.activeDays += 1;
+      if (row.status === "ACHIEVED") g.achievedDays += 1;
+      if (row.status === "BEHIND") g.behindDays += 1;
+      Object.entries(row.typeSummary).forEach(([t, s]) => {
+        if (!g!.typeSummary[t]) g!.typeSummary[t] = { count: 0, seconds: 0 };
+        g!.typeSummary[t].count += s.count;
+        g!.typeSummary[t].seconds += s.seconds;
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => (a.key < b.key ? 1 : -1));
+  }, [mergedDayRows, reportView]);
+
+  const totals = useMemo(() => {
+    const worked = mergedDayRows.reduce((s, r) => s + r.workedSec, 0);
+    const brk = mergedDayRows.reduce((s, r) => s + r.totalBreakSec, 0);
+    const prod = mergedDayRows.reduce((s, r) => s + r.productiveSec, 0);
+    const activeDays = mergedDayRows.filter((r) => r.workedSec > 0).length;
+    const achieved = mergedDayRows.filter((r) => r.status === "ACHIEVED").length;
+    const behind = mergedDayRows.filter((r) => r.status === "BEHIND").length;
+    return {
+      worked,
+      brk,
+      prod,
+      activeDays,
+      achieved,
+      behind,
+      avgProd: activeDays ? prod / activeDays : 0,
+      prodPct: worked ? Math.round((prod / worked) * 100) : 0,
+      breakCount: employeeBreaks.length,
+    };
+  }, [mergedDayRows, employeeBreaks]);
+
+  // ── Chart data derived from the current report view ──
+  const chartData: ChartDatum[] = useMemo(() => {
+    if (reportView === "daily") {
+      // For daily, show each day in chronological order (oldest → newest)
+      const rows = [...mergedDayRows].sort((a, b) => (a.dateKey < b.dateKey ? -1 : 1));
+      const peak = rows.reduce((best, r) => (r.productiveSec > (best?.productiveSec ?? -1) ? r : best), rows[0]);
+      return rows.map((r) => ({
+        key: r.dateKey,
+        label: keyToDate(r.dateKey).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+        sublabel: r.weekday,
+        workedSec: r.workedSec,
+        productiveSec: r.productiveSec,
+        breakSec: r.totalBreakSec,
+        isPeak: peak && peak.dateKey === r.dateKey && peak.productiveSec > 0,
+      }));
+    }
+
+    // Weekly / Monthly: oldest → newest
+    const groups = [...periodGroups].sort((a, b) => (a.key < b.key ? -1 : 1));
+    const peak = groups.reduce((best, g) => (g.productiveSec > (best?.productiveSec ?? -1) ? g : best), groups[0]);
+    return groups.map((g) => {
+      let label = g.label;
+      let sublabel = g.sublabel;
+      if (reportView === "monthly") {
+        const [y, m] = g.key.split("-");
+        const dt = new Date(Number(y), Number(m) - 1, 1);
+        label = dt.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+        sublabel = `${g.activeDays} active day${g.activeDays === 1 ? "" : "s"}`;
+      } else {
+        label = g.label.replace("–", "→").replace("  ", " ");
+        sublabel = g.sublabel;
+      }
+      return {
+        key: g.key,
+        label,
+        sublabel,
+        workedSec: g.workedSec,
+        productiveSec: g.productiveSec,
+        breakSec: g.breakSec,
+        isPeak: peak && peak.key === g.key && peak.productiveSec > 0,
+      };
+    });
+  }, [mergedDayRows, periodGroups, reportView]);
 
   const toggleDate = (key: string) => {
     setExpandedDates((prev) => {
@@ -534,13 +1098,38 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     });
   };
 
-  const allExpanded = mergedDayRows.length > 0 && mergedDayRows.every((r) => expandedDates.has(r.dateKey));
+  const currentKeys = reportView === "daily" ? mergedDayRows.map((r) => r.dateKey) : periodGroups.map((g) => g.key);
+  const allExpanded = currentKeys.length > 0 && currentKeys.every((k) => expandedDates.has(k));
 
   const toggleAllDates = () => {
-    if (allExpanded) {
-      setExpandedDates(new Set());
-    } else {
-      setExpandedDates(new Set(mergedDayRows.map((r) => r.dateKey)));
+    if (allExpanded) setExpandedDates(new Set());
+    else setExpandedDates(new Set(currentKeys));
+  };
+
+  const applyPreset = (id: PresetId) => {
+    const { from, to } = getPresetRange(id);
+    setFromDate(from);
+    setToDate(to);
+    setExpandedDates(new Set());
+  };
+
+  const handleChangeReportView = (view: ReportView) => {
+    setReportView(view);
+    setExpandedDates(new Set());
+    const now = new Date();
+    const today = dateToKey(now);
+    const from = fromDate || today;
+    const to = toDate || fromDate || today;
+    const spanDays = Math.round((keyToDate(to).getTime() - keyToDate(from).getTime()) / 86400000) + 1;
+
+    if (view === "weekly" && spanDays < 14) {
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) - 21);
+      setFromDate(dateToKey(monday));
+      setToDate(today);
+    }
+    if (view === "monthly" && spanDays < 45) {
+      setFromDate(dateToKey(new Date(now.getFullYear(), now.getMonth() - 2, 1)));
+      setToDate(today);
     }
   };
 
@@ -553,7 +1142,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
   const showingTo = Math.min(startIdx + pageSize, totalRecords);
   const fillerCount = Math.max(0, pageSize - pagedEmployees.length);
 
-  // ── NEW: page-level selection state for header checkbox ──
   const pageIds = pagedEmployees.map((e) => e.employee_id);
   const selectedOnPage = pageIds.filter((id) => selectedEmployeeIds.has(id));
   const isAllPageSelected = pageIds.length > 0 && selectedOnPage.length === pageIds.length;
@@ -575,6 +1163,11 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
     ? `${fromDate ? formatDateDDMMYYYY(fromDate) : "Start"} to ${toDate ? formatDateDDMMYYYY(toDate) : "End"}`
     : "Today";
 
+  const reportTitle = reportView === "daily" ? "Daily report" : reportView === "weekly" ? "Weekly report" : "Monthly report";
+
+  // ═══════════════════════════════════════════════════════════
+  // PDF (includes summary tables)
+  // ═══════════════════════════════════════════════════════════
   const handleDownloadPDF = async () => {
     if (!selectedEmployee) return;
     setDownloadingPdf(true);
@@ -592,14 +1185,25 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         body: string[][];
         widths: number[];
         fontSize?: number;
+        headerFontSize?: number;
       }) => {
-        const rowHeight = 22;
         const fontSize = options.fontSize || 9;
+        const headerFontSize = options.headerFontSize || fontSize;
         const left = 40;
         const right = pageWidth - 40;
         let currentY = options.startY;
 
-        const drawRow = (cells: string[], header = false) => {
+        const headerLines: string[][] = options.head.map((cell, index) => {
+          const width = options.widths[index] || (right - left) / options.head.length;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(headerFontSize);
+          return doc.splitTextToSize(String(cell || "-"), Math.max(10, width - 12));
+        });
+        const maxHeaderLines = Math.max(1, ...headerLines.map((lines) => lines.length));
+        const headerRowHeight = Math.max(22, maxHeaderLines * (headerFontSize + 2) + 8);
+
+        const drawRow = (cells: string[], header = false, customRowHeight?: number) => {
+          const rowHeight = customRowHeight || 22;
           if (currentY + rowHeight > pageHeight - 50) {
             doc.addPage();
             currentY = 40;
@@ -614,14 +1218,25 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
             doc.rect(x, currentY, width, rowHeight, "S");
             doc.setTextColor(...(header ? [255, 255, 255] : [30, 41, 59]) as [number, number, number]);
             doc.setFont("helvetica", header ? "bold" : "normal");
-            doc.setFontSize(fontSize);
-            doc.text(String(cell || "-"), x + 6, currentY + 14, { maxWidth: Math.max(10, width - 12) });
+            doc.setFontSize(header ? headerFontSize : fontSize);
+
+            if (header) {
+              const lines = doc.splitTextToSize(String(cell || "-"), Math.max(10, width - 12));
+              const lineHeight = headerFontSize + 2;
+              const totalTextHeight = lines.length * lineHeight;
+              const startTextY = currentY + (rowHeight - totalTextHeight) / 2 + headerFontSize - 2;
+              lines.forEach((line: string, lineIndex: number) => {
+                doc.text(line, x + 6, startTextY + lineIndex * lineHeight, { maxWidth: Math.max(10, width - 12) });
+              });
+            } else {
+              doc.text(String(cell || "-"), x + 6, currentY + 14, { maxWidth: Math.max(10, width - 12) });
+            }
             x += width;
           });
           currentY += rowHeight;
         };
 
-        drawRow(options.head, true);
+        drawRow(options.head, true, headerRowHeight);
         options.body.forEach((row) => drawRow(row));
         (doc as any).lastAutoTable = { finalY: currentY };
       };
@@ -672,10 +1287,10 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
       const cardWidth = (pageWidth - 80 - cardGap * 3) / 4;
 
       const summaryCards = [
-        { label: "Total Working Hours", value: selectedEmployee.worked || "00:00:00", color: [11, 56, 84] },
-        { label: "Break Time", value: selectedEmployee.break_time || "00:00:00", color: [184, 90, 16] },
-        { label: "Productive Hours", value: selectedEmployee.productive || "00:00:00", color: [5, 150, 105] },
-        { label: "Status", value: (selectedEmployee.status || "PENDING").replace("_", " "), color: [11, 56, 84] },
+        { label: "Total Working Hours", value: formatSeconds(totals.worked), color: [11, 56, 84] },
+        { label: "Break Time", value: formatSeconds(totals.brk), color: [184, 90, 16] },
+        { label: "Productive Hours", value: formatSeconds(totals.prod), color: [5, 150, 105] },
+        { label: "Active Days", value: `${totals.activeDays} / ${mergedDayRows.length}`, color: [11, 56, 84] },
       ];
 
       summaryCards.forEach((card, i) => {
@@ -698,14 +1313,72 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
 
       yPos = cardY + cardHeight + 25;
 
+      const ensureSpace = (needed: number) => {
+        if (yPos + needed > pageHeight - 60) {
+          doc.addPage();
+          yPos = 50;
+        }
+      };
+
+      ensureSpace(60);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(11, 56, 84);
+      doc.text(reportView === "daily" ? "Day-wise Summary" : reportView === "weekly" ? "Weekly Summary" : "Monthly Summary", 40, yPos);
+      yPos += 8;
+
+      if (reportView === "daily") {
+        drawTable({
+          startY: yPos,
+          head: ["Date", "Started", "Ended", "Worked", "Break", "Productive", "Status"],
+          body: mergedDayRows.length > 0
+            ? mergedDayRows.map((r) => [
+              r.dateLabel,
+              formatSessionTime(r.daily?.started_at, "-"),
+              formatSessionTime(r.daily?.ended_at, "Not ended"),
+              formatSeconds(r.workedSec),
+              formatSeconds(r.totalBreakSec),
+              formatSeconds(r.productiveSec),
+              r.status.replace("_", " "),
+            ])
+            : [["No data", "-", "-", "-", "-", "-", "-"]],
+          widths: [70, 50, 60, 70, 65, 75, 85],
+          fontSize: 8.5,
+          headerFontSize: 8,
+        });
+      } else {
+        drawTable({
+          startY: yPos,
+          head: [reportView === "weekly" ? "Week" : "Month", "Active Days", "Worked", "Break", "Productive", "Avg / Day", "Achieved / Behind"],
+          body: periodGroups.length > 0
+            ? periodGroups.map((g) => [
+              g.label.replace("–", "to"),
+              String(g.activeDays),
+              formatHM(g.workedSec),
+              formatHM(g.breakSec),
+              formatHM(g.productiveSec),
+              formatHM(g.activeDays ? g.productiveSec / g.activeDays : 0),
+              `${g.achievedDays} / ${g.behindDays}`,
+            ])
+            : [["No data", "-", "-", "-", "-", "-", "-"]],
+          widths: [105, 45, 55, 50, 60, 55, 75],
+          fontSize: 8.5,
+          headerFontSize: 7.5,
+        });
+      }
+
+      // @ts-ignore
+      yPos = (doc as any).lastAutoTable.finalY + 25;
+
+      ensureSpace(60);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(13);
       doc.setTextColor(11, 56, 84);
       doc.text("Break Types Taken", 40, yPos);
 
       yPos += 8;
-      const breakTypeRows = Object.entries(breakTypeSummary).map(([type, summary]) => [
-        type.charAt(0).toUpperCase() + type.slice(1),
+      const breakTypeRows = breakTypeList.map(([type, summary]) => [
+        type,
         `${summary.count} break${summary.count === 1 ? "" : "s"}`,
         formatSeconds(summary.seconds),
       ]);
@@ -716,11 +1389,13 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         body: breakTypeRows.length > 0 ? breakTypeRows : [["No breaks recorded", "-", "-"]],
         widths: [200, 100, 150],
         fontSize: 10,
+        headerFontSize: 10,
       });
 
       // @ts-ignore
       yPos = (doc as any).lastAutoTable.finalY + 25;
 
+      ensureSpace(60);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(13);
       doc.setTextColor(11, 56, 84);
@@ -741,7 +1416,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
           ? `${started!.toLocaleDateString([], { day: "2-digit", month: "short" })} ${started!.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
           : "—";
         return [
-          (item.break_type || "Other").charAt(0).toUpperCase() + (item.break_type || "Other").slice(1),
+          normType(item.break_type),
           startedStr,
           formatSeconds(actualSeconds),
           `${efficiency}%`,
@@ -753,8 +1428,9 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         startY: yPos,
         head: ["Break Type", "Date / Time", "Duration", "Efficiency", "Details"],
         body: breakActivityRows.length > 0 ? breakActivityRows : [["No break activity found", "-", "-", "-", "-"]],
-        widths: [90, 100, 70, 70, pageWidth - 80 - 330],
+        widths: [80, 90, 65, 65, pageWidth - 80 - 300],
         fontSize: 9,
+        headerFontSize: 9,
       });
 
       const totalPagesCount = doc.getNumberOfPages();
@@ -879,348 +1555,704 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
   const pageBtn = "min-w-[28px] h-7 px-2 flex items-center justify-center rounded-md text-[11px] font-semibold transition-all";
 
   // ═══════════════════════════════════════════════════════════
-  // RENDER: SEPARATE EMPLOYEE DETAILS PAGE (compact hero)
+  // RENDER: EMPLOYEE REPORT PAGE
   // ═══════════════════════════════════════════════════════════
   if (showEmployeePage && selectedEmployee) {
+    const todayKey = dateToKey(new Date());
+    const firstName = (selectedEmployee.employee_name || "Employee").trim().split(/\s+/)[0];
+    const topBreak = breakTypeList[0];
+    const totalBreakTypeSeconds = breakTypeList.reduce((s, [, v]) => s + v.seconds, 0);
+
+    const viewTabs: { id: ReportView; label: string }[] = [
+      { id: "daily", label: "Daily" },
+      { id: "weekly", label: "Weekly" },
+      { id: "monthly", label: "Monthly" },
+    ];
+    const presets: { id: PresetId; label: string }[] = [
+      { id: "today", label: "Today" },
+      { id: "week", label: "This week" },
+      { id: "month", label: "This month" },
+      { id: "lastMonth", label: "Last month" },
+    ];
+    const isPresetActive = (id: PresetId) => {
+      const r = getPresetRange(id);
+      return fromDate === r.from && toDate === r.to;
+    };
+
+    const kpis = [
+      { label: "Total worked", value: formatHM(totals.worked), sub: formatSeconds(totals.worked), icon: Clock, color: NAVY, bg: "#eef3f8" },
+      { label: "Productive time", value: formatHM(totals.prod), sub: `${totals.prodPct}% of worked time`, icon: Zap, color: "#059669", bg: "#ecfdf5" },
+      { label: "Break time", value: formatHM(totals.brk), sub: `${totals.breakCount} break${totals.breakCount === 1 ? "" : "s"} taken`, icon: Coffee, color: "#B85A10", bg: "#fff7ed" },
+      { label: "Active days", value: String(totals.activeDays), sub: `of ${mergedDayRows.length} day${mergedDayRows.length === 1 ? "" : "s"} in range`, icon: CalendarDays, color: NAVY_SOFT, bg: "#eef3f8" },
+      { label: "Avg productive / day", value: formatHM(totals.avgProd), sub: "per active day", icon: Timer, color: "#059669", bg: "#ecfdf5" },
+      { label: "Target achieved", value: `${totals.achieved}`, sub: `${totals.behind} day${totals.behind === 1 ? "" : "s"} behind`, icon: Target, color: ORANGE, bg: "#fff7ed" },
+    ];
+
+    const thBase = "px-3 py-2.5 text-[9.5px] font-semibold uppercase tracking-wide";
+
+    const renderBreakDetailTable = (breaks: EmployeeBreakItem[], totalSeconds: number) => (
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden" style={{ boxShadow: CARD_SHADOW }}>
+        <div className="flex items-center gap-2 px-3.5 py-2 bg-[#f4f7fa] border-b border-slate-200">
+          <Coffee className="w-3.5 h-3.5" style={{ color: ORANGE }} />
+          <span className="text-[11px] font-bold" style={{ color: NAVY }}>Break activity</span>
+          <span className="text-[10px] text-slate-500">
+            {breaks.length} break{breaks.length === 1 ? "" : "s"}
+          </span>
+          <span className="ml-auto text-[10.5px] font-semibold text-slate-600">
+            Total <span className="font-mono" style={{ color: "#B85A10" }}>{formatSeconds(totalSeconds)}</span>
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-[11px] border-collapse">
+            <thead>
+              <tr className="bg-white text-slate-500" style={{ borderBottom: `1px solid ${V_LINE}` }}>
+                <th className={thBase} style={{ width: "18%" }}>Break type</th>
+                <th className={thBase} style={{ width: "20%" }}>Started – Ended</th>
+                <th className={thBase} style={{ width: "13%" }}>Duration</th>
+                <th className={thBase} style={{ width: "15%" }}>Efficiency</th>
+                <th className={thBase}>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breaks.map((item, index) => {
+                const { efficiency, label, color } = getEfficiencyMeta(item);
+                const type = normType(item.break_type);
+                const typeColor = getBreakColor(type);
+                const pairs = parseBreakDetails(item.details);
+                return (
+                  <tr key={`${item.break_type}-${item.started_at}-${index}`} className="hover:bg-slate-50/60 transition-colors" style={{ borderTop: `1px solid ${V_LINE}` }}>
+                    <td className="px-3 py-2.5">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+                        <span className="w-2 h-2 rounded-full" style={{ background: typeColor }} />
+                        {type}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-slate-600">
+                      {formatSessionTime(item.started_at, "—")} – {formatSessionTime(item.ended_at, "running")}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono font-semibold text-slate-800">
+                      {formatSeconds(Number(item.actual_duration || 0))}
+                    </td>
+                    <td className="px-3 py-2.5 font-semibold" style={{ color }}>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px]" style={{ background: `${color}14`, border: `1px solid ${color}33` }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                        {label} · {efficiency}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {pairs.length === 0 ? (
+                        <span className="text-slate-400">Completed break</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {pairs.map((p, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600">
+                              <span className="text-slate-400">{p.label}:</span>
+                              <span className="font-semibold capitalize text-slate-700 break-words">{p.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+
+    const dayTile = (key: string) => {
+      const d = keyToDate(key);
+      return (
+        <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ background: "#eef3f8", border: `1px solid ${LINE}` }}>
+          <span className="text-[13px] font-bold leading-none" style={{ color: NAVY }}>{String(d.getDate()).padStart(2, "0")}</span>
+          <span className="text-[8px] font-semibold uppercase leading-none mt-1 text-slate-500">
+            {d.toLocaleDateString("en-GB", { month: "short" })}
+          </span>
+        </div>
+      );
+    };
+
+    const chevronBtn = (isOpen: boolean) => (
+      <span
+        className={`inline-flex items-center justify-center w-6 h-6 rounded-lg border transition-all shrink-0 ${isOpen ? "text-white" : "border-slate-300 text-slate-500 bg-white"}`}
+        style={isOpen ? { background: NAVY, borderColor: NAVY } : undefined}
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </span>
+    );
+
     return (
-      <div className="space-y-2.5">
-        {/* ── Compact Page Header / Hero ── */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}
-        >
+      <div className="space-y-3">
+        {/* ══ Hero + Toolbar ══ */}
+        <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}>
+          {/* Premium Hero Section */}
           <div
-            className="px-4 py-3"
-            style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` }}
+            className="relative px-6 py-5"
+            style={{
+              background: `radial-gradient(ellipse at 90% 10%, rgba(230,118,29,0.35) 0%, rgba(230,118,29,0) 50%), radial-gradient(ellipse at 10% 90%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 50%), ${BRAND_GRADIENT}`,
+            }}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+            {/* Subtle decorative grid pattern overlay */}
+            <div
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{
+                backgroundImage: `radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)`,
+                backgroundSize: '24px 24px'
+              }}
+            />
+
+            <div className="relative flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-5 min-w-0">
                 <button
                   onClick={closeEmployeePage}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                  className="group flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-all duration-200 cursor-pointer active:scale-95 shrink-0 backdrop-blur-sm border border-white/10"
                   title="Back to list"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4.5 h-4.5 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
 
-                <div
-                  className="w-11 h-11 rounded-full text-white flex items-center justify-center font-bold text-[15px] shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${ORANGE} 0%, #f59e4b 100%)`, boxShadow: `0 0 0 2px rgba(255,255,255,0.18)` }}
-                >
-                  {getInitials(selectedEmployee.employee_name)}
+                {/* Avatar with premium ring & status */}
+                <div className="relative shrink-0">
+                  <div
+                    className="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-bold text-[20px] tracking-wide"
+                    style={{
+                      background: `linear-gradient(135deg, ${ORANGE} 0%, #f59e4b 100%)`,
+                      boxShadow: "0 0 0 4px rgba(255,255,255,0.15), 0 12px 28px -8px rgba(0,0,0,0.6)"
+                    }}
+                  >
+                    {getInitials(selectedEmployee.employee_name)}
+                  </div>
+                  {/* Live status dot */}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full border-[3px] border-[#0B3854] flex items-center justify-center" style={{ background: selectedEmployee.current_state === 'ACTIVE' || selectedEmployee.current_state === 'RUNNING' ? '#22c55e' : selectedEmployee.current_state === 'BREAK' ? ORANGE : '#94a3b8' }}>
+                    {selectedEmployee.current_state === 'ACTIVE' || selectedEmployee.current_state === 'RUNNING' ? (
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    ) : null}
+                  </span>
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/60 leading-3">
-                    Employee Activity Details
-                  </p>
-                  <h1 className="mt-0.5 text-[16px] font-bold text-white truncate leading-5">
-                    {selectedEmployee.employee_name}
-                  </h1>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                    <span className="text-[10.5px] text-white/75 flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {selectedEmployee.department || "General"} · {selectedEmployee.role || "Agent"}
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.15em] leading-3 mb-1">Employee Activity Report</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-[22px] font-bold text-white truncate leading-7 tracking-tight">{selectedEmployee.employee_name}</h1>
+                    {getLiveStateBadge(selectedEmployee.current_state)}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-1.5">
+                    <span className="text-[11.5px] text-white/70 flex items-center gap-1.5 font-medium">
+                      <Users className="w-3.5 h-3.5 text-white/50" />
+                      {selectedEmployee.department || "General"}
+                      <span className="text-white/30">·</span>
+                      {selectedEmployee.role || "Agent"}
                     </span>
-                    <span className="text-[10.5px] text-white/75 flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
+                    <span className="text-[11.5px] text-white/70 flex items-center gap-1.5 font-medium">
+                      <Mail className="w-3.5 h-3.5 text-white/50" />
                       {selectedEmployee.email}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
+              {/* Premium Download Button */}
+              <button
+                onClick={handleDownloadPDF}
+                disabled={downloadingPdf || employeeBreaksLoading}
+                className="group inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[12px] font-bold text-white transition-all duration-200 active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer border border-white/10 backdrop-blur-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${ORANGE} 0%, #f59e4b 100%)`,
+                  boxShadow: "0 8px 24px -8px rgba(230,118,29,0.9), inset 0 1px 0 rgba(255,255,255,0.2)"
+                }}
+                title="Download PDF report"
+              >
+                {downloadingPdf ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
+                    Download PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Toolbar: view tabs · table/chart toggle · quick ranges · date pickers */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-white border-b border-slate-100">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+                {viewTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleChangeReportView(tab.id)}
+                    className={`rounded-lg px-4 py-1.5 text-[11.5px] font-bold transition-all cursor-pointer ${reportView === tab.id ? "text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}
+                    style={reportView === tab.id ? { background: BRAND_GRADIENT } : undefined}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Table / Chart switcher */}
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode("table")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all cursor-pointer ${displayMode === "table" ? "text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}
+                  style={displayMode === "table" ? { background: BRAND_GRADIENT } : undefined}
+                  title="Table view"
+                >
+                  <Table2 className="w-3.5 h-3.5" />
+                  Table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode("chart")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all cursor-pointer ${displayMode === "chart" ? "text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}
+                  style={displayMode === "chart" ? { background: BRAND_GRADIENT } : undefined}
+                  title="Chart view"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Chart
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {presets.map((p) => {
+                const active = isPresetActive(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => applyPreset(p.id)}
+                    className={`h-8 px-3 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer active:scale-95 ${active ? "text-[#B85A10]" : "text-slate-600 bg-white border-slate-200 hover:border-[#E6761D] hover:text-[#B85A10]"}`}
+                    style={active ? { background: "rgba(230,118,29,0.10)", borderColor: "rgba(230,118,29,0.45)" } : undefined}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+
+              <div className="flex items-center h-8 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+                <label className="flex items-center gap-1.5 px-2.5 h-full text-[10px] font-semibold text-slate-500 border-r border-slate-200">
                   From
                   <input
                     type="date"
                     value={fromDate}
                     onChange={(event) => setFromDate(event.target.value)}
-                    className="rounded-md border border-white/15 bg-white/10 px-1.5 py-1 text-[10px] text-white outline-none"
+                    className="bg-transparent border-none outline-none cursor-pointer font-sans text-[11px] text-slate-700 w-[104px]"
                   />
                 </label>
-                <label className="flex items-center gap-1 text-[9px] font-semibold text-white/70">
+                <label className="flex items-center gap-1.5 px-2.5 h-full text-[10px] font-semibold text-slate-500">
                   To
                   <input
                     type="date"
                     value={toDate}
                     onChange={(event) => setToDate(event.target.value)}
-                    className="rounded-md border border-white/15 bg-white/10 px-1.5 py-1 text-[10px] text-white outline-none"
+                    className="bg-transparent border-none outline-none cursor-pointer font-sans text-[11px] text-slate-700 w-[104px]"
                   />
                 </label>
-
-                <button
-                  onClick={handleDownloadPDF}
-                  disabled={downloadingPdf || employeeBreaksLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#E6761D] hover:bg-[#c9640f] px-2.5 py-1.5 text-[10.5px] font-bold text-white shadow-md transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                  title="Download PDF report"
-                >
-                  {downloadingPdf ? (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-3.5 w-3.5" />
-                      Download PDF
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           </div>
 
-          {/* ── Report Period Strip (compact) ── */}
-          <div className="flex items-center justify-between px-4 py-1.5 bg-slate-50 border-b border-slate-100">
-            <span className="text-[9.5px] font-semibold uppercase tracking-wide text-slate-500">
-              Report period
-            </span>
-            <span className="font-mono text-[10.5px] font-semibold" style={{ color: NAVY }}>
-              {detailRangeLabel}
-            </span>
+          <div className="flex items-center justify-between px-5 py-1.5 bg-slate-50 border-t border-slate-100">
+            <span className="text-[10px] font-semibold text-slate-500">Showing data for</span>
+            <span className="font-mono text-[11px] font-semibold" style={{ color: NAVY }}>{detailRangeLabel}</span>
           </div>
         </div>
 
-        {/* ── KPI Summary Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          {[
-            { label: "Total Working Hours", value: selectedEmployee.worked, icon: Clock, color: NAVY, bg: "#eef3f8" },
-            { label: "Break Time", value: selectedEmployee.break_time, icon: Coffee, color: "#B85A10", bg: "#fff7ed" },
-            { label: "Productive Hours", value: selectedEmployee.productive, icon: Zap, color: "#059669", bg: "#ecfdf5" },
-          ].map((card) => {
+        {/* ══ KPI cards ══ */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+          {kpis.map((card) => {
             const Icon = card.icon;
             return (
               <div
                 key={card.label}
-                className="rounded-xl px-4 py-3 flex items-center gap-3"
-                style={{ background: card.bg, border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}
+                className="rounded-2xl px-3.5 py-3 bg-white"
+                style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}
               >
-                <span
-                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: `${card.color}1a` }}
-                >
-                  <Icon className="w-4 h-4" style={{ color: card.color }} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 truncate">{card.label}</p>
-                  <p className="mt-0.5 font-mono text-[17px] font-bold leading-5" style={{ color: card.color }}>
-                    {card.value || "00:00:00"}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: card.bg }}>
+                    <Icon className="w-3.5 h-3.5" style={{ color: card.color }} />
+                  </span>
+                  <p className="text-[10.5px] font-semibold text-slate-500 leading-3.5">{card.label}</p>
                 </div>
+                <p className="mt-2 text-[22px] font-bold leading-6" style={{ color: card.color }}>{card.value}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400 font-mono">{card.sub}</p>
               </div>
             );
           })}
-          <div
-            className="rounded-xl px-4 py-3 flex items-center gap-3"
-            style={{ background: "#f4f7fa", border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}
-          >
-            <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${NAVY}1a` }}>
-              <Activity className="w-4 h-4" style={{ color: NAVY }} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wide text-slate-500">Daily Status</p>
-              <div className="mt-1">{getStatusBadge(selectedEmployee.status)}</div>
-            </div>
-          </div>
         </div>
 
-        {/* ── MERGED: Daily Work + Break Activity (single table) ── */}
-        <div
-          className="rounded-xl overflow-hidden bg-white"
-          style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}
-        >
-          {/* ── CHANGED: White header with dark text and bottom border ── */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-white border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" style={{ color: NAVY }} />
-              <h2 className="text-[12.5px] font-bold" style={{ color: NAVY }}>
-                Daily Work Activity &amp; Break Log
-              </h2>
+        {/* ══ Plain-language summary ══ */}
+        {!employeeBreaksLoading && mergedDayRows.length > 0 && (
+          <div
+            className="flex items-start gap-3 rounded-2xl px-4 py-3"
+            style={{ background: "linear-gradient(90deg, rgba(230,118,29,0.08), rgba(230,118,29,0.02))", border: "1px solid rgba(230,118,29,0.22)" }}
+          >
+
+            <p className="text-[12px] leading-5 text-slate-700">
+              In this period <b style={{ color: NAVY }}>{firstName}</b> worked{" "}
+              <b style={{ color: NAVY }}>{formatHM(totals.worked)}</b> across{" "}
+              <b style={{ color: NAVY }}>{totals.activeDays}</b> active day{totals.activeDays === 1 ? "" : "s"}, of which{" "}
+              <b style={{ color: "#047857" }}>{formatHM(totals.prod)}</b> was productive ({totals.prodPct}% of worked time).{" "}
+              {totals.breakCount > 0 ? (
+                <>
+                  <b style={{ color: "#B85A10" }}>{totals.breakCount}</b> break{totals.breakCount === 1 ? "" : "s"} taken
+                  {topBreak ? <>, most time spent on <b style={{ color: "#B85A10" }}>{topBreak[0]}</b> ({formatSeconds(topBreak[1].seconds)})</> : null}.
+                </>
+              ) : (
+                <>No breaks were recorded.</>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* ══ Break types (always visible) ══ */}
+        <div className="rounded-2xl bg-white overflow-hidden" style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}>
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
+            <BarChart3 className="w-4 h-4" style={{ color: ORANGE }} />
+            <h2 className="text-[12.5px] font-bold" style={{ color: NAVY }}>Break types taken</h2>
+            <span className="text-[10.5px] text-slate-400">
+              {totals.breakCount} break{totals.breakCount === 1 ? "" : "s"} · {formatSeconds(totalBreakTypeSeconds)}
+            </span>
+          </div>
+          {breakTypeList.length === 0 ? (
+            <div className="px-4 py-5 text-center text-[11px] text-slate-500">No breaks recorded for this period.</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 p-3.5">
+              {breakTypeList.map(([type, s]) => {
+                const color = getBreakColor(type);
+                const share = totalBreakTypeSeconds ? Math.round((s.seconds / totalBreakTypeSeconds) * 100) : 0;
+                return (
+                  <div key={type} className="rounded-xl px-3 py-2.5" style={{ background: `${color}0d`, border: `1px solid ${color}30` }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-bold min-w-0" style={{ color }}>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                        <span className="truncate">{type}</span>
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-500">{share}%</span>
+                    </div>
+                    <p className="mt-1.5 font-mono text-[15px] font-bold text-slate-800">{formatSeconds(s.seconds)}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {s.count} break{s.count === 1 ? "" : "s"} · avg {formatSeconds(s.count ? s.seconds / s.count : 0)}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
+          )}
+        </div>
+
+        {/* ══ Main report: Table or Chart ══ */}
+        <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${LINE}`, boxShadow: CARD_SHADOW }}>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-white border-b border-slate-200">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-slate-500">
-                {mergedDayRows.length} day{mergedDayRows.length === 1 ? "" : "s"} · {employeeBreaks.length} break{employeeBreaks.length === 1 ? "" : "s"}
+              {displayMode === "table" ? (
+                <CalendarDays className="w-4 h-4" style={{ color: NAVY }} />
+              ) : (
+                <LineChart className="w-4 h-4" style={{ color: NAVY }} />
+              )}
+              <h2 className="text-[13px] font-bold" style={{ color: NAVY }}>
+                {displayMode === "table" ? reportTitle : `${reportTitle} · Chart`}
+              </h2>
+              <span className="text-[10.5px] font-semibold text-slate-400">
+                {reportView === "daily"
+                  ? `${mergedDayRows.length} day${mergedDayRows.length === 1 ? "" : "s"}`
+                  : `${periodGroups.length} ${reportView === "weekly" ? "week" : "month"}${periodGroups.length === 1 ? "" : "s"} · ${mergedDayRows.length} day${mergedDayRows.length === 1 ? "" : "s"}`}
               </span>
+            </div>
+
+            {displayMode === "table" && (
               <button
                 onClick={toggleAllDates}
-                disabled={mergedDayRows.length === 0}
-                className="inline-flex items-center gap-1 rounded-md bg-slate-100 hover:bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                disabled={currentKeys.length === 0}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-[10.5px] font-semibold text-slate-700 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <ChevronDown className={`w-3 h-3 transition-transform ${allExpanded ? "rotate-180" : ""}`} />
                 {allExpanded ? "Collapse all" : "Expand all"}
               </button>
-            </div>
+            )}
           </div>
 
           {employeeBreaksLoading ? (
-            <div className="p-8 text-center text-[11px] text-slate-500">
+            <div className="p-10 text-center text-[11px] text-slate-500">
               <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" style={{ color: ORANGE }} />
               Loading activity &amp; break details...
             </div>
           ) : mergedDayRows.length === 0 ? (
-            <div className="p-8 text-center text-[11px] text-slate-500">
-              No daily work activity or breaks found for this date range.
+            <div className="p-10 text-center text-[11px] text-slate-500">
+              No work activity or breaks found for this date range. Try a wider range.
             </div>
-          ) : (
+          ) : displayMode === "chart" ? (
+            /* ───────────── CHART VIEW ───────────── */
+            <div className="p-4">
+              {/* Legend + helper strip */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-sm" style={{ background: CHART_WORKED }} />
+                    Worked
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-sm" style={{ background: CHART_PRODUCTIVE }} />
+                    Productive
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-sm" style={{ background: CHART_BREAK }} />
+                    Break
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: ORANGE }} />
+                    Peak productive
+                  </span>
+                </div>
+                <span className="text-[10.5px] text-slate-400">
+                  Hover a bar for exact values
+                </span>
+              </div>
+
+              <div
+                className="rounded-xl border border-slate-100 overflow-hidden"
+                style={{ background: "linear-gradient(180deg, #fbfdff 0%, #f4f7fa 100%)" }}
+              >
+                <ReportBarChart data={chartData} height={360} />
+              </div>
+
+              {/* Compact summary below chart */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-3">
+                <div className="rounded-xl px-3 py-2.5 bg-[#eef3f8] border border-[#dbe4ee]">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total worked</p>
+                  <p className="mt-1 font-mono text-[16px] font-bold" style={{ color: NAVY }}>{formatCompact(totals.worked)}</p>
+                </div>
+                <div className="rounded-xl px-3 py-2.5 bg-emerald-50 border border-emerald-100">
+                  <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Productive</p>
+                  <p className="mt-1 font-mono text-[16px] font-bold text-emerald-700">{formatCompact(totals.prod)}</p>
+                </div>
+                <div className="rounded-xl px-3 py-2.5 bg-[#fff7ed] border border-[#fed7aa]">
+                  <p className="text-[10px] font-semibold text-[#B85A10] uppercase tracking-wide">Break</p>
+                  <p className="mt-1 font-mono text-[16px] font-bold" style={{ color: "#B85A10" }}>{formatCompact(totals.brk)}</p>
+                </div>
+                <div className="rounded-xl px-3 py-2.5 bg-[#eef3f8] border border-[#dbe4ee]">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Productivity rate</p>
+                  <p className="mt-1 font-mono text-[16px] font-bold" style={{ color: NAVY_SOFT }}>{totals.prodPct}%</p>
+                </div>
+              </div>
+            </div>
+          ) : reportView === "daily" ? (
+            /* ───────────── DAILY TABLE ───────────── */
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] text-left text-[11px] border-collapse">
+              <table className="w-full min-w-[1080px] text-left text-[11px] border-collapse">
                 <colgroup>
-                  <col style={{ width: "14%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "14%" }} />
-                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "5%" }} />
                 </colgroup>
                 <thead>
-                  <tr className="bg-slate-50 text-[9px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5" style={{ borderRight: `1px solid ${V_LINE}` }}>Date</th>
-                    <th className="px-3 py-2.5" style={{ borderRight: `1px solid ${V_LINE}` }}>Work Started</th>
-                    <th className="px-3 py-2.5" style={{ borderRight: `1px solid ${V_LINE}` }}>Work Ended</th>
-                    <th className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>Worked</th>
-                    <th className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>Break</th>
-                    <th className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>Productive</th>
-                    <th className="px-3 py-2.5">Status &amp; Breaks</th>
+                  <tr className="bg-[#f4f7fa] text-slate-500" style={{ borderBottom: `1px solid ${LINE}` }}>
+                    <th className={thBase}>Date</th>
+                    <th className={thBase}>Started</th>
+                    <th className={thBase}>Ended</th>
+                    <th className={`${thBase} text-center`}>Worked</th>
+                    <th className={`${thBase} text-center`}>Break</th>
+                    <th className={`${thBase} text-center`}>Productive</th>
+                    <th className={thBase}>Breaks taken</th>
+                    <th className={thBase}>Status</th>
+                    <th className={thBase}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {mergedDayRows.map((row) => {
                     const isOpen = expandedDates.has(row.dateKey);
                     const daily = row.daily;
+                    const isToday = row.dateKey === todayKey;
                     return (
                       <React.Fragment key={row.dateKey}>
-                        {/* ── Master row (day summary) ── */}
                         <tr
-                          className={`border-t border-slate-100 cursor-pointer transition-colors ${isOpen ? "bg-[#0B3854]/[0.03]" : "hover:bg-slate-50/60"}`}
+                          className={`cursor-pointer transition-colors ${isOpen ? "bg-[#0B3854]/[0.04]" : "hover:bg-slate-50/70"}`}
+                          style={{ borderTop: `1px solid ${V_LINE}` }}
                           onClick={() => toggleDate(row.dateKey)}
                         >
-                          <td className="px-3 py-2.5" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[#0B3854]/[0.07] border border-[#0B3854]/15">
-                                <CalendarDays className="w-3.5 h-3.5 text-[#0B3854]" />
-                              </span>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5">
+                              {dayTile(row.dateKey)}
                               <div>
-                                <div className="font-semibold text-slate-800 font-mono text-[11px]">{row.dateLabel}</div>
-                                {row.breakCount > 0 && (
-                                  <div className="text-[9px] text-slate-400 flex items-center gap-1">
-                                    <Coffee className="w-2.5 h-2.5" />
-                                    {row.breakCount} break{row.breakCount === 1 ? "" : "s"} · {formatSeconds(row.breakSeconds)}
-                                  </div>
-                                )}
+                                <div className="font-mono font-semibold text-slate-800 text-[11px]">{row.dateLabel}</div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                  {row.weekday}
+                                  {isToday && (
+                                    <span className="rounded-full px-1.5 py-px text-[8.5px] font-bold text-white" style={{ background: ORANGE }}>Today</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 font-mono text-slate-600 text-[11px]" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            {daily ? formatSessionTime(daily.started_at) : "—"}
+                          <td className="px-3 py-3 font-mono text-slate-600">{daily ? formatSessionTime(daily.started_at, "—") : "—"}</td>
+                          <td className="px-3 py-3 font-mono">
+                            {daily && daily.ended_at ? (
+                              <span className="text-slate-600">{formatSessionTime(daily.ended_at)}</span>
+                            ) : (
+                              <span className="text-[10px] font-sans font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Not ended</span>
+                            )}
                           </td>
-                          <td className="px-3 py-2.5 font-mono text-slate-600 text-[11px]" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            {daily ? formatSessionTime(daily.ended_at) : "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            <span className="inline-flex items-center justify-center min-w-[70px] rounded-md bg-slate-50 border border-slate-200 px-2 py-1 font-mono font-semibold text-[10.5px] text-slate-700">
-                              {daily?.worked || "00:00:00"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            <span className="inline-flex items-center justify-center min-w-[70px] rounded-md bg-[#fff7ed] border border-[#fed7aa] px-2 py-1 font-mono font-semibold text-[10.5px] text-[#B85A10]">
-                              {daily?.break_time || (row.breakSeconds > 0 ? formatSeconds(row.breakSeconds) : "00:00:00")}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                            <span className="inline-flex items-center justify-center min-w-[70px] rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1 font-mono font-bold text-[10.5px] text-emerald-700">
-                              {daily?.productive || "00:00:00"}
-                            </span>
-                          </td>
-                          {/* ── Status column now contains the status badge + expand chevron ── */}
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {getStatusBadge(daily?.status || "PENDING")}
-                              </div>
-                              <span
-                                className={`inline-flex items-center justify-center w-5 h-5 rounded-md border transition-all shrink-0 ${isOpen ? "bg-[#0B3854] border-[#0B3854] text-white" : "border-slate-300 text-slate-500"}`}
-                                title={isOpen ? "Collapse break details" : "Expand break details"}
-                              >
-                                <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                              </span>
-                            </div>
-                          </td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(row.workedSec)} tone="slate" /></td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(row.totalBreakSec)} tone="orange" /></td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(row.productiveSec)} tone="green" /></td>
+                          <td className="px-3 py-3"><BreakChips summary={row.typeSummary} /></td>
+                          <td className="px-3 py-3">{getStatusBadge(row.status)}</td>
+                          <td className="px-3 py-3 text-right">{chevronBtn(isOpen)}</td>
                         </tr>
 
-                        {/* ── Detail row (breaks for that day) ── */}
                         {isOpen && (
-                          <tr className="bg-slate-50/40">
-                            <td colSpan={7} className="px-0 py-0">
-                              <div className="px-3 pb-3 pt-1.5">
-                                {row.breaks.length === 0 ? (
-                                  <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 px-4 py-4 text-center text-[10.5px] text-slate-500">
-                                    No breaks recorded on this day.
-                                  </div>
-                                ) : (
-                                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-[#f4f7fa] border-b border-slate-200">
-                                      <Coffee className="w-3.5 h-3.5" style={{ color: ORANGE }} />
-                                      <span className="text-[10.5px] font-bold" style={{ color: NAVY }}>
-                                        Break Activity
-                                      </span>
-                                      <span className="text-[9.5px] text-slate-500 ml-auto">
-                                        Total: {formatSeconds(row.breakSeconds)}
-                                      </span>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                      <table className="w-full min-w-[700px] text-left text-[10.5px] border-collapse">
-                                        <thead>
-                                          <tr className="bg-white text-[9px] uppercase tracking-wide text-slate-500">
-                                            <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}`, borderBottom: `1px solid ${V_LINE}` }}>Break Type</th>
-                                            <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}`, borderBottom: `1px solid ${V_LINE}` }}>Date / Time</th>
-                                            <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}`, borderBottom: `1px solid ${V_LINE}` }}>Duration</th>
-                                            <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}`, borderBottom: `1px solid ${V_LINE}` }}>Efficiency</th>
-                                            <th className="px-3 py-1.5" style={{ borderBottom: `1px solid ${V_LINE}` }}>Details</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {row.breaks.map((item, index) => {
-                                            const { efficiency, label, color } = getEfficiencyMeta(item);
-                                            const started = item.started_at ? new Date(item.started_at) : null;
-                                            const startedValid = started && !Number.isNaN(started.getTime());
-                                            return (
-                                              <tr
-                                                key={`${item.break_type}-${item.started_at}-${index}`}
-                                                className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors"
-                                              >
-                                                <td className="px-3 py-2 font-semibold capitalize text-slate-800" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                                                  {item.break_type || "Other"}
-                                                </td>
-                                                <td className="px-3 py-2 text-slate-500" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                                                  {startedValid
-                                                    ? `${formatDateDDMMYYYY(item.started_at)} · ${started.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                                                    : "—"}
-                                                </td>
-                                                <td className="px-3 py-2 font-mono font-semibold text-slate-700" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                                                  {formatSeconds(Number(item.actual_duration || 0))}
-                                                </td>
-                                                <td className="px-3 py-2 font-semibold" style={{ borderRight: `1px solid ${V_LINE}`, color }}>
-                                                  <span className="inline-flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                                                    {label} {efficiency}%
-                                                  </span>
-                                                </td>
-                                                <td className="max-w-[300px] px-3 py-2 text-slate-500">
-                                                  <span className="block truncate" title={formatBreakDetails(item.details)}>
-                                                    {formatBreakDetails(item.details)}
-                                                  </span>
-                                                </td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  </div>
-                                )}
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={9} className="px-4 pb-4 pt-2">
+                              {row.breaks.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-4 text-center text-[11px] text-slate-500">
+                                  No breaks recorded on this day.
+                                </div>
+                              ) : (
+                                renderBreakDetailTable(row.breaks, row.breakSeconds)
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-[#f4f7fa]" style={{ borderTop: `2px solid ${LINE}` }}>
+                    <td className="px-3 py-3 text-[11px] font-bold" style={{ color: NAVY }} colSpan={3}>
+                      Total · {mergedDayRows.length} day{mergedDayRows.length === 1 ? "" : "s"}
+                    </td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(totals.worked)} tone="slate" /></td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(totals.brk)} tone="orange" /></td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatSeconds(totals.prod)} tone="green" /></td>
+                    <td className="px-3 py-3 text-[10.5px] text-slate-500" colSpan={3}>
+                      {totals.breakCount} break{totals.breakCount === 1 ? "" : "s"} · {totals.achieved} achieved · {totals.behind} behind
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : (
+            /* ───────────── WEEKLY / MONTHLY TABLE ───────────── */
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1080px] text-left text-[11px] border-collapse">
+                <colgroup>
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "5%" }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-[#f4f7fa] text-slate-500" style={{ borderBottom: `1px solid ${LINE}` }}>
+                    <th className={thBase}>{reportView === "weekly" ? "Week" : "Month"}</th>
+                    <th className={`${thBase} text-center`}>Active days</th>
+                    <th className={`${thBase} text-center`}>Worked</th>
+                    <th className={`${thBase} text-center`}>Break</th>
+                    <th className={`${thBase} text-center`}>Productive</th>
+                    <th className={`${thBase} text-center`}>Avg / day</th>
+                    <th className={thBase}>Target days</th>
+                    <th className={thBase}>Break types</th>
+                    <th className={thBase}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {periodGroups.map((g) => {
+                    const isOpen = expandedDates.has(g.key);
+                    const avg = g.activeDays ? g.productiveSec / g.activeDays : 0;
+                    return (
+                      <React.Fragment key={g.key}>
+                        <tr
+                          className={`cursor-pointer transition-colors ${isOpen ? "bg-[#0B3854]/[0.04]" : "hover:bg-slate-50/70"}`}
+                          style={{ borderTop: `1px solid ${V_LINE}` }}
+                          onClick={() => toggleDate(g.key)}
+                        >
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#eef3f8", border: `1px solid ${LINE}` }}>
+                                <CalendarDays className="w-4 h-4" style={{ color: NAVY }} />
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-bold text-[12px] leading-4" style={{ color: NAVY }}>{g.label}</div>
+                                <div className="text-[10px] text-slate-400">{g.sublabel || `${g.days.length} day${g.days.length === 1 ? "" : "s"} logged`}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="font-bold text-[13px] text-slate-800">{g.activeDays}</div>
+                            <div className="text-[9.5px] text-slate-400">of {g.days.length} day{g.days.length === 1 ? "" : "s"}</div>
+                          </td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatHM(g.workedSec)} tone="slate" /></td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatHM(g.breakSec)} tone="orange" /></td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatHM(g.productiveSec)} tone="green" /></td>
+                          <td className="px-3 py-3 text-center"><MetricPill value={formatHM(avg)} tone="green" /></td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                <CheckCircle2 className="w-3 h-3" /> {g.achievedDays} achieved
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                <AlertCircle className="w-3 h-3" /> {g.behindDays} behind
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3"><BreakChips summary={g.typeSummary} max={2} /></td>
+                          <td className="px-3 py-3 text-right">{chevronBtn(isOpen)}</td>
+                        </tr>
+
+                        {isOpen && (
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={9} className="px-4 pb-4 pt-2">
+                              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden" style={{ boxShadow: CARD_SHADOW }}>
+                                <div className="flex items-center gap-2 px-3.5 py-2 bg-[#f4f7fa] border-b border-slate-200">
+                                  <CalendarDays className="w-3.5 h-3.5" style={{ color: NAVY }} />
+                                  <span className="text-[11px] font-bold" style={{ color: NAVY }}>Day-wise breakdown · {g.label}</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full min-w-[820px] text-left text-[11px] border-collapse">
+                                    <thead>
+                                      <tr className="bg-white text-slate-500" style={{ borderBottom: `1px solid ${V_LINE}` }}>
+                                        <th className={thBase}>Date</th>
+                                        <th className={`${thBase} text-center`}>Worked</th>
+                                        <th className={`${thBase} text-center`}>Break</th>
+                                        <th className={`${thBase} text-center`}>Productive</th>
+                                        <th className={thBase}>Breaks taken</th>
+                                        <th className={thBase}>Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {g.days.map((d) => (
+                                        <tr key={d.dateKey} className="hover:bg-slate-50/60" style={{ borderTop: `1px solid ${V_LINE}` }}>
+                                          <td className="px-3 py-2.5">
+                                            <span className="font-mono font-semibold text-slate-800">{d.dateLabel}</span>
+                                            <span className="ml-2 text-[10px] text-slate-400">{d.weekday}</span>
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center"><MetricPill value={formatSeconds(d.workedSec)} tone="slate" /></td>
+                                          <td className="px-3 py-2.5 text-center"><MetricPill value={formatSeconds(d.totalBreakSec)} tone="orange" /></td>
+                                          <td className="px-3 py-2.5 text-center"><MetricPill value={formatSeconds(d.productiveSec)} tone="green" /></td>
+                                          <td className="px-3 py-2.5"><BreakChips summary={d.typeSummary} /></td>
+                                          <td className="px-3 py-2.5">{getStatusBadge(d.status)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -1229,43 +2261,20 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-[#f4f7fa]" style={{ borderTop: `2px solid ${LINE}` }}>
+                    <td className="px-3 py-3 text-[11px] font-bold" style={{ color: NAVY }}>Grand total</td>
+                    <td className="px-3 py-3 text-center font-bold text-slate-800">{totals.activeDays}</td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatHM(totals.worked)} tone="slate" /></td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatHM(totals.brk)} tone="orange" /></td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatHM(totals.prod)} tone="green" /></td>
+                    <td className="px-3 py-3 text-center"><MetricPill value={formatHM(totals.avgProd)} tone="green" /></td>
+                    <td className="px-3 py-3 text-[10.5px] text-slate-500" colSpan={3}>
+                      {totals.achieved} achieved · {totals.behind} behind
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
-            </div>
-          )}
-
-          {/* ── Break Types Summary Footer Strip ── */}
-          {Object.keys(breakTypeSummary).length > 0 && (
-            <div className="border-t border-slate-200 bg-[#f4f7fa] px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-3.5 h-3.5" style={{ color: ORANGE }} />
-                <span className="text-[10.5px] font-bold" style={{ color: NAVY }}>
-                  Break Types Taken
-                </span>
-                <span className="text-[9.5px] text-slate-500">
-                  · {employeeBreaks.length} total break{employeeBreaks.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                {Object.entries(breakTypeSummary).map(([type, summary]) => (
-                  <div
-                    key={type}
-                    className="rounded-lg px-3 py-2"
-                    style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}
-                  >
-                    <p className="text-[11px] font-bold capitalize" style={{ color: "#9a3412" }}>
-                      {type}
-                    </p>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[9.5px] text-slate-600">
-                        {summary.count} break{summary.count === 1 ? "" : "s"}
-                      </span>
-                      <span className="font-mono text-[11px] font-bold" style={{ color: "#c2410c" }}>
-                        {formatSeconds(summary.seconds)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>
@@ -1307,6 +2316,14 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
             </div>
 
             <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => onActiveViewChange?.("agent_execution")}
+                className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold whitespace-nowrap transition-all ${activeView === "agent_execution" ? "text-white shadow-sm" : "text-slate-700 hover:bg-white"}`}
+                style={activeView === "agent_execution" ? { background: BRAND_GRADIENT } : undefined}
+              >
+                Agent Lead Execution
+              </button>
               {[
                 ["daily_work_tracker", "Daily Work Tracker"],
                 ["user_breakdown", "Lead Execution Breakdown"],
@@ -1317,7 +2334,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                   type="button"
                   onClick={() => onActiveViewChange?.(view as ActivityView)}
                   className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold whitespace-nowrap transition-all ${activeView === view ? "text-white shadow-sm" : "text-slate-700 hover:bg-white"}`}
-                  style={activeView === view ? { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` } : undefined}
+                  style={activeView === view ? { background: BRAND_GRADIENT } : undefined}
                 >
                   {label}
                 </button>
@@ -1368,7 +2385,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
               onClick={fetchAdminData}
               disabled={loading}
               className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg text-[11px] font-semibold text-white transition-all cursor-pointer active:scale-95 disabled:opacity-70"
-              style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)`, boxShadow: "0 3px 10px -4px rgba(11,56,84,0.55)" }}
+              style={{ background: BRAND_GRADIENT, boxShadow: "0 3px 10px -4px rgba(11,56,84,0.55)" }}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -1376,7 +2393,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
           </div>
         </div>
 
-        {/* ── NEW: Bulk actions bar ── */}
         {selectedEmployeeIds.size > 0 && (
           <div
             className="px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0"
@@ -1427,7 +2443,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
           ) : (
             <table className="w-full min-w-[1160px] table-fixed text-left border-collapse">
               <colgroup>
-                {/* NEW leading column for selection */}
                 <col style={{ width: "40px" }} />
                 <col style={{ width: "19%" }} />
                 <col style={{ width: "12%" }} />
@@ -1441,8 +2456,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
               </colgroup>
 
               <thead className="sticky top-0 z-10 shadow-sm">
-                <tr className="text-white/90 font-semibold uppercase tracking-wide text-[9.5px]" style={{ height: HEAD_H, background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` }}>
-                  {/* NEW: header checkbox */}
+                <tr className="text-white/90 font-semibold uppercase tracking-wide text-[9.5px]" style={{ height: HEAD_H, background: BRAND_GRADIENT }}>
                   <th className="px-2 text-center" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>
                     <button
                       type="button"
@@ -1462,7 +2476,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                       ) : null}
                     </button>
                   </th>
-                  <th className="px-4 text-left" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>Buyer Details</th>
+                  <th className="px-4 text-left" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>Employee Details</th>
                   <th className="px-4 text-left" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>Department / Role</th>
                   <th className="px-4 text-center" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>Target</th>
                   <th className="px-4 text-center" style={{ borderRight: "1px solid rgba(255,255,255,0.15)" }}>Worked</th>
@@ -1473,10 +2487,9 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                   <th className="px-4 text-right">Action</th>
                 </tr>
                 <tr className="bg-white border-b border-slate-200" style={{ height: SEARCH_H }}>
-                  {/* NEW: empty search cell */}
                   <th className="px-2" style={{ borderRight: `1px solid ${V_LINE}` }} />
                   <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}` }}>
-                    <input type="text" placeholder="Search buyer..." value={colSearches.name} onChange={(e) => handleColSearch("name", e.target.value)} className="w-full h-7 px-2 text-[10px] rounded border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#E6761D] transition-all" />
+                    <input type="text" placeholder="Search employee..." value={colSearches.name} onChange={(e) => handleColSearch("name", e.target.value)} className="w-full h-7 px-2 text-[10px] rounded border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#E6761D] transition-all" />
                   </th>
                   <th className="px-3 py-1.5" style={{ borderRight: `1px solid ${V_LINE}` }}>
                     <input type="text" placeholder="Search dept..." value={colSearches.dept} onChange={(e) => handleColSearch("dept", e.target.value)} className="w-full h-7 px-2 text-[10px] rounded border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#E6761D] transition-all" />
@@ -1521,7 +2534,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                       style={{ height: ROW_H, borderBottom: `1px solid #eef2f6` }}
                       onClick={() => openEmployeeDetails(emp)}
                     >
-                      {/* NEW: row checkbox */}
                       <td className="px-2 text-center" style={{ borderRight: `1px solid ${V_LINE}` }}>
                         <button
                           type="button"
@@ -1534,7 +2546,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
                       </td>
                       <td className="px-4" style={{ borderRight: `1px solid ${V_LINE}` }}>
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-sm" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)`, boxShadow: `0 0 0 2px ${ORANGE}33` }}>
+                          <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-sm" style={{ background: BRAND_GRADIENT, boxShadow: `0 0 0 2px ${ORANGE}33` }}>
                             {getInitials(emp.employee_name)}
                           </div>
                           <div className="min-w-0">
@@ -1642,7 +2654,7 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-fadeIn" style={{ background: "rgba(4,24,38,0.70)" }}>
           <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden" style={{ border: `1px solid ${LINE}`, boxShadow: "0 30px 70px -20px rgba(4,24,38,0.6)" }}>
             <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, ${ORANGE}, #f59e4b, transparent)` }} />
-            <div className="flex items-center justify-between px-4 py-2.5" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` }}>
+            <div className="flex items-center justify-between px-4 py-2.5" style={{ background: BRAND_GRADIENT }}>
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(230,118,29,0.20)", border: "1px solid rgba(230,118,29,0.45)" }}>
                   <Target className="w-3.5 h-3.5" style={{ color: ORANGE }} />
@@ -1710,7 +2722,6 @@ export const AdminDailyWorkTracker: React.FC<AdminDailyWorkTrackerProps> = ({
         </div>
       )}
 
-      {/* ── NEW: Bulk Delete Confirmation Modal ── */}
       {bulkDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(4,24,38,0.70)", backdropFilter: "blur(4px)" }}>
           <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden" style={{ border: `1px solid ${LINE}`, boxShadow: "0 30px 70px -20px rgba(4,24,38,0.6)" }}>

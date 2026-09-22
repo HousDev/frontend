@@ -10,6 +10,7 @@ import {
 } from "@/lib/printUtils";
 import { SmartFilterDrawer, SmartFilterParams } from "@/components/reports/SmartFilterDrawer";
 import { ReportTable, ColumnDef, StatusPill } from "@/components/reports/ReportTable";
+import { AgentLeadExecutionReportTab } from "@/components/reports/AgentLeadExecutionReportTab";
 import AdminDailyWorkTracker from "@/components/activity/AdminDailyWorkTracker";
 
 // ── Brand tokens ───────────────────────────────────────
@@ -19,13 +20,15 @@ const ORANGE = "#E6761D";
 const CARD_SHADOW = "0 1px 2px rgba(11,56,84,0.06), 0 4px 12px -6px rgba(11,56,84,0.10)";
 
 export const ActivitiesPage: React.FC = () => {
-  const [activeView, setActiveView] = useState<"user_breakdown" | "activity_logs" | "daily_work_tracker">("daily_work_tracker");
+  const [activeView, setActiveView] = useState<"user_breakdown" | "activity_logs" | "agent_execution" | "daily_work_tracker">("daily_work_tracker");
   const [loading, setLoading] = useState<boolean>(true);
 
   // Stats & Data State
   const [stats, setStats] = useState<any>(null);
   const [userSummary, setUserSummary] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [agentExecutionData, setAgentExecutionData] = useState<any[]>([]);
+  const [agentExecutionStats, setAgentExecutionStats] = useState<any>(null);
 
   // Filter & Drawer State
   const [filters, setFilters] = useState<SmartFilterParams>({ ignoreDate: true, status: "all" });
@@ -37,10 +40,21 @@ export const ActivitiesPage: React.FC = () => {
     if (activeView === "daily_work_tracker") return;
     setLoading(true);
     try {
-      const res = await reportAPI.getActivityReport(filters);
-      if (res?.stats) setStats(res.stats);
-      if (res?.userSummary) setUserSummary(res.userSummary);
-      if (res?.data) setActivityLogs(res.data);
+      if (activeView === "agent_execution") {
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const reportFilters = filters.ignoreDate === true
+          ? { ...filters, startDate: todayKey, endDate: todayKey, datePreset: "today", ignoreDate: false }
+          : filters;
+        const res = await reportAPI.getAgentLeadExecutionReport(reportFilters);
+        if (res?.users || res?.agents) setAgentExecutionData(res.users || res.agents);
+        if (res?.summary || res?.stats) setAgentExecutionStats(res.summary || res.stats);
+      } else {
+        const res = await reportAPI.getActivityReport(filters);
+        if (res?.stats) setStats(res.stats);
+        if (res?.userSummary) setUserSummary(res.userSummary);
+        if (res?.data) setActivityLogs(res.data);
+      }
     } catch (err) {
       console.error("Failed to load activity report:", err);
     } finally {
@@ -547,6 +561,17 @@ export const ActivitiesPage: React.FC = () => {
       {!isDailyTracker && <div className="bg-white px-2.5 py-2 rounded-lg flex flex-wrap items-center gap-2" style={{ border: `1px solid #dbe4ee`, boxShadow: CARD_SHADOW }}>
         <button
           type="button"
+          onClick={() => {
+            setActiveView("agent_execution");
+            setActiveStatusPill("all");
+          }}
+          className={tabBtnClass(activeView === "agent_execution")}
+          style={activeView === "agent_execution" ? { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` } : undefined}
+        >
+          Agent Lead Execution
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveView("daily_work_tracker")}
           className={tabBtnClass(false)}
         >
@@ -579,6 +604,17 @@ export const ActivitiesPage: React.FC = () => {
       {/* Main View Content */}
       {activeView === "daily_work_tracker" ? (
         <AdminDailyWorkTracker activeView={activeView} onActiveViewChange={setActiveView} />
+      ) : activeView === "agent_execution" ? (
+        <AgentLeadExecutionReportTab
+          agents={agentExecutionData}
+          summary={agentExecutionStats}
+          stats={agentExecutionStats}
+          loading={loading}
+          filters={filters}
+          onOpenFilters={() => setIsFilterOpen(true)}
+          onRefresh={fetchActivityReport}
+          onPrint={handlePrintPDF}
+        />
       ) : (
         <ReportTable
           title={activeView === "user_breakdown" ? "Executive Activity Summary" : "Activity Logs"}

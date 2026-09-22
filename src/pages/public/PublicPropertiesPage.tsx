@@ -101,7 +101,6 @@ const DEFAULT_IMAGES = {
    Helper Functions
 ============================== */
 
-// ✅ Property type se default image dhundne ka function
 const getDefaultImageByType = (propertyType: string): string => {
   if (!propertyType) return DEFAULT_IMAGES.DEFAULT;
   const type = propertyType.toLowerCase();
@@ -116,13 +115,10 @@ const getDefaultImageByType = (propertyType: string): string => {
   return DEFAULT_IMAGES.DEFAULT;
 };
 
-// ✅ ADD this helper near getDefaultImageByType
 const isVideoUrl = (u: string) =>
   /\.(mp4|mov|webm|mkv)$/i.test(u) || /youtube\.com|youtu\.be/i.test(u);
 
-// ✅ Public gate — client-side hard guard
 const isPublicProp = (p: any): boolean => {
-  // accept typical shapes: booleans, 0/1, strings
   if (!p) return false;
   const v = (p.visibility || p._raw?.visibility || '').toString().toLowerCase();
   return (
@@ -140,23 +136,19 @@ const formatCurrency = (amount: number | string) => {
   const CRORE = 10_000_000;
   const LAKH = 100_000;
 
-  // Crores → keep actual value (max 2 decimals, no rounding loss)
   if (n >= CRORE) {
     const cr = n / CRORE;
     return `₹${parseFloat(cr.toFixed(2))}Cr`;
   }
 
-  // Lakhs → whole lakhs only
   if (n >= LAKH) {
     const l = n / LAKH;
     return `₹${parseFloat(l.toFixed(0))}L`;
   }
 
-  // Rupees
   return `₹${n.toLocaleString('en-IN')}`;
 };
 
-// amenity icon
 const getAmenityIcon = (amenity: string) => {
   switch (amenity.toLowerCase()) {
     case 'swimming pool': return <Waves size={14} />;
@@ -170,7 +162,6 @@ const getAmenityIcon = (amenity: string) => {
   }
 };
 
-// unit extraction
 const extractUnitType = (p: Property) => {
   const directUnit = (p.unit_type || (p as any).unitType || (p as any)._raw?.unit_type || (p as any)._raw?.unit_type_name || (p as any)._raw?.bhk || '')?.toString().trim();
   if (directUnit) {
@@ -311,11 +302,9 @@ const extractBathrooms = (p: any) => {
   return null;
 };
 
-// ✅ IMPROVED: Dynamic parking extraction
 const extractParkingCount = (p: any): number => {
   if (!p) return 0;
 
-  // Try multiple possible parking fields
   const possibleFields = [
     p.parking,
     p.parkingQty,
@@ -339,7 +328,6 @@ const extractParkingCount = (p: any): number => {
     }
   }
 
-  // Fallback: Check amenities for parking
   const amenities = Array.isArray(p.amenities) ? p.amenities : [];
   const hasParking = amenities.some((a: string) =>
     a.toLowerCase().includes('parking') ||
@@ -361,7 +349,6 @@ const extractParkingTypes = (p: any) => {
     else if (Array.isArray(raw.parking_details)) parkingTypes = parkingTypes.concat(raw.parking_details.map((s: string) => s.toString().toLowerCase()));
   }
 
-  // Use dynamic parking count
   const parkingCount = extractParkingCount(p);
   if (parkingCount > 0) {
     parkingTypes.push('4w', '2w');
@@ -381,27 +368,24 @@ const extractParkingTypes = (p: any) => {
    Tags UI
 ============================== */
 
-// ✅ Tag display component
 const PropertyTags = ({ tags }: { tags: string[] }) => {
   if (!tags || tags.length === 0) return null;
 
-  // ✅ Only show first 2 tags
   const displayTags = tags.slice(0, 2);
 
   return (
-    <div className="flex flex-wrap gap-1.5 mb-3">
+    <div className="flex flex-wrap gap-1 mb-2">
       {displayTags.map((tag, index) => {
         const style = getTagStyle(tag);
         const EmojiComponent = typeof style.emoji === 'string'
           ? () => <span className="text-xs mr-1">{style.emoji
             ? typeof style.emoji === "string"
               ? (
-                <span className="text-xs mr-1 uppercase" aria-hidden="true">
+                <span className="text-[10px] mr-1 uppercase" aria-hidden="true">
                   {style.emoji}
                 </span>
               )
               : (
-                // style.emoji is a component here (Lucide icon)
                 React.createElement(style.emoji, {
                   size: 10,
                   className: "mr-1 uppercase",
@@ -416,7 +400,7 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
           <span
             key={index}
             className={`
-              inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase 
+              inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase 
               ${style.bg} ${style.text} ring-1 ${style.ring}
               transition-all duration-200
             `}
@@ -426,9 +410,8 @@ const PropertyTags = ({ tags }: { tags: string[] }) => {
           </span>
         );
       })}
-      {/* ✅ Show +count if there are more than 2 tags */}
       {tags.length > 2 && (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
           +{tags.length - 2}
         </span>
       )}
@@ -448,7 +431,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   // core UI states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('Pune'); // ✅ Changed: Default to Pune
+  const [selectedLocation, setSelectedLocation] = useState('Pune');
   const [localityInput, setLocalityInput] = useState('');
   const [localities, setLocalities] = useState<string[]>([]);
   const [selectedBudget, setSelectedBudget] = useState('');
@@ -510,20 +493,17 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // token passthrough (kept)
   const queryParams = new URLSearchParams(location.search);
   const filterParamKey =
     queryParams.has('filterToken') ? 'filterToken' : queryParams.has('fltcnt') ? 'fltcnt' : undefined;
   const filterTokenFromUrl =
     filterParamKey ? (queryParams.get(filterParamKey) as string | null) ?? undefined : undefined;
 
-  // refs & autosuggest
   const filtersRef = useRef<HTMLDivElement | null>(null);
   const [suggestions, setSuggestions] = useState<MasterOption[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // masters
   useEffect(() => {
     const fetchMasters = async () => {
       try {
@@ -539,7 +519,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     fetchMasters();
   }, []);
 
-  // Track search & filter intent (Debounced)
   useEffect(() => {
     const hasFilter = searchQuery || selectedBudget || selectedBedrooms || selectedLocation || selectedPropertyType;
     if (!hasFilter) return;
@@ -562,7 +541,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     return () => clearTimeout(timer);
   }, [searchQuery, selectedLocation, selectedBudget, selectedBedrooms, selectedPropertyType, transactionType]);
 
-  // helpers
   const findMasterOptions = useCallback((candidateKeys: string[]) => {
     if (!masters || typeof masters !== 'object') return [];
     const normalizedMap: Record<string, string> = {};
@@ -601,7 +579,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const propertyTypesMaster: any[] = useMemo(() => findMasterOptions(['property type', 'property_type', 'type', 'place type', 'category']), [findMasterOptions]);
   const propertyTypeOptions = useMemo(() => propertyTypesMaster.map((o) => ({ value: o.value || o.label, label: o.label || o.value })), [propertyTypesMaster]);
 
-  // ✅ Compute dynamic property types based on actual loaded properties
   const dynamicPropertyTypeOptions = useMemo(() => {
     if (!allProperties || allProperties.length === 0) {
       return propertyTypeOptions;
@@ -684,7 +661,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   const masterLocation: MasterOption[] = useMemo(() => findMasterOptions(['location', 'locality', 'localities', 'area', 'neighbourhood', 'neighborhood', 'locality_name']), [findMasterOptions]);
 
-  // views/tags API wrappers
   const fetchPropertyViews = async (propertyId: number, slug?: string): Promise<{ total_views: number }> => {
     try {
       const viewData = await viewsAPI.getByProperty(propertyId, false, slug);
@@ -704,11 +680,9 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     }
   };
 
-  // url → state
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
 
-    // ✅ Changed: Default to Pune if no city in URL
     const cityFromUrl = qp.get('city') || 'Pune';
     setSelectedLocation(cityFromUrl);
 
@@ -745,7 +719,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     setCurrentPage(1);
   }, [location.search]);
 
-  // main loader (ONLY PUBLIC)
   const loadPropertiesFromSearch = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -765,7 +738,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         qp.get('sort')
       );
 
-      // --- helpers ---
       const normalizeResponse = (resp: any): any[] => {
         if (Array.isArray(resp)) return resp;
         if (resp?.data && Array.isArray(resp.data)) return resp.data;
@@ -777,27 +749,21 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
       const buildAdvancedParams = () => {
         const params: any = {
-          // public gate
           isPublic: true, is_public: 1, visibility: 'public', publicOnly: 1,
         };
 
-        // location (support repeated + CSV)
         const allLocs = qp.getAll('location');
         if (allLocs.length > 0) params.location = allLocs.join(',');
         else if (qp.get('location')) params.location = qp.get('location');
 
-        // city
         if (qp.get('city')) params.city = qp.get('city');
 
-        // property type (send both keys)
         const pt = qp.get('propertyType') || qp.get('property_type');
         if (pt) { params.propertyType = pt; params.property_type = pt; }
 
-        // subtype
         const pst = qp.get('property_subtype') || qp.get('propertySubtype');
         if (pst) { params.propertySubtype = pst; params.property_subtype = pst; }
 
-        // unit types (collect + send all aliases)
         let unitTypes: string[] = [];
         if (qp.get('unitTypes')) {
           unitTypes = (qp.get('unitTypes') || '')
@@ -807,11 +773,10 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         }
         if (unitTypes.length) {
           params.unitTypes = unitTypes;
-          params.unitType = unitTypes[0];           // some backends accept single
-          params.unit_type = unitTypes.join(',');   // some accept CSV
+          params.unitType = unitTypes[0];
+          params.unit_type = unitTypes.join(',');
         }
 
-        // budget (send both styles)
         const budgetMin = qp.get('budget_min') || qp.get('minPrice');
         const budgetMax = qp.get('budget_max') || qp.get('maxPrice');
         if (budgetMin) { params.budget_min = Number(budgetMin); params.minPrice = Number(budgetMin); }
@@ -857,7 +822,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       const activeAPI = isRent ? rentalPropertiesAPI : propertiesAPI;
 
       if (hasAdvanced) {
-        // 1) strict advanced
         const advParams = buildAdvancedParams();
         try {
           response = await activeAPI.searchProperties(advParams);
@@ -868,14 +832,13 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           list = [];
         }
 
-        // 2) relaxed advanced (drop strict fields likely to zero-out results)
         if (!list.length) {
           const relaxed = { ...advParams };
           delete relaxed.propertySubtype; delete relaxed.property_subtype;
           delete relaxed.unitTypes; delete relaxed.unitType; delete relaxed.unit_type;
           delete relaxed.furnishing; delete relaxed.possession; delete relaxed.parking;
           delete relaxed.minRating; delete relaxed.floor_min; delete relaxed.floor_max;
-          delete relaxed.bathrooms; // keep bedrooms loosely (often used), but drop if present
+          delete relaxed.bathrooms;
           if ('bedrooms' in relaxed && !Number(relaxed.bedrooms)) delete relaxed.bedrooms;
 
           try {
@@ -887,7 +850,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           }
         }
 
-        // 3) simple public list
         if (!list.length) {
           try {
             const simpleParams = buildSimpleParams();
@@ -899,7 +861,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           }
         }
 
-        // 4) if URL had propertyType and still empty => try once without it
         if (!list.length && hadPropertyTypeInUrl) {
           try {
             const noPT = buildAdvancedParams();
@@ -908,7 +869,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             list = normalizeResponse(resp4);
 
             if (!list.length) {
-              const simpleNoPT = buildSimpleParams(); // already no PT
+              const simpleNoPT = buildSimpleParams();
               const resp5 = await activeAPI.PublicgetProperties(simpleNoPT);
               list = normalizeResponse(resp5);
             }
@@ -917,7 +878,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           }
         }
       } else {
-        // Basic header search
         try {
           response = await activeAPI.PublicgetProperties(buildSimpleParams());
           list = normalizeResponse(response);
@@ -927,11 +887,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         }
       }
 
-      // ✅ client-side strict public-only guard
       list = list.filter(isPublicProp);
 
-      // ---- map → UI + fetch (views & tags) ----
-      // Fetch ALL tags in one bulk request before mapping
       const allTagsBulk = await propertyTagsAPI.getBulk(list.map((p: any) => p.id)).catch(() => ({} as Record<number, string[]>));
 
       const transformedProperties = await Promise.all(
@@ -943,18 +900,15 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           const tags: string[] = allTagsBulk[p.id] || [];
 
 
-          // ✅ Use dynamic parking extraction
           const parkingCount = extractParkingCount(p);
 
-          // ✅ Get property type for default image
           const propertyType = p.property_type_name || p.property_type || '';
 
-          // ✅ Create images array with proper fallback
           let rawPhotos = p.photos ?? p.photoUrls ?? p.images;
           if (typeof rawPhotos === 'string' && rawPhotos.trim().startsWith('[')) {
             try {
               rawPhotos = JSON.parse(rawPhotos);
-            } catch (e) {}
+            } catch (e) { }
           }
 
           let images: string[] = [];
@@ -998,11 +952,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
             city: p.city_name || p.city || '',
             property_type: propertyType,
             status: p.status || '',
-            images, // ✅ Now images will never be empty
+            images,
             location: `${p.location_name || p.location || ''}`.replace(/\s*,\s*$/, ''),
             society: p.society_name || p.project_name || `Society ${p.id}`,
             area: Number(p.carpet_area) || Number(p.builtup_area) || 0,
-            parking: parkingCount, // ✅ Dynamic parking count
+            parking: parkingCount,
             type: p.unit_type || p.property_subtype || p.property_type_name || p.property_type || 'Apartment',
             furnishing: p.furnishing_status || ['Fully Furnished', 'Semi Furnished', 'Unfurnished'][index % 3],
             possession: p.possession_status || ['Ready to Move', 'Under Construction'][index % 2],
@@ -1053,12 +1007,10 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     }
   }, [location.search, filterParamKey, filterTokenFromUrl, transactionType]);
 
-  // run loader
   useEffect(() => {
     loadPropertiesFromSearch();
   }, [loadPropertiesFromSearch]);
 
-  // autosuggest
   useEffect(() => {
     const q = (localityInput || '').trim().toLowerCase();
     if (!q || !Array.isArray(masterLocation) || masterLocation.length === 0) {
@@ -1077,7 +1029,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     setShowSuggestions(matched.length > 0);
   }, [localityInput, masterLocation]);
 
-  // localities
   const getSelectedCityPart = (selLoc: string) => {
     if (!selLoc) return '';
     const parts = selLoc.split(',').map(s => s.trim()).filter(Boolean);
@@ -1110,7 +1061,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     setLocalities(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // header type buttons
   const handlePropertyTypeButton = (value: string) => {
     if (!value) {
       setSelectedPropertyType('');
@@ -1142,7 +1092,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     }
   }, [selectedType]);
 
-  // search filtering (client)
   const filteredProperties = allProperties.filter((property) => {
     const title = String(property.title || '').toLowerCase();
     const propLocation = String(property.location || '').toLowerCase();
@@ -1226,7 +1175,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     return true;
   });
 
-  // sort/paginate helpers
   const getPropertyPrice = (p: Property) => {
     const pr = p.price || p.monthly_rent || p.expected_rent || (p as any)._raw?.monthly_rent || (p as any)._raw?.expected_rent || (p as any)._raw?.price || (p as any)._raw?.budget || 0;
     return Number(pr) || 0;
@@ -1289,7 +1237,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProperties = sortedProperties.slice(startIndex, startIndex + itemsPerPage);
 
-  // nav helpers
   const preserveAndAddToken = (existingSearch: string, paramKey: string, token?: string | null) => {
     const params = new URLSearchParams(existingSearch || '');
     if (token) params.set(paramKey, token);
@@ -1298,7 +1245,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   };
 
   const handleNavigateToProperty = async (property: Property) => {
-    // Check if guest view limit is exceeded
     const { isLocked } = recordAndCheckGuestPropertyLimit(property.id, user, systemSettings);
     if (isLocked) {
       const isRental = Boolean(
@@ -1390,7 +1336,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
     navigate(dest);
   };
 
-  // header submit (basic search URL build)
   const handleHeaderSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
@@ -1417,7 +1362,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
       }
     }
 
-    // always keep available + PUBLIC enforced in loader
     params.append('status', 'Available');
     if (transactionType) {
       params.append('transaction', transactionType);
@@ -1471,13 +1415,55 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header / Search */}
-      <div className="py-5 pt-28" style={{ background: 'linear-gradient(to right, #0b3856, #0c3854)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ============================================
+          HERO SECTION - bg.mp4 video background
+      ============================================ */}
+      <div className="relative pt-28 pb-0 overflow-hidden">
+        {/* Background video — brightness/contrast boosted so it's clearly visible */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: 0, filter: 'brightness(1.15) contrast(1.05) saturate(1.1)' }}
+        >
+          <source src="/bg.mp4" type="video/mp4" />
+        </video>
+
+        {/* 
+          ✅ FIX: Bahut halka overlay (sirf 25-40% opacity) + gradient.
+          Video ab clearly visible hoga.
+        */}
+        <div
+          className="absolute inset-0"
+          style={{
+            zIndex: 1,
+            background: 'linear-gradient(to bottom, rgba(11, 56, 86, 0.35) 0%, rgba(11, 56, 86, 0.25) 40%, rgba(11, 56, 86, 0.45) 70%, rgba(11, 56, 86, 0.60) 100%)',
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ zIndex: 2 }}>
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-3 text-white">Explore Premium Properties</h2>
-            <p className="text-lg text-blue-100 mb-2 max-w-2xl mx-auto">
-              Discover verified properties from trusted sellers across top locations
+            {/* Main Heading */}
+            <h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-4"
+              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.75), 0 1px 3px rgba(0,0,0,0.9)' }}
+            >
+              Explore{' '}
+              <span className="text-[#E6761D]">Premium Properties</span>
+
+            </h1>
+
+            {/* Subtitle */}
+            <p
+              className="text-base sm:text-lg text-blue-50 max-w-3xl mx-auto mb-8 leading-relaxed"
+              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)' }}
+            >
+              Welcome to <span className="font-semibold text-white">ResaleExpert</span> — India's premier real estate
+              ecosystem connecting buyers, sellers, and landlords with verified luxury properties, transparent
+              pricing, and expert legal advisory.
             </p>
 
             {/* Buy/Rent + Type row */}
@@ -1496,7 +1482,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                     ${transactionType === "buy"
                       ? "bg-[#E6761D] text-white shadow-md"
-                      : "bg-white/20 text-white hover:bg-white/30"
+                      : "bg-white/25 text-white hover:bg-white/35 backdrop-blur-sm"
                     }`}
                   aria-pressed={transactionType === "buy"}
                 >
@@ -1516,7 +1502,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   className={`relative px-5 sm:px-6 py-1.5 sm:py-2 rounded-full text-sm sm:text-base ring-1 ring-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer font-semibold
                     ${transactionType === "rent"
                       ? "bg-[#E6761D] text-white shadow-md"
-                      : "bg-white/20 text-white hover:bg-white/30"
+                      : "bg-white/25 text-white hover:bg-white/35 backdrop-blur-sm"
                     }`}
                   aria-pressed={transactionType === "rent"}
                 >
@@ -1536,7 +1522,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         onClick={() => handlePropertyTypeButton("")}
                         aria-pressed={selectedPropertyType === ""}
                         className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
-                          ${selectedPropertyType === "" ? "bg-white text-black font-semibold shadow-sm" : "bg-white/30 text-white hover:bg-white/40"}`}
+                          ${selectedPropertyType === "" ? "bg-white text-black font-semibold shadow-sm" : "bg-white/30 text-white hover:bg-white/40 backdrop-blur-sm"}`}
                       >
                         All
                       </button>
@@ -1549,7 +1535,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           aria-pressed={selectedPropertyType === opt.value}
                           title={opt.label}
                           className={`shrink-0 snap-start whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-full text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition cursor-pointer
-                            ${selectedPropertyType === opt.value ? "bg-white text-black font-semibold shadow-sm" : "bg-white/20 text-white hover:bg-white/30"}`}
+                            ${selectedPropertyType === opt.value ? "bg-white text-black font-semibold shadow-sm" : "bg-white/25 text-white hover:bg-white/35 backdrop-blur-sm"}`}
                         >
                           {opt.label}
                         </button>
@@ -1560,8 +1546,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               </div>
             </div>
 
-            {/* Header search */}
-            <form onSubmit={handleHeaderSearchSubmit} className="bg-white/10 text-white bg-opacity-95 backdrop-blur-sm rounded-2xl p-2 shadow-xl max-w-4xl mx-auto">
+            {/* Search form */}
+            <form onSubmit={handleHeaderSearchSubmit} className="bg-white/15 text-white backdrop-blur-md rounded-2xl p-2 shadow-xl max-w-4xl mx-auto border border-white/20">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
                 {/* City */}
                 <div className="md:col-span-1">
@@ -1590,7 +1576,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                 </div>
 
                 {/* Locality input */}
-                <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856] border border-gray-200 rounded-xl w-full max-w-[700px] mx-auto">
+                <div className="relative md:col-span-3 flex items-center gap-2 bg-[#0b3856]/70 backdrop-blur-sm border border-white/20 rounded-xl w-full max-w-[700px] mx-auto">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white" size={16} />
                     <input
@@ -1679,12 +1665,30 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
               </div>
             </form>
           </div>
+
+          {/* Keep the shallow bottom curve close to the hero content. */}
+          <div className="h-16 sm:h-20" />
+        </div>
+
+        {/* Shallow centered curve matching the About page hero. */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 2 }}>
+          <svg
+            viewBox="0 0 1440 120"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full block"
+            style={{ height: '80px' }}
+          >
+            <path
+              d="M0,0 L120,21.3 C240,43 480,85 720,85 C960,85 1200,43 1320,21.3 L1440,0 L1440,120 L0,120 Z"
+              fill="#f9fafb"
+            />
+          </svg>
         </div>
       </div>
 
-
       {/* Body */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header row */}
         <div className="grid grid-cols-1 mb-6">
 
@@ -1781,7 +1785,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
           </div>
 
 
-          {/* SECOND LINE : AI Powered Search + Filters (UNCHANGED) */}
+          {/* SECOND LINE : AI Powered Search + Filters */}
           <div className="flex items-end justify-end gap-3 mt-2">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <Target className="text-blue-600" size={16} />
@@ -2060,7 +2064,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
         {!loading && !error && (
           <>
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 items-stretch">
                 {paginatedProperties.map((property) => {
                   const composedTitle = composeHeaderTitle(property);
                   const { locationPart, cityPart } = splitLocationCity(property);
@@ -2074,27 +2078,27 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                   return (
                     <div
                       key={property.id}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer h-full flex flex-col"
+                      className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-100 overflow-hidden hover:border-gray-200 transition-all duration-300 transform hover:-translate-y-1 group cursor-pointer h-full flex flex-col"
                       onClick={() => {
                         if (property.slug) { handleNavigateToProperty(property); return; }
                         setCurrentPropertyView(property);
                         if (onPropertyView) onPropertyView(property);
                       }}
                     >
-                      {/* Image */}
-                      <div className="relative">
+                      {/* Image — HEIGHT FIXED: h-48 se badhakar h-52 kiya, taaki image poori dikhe */}
+                      <div className="relative overflow-hidden">
                         <img
                           src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
                           alt={String(property.title)}
                           onError={(e) => { e.currentTarget.src = '/property.png'; }}
-                          className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                          className="w-full h-48 sm:h-52 object-cover group-hover:scale-110 transition-transform duration-500"
                         />
 
-                        <div className="absolute top-3 left-3 flex items-center flex-wrap gap-2 z-20">
+                        <div className="absolute top-2 left-2 flex items-center flex-wrap gap-1 z-20">
                           <PropertyTags tags={property.tags || []} />
                           {(property.aiScore ?? 0) >= 90 && (
-                            <span className="flex items-center bg-purple-600 text-white px-2 py-[3px] rounded-full text-[8px] sm:text-xs font-bold whitespace-nowrap shadow-sm">
-                              <Bot size={12} className="mr-1" />
+                            <span className="flex items-center bg-purple-600 text-white px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold whitespace-nowrap shadow-sm">
+                              <Bot size={10} className="mr-0.5" />
                               AI {Math.round(property.aiScore ?? 0)}
                             </span>
                           )}
@@ -2102,27 +2106,27 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                         {/* Watermark & views */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-white text-2xl font-bold opacity-40 select-none">ResaleExpert.in</span>
+                          <span className="text-white text-xl font-bold opacity-30 select-none">ResaleExpert.in</span>
                         </div>
-                        <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded-full text-xs flex items-center space-x-1">
+                        <div className="absolute bottom-2 right-2 bg-black/50 text-white px-1.5 py-0.5 rounded-full text-[10px] flex items-center space-x-1">
                           <Eye size={10} />
                           <span>{property.total_views || property.views || 0}</span>
                         </div>
                       </div>
 
                       {/* Body (fills height) */}
-                      <div className="p-6 flex-1 flex flex-col">
-                        <div className="mb-3 flex items-start justify-between">
-                          <div>
-                            <h3 className="text-xs font-bold text-[#0b3856] mb-1 group-hover:text-[#E6761D] transition-colors">
+                      <div className="p-3 flex-1 flex flex-col">
+                        <div className="mb-1.5 flex items-start justify-between">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-[13px] font-bold text-[#0b3856] mb-0.5 group-hover:text-[#E6761D] transition-colors truncate">
                               {composedTitle}
                             </h3>
-                            <div className="flex items-center text-gray-600 text-sm">
-                              <MapPin size={14} className="mr-1" />
-                              <span>{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
+                            <div className="flex items-center text-gray-600 text-[11px]">
+                              <MapPin size={10} className="mr-0.5 shrink-0" />
+                              <span className="truncate">{locationPart}{locationPart && cityPart ? ', ' : ''}{cityPart}</span>
                             </div>
                           </div>
-                          <div className="ml-2 shrink-0 text-[10px] sm:text-xs text-gray-500 font-medium">
+                          <div className="ml-1 shrink-0 text-[9px] sm:text-[10px] text-gray-500 font-medium">
                             {(() => {
                               const isRental = Boolean(
                                 property.listing_type === 'rent' ||
@@ -2140,8 +2144,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
 
                           </div>
                         </div>
-                        <div className="mb-4">
-                          <div className="text-xl font-bold text-green-600">
+                        <div className="mb-1.5">
+                          <div className="text-lg font-bold text-green-600 leading-tight">
                             {formatCurrency(property.price)}
                             {Boolean(
                               property.listing_type === 'rent' ||
@@ -2150,60 +2154,60 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             ) ? '/mo' : ''}
                           </div>
 
-                          <div className="text-xs text-gray-500">
+                          <div className="text-[10px] text-gray-500">
                             {property.type || property.property_type} • {property.area || property.square_feet} sq ft
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center space-x-1">
-                            <Star className="text-yellow-400 fill-current" size={14} />
-                            <span className="text-sm font-medium text-gray-700">
+                            <Star className="text-yellow-400 fill-current" size={12} />
+                            <span className="text-[11px] font-medium text-gray-700">
                               {(property.rating || 4.2).toFixed(1)}
                             </span>
-                            <span className="text-xs text-gray-500">({property.reviews || 0} reviews)</span>
+                            <span className="text-[10px] text-gray-500">({property.reviews || 0})</span>
                           </div>
-                          <div className="text-xs text-gray-500">{property.postedDate}</div>
+                          <div className="text-[10px] text-gray-500">{property.postedDate}</div>
                         </div>
 
-                        <div className="flex items-center justify-between mb-3 p-2 bg-blue-50 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <TrendingUp size={12} />
-                            <span className="text-xs text-green-600 font-semibold">{property.priceGrowth || '+12%'}</span>
+                        <div className="flex items-center justify-between mb-1.5 p-1.5 bg-blue-50 rounded-md">
+                          <div className="flex items-center space-x-1">
+                            <TrendingUp size={10} />
+                            <span className="text-[10px] text-green-600 font-semibold">{property.priceGrowth || '+12%'}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <BarChart3 size={12} />
-                            <span className="text-xs text-blue-600 font-semibold">
+                          <div className="flex items-center space-x-1">
+                            <BarChart3 size={10} />
+                            <span className="text-[10px] text-blue-600 font-semibold">
                               Grade {property.investmentGrade || 'A'}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
-                          <div className="flex items-center space-x-1"><Bed size={12} /><span>{property.bedrooms} Beds</span></div>
-                          <div className="flex items-center space-x-1"><Building size={12} /><span>{property.bathrooms} Baths</span></div>
-                          <div className="flex items-center space-x-1"><Car size={12} /><span>{parkingCount} Parking</span></div>
+                        <div className="flex items-center justify-between text-[10px] text-gray-600 mb-1.5">
+                          <div className="flex items-center space-x-0.5"><Bed size={11} /><span>{property.bedrooms} Beds</span></div>
+                          <div className="flex items-center space-x-0.5"><Building size={11} /><span>{property.bathrooms} Baths</span></div>
+                          <div className="flex items-center space-x-0.5"><Car size={11} /><span>{parkingCount} Parking</span></div>
                         </div>
 
-                        <div className="flex flex-wrap gap-1 mb-3">
+                        <div className="flex flex-wrap gap-1 mb-2">
                           {shownAmenities.map((amenity, i) => (
-                            <div key={i} className="flex items-center space-x-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                            <div key={i} className="flex items-center space-x-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px]">
                               {getAmenityIcon(amenity)}
-                              <span>{amenity}</span>
+                              <span className="truncate max-w-[60px]">{amenity}</span>
                             </div>
                           ))}
                           {moreCount > 0 && (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px]">
                               +{moreCount}
                             </span>
                           )}
                         </div>
 
-                        <div className="mt-auto flex items-center space-x-2">
+                        <div className="mt-auto flex items-center space-x-1.5">
                           {typeof property.slug === 'string' && property.slug.trim().length > 0 ? (
                             <div className="flex-1">
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
-                                className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-2 px-3 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md"
+                                className="w-full bg-[#E6761D] hover:bg-[#CC6A1A] text-white py-1.5 px-2 rounded-lg font-medium transition-colors duration-300 text-[11px] shadow-sm"
                               >
                                 View Details
                               </button>
@@ -2213,7 +2217,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               disabled
                               aria-disabled="true"
                               title="Details not available – missing backend slug"
-                              className="w-full bg-gray-300 text-gray-600 py-2 px-3 rounded-lg cursor-not-allowed text-sm"
+                              className="w-full bg-gray-300 text-gray-600 py-1.5 px-2 rounded-lg cursor-not-allowed text-[11px]"
                             >
                               View Details
                             </button>
@@ -2225,10 +2229,10 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               const phone = property.executiveTo?.phone || "919999999999";
                               if (phone && phone !== "Not Available") window.open(`tel:${phone}`);
                             }}
-                            className="p-2 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
+                            className="p-1.5 rounded-lg transition-colors duration-300 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"
                             title="Call"
                           >
-                            <Phone size={16} />
+                            <Phone size={14} />
                           </button>
 
                           <button
@@ -2257,11 +2261,11 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                                 "noopener,noreferrer"
                               );
                             }}
-                            className="p-2 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                            className="p-1.5 rounded-lg transition-colors duration-300 bg-[#25D366] text-white hover:bg-[#1ebe57]"
                             title="WhatsApp"
                             type="button"
                           >
-                            <FaWhatsapp size={16} />
+                            <FaWhatsapp size={14} />
                           </button>
 
                         </div>
@@ -2293,10 +2297,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                         if (onPropertyView) onPropertyView(property);
                       }}
                     >
-                      {/* ── Card inner: horizontal on BOTH mobile and desktop ── */}
                       <div className="flex h-[160px] sm:h-[220px]">
 
-                        {/* LEFT: Image — narrower on mobile, fixed 380px on desktop */}
                         <div className="w-[140px] min-w-[140px] sm:w-[380px] sm:min-w-[380px] relative overflow-hidden">
                           <img
                             src={getImageUrl(property.images?.[0]) || DEFAULT_IMAGES.DEFAULT}
@@ -2318,10 +2320,8 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                           </div>
                         </div>
 
-                        {/* RIGHT: Body */}
                         <div className="flex-1 flex flex-col justify-between px-2 py-2 sm:px-4 sm:py-3 min-w-0 gap-1 sm:gap-2 overflow-hidden">
 
-                          {/* Row 1: Title + Location */}
                           <div>
                             <h3 className="font-medium text-[#0b3856] text-xs sm:text-sm leading-tight truncate group-hover:text-[#E6761D] transition-colors">
                               {composedTitle}
@@ -2334,7 +2334,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             </div>
                           </div>
 
-                          {/* Row 2: Metrics — simplified on mobile (price + area only), full 3-col on desktop */}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                             <div className="bg-gray-50 rounded-lg p-1.5 sm:p-2">
                               <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Price</div>
@@ -2348,7 +2347,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               <div className="text-xs sm:text-sm font-medium text-blue-700">{property.area || property.square_feet} <span className="text-[9px]">sq.ft</span></div>
                               <div className="hidden sm:block text-[10px] text-gray-400">{property.furnishing || 'Semi-Furnished'}</div>
                             </div>
-                            {/* Investment grade — desktop only */}
                             <div className="hidden sm:block bg-gray-50 rounded-lg p-2">
                               <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Investment</div>
                               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -2363,7 +2361,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             </div>
                           </div>
 
-                          {/* Row 3: Specs — desktop only (too cramped on mobile) */}
                           <div className="hidden sm:flex items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-1 text-[11px] font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
                               <Bed size={11} className="text-orange-500" />
@@ -2379,7 +2376,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             </div>
                           </div>
 
-                          {/* Row 3 mobile: compact specs inline */}
                           <div className="flex sm:hidden items-center gap-1.5 text-[10px] text-gray-500">
                             <span className="flex items-center gap-0.5"><Bed size={10} className="text-orange-400" />{property.bedrooms}bd</span>
                             <span className="text-gray-300">·</span>
@@ -2388,9 +2384,7 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                             <span className="flex items-center gap-0.5"><Car size={10} className="text-indigo-400" />{parkingCount}pk</span>
                           </div>
 
-                          {/* Row 4: Amenities + Actions */}
                           <div className="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-100">
-                            {/* Amenities — desktop only */}
                             <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
                               {showAmenities.map((amenity: string, idx: number) => (
                                 <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 truncate max-w-[90px]">
@@ -2404,7 +2398,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                               )}
                             </div>
 
-                            {/* Action Buttons */}
                             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 ml-auto sm:ml-0">
                               <button
                                 onClick={(e) => {
@@ -2452,7 +2445,6 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
                                 />
                               </button>
 
-                              {/* View Details Button */}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleNavigateToProperty(property); }}
                                 className="bg-[#E6761D] hover:bg-[#CC6A1A] text-white text-[10px] sm:text-xs font-medium px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-lg transition whitespace-nowrap"
