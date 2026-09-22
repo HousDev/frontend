@@ -37,6 +37,7 @@ interface ReportTableProps {
   onLimitChange: (limit: number) => void;
   loading?: boolean;
   onColumnSearch?: (columnKey: string, value: string) => void;
+  containerClassName?: string;
 }
 
 const parseWidthPx = (w?: string, fallback = 150): number => {
@@ -66,6 +67,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   onLimitChange,
   loading = false,
   onColumnSearch,
+  containerClassName,
 }) => {
   const [internalStatusPill, setInternalStatusPill] = useState<string>(activeStatusPill || "all");
   const [columnSearches, setColumnSearches] = useState<Record<string, string>>({});
@@ -187,7 +189,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   const col1LeftStr = `${col1LeftPx}px`;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[520px] no-print">
+    <div className={`bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 no-print ${containerClassName || ""}`}>
       {/* Sticky Top Status & Action Toolbar */}
       <div className="sticky top-0 z-20 shrink-0 py-2 px-3 bg-[#f8fafc] flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-2xs border-b border-gray-200">
         {/* Quick Status Stats Chips */}

@@ -27,6 +27,8 @@ import {
   Tag,
   Monitor,
   Printer,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ReportTable, ColumnDef, StatusPill } from './ReportTable';
@@ -44,6 +46,10 @@ export const VisitorAnalyticsTab: React.FC = () => {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'all'>('30d');
   const [activeStatusPill, setActiveStatusPill] = useState<string>('all');
   const [copiedIp, setCopiedIp] = useState<string | null>(null);
+
+  // View Mode: 'sessions' (main activity table) or 'trends' (top properties & searches)
+  const [viewMode, setViewMode] = useState<'sessions' | 'trends'>('sessions');
+  const [showSplitOverview, setShowSplitOverview] = useState<boolean>(false);
 
   // Filter Drawer State
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
@@ -304,6 +310,77 @@ export const VisitorAnalyticsTab: React.FC = () => {
       },
     },
     {
+      key: 'ai_interest',
+      header: 'AI PROPERTY INTEREST',
+      width: '260px',
+      searchPlaceholder: 'Interest / Role / Property..',
+      render: (row) => {
+        const ai = row.ai_interest;
+        if (!ai) return <span className="text-slate-400 text-[11px]">—</span>;
+
+        const isHigh = ai.intent_level === 'HIGH';
+        const isMedium = ai.intent_level === 'MEDIUM';
+
+        const personaBadgeClass =
+          ai.persona === 'BUYER'
+            ? 'bg-blue-50 text-blue-700 border-blue-200'
+            : ai.persona === 'SELLER'
+            ? 'bg-purple-50 text-purple-700 border-purple-200'
+            : ai.persona === 'OWNER'
+            ? 'bg-amber-50 text-amber-800 border-amber-200'
+            : ai.persona === 'TENANT'
+            ? 'bg-teal-50 text-teal-700 border-teal-200'
+            : 'bg-slate-50 text-slate-700 border-slate-200';
+
+        return (
+          <div className="space-y-1 py-0.5" title={ai.summary}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-black tracking-wide border ${personaBadgeClass}`}>
+                <span>{ai.role_icon || '🎯'}</span>
+                <span>{ai.persona || 'BUYER'}</span>
+              </span>
+
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-black tracking-wide border ${
+                  isHigh
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : isMedium
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}
+              >
+                {ai.intent_label}
+              </span>
+
+              {ai.formatted_price && (
+                <span className="font-extrabold text-[10px] text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                  {ai.formatted_price}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 text-slate-900 font-bold text-[11px] truncate max-w-[240px]">
+              {ai.has_detected_property ? (
+                <>
+                  <Building className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span className="truncate">{ai.property_title}</span>
+                  {ai.property_locality && (
+                    <span className="text-slate-500 text-[10px] font-medium shrink-0">
+                      📍 {ai.property_locality}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-slate-600 text-[10.5px] font-medium truncate">
+                  {ai.summary}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
       key: 'key_actions',
       header: 'KEY ACTIONS & INTERACTION LOG',
       width: '260px',
@@ -494,222 +571,375 @@ export const VisitorAnalyticsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-3.5">
-      {/* Top 6 KPI Summary Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">Total Visitors</span>
-            <Users className="w-3.5 h-3.5 text-indigo-600" />
+    <div className="h-full flex flex-col min-h-0 space-y-2 overflow-hidden">
+      {/* Top 6 KPI Summary Cards Grid - Compact & Screen-Fitted */}
+      <div className="shrink-0 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Total Visitors</div>
+            <div className="text-base font-black text-slate-900 mt-0.5">
+              {Number(summary.total_visitors || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-slate-900 mt-1">
-            {Number(summary.total_visitors || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+            <Users className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Unique Guest UUIDs</div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">Total Sessions</span>
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Total Sessions</div>
+            <div className="text-base font-black text-slate-900 mt-0.5">
+              {Number(summary.total_sessions || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-slate-900 mt-1">
-            {Number(summary.total_sessions || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <Clock className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Visits Recorded</div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">Property Views</span>
-            <Eye className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Property Views</div>
+            <div className="text-base font-black text-emerald-700 mt-0.5">
+              {Number(summary.property_views_count || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-emerald-700 mt-1">
-            {Number(summary.property_views_count || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <Eye className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Detail Pages Viewed</div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">EMI Calculations</span>
-            <Calculator className="w-3.5 h-3.5 text-purple-600" />
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">EMI Calculations</div>
+            <div className="text-base font-black text-purple-700 mt-0.5">
+              {Number(summary.emi_calculations_count || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-purple-700 mt-1">
-            {Number(summary.emi_calculations_count || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+            <Calculator className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Loan Intent Tested</div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">Searches Made</span>
-            <Search className="w-3.5 h-3.5 text-cyan-600" />
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Searches Made</div>
+            <div className="text-base font-black text-cyan-700 mt-0.5">
+              {Number(summary.searches_count || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-cyan-700 mt-1">
-            {Number(summary.searches_count || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-cyan-50 flex items-center justify-center text-cyan-600 shrink-0">
+            <Search className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Localities & BHKs</div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[9.5px] font-bold uppercase tracking-wider">Identified Leads</span>
-            <TrendingUp className="w-3.5 h-3.5 text-rose-600" />
+        <div className="bg-white p-2 px-3 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Identified Leads</div>
+            <div className="text-base font-black text-rose-700 mt-0.5">
+              {Number(summary.converted_lead_visitors || 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="text-lg font-black text-rose-700 mt-1">
-            {Number(summary.converted_lead_visitors || 0).toLocaleString('en-IN')}
+          <div className="w-7 h-7 rounded-md bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
+            <TrendingUp className="w-3.5 h-3.5" />
           </div>
-          <div className="text-[9.5px] text-slate-400 mt-0.5">Form Conversions</div>
         </div>
       </div>
 
-      {/* Two Compact Table Layouts Side-by-Side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        {/* Table 1: Most Viewed Properties */}
-        <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[240px]">
-          <div className="py-2 px-3 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-bold text-xs text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
-              <Eye className="w-3.5 h-3.5 text-emerald-600" /> Most Viewed Properties
-            </h3>
-            <span className="text-[10px] text-slate-400 font-bold">{topProperties.length} Properties</span>
-          </div>
+      {/* View Switcher & Split Overview Bar */}
+      <div className="shrink-0 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1 p-0.5 bg-white rounded-lg border border-slate-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setViewMode('sessions')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'sessions'
+                ? 'bg-[#0f1f38] text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Visitor Activity Sessions ({filteredSessions.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('trends')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'trends'
+                ? 'bg-indigo-600 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Top Properties & Search Keywords ({topProperties.length + topSearches.length})</span>
+          </button>
+        </div>
 
-          <div className="overflow-y-auto flex-1">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-2 px-3">PROPERTY TITLE</th>
-                  <th className="py-2 px-3">LOCALITY</th>
-                  <th className="py-2 px-3 text-right">PRICE</th>
-                  <th className="py-2 px-3 text-center">VIEWS</th>
-                  <th className="py-2 px-3 text-center">UNIQUE</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {topProperties.length === 0 ? (
+        {viewMode === 'sessions' && (
+          <button
+            type="button"
+            onClick={() => setShowSplitOverview(!showSplitOverview)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all cursor-pointer shadow-2xs ${
+              showSplitOverview
+                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+            }`}
+            title="Toggle compact side-by-side trends"
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-600" />
+            <span>{showSplitOverview ? 'Hide Trends Panel' : 'Show Trends Panel'}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Optional Split Overview in Sessions Mode */}
+      {viewMode === 'sessions' && showSplitOverview && (
+        <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-2 h-[150px]">
+          {/* Table 1: Most Viewed Properties */}
+          <div className="bg-white rounded-lg border border-gray-300 shadow-2xs overflow-hidden flex flex-col h-full">
+            <div className="py-1.5 px-2.5 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-[11px] text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <Eye className="w-3 h-3 text-emerald-600" /> Most Viewed Properties
+              </h3>
+              <span className="text-[9.5px] text-slate-400 font-bold">{topProperties.length} Properties</span>
+            </div>
+            <div className="overflow-y-auto flex-1 scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[9.5px] font-bold uppercase">
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
-                      No property views recorded in this period
-                    </td>
+                    <th className="py-1 px-2">PROPERTY</th>
+                    <th className="py-1 px-2">LOCALITY</th>
+                    <th className="py-1 px-2 text-right">PRICE</th>
+                    <th className="py-1 px-2 text-center">VIEWS</th>
                   </tr>
-                ) : (
-                  topProperties.map((p: any, idx: number) => (
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {topProperties.slice(0, 10).map((p: any, idx: number) => (
                     <tr key={p.property_id || idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-1.5 px-3 font-bold text-slate-900 truncate max-w-[140px]" title={p.property_title}>
+                      <td className="py-1 px-2 font-bold text-slate-900 truncate max-w-[130px] text-[10.5px]">
                         {p.property_title}
                       </td>
-                      <td className="py-1.5 px-3 text-slate-600 text-[11px] truncate max-w-[100px]">
+                      <td className="py-1 px-2 text-slate-600 text-[10px] truncate max-w-[90px]">
                         {p.locality ? `📍 ${p.locality}` : '—'}
                       </td>
-                      <td className="py-1.5 px-3 text-right font-semibold text-emerald-800 text-[11px]">
+                      <td className="py-1 px-2 text-right font-semibold text-emerald-800 text-[10px]">
                         {p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '—'}
                       </td>
-                      <td className="py-1.5 px-3 text-center">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-extrabold rounded text-[10.5px] border border-emerald-200">
+                      <td className="py-1 px-2 text-center">
+                        <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-800 font-extrabold rounded text-[9.5px] border border-emerald-200">
                           {p.total_views}
                         </span>
                       </td>
-                      <td className="py-1.5 px-3 text-center text-slate-500 text-[11px] font-medium">
-                        {p.unique_visitors}
-                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Table 2: Top Search Keywords & Localities */}
-        <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-[240px]">
-          <div className="py-2 px-3 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-bold text-xs text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
-              <Search className="w-3.5 h-3.5 text-cyan-600" /> Top Search Keywords & Filters
-            </h3>
-            <span className="text-[10px] text-slate-400 font-bold">{topSearches.length} Queries</span>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="overflow-y-auto flex-1">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-2 px-3">SEARCH QUERY / FILTER</th>
-                  <th className="py-2 px-3">LOCALITY</th>
-                  <th className="py-2 px-3">BHK / BUDGET</th>
-                  <th className="py-2 px-3 text-center">USAGE COUNT</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {topSearches.length === 0 ? (
+          {/* Table 2: Top Searches */}
+          <div className="bg-white rounded-lg border border-gray-300 shadow-2xs overflow-hidden flex flex-col h-full">
+            <div className="py-1.5 px-2.5 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-[11px] text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <Search className="w-3 h-3 text-cyan-600" /> Top Search Keywords
+              </h3>
+              <span className="text-[9.5px] text-slate-400 font-bold">{topSearches.length} Queries</span>
+            </div>
+            <div className="overflow-y-auto flex-1 scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100/90 border-b border-slate-200 text-slate-600 text-[9.5px] font-bold uppercase">
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
-                      No search events recorded in this period
-                    </td>
+                    <th className="py-1 px-2">QUERY / FILTER</th>
+                    <th className="py-1 px-2">LOCALITY</th>
+                    <th className="py-1 px-2 text-center">COUNT</th>
                   </tr>
-                ) : (
-                  topSearches.map((s: any, idx: number) => {
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {topSearches.slice(0, 10).map((s: any, idx: number) => {
                     let payload: any = null;
                     try {
                       payload = typeof s.payload === 'string' ? JSON.parse(s.payload) : s.payload;
                     } catch (e) {}
-
                     return (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-1.5 px-3 font-bold text-slate-900 capitalize truncate max-w-[130px]">
+                        <td className="py-1 px-2 font-bold text-slate-900 capitalize truncate max-w-[130px] text-[10.5px]">
                           {payload?.search_query || s.event_name.replace(/_/g, ' ')}
                         </td>
-                        <td className="py-1.5 px-3 text-slate-600 text-[11px] truncate max-w-[100px]">
+                        <td className="py-1 px-2 text-slate-600 text-[10px] truncate max-w-[90px]">
                           {payload?.locality ? `📍 ${payload.locality}` : '—'}
                         </td>
-                        <td className="py-1.5 px-3 text-slate-600 text-[11px]">
-                          {payload?.bhk ? `🛏️ ${payload.bhk}` : payload?.budget ? `💰 ${payload.budget}` : '—'}
-                        </td>
-                        <td className="py-1.5 px-3 text-center">
-                          <span className="px-2.5 py-0.5 bg-cyan-50 text-cyan-800 font-extrabold rounded-full text-[10.5px] border border-cyan-200">
-                            {s.count} times
+                        <td className="py-1 px-2 text-center">
+                          <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-800 font-extrabold rounded-full text-[9.5px] border border-cyan-200">
+                            {s.count}x
                           </span>
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Standard ReportTable Component */}
-      <ReportTable
-        title="Visitor & User Web Activity Audit Logs"
-        columns={columns}
-        data={filteredSessions}
-        statusPills={statusPills}
-        activeStatusPill={activeStatusPill}
-        onSelectStatusPill={(key) => {
-          setActiveStatusPill(key);
-          setPage(1);
-        }}
-        onOpenFilters={() => setIsFilterOpen(true)}
-        onExport={handleExport}
-        onRefresh={() => {
-          fetchOverview();
-        }}
-        onPrint={handlePrint}
-        pagination={{
-          page,
-          limit,
-          totalRecords: filteredSessions.length,
-          totalPages: Math.ceil(filteredSessions.length / limit) || 1,
-        }}
-        onPageChange={(p) => setPage(p)}
-        onLimitChange={(l) => {
-          setLimit(l);
-          setPage(1);
-        }}
-        loading={loading}
-      />
+      {/* Mode 1: Main Standard ReportTable Component */}
+      {viewMode === 'sessions' && (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ReportTable
+            title="Visitor & User Web Activity Audit Logs"
+            columns={columns}
+            data={filteredSessions}
+            statusPills={statusPills}
+            activeStatusPill={activeStatusPill}
+            onSelectStatusPill={(key) => {
+              setActiveStatusPill(key);
+              setPage(1);
+            }}
+            onOpenFilters={() => setIsFilterOpen(true)}
+            onExport={handleExport}
+            onRefresh={() => {
+              fetchOverview();
+            }}
+            onPrint={handlePrint}
+            pagination={{
+              page,
+              limit,
+              totalRecords: filteredSessions.length,
+              totalPages: Math.ceil(filteredSessions.length / limit) || 1,
+            }}
+            onPageChange={(p) => setPage(p)}
+            onLimitChange={(l) => {
+              setLimit(l);
+              setPage(1);
+            }}
+            loading={loading}
+          />
+        </div>
+      )}
+
+      {/* Mode 2: Dedicated Top Properties & Search Trends View */}
+      {viewMode === 'trends' && (
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-3 overflow-hidden">
+          {/* Most Viewed Properties */}
+          <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-full">
+            <div className="py-2 px-3 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-xs text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <Eye className="w-3.5 h-3.5 text-emerald-600" /> Most Viewed Properties
+              </h3>
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                {topProperties.length} Properties
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1 scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2 px-3">PROPERTY TITLE</th>
+                    <th className="py-2 px-3">LOCALITY</th>
+                    <th className="py-2 px-3 text-right">PRICE</th>
+                    <th className="py-2 px-3 text-center">TOTAL VIEWS</th>
+                    <th className="py-2 px-3 text-center">UNIQUE VISITORS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {topProperties.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                        No property views recorded in this period
+                      </td>
+                    </tr>
+                  ) : (
+                    topProperties.map((p: any, idx: number) => (
+                      <tr key={p.property_id || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2 px-3 font-bold text-slate-900 truncate max-w-[150px]" title={p.property_title}>
+                          {p.property_title}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600 text-[11px] truncate max-w-[120px]">
+                          {p.locality ? `📍 ${p.locality}` : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-emerald-800 text-[11px]">
+                          {p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '—'}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-extrabold rounded text-[10.5px] border border-emerald-200">
+                            {p.total_views}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-center text-slate-600 text-[11px] font-semibold">
+                          {p.unique_visitors}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Top Search Keywords & Filters */}
+          <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col h-full">
+            <div className="py-2 px-3 bg-[#f8fafc] border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="font-bold text-xs text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <Search className="w-3.5 h-3.5 text-cyan-600" /> Top Search Keywords & Filters
+              </h3>
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                {topSearches.length} Queries
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1 scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2 px-3">SEARCH QUERY / FILTER</th>
+                    <th className="py-2 px-3">LOCALITY</th>
+                    <th className="py-2 px-3">BHK / BUDGET</th>
+                    <th className="py-2 px-3 text-center">USAGE COUNT</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {topSearches.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
+                        No search events recorded in this period
+                      </td>
+                    </tr>
+                  ) : (
+                    topSearches.map((s: any, idx: number) => {
+                      let payload: any = null;
+                      try {
+                        payload = typeof s.payload === 'string' ? JSON.parse(s.payload) : s.payload;
+                      } catch (e) {}
+
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-3 font-bold text-slate-900 capitalize truncate max-w-[140px]">
+                            {payload?.search_query || s.event_name.replace(/_/g, ' ')}
+                          </td>
+                          <td className="py-2 px-3 text-slate-600 text-[11px] truncate max-w-[110px]">
+                            {payload?.locality ? `📍 ${payload.locality}` : '—'}
+                          </td>
+                          <td className="py-2 px-3 text-slate-600 text-[11px]">
+                            {payload?.bhk ? `🛏️ ${payload.bhk}` : payload?.budget ? `💰 ${payload.budget}` : '—'}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <span className="px-2.5 py-0.5 bg-cyan-50 text-cyan-800 font-extrabold rounded-full text-[10.5px] border border-cyan-200">
+                              {s.count} times
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Smart Filter Drawer */}
       <SmartFilterDrawer
@@ -737,6 +967,7 @@ export const VisitorAnalyticsTab: React.FC = () => {
           userPhone={selectedSession.user_phone || selectedSession.lead_phone}
           userRole={selectedSession.exact_role || selectedSession.source}
           ipAddress={selectedSession.ip_address}
+          initialAiInterest={selectedSession.ai_interest}
         />
       )}
     </div>

@@ -172,9 +172,9 @@ export const LoggedInReportPage: React.FC = () => {
   };
 
   return (
-    <div className="p-3 space-y-3 max-w-[1700px] mx-auto min-h-screen bg-slate-50/50">
+    <div className="p-3 space-y-2.5 max-w-[1700px] w-full mx-auto h-full flex flex-col min-h-0 overflow-hidden bg-slate-50/50">
       {/* Compact Top Tab Switcher */}
-      <div className="flex items-center gap-1 p-1 bg-white rounded-lg border border-gray-200/90 shadow-2xs max-w-fit">
+      <div className="shrink-0 flex items-center gap-1 p-1 bg-white rounded-lg border border-gray-200/90 shadow-2xs max-w-fit">
         <button
           onClick={() => setActiveSubTab("audit-logs")}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
@@ -202,9 +202,11 @@ export const LoggedInReportPage: React.FC = () => {
 
       {/* Tab 1: User Login Audit Trail */}
       {activeSubTab === "audit-logs" && (
-        <div className="space-y-3.5 animate-fadeIn">
+        <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden animate-fadeIn">
           {/* Top Stats Cards Header */}
-          <TabTopStatsHeader activeTab="login-logs" loginLogsStats={statsData} />
+          <div className="shrink-0">
+            <TabTopStatsHeader activeTab="login-logs" loginLogsStats={statsData} />
+          </div>
 
           {/* Main Logged In Report Component */}
           <LoggedInReportTab
@@ -233,7 +235,7 @@ export const LoggedInReportPage: React.FC = () => {
 
       {/* Tab 2: Visitor & Web Activity Tracking */}
       {activeSubTab === "visitor-activity" && (
-        <div className="animate-fadeIn">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-fadeIn">
           <VisitorAnalyticsTab />
         </div>
       )}
