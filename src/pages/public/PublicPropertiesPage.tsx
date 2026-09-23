@@ -1454,24 +1454,26 @@ const PublicPropertiesPage: React.FC<{ onPropertyView?: (p: any) => void }> = ({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ============================================
-          HERO SECTION - bg.mp4 video background
+          HERO SECTION - ig1.jpg image background
       ============================================ */}
       <div className="relative pt-28 pb-0 overflow-hidden">
-        {/* Background video — brightness/contrast boosted so it's clearly visible */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
+        {/* Background image — replaces bg.mp4 video */}
+        <img
+          src="/pune.jpeg"
+          alt=""
+          aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ zIndex: 0, filter: 'brightness(1.15) contrast(1.05) saturate(1.1)' }}
-        >
-          <source src="/bg.mp4" type="video/mp4" />
-        </video>
+          style={{
+            zIndex: 0,
+            objectPosition: 'center 30%', // Move image slightly upward to show more of the city/skyline
+            transform: 'scale(1.08)',      // Slightly increase size so more is visible
+            filter: 'brightness(1.15) contrast(1.05) saturate(1.1)'
+          }}
+        />
 
         {/* 
-          ✅ FIX: Bahut halka overlay (sirf 25-40% opacity) + gradient.
-          Video ab clearly visible hoga.
+          Halka overlay (sirf 25-60% opacity) + gradient.
+          Image ab clearly visible hoga.
         */}
         <div
           className="absolute inset-0"

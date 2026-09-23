@@ -215,7 +215,7 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
   const statusPills: StatusPill[] = [
     { label: "Active Staff", key: "all", count: summaryMetrics.totalActiveUsers || filteredUsers.length },
     { label: "Assigned Leads", key: "assigned", count: summaryMetrics.leadsAssigned || 0 },
-    { label: "Follow-ups Taken", key: "followups", count: summaryMetrics.followupsCompleted || 0 },
+    { label: "Follow-ups Taken", key: "followups", count: filteredUsers.reduce((total, user) => total + (user.followupsAssigned || 0), 0) },
     { label: "Overdue Actions", key: "overdue", count: filteredUsers.reduce((a, b) => a + (b.followupsOverdue || 0), 0) },
     { label: "Interested Leads", key: "interested", count: summaryMetrics.leadsInterested || 0 },
     { label: "Deals Closed", key: "closed", count: summaryMetrics.dealsClosed || 0 },
@@ -224,7 +224,7 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
   // Dynamic Trend Chart Data based on selected metric
   const dynamicTrendData = useMemo(() => {
     const totalLeads = summaryMetrics.leadsAssigned || 10;
-    const totalFollowups = summaryMetrics.followupsCompleted || 8;
+    const totalFollowups = filteredUsers.reduce((total, user) => total + (user.followupsAssigned || 0), 0) || 8;
     const totalVisits = summaryMetrics.siteVisits || 5;
     const totalDeals = summaryMetrics.dealsClosed || 2;
     const totalCol = summaryMetrics.totalCollections || 50000;
@@ -346,10 +346,10 @@ export const AgentLeadExecutionReportTab: React.FC<AgentLeadExecutionReportTabPr
       render: (row) => <span className="font-medium text-slate-700">{row.propertiesAdded || 0}</span>,
     },
     {
-      key: "followupsCompleted",
-      header: "FOLLOW-UPS",
+      key: "followupsAssigned",
+      header: "FOLLOW-UPS TAKEN",
       searchPlaceholder: "Search...",
-      render: (row) => <span className="font-semibold text-indigo-700">{row.followupsCompleted || 0}</span>,
+      render: (row) => <span className="font-semibold text-indigo-700">{row.followupsAssigned || 0}</span>,
     },
     {
       key: "visitsCompleted",
