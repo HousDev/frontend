@@ -10,7 +10,7 @@ import ClientSelector from './ClientSelector';
 import PropertySelector from './PropertySelector';
 import { documentsGeneratedAPI } from '@/lib/documentsGeneratedAPI';
 
-// 🔐 strict resolver + interpolator
+// strict resolver + interpolator
 import { resolveVariablesStrict, interpolateStrict } from '@/lib/docVarMap';
 
 // (optional) properties/sellers libs if you use them elsewhere

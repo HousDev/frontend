@@ -22,7 +22,8 @@ import {
   Zap,
   CheckCircle,
   Bot,
-  ShieldCheck, Handshake
+  ShieldCheck, Handshake,
+  Headphones
 } from 'lucide-react';
 import SubscriptionModal from '@/components/subscription/SubscriptionModal';
 import AIReportModal from '@/components/ai/AIReportModal';
@@ -1020,8 +1021,57 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
   const activeHeroDesc =
     heroSlides.length > 0 ? (heroSlides[heroIndex]?.description || '') : '';
 
+  // ✅ Mobile bottom nav items
+  const mobileNavItems = [
+    {
+      key: 'home',
+      label: 'Home',
+      icon: <Home size={20} />,
+      onClick: () => {
+        if (onPageChange) onPageChange('home');
+        else navigate('/');
+      },
+    },
+    {
+      key: 'buy',
+      label: 'Buy',
+      icon: <Building size={20} />,
+      onClick: () => {
+        setTransactionType('buy');
+        setSelectedPropertyType('');
+        if (onPageChange) onPageChange('properties');
+        else navigate('/properties');
+      },
+    },
+    {
+      key: 'services',
+      label: 'Services',
+      icon: <ShieldCheck size={20} />,
+      onClick: () => {
+        goTo('services');
+      },
+    },
+    {
+      key: 'contact',
+      label: 'Contact',
+      icon: <Headphones size={20} />,
+      onClick: () => {
+        if (onPageChange) onPageChange('contact');
+        else navigate('/contact');
+      },
+    },
+    {
+      key: 'ai',
+      label: 'AI Report',
+      icon: <Brain size={20} />,
+      onClick: () => {
+        setIsAiReportOpen(true);
+      },
+    },
+  ];
+
   return (
-    <div className="">
+    <div className="pb-16 md:pb-0">
       {/* HERO / SEARCH */}
       <section className="relative bg-gradient-to-br from-[#0b3856] via-[#0f2b3d] to-[#1a4460] text-white overflow-hidden min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-80px)]">
         <div className="absolute inset-0 bg-black/25"></div>
@@ -1668,7 +1718,7 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
       </section>
 
 
-      {/* Why Choose Us cards */}
+      {/* Why Choose Us cards - with dynamic hover animations */}
       {/* Why Choose Section - Modern like Roomac */}
       <section className="py-5 md:py-7 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1691,16 +1741,19 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 lg:gap-8">
 
             {/* Card 1 */}
-            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-              <div className="relative inline-block mb-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-                  <ShieldCheck className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+            <div className="group relative bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20 overflow-hidden">
+              {/* Top accent line expansion on hover */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-[#E6761D] to-[#F3924A] transition-all duration-500 group-hover:w-full"></div>
+
+              <div className="relative inline-block mb-4 mt-1">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-500 animate-[bounce_3s_ease-in-out_infinite]">
+                  <ShieldCheck className="text-[#E6761D] group-hover:text-white transition-all duration-500 group-hover:rotate-12" size={26} />
                 </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                   01
                 </div>
               </div>
-              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2 group-hover:text-[#E6761D] transition-colors duration-300">
                 Verified Listings Only
               </h3>
               <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
@@ -1709,16 +1762,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 2 */}
-            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-              <div className="relative inline-block mb-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-                  <Brain className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+            <div className="group relative bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20 overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-[#E6761D] to-[#F3924A] transition-all duration-500 group-hover:w-full"></div>
+
+              <div className="relative inline-block mb-4 mt-1">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-500 animate-[bounce_3s_ease-in-out_infinite_0.2s]">
+                  <Brain className="text-[#E6761D] group-hover:text-white transition-all duration-500 group-hover:rotate-12" size={26} />
                 </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                   02
                 </div>
               </div>
-              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2 group-hover:text-[#E6761D] transition-colors duration-300">
                 Fair Market Valuation
               </h3>
               <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
@@ -1727,16 +1782,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 3 */}
-            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-              <div className="relative inline-block mb-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-                  <Users className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+            <div className="group relative bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20 overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-[#E6761D] to-[#F3924A] transition-all duration-500 group-hover:w-full"></div>
+
+              <div className="relative inline-block mb-4 mt-1">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-500 animate-[bounce_3s_ease-in-out_infinite_0.4s]">
+                  <Users className="text-[#E6761D] group-hover:text-white transition-all duration-500 group-hover:rotate-12" size={26} />
                 </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                   03
                 </div>
               </div>
-              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2 group-hover:text-[#E6761D] transition-colors duration-300">
                 Local Market Expertise
               </h3>
               <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
@@ -1745,16 +1802,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
             </div>
 
             {/* Card 4 */}
-            <div className="group bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20">
-              <div className="relative inline-block mb-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-300">
-                  <Handshake className="text-[#E6761D] group-hover:text-white transition-all duration-300" size={26} />
+            <div className="group relative bg-white rounded-2xl p-5 md:p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#E6761D]/20 overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-1 bg-gradient-to-r from-[#E6761D] to-[#F3924A] transition-all duration-500 group-hover:w-full"></div>
+
+              <div className="relative inline-block mb-4 mt-1">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#E6761D]/10 flex items-center justify-center mx-auto group-hover:bg-[#E6761D] transition-all duration-500 animate-[bounce_3s_ease-in-out_infinite_0.6s]">
+                  <Handshake className="text-[#E6761D] group-hover:text-white transition-all duration-500 group-hover:rotate-12" size={26} />
                 </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center">
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#E6761D] text-white text-xs font-bold flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
                   04
                 </div>
               </div>
-              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 mb-2 group-hover:text-[#E6761D] transition-colors duration-300">
                 End-to-End Assistance
               </h3>
               <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
@@ -1765,57 +1824,69 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
 
-      {/* Stats Section - Modern stats cards */}
+      {/* Stats Section - Modern stats cards with dynamic animations */}
       <section className="py-4 md:py-5 bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
 
             {/* Stat 1 */}
-            <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-blue-300 transition-colors">
-                <Home className="text-blue-700" size={18} />
+            <div className="group relative bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-blue-200 shadow-sm hover:shadow-lg transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-400/0 via-blue-400/0 to-blue-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-blue-300 transition-colors duration-300">
+                  <Home className="text-blue-700 animate-[float_3s_ease-in-out_infinite]" size={18} />
+                </div>
+                <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5 group-hover:scale-110 transition-transform duration-300">
+                  10K<span className="text-base md:text-lg text-gray-600">+</span>
+                </h4>
+                <p className="text-gray-600 text-[11px] md:text-xs font-medium">Properties Sold</p>
+                <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-blue-300 rounded-full mx-auto group-hover:w-12 transition-all duration-300"></div>
               </div>
-              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-                10K<span className="text-base md:text-lg text-gray-600">+</span>
-              </h4>
-              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Properties Sold</p>
-              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-blue-300 rounded-full mx-auto"></div>
             </div>
 
             {/* Stat 2 */}
-            <div className="bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-emerald-300 transition-colors">
-                <Users className="text-emerald-700" size={18} />
+            <div className="group relative bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-emerald-200 shadow-sm hover:shadow-lg transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-emerald-400/0 via-emerald-400/0 to-emerald-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-emerald-300 transition-colors duration-300">
+                  <Users className="text-emerald-700 animate-[float_3s_ease-in-out_infinite_0.3s]" size={18} />
+                </div>
+                <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5 group-hover:scale-110 transition-transform duration-300">
+                  25K<span className="text-base md:text-lg text-gray-600">+</span>
+                </h4>
+                <p className="text-gray-600 text-[11px] md:text-xs font-medium">Happy Customers</p>
+                <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-emerald-300 rounded-full mx-auto group-hover:w-12 transition-all duration-300"></div>
               </div>
-              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-                25K<span className="text-base md:text-lg text-gray-600">+</span>
-              </h4>
-              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Happy Customers</p>
-              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-emerald-300 rounded-full mx-auto"></div>
             </div>
 
             {/* Stat 3 */}
-            <div className="bg-gradient-to-br from-amber-100 to-amber-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-amber-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-amber-300 transition-colors">
-                <Award className="text-amber-700" size={18} />
+            <div className="group relative bg-gradient-to-br from-amber-100 to-amber-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-amber-200 shadow-sm hover:shadow-lg transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-amber-400/0 via-amber-400/0 to-amber-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-amber-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-amber-300 transition-colors duration-300">
+                  <Award className="text-amber-700 animate-[float_3s_ease-in-out_infinite_0.6s]" size={18} />
+                </div>
+                <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5 group-hover:scale-110 transition-transform duration-300">
+                  15<span className="text-base md:text-lg text-gray-600">+</span>
+                </h4>
+                <p className="text-gray-600 text-[11px] md:text-xs font-medium">Years of Trust</p>
+                <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-amber-300 rounded-full mx-auto group-hover:w-12 transition-all duration-300"></div>
               </div>
-              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-                15<span className="text-base md:text-lg text-gray-600">+</span>
-              </h4>
-              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Years of Trust</p>
-              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-amber-300 rounded-full mx-auto"></div>
             </div>
 
             {/* Stat 4 */}
-            <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-purple-200 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1">
-              <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-purple-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-purple-300 transition-colors">
-                <Star className="text-purple-700" size={18} />
+            <div className="group relative bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl md:rounded-2xl p-3 md:p-5 text-center border border-purple-200 shadow-sm hover:shadow-lg transition-all duration-500 hover:-translate-y-2 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-purple-400/0 via-purple-400/0 to-purple-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-purple-200 flex items-center justify-center mx-auto mb-2 md:mb-3 group-hover:bg-purple-300 transition-colors duration-300">
+                  <Star className="text-purple-700 animate-[float_3s_ease-in-out_infinite_0.9s]" size={18} />
+                </div>
+                <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5 group-hover:scale-110 transition-transform duration-300">
+                  4.9<span className="text-base md:text-lg text-gray-600">★</span>
+                </h4>
+                <p className="text-gray-600 text-[11px] md:text-xs font-medium">Customer Rating</p>
+                <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-purple-300 rounded-full mx-auto group-hover:w-12 transition-all duration-300"></div>
               </div>
-              <h4 className="text-xl md:text-2xl font-bold text-gray-800 mb-0.5">
-                4.9<span className="text-base md:text-lg text-gray-600">★</span>
-              </h4>
-              <p className="text-gray-600 text-[11px] md:text-xs font-medium">Customer Rating</p>
-              <div className="mt-1.5 md:mt-2 h-0.5 w-6 md:w-8 bg-purple-300 rounded-full mx-auto"></div>
             </div>
           </div>
         </div>
@@ -1918,6 +1989,23 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
         </div>
       </section>
 
+      {/* ✅ Mobile-only sticky bottom navigation (hidden on md and above) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="flex items-center justify-around px-1 py-1.5">
+          {mobileNavItems.map((item) => (
+            <button
+              key={item.key}
+              onClick={item.onClick}
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-xl transition-colors active:bg-gray-100"
+              type="button"
+            >
+              <span className="text-[#0b3856]">{item.icon}</span>
+              <span className="text-[10px] font-medium text-gray-600 leading-none">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       {/* Modal */}
       <PublicSellPropertyForm
         isOpen={isSellerModalOpen}
@@ -1933,6 +2021,18 @@ const HomePage = ({ onPageChange, onPropertyView, onAuthAction }: any) => {
           setIsValuationOpen(true);
         }}
       />
+
+      {/* Global CSS animations for the new dynamic effects */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+      `}</style>
     </div>
   );
 };
