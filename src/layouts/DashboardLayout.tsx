@@ -1616,7 +1616,7 @@ const DashboardLayoutContent = () => {
 
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-md border-b border-slate-200">
+        <header className="relative z-40 bg-white shadow-md border-b border-slate-200">
           <div className="flex items-center justify-between h-14 px-4 sm:px-6 lg:px-4">
             <div className="flex items-center gap-2">
               <button

@@ -140,16 +140,17 @@ const AITraining = () => {
   const [trainingRuns, setTrainingRuns] = useState<any[]>([]);
   const [historyFilter, setHistoryFilter] = useState<'all' | number>('all');
   const [chartMetric, setChartMetric] = useState<'price' | 'rate'>('price');
+  const [chartScenario, setChartScenario] = useState<'both' | 'bull' | 'bear'>('both');
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [serviceStatus, setServiceStatus] = useState<any>({ pythonAiOnline: true, status: 'Active' });
 
   // Dashboard overall stats
   const [stats, setStats] = useState({
-    propertiesLoaded: 125847,
-    marketDataPoints: 45623,
-    interactionsAnalyzed: 78945,
-    pricePointsTracked: 234567,
+    propertiesLoaded: 0,
+    marketDataPoints: 0,
+    interactionsAnalyzed: 0,
+    pricePointsTracked: 0,
   });
 
   // Playground state for real-time model evaluation
@@ -1334,21 +1335,28 @@ const AITraining = () => {
                 <div className="flex items-center justify-between mb-1 text-gray-500 text-xs">
                   <span>Fair Negotiation Band</span>
                   <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                    ±4% Window
+                    ±{predictionResult.price?.fair_valuation_range?.confidence_pct || 10}% Range
                   </span>
                 </div>
                 <p className="text-base font-bold text-gray-900 mt-2 tabular-nums">
                   ₹{((predictionResult.price?.fair_valuation_range?.min || 0) / 100000).toFixed(2)}L - ₹{((predictionResult.price?.fair_valuation_range?.max || 0) / 100000).toFixed(2)}L
                 </p>
-                <div className="w-full bg-emerald-100 rounded-full h-1.5 mt-3 overflow-hidden">
+                <div className="w-full bg-emerald-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
                   <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '70%' }} />
                 </div>
-                <p className="text-[11px] text-gray-500 mt-2 flex items-center justify-between">
-                  <span>Valuation Model:</span>
-                  <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
-                    <Check size={12} /> Active & Verified
-                  </span>
-                </p>
+                {predictionResult.price?.active_buyers_count ? (
+                  <p className="text-[11px] text-gray-600 mt-2 font-medium flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span><strong className="text-gray-900">{predictionResult.price.active_buyers_count.toLocaleString()} buyers</strong> looking in {predictionResult.locality || 'this locality'}</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-500 mt-2 flex items-center justify-between">
+                    <span>Valuation Model:</span>
+                    <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
+                      <Check size={12} /> Active & Verified
+                    </span>
+                  </p>
+                )}
               </div>
 
               {/* Google Trends Signal */}
@@ -1421,73 +1429,174 @@ const AITraining = () => {
               </div>
             )}
 
-            {/* Real Estate Capital Appreciation Horizons Chart */}
+            {/* Real Estate Capital Appreciation & Stock Market P&L Horizon Chart */}
             {(() => {
               const basePrice = predictionResult.price?.predicted_price || 7500000;
               const baseRate = predictionResult.price?.rate_per_sqft || 9600;
               const annualPct = Number(predictionResult.trend?.projected_annual_growth_pct || 10.2);
+              const bearPct = 5.2; // Annual downside correction stress-test rate
 
-              // Real estate capital growth milestones:
-              // Real estate prices do not jump monthly; appreciation is evaluated on 6-month, 1-year, 2-year, and 3-year horizons
+              // Real estate capital growth milestones spanning Past, Current (Today), and Future:
               const horizonsConfig = [
-                { label: 'Today (Baseline)', horizon: 'Current', years: 0, desc: 'Current benchmark valuation' },
-                { label: '6 Months', horizon: 'Mid-term', years: 0.5, desc: 'Possession & stabilization phase' },
-                { label: '1 Year', horizon: 'Annual Benchmark', years: 1.0, isAnnualTarget: true, desc: 'Annual circle rate & market growth' },
-                { label: '2 Years', horizon: 'Medium Term', years: 2.0, desc: 'Metro connectivity & neighborhood maturity' },
-                { label: '3 Years', horizon: 'Strategic Horizon', years: 3.0, desc: 'Long-term equity & resale compounding' },
+                { label: '2 Yrs Ago', horizon: 'Past Benchmark', years: -2.0, isPast: true, desc: 'Historical acquisition price 2 years ago' },
+                { label: '1 Yr Ago', horizon: 'Prior Year Comp', years: -1.0, isPast: true, desc: 'Historical registration price 1 year ago' },
+                { label: 'Today (Baseline)', horizon: 'Current', years: 0.0, isCurrent: true, desc: 'Current live market valuation & cost basis' },
+                { label: '+1 Year', horizon: 'Annual Benchmark', years: 1.0, isFuture: true, isAnnualTarget: true, desc: 'Projected 1-year capital appreciation & ROI' },
+                { label: '+2 Years', horizon: 'Medium Term', years: 2.0, isFuture: true, desc: 'Metro connectivity & neighborhood maturity' },
+                { label: '+3 Years', horizon: 'Strategic Horizon', years: 3.0, isFuture: true, desc: 'Long-term equity & resale compounding' },
               ];
 
               const points = horizonsConfig.map((h, idx) => {
-                const pVal = basePrice * Math.pow(1 + annualPct / 100, h.years);
-                const rVal = Math.round(baseRate * Math.pow(1 + annualPct / 100, h.years));
-                const gainPrice = pVal - basePrice;
-                return {
-                  index: idx,
-                  label: h.label,
-                  horizon: h.horizon,
-                  desc: h.desc,
-                  years: h.years,
-                  price: pVal,
-                  priceLakhs: (pVal / 100000).toFixed(2),
-                  rate: rVal,
-                  gainLakhs: (gainPrice / 100000).toFixed(2),
-                  growthPct: ((Math.pow(1 + annualPct / 100, h.years) - 1) * 100).toFixed(1),
-                  isAnnualTarget: !!h.isAnnualTarget,
-                  isCurrent: h.years === 0,
-                };
+                if (h.years < 0) {
+                  // PAST POINTS:
+                  const absY = Math.abs(h.years);
+                  const pVal = basePrice / Math.pow(1 + annualPct / 100, absY);
+                  const rVal = Math.round(baseRate / Math.pow(1 + annualPct / 100, absY));
+                  const gainPrice = basePrice - pVal;
+                  const gainPct = (((basePrice / pVal) - 1) * 100).toFixed(1);
+
+                  // Conservative historical trajectory (conservative registration & baseline appreciation):
+                  const pBearVal = basePrice / Math.pow(1 + (annualPct * 0.58) / 100, absY);
+                  const rBearVal = Math.round(baseRate / Math.pow(1 + (annualPct * 0.58) / 100, absY));
+                  const conservativeGain = basePrice - pBearVal;
+                  const conservativeGainPct = (((basePrice / pBearVal) - 1) * 100).toFixed(1);
+
+                  return {
+                    index: idx,
+                    label: h.label,
+                    horizon: h.horizon,
+                    desc: h.desc,
+                    years: h.years,
+                    price: pVal,
+                    priceLakhs: (pVal / 100000).toFixed(2),
+                    rate: rVal,
+                    gainPrice,
+                    gainLakhs: (gainPrice / 100000).toFixed(2),
+                    growthPct: gainPct,
+                    bearPrice: pBearVal,
+                    bearPriceLakhs: (pBearVal / 100000).toFixed(2),
+                    bearRate: rBearVal,
+                    lossPrice: conservativeGain,
+                    lossLakhs: (conservativeGain / 100000).toFixed(2),
+                    lossPct: conservativeGainPct,
+                    isAnnualTarget: false,
+                    isCurrent: false,
+                    isPast: true,
+                    isFuture: false,
+                  };
+                } else if (h.years === 0) {
+                  // CURRENT (TODAY) BASELINE:
+                  return {
+                    index: idx,
+                    label: h.label,
+                    horizon: h.horizon,
+                    desc: h.desc,
+                    years: 0,
+                    price: basePrice,
+                    priceLakhs: (basePrice / 100000).toFixed(2),
+                    rate: baseRate,
+                    gainPrice: 0,
+                    gainLakhs: '0.00',
+                    growthPct: '0.0',
+                    bearPrice: basePrice,
+                    bearPriceLakhs: (basePrice / 100000).toFixed(2),
+                    bearRate: baseRate,
+                    lossPrice: 0,
+                    lossLakhs: '0.00',
+                    lossPct: '0.0',
+                    isAnnualTarget: false,
+                    isCurrent: true,
+                    isPast: false,
+                    isFuture: false,
+                  };
+                } else {
+                  // FUTURE PROJECTIONS:
+                  const pVal = basePrice * Math.pow(1 + annualPct / 100, h.years);
+                  const rVal = Math.round(baseRate * Math.pow(1 + annualPct / 100, h.years));
+                  const gainPrice = pVal - basePrice;
+                  const gainPct = ((Math.pow(1 + annualPct / 100, h.years) - 1) * 100).toFixed(1);
+
+                  const pBearVal = basePrice * Math.pow(1 - bearPct / 100, h.years);
+                  const rBearVal = Math.round(baseRate * Math.pow(1 - bearPct / 100, h.years));
+                  const lossPrice = pBearVal - basePrice;
+                  const lossPct = ((Math.pow(1 - bearPct / 100, h.years) - 1) * 100).toFixed(1);
+
+                  return {
+                    index: idx,
+                    label: h.label,
+                    horizon: h.horizon,
+                    desc: h.desc,
+                    years: h.years,
+                    price: pVal,
+                    priceLakhs: (pVal / 100000).toFixed(2),
+                    rate: rVal,
+                    gainPrice,
+                    gainLakhs: (gainPrice / 100000).toFixed(2),
+                    growthPct: gainPct,
+                    bearPrice: pBearVal,
+                    bearPriceLakhs: (pBearVal / 100000).toFixed(2),
+                    bearRate: rBearVal,
+                    lossPrice,
+                    lossLakhs: (Math.abs(lossPrice) / 100000).toFixed(2),
+                    lossPct: Math.abs(Number(lossPct)).toFixed(1),
+                    isAnnualTarget: !!h.isAnnualTarget,
+                    isCurrent: false,
+                    isPast: false,
+                    isFuture: true,
+                  };
+                }
               });
 
-              const sixMonthPoint = points.find(p => p.years === 0.5) || points[1];
-              const oneYearPoint = points.find(p => p.years === 1.0) || points[2];
-              const twoYearPoint = points.find(p => p.years === 2.0) || points[3];
-              const threeYearPoint = points.find(p => p.years === 3.0) || points[4];
-              const annualGainPrice = oneYearPoint.price - points[0].price;
+              const pastTwoYearPoint = points[0];
+              const pastOneYearPoint = points[1];
+              const todayPoint = points[2];
+              const futureOneYearPoint = points[3];
+              const futureTwoYearPoint = points[4];
+              const futureThreeYearPoint = points[5];
 
-              // Chart calculations
-              const width = 720;
-              const height = 180;
-              const padLeft = 65;
-              const padRight = 40;
-              const padTop = 30;
-              const padBottom = 35;
+              // Chart dimensions
+              const width = 760;
+              const height = 220;
+              const padLeft = 70;
+              const padRight = 50;
+              const padTop = 36;
+              const padBottom = 38;
               const plotW = width - padLeft - padRight;
               const plotH = height - padTop - padBottom;
 
-              const values = points.map(p => chartMetric === 'price' ? p.price / 100000 : p.rate);
-              const minVal = Math.min(...values) * 0.98;
-              const maxVal = Math.max(...values) * 1.02;
+              const bullVals = points.map(p => chartMetric === 'price' ? p.price / 100000 : p.rate);
+              const bearVals = points.map(p => chartMetric === 'price' ? p.bearPrice / 100000 : p.bearRate);
+              const baselineVal = chartMetric === 'price' ? todayPoint.price / 100000 : todayPoint.rate;
+
+              const minVal = Math.min(...bullVals, ...bearVals) * 0.94;
+              const maxVal = Math.max(...bullVals, ...bearVals) * 1.04;
               const valRange = maxVal - minVal || 1;
 
-              const coords = points.map((p, i) => {
+              // Baseline Y (Break-even entry level at Today)
+              const baselineY = padTop + (1 - (baselineVal - minVal) / valRange) * plotH;
+
+              // Coordinates for Bull (Profit) and Bear (Loss)
+              const bullCoords = points.map((p, i) => {
                 const val = chartMetric === 'price' ? p.price / 100000 : p.rate;
                 const x = padLeft + (i / (points.length - 1)) * plotW;
                 const y = padTop + (1 - (val - minVal) / valRange) * plotH;
                 return { ...p, x, y, val };
               });
 
-              const pathD = coords.reduce((acc, c, i) => {
+              const bearCoords = points.map((p, i) => {
+                const val = chartMetric === 'price' ? p.bearPrice / 100000 : p.bearRate;
+                const x = padLeft + (i / (points.length - 1)) * plotW;
+                const y = padTop + (1 - (val - minVal) / valRange) * plotH;
+                return { ...p, x, y, val };
+              });
+
+              // Today's vertical divider coordinate
+              const todayCoord = bullCoords[2];
+
+              // Bull (Profit) Path & Area
+              const bullPathD = bullCoords.reduce((acc, c, i) => {
                 if (i === 0) return `M ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
-                const prev = coords[i - 1];
+                const prev = bullCoords[i - 1];
                 const cpX1 = prev.x + (c.x - prev.x) / 2;
                 const cpY1 = prev.y;
                 const cpX2 = prev.x + (c.x - prev.x) / 2;
@@ -1495,62 +1604,150 @@ const AITraining = () => {
                 return `${acc} C ${cpX1.toFixed(1)} ${cpY1.toFixed(1)}, ${cpX2.toFixed(1)} ${cpY2.toFixed(1)}, ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
               }, '');
 
-              const areaD = `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${(padTop + plotH).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(padTop + plotH).toFixed(1)} Z`;
-              const annualCoord = coords.find(c => c.isAnnualTarget) || coords[2];
+              const bullAreaD = `${bullPathD} L ${bullCoords[bullCoords.length - 1].x.toFixed(1)} ${baselineY.toFixed(1)} L ${bullCoords[0].x.toFixed(1)} ${baselineY.toFixed(1)} Z`;
+
+              // Bear (Loss) Path & Area
+              const bearPathD = bearCoords.reduce((acc, c, i) => {
+                if (i === 0) return `M ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
+                const prev = bearCoords[i - 1];
+                const cpX1 = prev.x + (c.x - prev.x) / 2;
+                const cpY1 = prev.y;
+                const cpX2 = prev.x + (c.x - prev.x) / 2;
+                const cpY2 = c.y;
+                return `${acc} C ${cpX1.toFixed(1)} ${cpY1.toFixed(1)}, ${cpX2.toFixed(1)} ${cpY2.toFixed(1)}, ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
+              }, '');
+
+              const bearAreaD = `${bearPathD} L ${bearCoords[bearCoords.length - 1].x.toFixed(1)} ${baselineY.toFixed(1)} L ${bearCoords[0].x.toFixed(1)} ${baselineY.toFixed(1)} Z`;
+              const annualCoord = bullCoords.find(c => c.isAnnualTarget) || bullCoords[3];
+
+              const hoveredBull = hoveredPointIndex !== null ? bullCoords[hoveredPointIndex] : null;
+              const hoveredBear = hoveredPointIndex !== null ? bearCoords[hoveredPointIndex] : null;
 
               return (
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
-                  {/* Executive Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Executive Header with Stock Market P&L Toggles */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div>
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                        <TrendingUp size={14} className="text-[#0f2b3d]" />
-                        <span>Capital Appreciation Forecast & Real Estate Horizons</span>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
+                        <TrendingUp size={14} className="text-emerald-600" />
+                        <span>Real Estate P&L Horizons · Capital Profit & Loss Simulator</span>
                       </h5>
-                      <p className="text-[11px] text-gray-500">
-                        1-Year Projected Value: <strong className="text-gray-900">₹{oneYearPoint.priceLakhs}L</strong>
-                        <span className="text-emerald-700 font-semibold ml-1">
-                          (+₹{(annualGainPrice / 100000).toFixed(2)}L, +{predictionResult.trend?.projected_annual_growth_pct || 10.2}% Annual Appreciation)
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                        <span>
+                          Past 2-Yr Gain: <strong className="text-emerald-700 font-bold">+₹{pastTwoYearPoint.gainLakhs}L (+{pastTwoYearPoint.growthPct}% Profit)</strong>
                         </span>
-                      </p>
+                        <span className="text-gray-300">|</span>
+                        <span>
+                          1-Yr Projected Profit: <strong className="text-gray-900">₹{futureOneYearPoint.priceLakhs}L</strong>
+                          <span className="text-emerald-700 font-bold ml-1">
+                            (+₹{futureOneYearPoint.gainLakhs}L, +{futureOneYearPoint.growthPct}% Net Profit)
+                          </span>
+                        </span>
+                        <span className="text-gray-300">|</span>
+                        <span className="text-rose-600 font-semibold">
+                          Bear Stress-Test: -{futureOneYearPoint.lossPct}% (-₹{futureOneYearPoint.lossLakhs}L)
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
-                      <button
-                        onClick={() => setChartMetric('price')}
-                        className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                          chartMetric === 'price' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Total Valuation (₹ Lakhs)
-                      </button>
-                      <button
-                        onClick={() => setChartMetric('rate')}
-                        className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                          chartMetric === 'rate' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Rate / Sq.Ft (₹)
-                      </button>
+                    <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                      {/* P&L Channel Scenario Toggle */}
+                      <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg text-xs">
+                        <button
+                          onClick={() => setChartScenario('both')}
+                          className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer text-[11px] ${
+                            chartScenario === 'both' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Dual P&L Channel
+                        </button>
+                        <button
+                          onClick={() => setChartScenario('bull')}
+                          className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer text-[11px] flex items-center gap-1 ${
+                            chartScenario === 'bull' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-700 hover:text-emerald-900'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          Bull (Profit)
+                        </button>
+                        <button
+                          onClick={() => setChartScenario('bear')}
+                          className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer text-[11px] flex items-center gap-1 ${
+                            chartScenario === 'bear' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-700 hover:text-rose-900'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                          Bear (Loss)
+                        </button>
+                      </div>
+
+                      {/* Valuation Metric Toggle */}
+                      <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-lg text-xs">
+                        <button
+                          onClick={() => setChartMetric('price')}
+                          className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer text-[11px] ${
+                            chartMetric === 'price' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          ₹ Lakhs
+                        </button>
+                        <button
+                          onClick={() => setChartMetric('rate')}
+                          className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer text-[11px] ${
+                            chartMetric === 'rate' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          ₹/Sq.Ft
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* SVG Horizon Curve */}
-                  <div className="w-full overflow-x-auto">
+                  {/* SVG Horizon Curve with Stock Market Green & Red Zones */}
+                  <div className="w-full overflow-x-auto relative">
                     <svg
                       viewBox={`0 0 ${width} ${height}`}
-                      className="w-full h-auto min-w-[580px]"
+                      className="w-full h-auto min-w-[660px]"
                       preserveAspectRatio="xMidYMid meet"
                     >
                       <defs>
-                        <linearGradient id="compactTrajGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#0f2b3d" stopOpacity="0.22" />
-                          <stop offset="100%" stopColor="#0f2b3d" stopOpacity="0.0" />
+                        {/* Green Stock Profit Gradient */}
+                        <linearGradient id="stockProfitGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity="0.32" />
+                          <stop offset="90%" stopColor="#10b981" stopOpacity="0.04" />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                         </linearGradient>
+
+                        {/* Red Stock Loss Gradient */}
+                        <linearGradient id="stockLossGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity="0.0" />
+                          <stop offset="10%" stopColor="#ef4444" stopOpacity="0.04" />
+                          <stop offset="100%" stopColor="#ef4444" stopOpacity="0.28" />
+                        </linearGradient>
+
+                        {/* Green Glow Filter */}
+                        <filter id="greenGlow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#10b981" floodOpacity="0.4" />
+                        </filter>
+
+                        {/* Red Glow Filter */}
+                        <filter id="redGlow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#ef4444" floodOpacity="0.4" />
+                        </filter>
                       </defs>
 
+                      {/* Past / Future Background Shading */}
+                      <rect
+                        x={padLeft}
+                        y={padTop}
+                        width={todayCoord.x - padLeft}
+                        height={plotH}
+                        fill="#f8fafc"
+                        opacity="0.8"
+                      />
+
                       {/* Grid Lines */}
-                      {[0, 0.33, 0.66, 1].map((ratio, i) => {
+                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
                         const y = padTop + ratio * plotH;
                         const val = maxVal - ratio * valRange;
                         const label = chartMetric === 'price' ? `₹${val.toFixed(2)}L` : `₹${Math.round(val).toLocaleString()}`;
@@ -1578,113 +1775,375 @@ const AITraining = () => {
                         );
                       })}
 
-                      {/* Area Fill */}
-                      <path d={areaD} fill="url(#compactTrajGrad)" />
-
-                      {/* Horizon Line */}
-                      <path
-                        d={pathD}
-                        fill="none"
-                        stroke="#0f2b3d"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
+                      {/* Stock Baseline (Break-even cost level at Today) */}
+                      <line
+                        x1={padLeft}
+                        y1={baselineY}
+                        x2={width - padRight}
+                        y2={baselineY}
+                        stroke="#64748b"
+                        strokeDasharray="4 4"
+                        strokeWidth="1.5"
                       />
 
+                      {/* Baseline Tag Badge */}
+                      <rect
+                        x={width - padRight - 128}
+                        y={baselineY - 9}
+                        width="126"
+                        height="18"
+                        rx="4"
+                        fill="#0f2b3d"
+                      />
+                      <text
+                        x={width - padRight - 65}
+                        y={baselineY + 3.5}
+                        textAnchor="middle"
+                        fontSize="8.5"
+                        fontWeight="700"
+                        fill="#ffffff"
+                      >
+                        COST BASIS: {chartMetric === 'price' ? `₹${baselineVal.toFixed(2)}L` : `₹${Math.round(baselineVal).toLocaleString()}`}
+                      </text>
+
+                      {/* Vertical Today Divider Line */}
+                      <line
+                        x1={todayCoord.x}
+                        y1={padTop}
+                        x2={todayCoord.x}
+                        y2={height - padBottom}
+                        stroke="#0b3856"
+                        strokeDasharray="3 3"
+                        strokeWidth="1.5"
+                      />
+
+                      {/* Section Indicators */}
+                      {/* Left: Past History */}
+                      <g opacity="0.95">
+                        <rect x={padLeft + 6} y={padTop + 3} width="134" height="17" rx="3.5" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1" />
+                        <text x={padLeft + 12} y={padTop + 14} fontSize="8.5" fontWeight="700" fill="#334155">
+                          ◀ PAST TRACK RECORD
+                        </text>
+                      </g>
+
+                      {/* Center: Today Marker */}
+                      <rect
+                        x={todayCoord.x - 34}
+                        y={padTop + 3}
+                        width="68"
+                        height="17"
+                        rx="3.5"
+                        fill="#0b3856"
+                      />
+                      <text
+                        x={todayCoord.x}
+                        y={padTop + 14}
+                        textAnchor="middle"
+                        fontSize="8.5"
+                        fontWeight="800"
+                        fill="#ffffff"
+                      >
+                        ● TODAY
+                      </text>
+
+                      {/* Right: Future Horizons */}
+                      <g opacity="0.95">
+                        <rect x={todayCoord.x + 42} y={padTop + 3} width="136" height="17" rx="3.5" fill="#ecfdf5" stroke="#a7f3d0" strokeWidth="1" />
+                        <text x={todayCoord.x + 48} y={padTop + 14} fontSize="8.5" fontWeight="700" fill="#047857">
+                          FUTURE HORIZONS ▶
+                        </text>
+                      </g>
+
+                      {/* GREEN PROFIT CHANNEL (BULLISH APPRECIATION) */}
+                      {(chartScenario === 'both' || chartScenario === 'bull') && (
+                        <>
+                          <path d={bullAreaD} fill="url(#stockProfitGrad)" />
+                          <path
+                            d={bullPathD}
+                            fill="none"
+                            stroke="#10b981"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            filter="url(#greenGlow)"
+                          />
+                        </>
+                      )}
+
+                      {/* RED LOSS CHANNEL (BEARISH CORRECTION RISK) */}
+                      {(chartScenario === 'both' || chartScenario === 'bear') && (
+                        <>
+                          <path d={bearAreaD} fill="url(#stockLossGrad)" />
+                          <path
+                            d={bearPathD}
+                            fill="none"
+                            stroke="#ef4444"
+                            strokeWidth="2.5"
+                            strokeDasharray="5 3"
+                            strokeLinecap="round"
+                            filter="url(#redGlow)"
+                          />
+                        </>
+                      )}
+
                       {/* 1-Year Milestone Beacon */}
-                      {annualCoord && (
+                      {(chartScenario === 'both' || chartScenario === 'bull') && annualCoord && (
                         <circle
                           cx={annualCoord.x}
                           cy={annualCoord.y}
-                          r="7"
+                          r="8"
                           className="ai-beacon"
                           fill="#10b981"
                         />
                       )}
 
-                      {/* Milestone Points */}
-                      {coords.map((c, i) => {
+                      {/* Hover Crosshair Line */}
+                      {hoveredBull && (
+                        <line
+                          x1={hoveredBull.x}
+                          y1={padTop}
+                          x2={hoveredBull.x}
+                          y2={height - padBottom}
+                          stroke="#475569"
+                          strokeDasharray="3 3"
+                          strokeWidth="1.2"
+                        />
+                      )}
+
+                      {/* Bull Points (Green Dots) */}
+                      {(chartScenario === 'both' || chartScenario === 'bull') && bullCoords.map((c, i) => {
                         const isHovered = hoveredPointIndex === i;
                         return (
                           <g
-                            key={i}
+                            key={`bull-${i}`}
                             className="cursor-pointer"
                             onMouseEnter={() => setHoveredPointIndex(i)}
                             onMouseLeave={() => setHoveredPointIndex(null)}
                           >
-                            <circle cx={c.x} cy={c.y} r="14" fill="transparent" />
+                            <circle cx={c.x} cy={c.y} r="16" fill="transparent" />
                             {c.isAnnualTarget ? (
-                              <circle
-                                cx={c.x}
-                                cy={c.y}
-                                r={isHovered ? 6.5 : 5}
-                                fill="#10b981"
-                                stroke="#ffffff"
-                                strokeWidth="2"
-                              />
+                              <g>
+                                <circle
+                                  cx={c.x}
+                                  cy={c.y}
+                                  r={isHovered ? 7.5 : 5.5}
+                                  fill="#10b981"
+                                  stroke="#ffffff"
+                                  strokeWidth="2"
+                                />
+                                <text
+                                  x={c.x}
+                                  y={c.y - 12}
+                                  textAnchor="middle"
+                                  fontSize="9.5"
+                                  fontWeight="700"
+                                  fill="#047857"
+                                >
+                                  +₹{c.gainLakhs}L ({c.growthPct}%)
+                                </text>
+                              </g>
+                            ) : c.isCurrent ? (
+                              <g>
+                                <circle
+                                  cx={c.x}
+                                  cy={c.y}
+                                  r={isHovered ? 7 : 5}
+                                  fill="#0b3856"
+                                  stroke="#ffffff"
+                                  strokeWidth="2"
+                                />
+                                {isHovered && (
+                                  <text
+                                    x={c.x}
+                                    y={c.y - 10}
+                                    textAnchor="middle"
+                                    fontSize="8.5"
+                                    fontWeight="700"
+                                    fill="#0b3856"
+                                  >
+                                    Today: ₹{c.priceLakhs}L
+                                  </text>
+                                )}
+                              </g>
+                            ) : c.isPast ? (
+                              <g>
+                                <circle
+                                  cx={c.x}
+                                  cy={c.y}
+                                  r={isHovered ? 6 : 4}
+                                  fill="#0284c7"
+                                  stroke="#ffffff"
+                                  strokeWidth="1.5"
+                                />
+                                {isHovered && (
+                                  <text
+                                    x={c.x}
+                                    y={c.y - 10}
+                                    textAnchor="middle"
+                                    fontSize="8.5"
+                                    fontWeight="700"
+                                    fill="#0369a1"
+                                  >
+                                    ₹{c.priceLakhs}L (+{c.growthPct}%)
+                                  </text>
+                                )}
+                              </g>
                             ) : (
-                              <circle
-                                cx={c.x}
-                                cy={c.y}
-                                r={isHovered ? 5.5 : 3.5}
-                                fill="#0f2b3d"
-                                stroke="#ffffff"
-                                strokeWidth="1.5"
-                              />
+                              <g>
+                                <circle
+                                  cx={c.x}
+                                  cy={c.y}
+                                  r={isHovered ? 6 : 4}
+                                  fill="#10b981"
+                                  stroke="#ffffff"
+                                  strokeWidth="1.5"
+                                />
+                                {isHovered && (
+                                  <text
+                                    x={c.x}
+                                    y={c.y - 10}
+                                    textAnchor="middle"
+                                    fontSize="8.5"
+                                    fontWeight="700"
+                                    fill="#047857"
+                                  >
+                                    +₹{c.gainLakhs}L (+{c.growthPct}%)
+                                  </text>
+                                )}
+                              </g>
                             )}
 
+                            {/* X-Axis Horizon Label */}
                             <text
                               x={c.x}
-                              y={height - 10}
+                              y={height - 12}
                               textAnchor="middle"
                               fontSize="10"
-                              fontWeight={c.isAnnualTarget ? 700 : 500}
-                              fill={c.isAnnualTarget ? '#047857' : '#64748b'}
+                              fontWeight={c.isCurrent ? 800 : c.isAnnualTarget ? 700 : 500}
+                              fill={c.isCurrent ? '#0b3856' : c.isAnnualTarget ? '#047857' : c.isPast ? '#0369a1' : '#64748b'}
                             >
                               {c.label}
                             </text>
                           </g>
                         );
                       })}
+
+                      {/* Bear Points (Red Dots) */}
+                      {(chartScenario === 'both' || chartScenario === 'bear') && bearCoords.map((c, i) => {
+                        const isHovered = hoveredPointIndex === i;
+                        if (c.isCurrent) return null; // Baseline point shared at Today
+                        return (
+                          <g
+                            key={`bear-${i}`}
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredPointIndex(i)}
+                            onMouseLeave={() => setHoveredPointIndex(null)}
+                          >
+                            <circle cx={c.x} cy={c.y} r="14" fill="transparent" />
+                            <circle
+                              cx={c.x}
+                              cy={c.y}
+                              r={isHovered ? 5.5 : 3.5}
+                              fill="#ef4444"
+                              stroke="#ffffff"
+                              strokeWidth="1.5"
+                            />
+                            {isHovered && (
+                              <text
+                                x={c.x}
+                                y={c.y + 14}
+                                textAnchor="middle"
+                                fontSize="8.5"
+                                fontWeight="700"
+                                fill="#dc2626"
+                              >
+                                {c.isPast ? `Peak Stress: ₹${c.bearPriceLakhs}L` : `-₹${c.lossLakhs}L (-${c.lossPct}%)`}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
                     </svg>
                   </div>
 
-                  {/* Real Estate Investment Horizon Milestone Cards */}
+                  {/* Stock Market P&L Horizon Milestone Cards (Past, Benchmark & Strategic Future) */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-gray-100">
-                    <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
-                        <span>6 Months Horizon</span>
-                        <span className="text-emerald-700 font-semibold">+{sixMonthPoint.growthPct}%</span>
+                    {/* Past 2 Years Track Record */}
+                    <div className="p-2.5 bg-slate-50/90 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between text-[10px] text-slate-600 font-medium">
+                        <span>2 Years Ago (Past)</span>
+                        <span className="text-emerald-700 font-bold">▲ +{pastTwoYearPoint.growthPct}%</span>
                       </div>
-                      <p className="text-sm font-bold text-gray-900 mt-1">₹{sixMonthPoint.priceLakhs}L</p>
-                      <p className="text-[10px] text-gray-500 truncate mt-0.5">₹{sixMonthPoint.rate.toLocaleString()}/sqft · Mid-term</p>
+                      <p className="text-sm font-bold text-slate-900 mt-1">₹{pastTwoYearPoint.priceLakhs}L</p>
+                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-200/60 text-[10px]">
+                        <span className="text-emerald-700 font-semibold">+₹{pastTwoYearPoint.gainLakhs}L to Today</span>
+                        <span className="text-slate-500 font-medium">Profitable</span>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
+                    {/* Past 1 Year Comp */}
+                    <div className="p-2.5 bg-blue-50/70 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between text-[10px] text-blue-800 font-medium">
+                        <span>1 Year Ago (Past)</span>
+                        <span className="text-blue-700 font-bold">▲ +{pastOneYearPoint.growthPct}% YoY</span>
+                      </div>
+                      <p className="text-sm font-bold text-blue-950 mt-1">₹{pastOneYearPoint.priceLakhs}L</p>
+                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-blue-200 text-[10px]">
+                        <span className="text-emerald-700 font-bold">+₹{pastOneYearPoint.gainLakhs}L to Today</span>
+                        <span className="text-blue-600 font-medium">Appreciated</span>
+                      </div>
+                    </div>
+
+                    {/* 1 Year Future Target */}
+                    <div className="p-2.5 bg-emerald-50/80 rounded-lg border border-emerald-300 ring-1 ring-emerald-200">
                       <div className="flex items-center justify-between text-[10px] text-emerald-800 font-bold">
-                        <span>1 Year (Annual Revision)</span>
-                        <span className="text-emerald-700 font-semibold">+{oneYearPoint.growthPct}%</span>
+                        <span>1 Year Ahead (Target)</span>
+                        <span className="text-emerald-700 font-extrabold">▲ +{futureOneYearPoint.growthPct}%</span>
                       </div>
-                      <p className="text-sm font-bold text-emerald-900 mt-1">₹{oneYearPoint.priceLakhs}L</p>
-                      <p className="text-[10px] text-emerald-700 truncate mt-0.5">₹{oneYearPoint.rate.toLocaleString()}/sqft · Benchmark Target</p>
+                      <p className="text-sm font-bold text-emerald-900 mt-1">₹{futureOneYearPoint.priceLakhs}L</p>
+                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-emerald-200 text-[10px]">
+                        <span className="text-emerald-800 font-bold">+₹{futureOneYearPoint.gainLakhs}L Net Gain</span>
+                        <span className="text-rose-600 font-medium">-₹{futureOneYearPoint.lossLakhs}L Risk</span>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
-                        <span>2 Years Horizon</span>
-                        <span className="text-emerald-700 font-semibold">+{twoYearPoint.growthPct}%</span>
-                      </div>
-                      <p className="text-sm font-bold text-gray-900 mt-1">₹{twoYearPoint.priceLakhs}L</p>
-                      <p className="text-[10px] text-gray-500 truncate mt-0.5">₹{twoYearPoint.rate.toLocaleString()}/sqft · Medium Term</p>
-                    </div>
-
-                    <div className="p-2.5 bg-purple-50/70 rounded-lg border border-purple-200">
+                    {/* 3 Years Strategic Future */}
+                    <div className="p-2.5 bg-purple-50/80 rounded-lg border border-purple-200">
                       <div className="flex items-center justify-between text-[10px] text-purple-800 font-bold">
-                        <span>3 Years Horizon</span>
-                        <span className="text-purple-700 font-semibold">+{threeYearPoint.growthPct}%</span>
+                        <span>3 Years Ahead (Strategic)</span>
+                        <span className="text-purple-700 font-extrabold">▲ +{futureThreeYearPoint.growthPct}%</span>
                       </div>
-                      <p className="text-sm font-bold text-purple-900 mt-1">₹{threeYearPoint.priceLakhs}L</p>
-                      <p className="text-[10px] text-purple-700 truncate mt-0.5">₹{threeYearPoint.rate.toLocaleString()}/sqft · Long Term Equity</p>
+                      <p className="text-sm font-bold text-purple-900 mt-1">₹{futureThreeYearPoint.priceLakhs}L</p>
+                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-purple-200 text-[10px]">
+                        <span className="text-purple-800 font-bold">+₹{futureThreeYearPoint.gainLakhs}L Profit</span>
+                        <span className="text-rose-600 font-medium">-₹{futureThreeYearPoint.lossLakhs}L Risk</span>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Stock Market P&L Legend */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[10px] text-gray-500 border-t border-gray-100">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        <strong className="text-emerald-700">Green Line:</strong> Net Capital Profit & Appreciation
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                        <strong className="text-rose-700">Red Line:</strong> Market Correction Risk & Downside Drawdown
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-0.5 border-t border-dashed border-gray-500" />
+                        <strong className="text-gray-700">Dashed Axis:</strong> Entry Cost Basis Break-Even (Today)
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-3 bg-slate-300 rounded" />
+                        <strong className="text-slate-600">Divider:</strong> Past vs Future Timeline
+                      </span>
+                    </div>
+
+                    <span className="text-gray-400 font-medium">
+                      Simulated using {predictionResult.locality || 'Pune'} Comps & Gaussian Risk Curves
+                    </span>
                   </div>
                 </div>
               );

@@ -928,7 +928,10 @@ function formatRupeePrice(price?: number | string | null): string {
 }
 
 const useWindowSize = () => {
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [size, setSize] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 0,
+    height: typeof window !== "undefined" ? window.innerHeight : 0,
+  });
   useEffect(() => {
     const handler = () => setSize({ width: window.innerWidth, height: window.innerHeight });
     handler();
@@ -1514,9 +1517,9 @@ const InlineInChatOtpCard: React.FC<InlineOtpCardProps> = ({
 };
 
 /* -------------------------------- component ------------------------------- */
-export const AIChatbot: React.FC<AIChatbotProps> = () => {
+export const AIChatbot: React.FC<AIChatbotProps> = ({ isPropertyDetail = false }) => {
   const { width } = useWindowSize();
-  const isMobile = width > 0 ? width < 640 : false;
+  const isMobile = width > 0 ? width < 768 : (typeof window !== "undefined" ? window.innerWidth < 768 : false);
   const { user, isAuthenticated, setAuthSession } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1531,6 +1534,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   // Clean Navigation Mode: "rex_ai" (AI search & persona) | "property_chat" (Dedicated Executive Chat) | "inquiries_list" (All Conversations List)
   const [chatMode, setChatMode] = useState<"rex_ai" | "property_chat" | "inquiries_list">(() => {
@@ -1603,50 +1607,39 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
   const [aiMessages, setAiMessages] = useState<AIMessage[]>(() => {
     if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(REX_AI_MESSAGES_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
+      const stored = localStorage.getItem(REX_AI_MESSAGES_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
             return parsed.map((m: any) => ({
               ...m,
               timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
             }));
           }
-        }
-      } catch (e) {
-        console.warn("Failed to parse cached REX messages:", e);
+        } catch {}
       }
     }
     return [initialGreeting];
   });
 
-  const [isAiTyping, setIsAiTyping] = useState(false);
   const [sessionUuid, setSessionUuid] = useState<string | null>(() => {
-    return typeof window !== "undefined" ? localStorage.getItem(REX_SESSION_STORAGE_KEY) : null;
-  });
-  const [rexProfile, setRexProfile] = useState<RexProfile>(() => {
     if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("rex_profile_cache");
-        if (stored) return JSON.parse(stored);
-      } catch {}
+      return localStorage.getItem(REX_SESSION_STORAGE_KEY);
     }
-    return {};
+    return null;
   });
-  const [rexRequirements, setRexRequirements] = useState<RexRequirements>({});
+  const [rexProfile, setRexProfile] = useState<Record<string, any>>({});
+  const [rexRequirements, setRexRequirements] = useState<Record<string, any>>({});
+  const [isAiTyping, setIsAiTyping] = useState(false);
 
+  // Sync authenticated user details into REX profile so REX never asks for them again
   useEffect(() => {
-    if (rexProfile && Object.keys(rexProfile).length > 0) {
-      localStorage.setItem("rex_profile_cache", JSON.stringify(rexProfile));
-    }
-  }, [rexProfile]);
-
-  useEffect(() => {
-    if (user && user.email) {
+    if (user) {
       const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
       setRexProfile((prev) => ({
         ...prev,
+        userId: user.id,
         name: fullName || prev?.name,
         email: user.email,
         phone: user.phone || prev?.phone || "",
@@ -1703,17 +1696,37 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   const [teaserDismissed, setTeaserDismissed] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
-      const t = setTimeout(() => setTeaserReady(true), 1000);
-      return () => clearTimeout(t);
+    if (!isOpen && !teaserDismissed) {
+      // 1. Initial show after 1.5 seconds
+      const showTimer = setTimeout(() => setTeaserReady(true), 1500);
+
+      // 2. Auto-hide: on mobile hide after 3 seconds; on desktop 6.8 seconds
+      const autoHideMs = isMobile ? 3000 : 6800;
+      const hideTimer = setTimeout(() => setTeaserReady(false), 1500 + autoHideMs);
+
+      // 3. Periodically trigger a subtle attract pulse only on desktop (never on mobile to keep screen clear)
+      let attractInterval: any = null;
+      if (!isMobile) {
+        attractInterval = setInterval(() => {
+          setTeaserReady(true);
+          setTimeout(() => setTeaserReady(false), 4200);
+        }, 30000);
+      }
+
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+        if (attractInterval) clearInterval(attractInterval);
+      };
     } else {
       setTeaserReady(false);
     }
-  }, [isOpen]);
+  }, [isOpen, teaserDismissed, isMobile]);
 
   const dismissTeaser = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setTeaserDismissed(true);
+    setTeaserReady(false);
   }, []);
 
   // If user is already authenticated, clear any pending in-chat auth stage
@@ -1884,7 +1897,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
   }, [activeConversation]);
 
   /* -------------------------- Reset REX Chat Helper -------------------------- */
-  const handleResetChat = () => {
+  const handleResetChat = useCallback(() => {
     localStorage.removeItem(REX_SESSION_STORAGE_KEY);
     localStorage.removeItem(REX_AI_MESSAGES_KEY);
     localStorage.removeItem(REX_AUTH_STAGE_KEY);
@@ -1896,7 +1909,54 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     setSelectedPersona("buyer");
     setAiMessages([initialGreeting]);
     setShowRestartConfirm(false);
-  };
+    setShowResumePrompt(false);
+  }, [initialGreeting]);
+
+  // Track if previous conversation exists
+  const hasPreviousChat = useMemo(() => {
+    return aiMessages.some(
+      (m) => m.sender === "user" || (m.sender === "bot" && m.id !== "initial_welcome")
+    );
+  }, [aiMessages]);
+
+  // Action: Continue with previous chat
+  const handleContinuePreviousChat = useCallback(() => {
+    setShowResumePrompt(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("rex_resume_decision_made", "true");
+      localStorage.setItem("rex_last_active_time", Date.now().toString());
+    }
+    setTimeout(() => {
+      aiMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
+  }, []);
+
+  // Action: Start fresh new chat
+  const handleStartFreshChat = useCallback(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("rex_resume_decision_made", "true");
+      localStorage.setItem("rex_last_active_time", Date.now().toString());
+    }
+    handleResetChat();
+  }, [handleResetChat]);
+
+  // Check if resume prompt should be shown upon opening widget or page load
+  useEffect(() => {
+    if (!isOpen || isMinimized || chatMode !== "rex_ai" || !hasPreviousChat) {
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const sessionDecision = sessionStorage.getItem("rex_resume_decision_made");
+      const lastActive = Number(localStorage.getItem("rex_last_active_time") || 0);
+      const thirtyMinutesMs = 30 * 60 * 1000;
+      const isInactive = lastActive > 0 && Date.now() - lastActive > thirtyMinutesMs;
+
+      if (!sessionDecision || isInactive) {
+        setShowResumePrompt(true);
+      }
+    }
+  }, [isOpen, isMinimized, chatMode, hasPreviousChat]);
 
   /* -------------------------- Guest UUID Resolution ------------------------- */
   const getGuestUuid = useCallback(() => {
@@ -1916,20 +1976,42 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     try {
       const res = await chatApi.getConversations({ limit: 50 });
       if (res.success && Array.isArray(res.conversations)) {
-        setAllConversations(res.conversations);
+        const activeId = activeConvRef.current?.id;
+        const isCurrentActive = isOpen && !isMinimized && chatMode === "property_chat";
+        setAllConversations(
+          res.conversations.map((c: any) =>
+            isCurrentActive && activeId && Number(c.id) === Number(activeId)
+              ? { ...c, unread_user_count: 0 }
+              : c
+          )
+        );
       }
     } catch (err) {
       console.error("Failed to load user property conversations:", err);
     } finally {
       setLoadingConversations(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, isOpen, isMinimized, chatMode]);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadUserConversations();
     }
   }, [isAuthenticated, loadUserConversations]);
+
+  // When active conversation is open in property chat, immediately mark as read & clear unread count
+  useEffect(() => {
+    if (isOpen && !isMinimized && chatMode === "property_chat" && activeConversation?.id) {
+      chatApi.markAsRead(activeConversation.id).catch(() => {});
+      setAllConversations((prev) =>
+        prev.map((c) =>
+          Number(c.id) === Number(activeConversation.id)
+            ? { ...c, unread_user_count: 0 }
+            : c
+        )
+      );
+    }
+  }, [isOpen, isMinimized, chatMode, activeConversation?.id]);
 
   const totalUnreadInquiries = useMemo(() => {
     return allConversations.reduce((sum, c) => sum + (c.unread_user_count || 0), 0);
@@ -2062,6 +2144,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
               messageId: msg.id,
             });
             chatApi.markAsRead(msg.conversation_id).catch(() => {});
+            setAllConversations((prev) =>
+              prev.map((c) =>
+                Number(c.id) === Number(msg.conversation_id) ? { ...c, unread_user_count: 0 } : c
+              )
+            );
           }
         }
 
@@ -2076,6 +2163,18 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       loadUserConversations();
     };
 
+    const onUnreadUpdate = (data: any) => {
+      if (data && data.conversationId) {
+        setAllConversations((prev) =>
+          prev.map((c) =>
+            Number(c.id) === Number(data.conversationId)
+              ? { ...c, unread_user_count: data.unreadCount ?? 0 }
+              : c
+          )
+        );
+      }
+    };
+
     const onTyping = (data: any) => {
       const currentConv = activeConvRef.current;
       if (currentConv && Number(data.conversationId) === Number(currentConv.id)) {
@@ -2087,6 +2186,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
     socket.on("connect", handleConnect);
     socket.on("chat:new_message", onNewMessage);
+    socket.on("chat:unread_count_update", onUnreadUpdate);
     socket.on("chat:typing", onTyping);
     socket.on("chat:user_typing", onTyping);
 
@@ -2096,6 +2196,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
       }
       socket.off("connect", handleConnect);
       socket.off("chat:new_message", onNewMessage);
+      socket.off("chat:unread_count_update", onUnreadUpdate);
       socket.off("chat:typing", onTyping);
       socket.off("chat:user_typing", onTyping);
     };
@@ -2167,6 +2268,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
             setPropertyMessages(msgRes.messages);
           }
           chatApi.markAsRead(conv.id).catch(() => {});
+          setAllConversations((prev) =>
+            prev.map((c) =>
+              Number(c.id) === Number(conv.id) ? { ...c, unread_user_count: 0 } : c
+            )
+          );
         }
       } catch (err) {
         console.error("Error opening property conversation:", err);
@@ -3837,6 +3943,10 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     }
 
     // Case B: User is in REX AI Assistant Stream
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("rex_resume_decision_made", "true");
+      localStorage.setItem("rex_last_active_time", Date.now().toString());
+    }
     const lower = text.toLowerCase().trim();
 
     // 1) Up-Front Buy Property Intent:
@@ -5329,29 +5439,33 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
     <aside aria-label="Resale Expert Real Estate Assistant">
       {/* Floating Launcher: avatar + greeting teaser */}
       {!(isMobile && isOpen) && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3 pointer-events-auto">
+        <div
+          className={`fixed z-50 flex items-end gap-2 sm:gap-3 pointer-events-auto transition-all duration-300 right-3 sm:right-6 ${
+            isPropertyDetail
+              ? "bottom-[120px] sm:bottom-6"
+              : "bottom-20 sm:bottom-6"
+          }`}
+        >
           {!isOpen && teaserReady && !teaserDismissed && (
-            <div className="relative mb-2.5 animate-in fade-in slide-in-from-right-3 duration-300">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(true);
-                  setChatMode("rex_ai");
-                }}
-                className="group relative block max-w-[215px] text-left bg-gradient-to-r from-[#0f2b3d] to-[#163e58] text-white text-[13px] font-bold leading-snug rounded-2xl px-4 py-2.5 shadow-[0_8px_25px_rgba(15,43,61,0.32)] transition-all cursor-pointer hover:scale-[1.02] active:scale-95"
-              >
-                <span>Hello! 👋 I am REX here to help you.</span>
+            <div className="relative mb-2 animate-in fade-in slide-in-from-right-3 duration-300">
+              <div className="group relative block max-w-[165px] sm:max-w-[240px] text-left bg-gradient-to-r from-[#0f2b3d] to-[#163e58] text-white text-[11px] sm:text-[13px] font-bold leading-snug rounded-2xl px-2.5 py-1.5 sm:px-3.5 sm:py-2.5 pr-6 sm:pr-7 shadow-[0_8px_25px_rgba(15,43,61,0.32)] transition-all">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(true);
+                    setChatMode("rex_ai");
+                  }}
+                  className="text-left w-full cursor-pointer hover:opacity-90 pr-1"
+                >
+                  <span>Hello! 👋 I am REX here to help you.</span>
+                </button>
                 {/* Pointer tail pointing right to the avatar button */}
-                <span className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 rounded-[2px] bg-[#163e58] group-hover:bg-[#1b4b6b] transition-colors" />
-              </button>
-              
+                <span className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 rounded-[2px] bg-[#163e58] transition-colors pointer-events-none" />
+              </div>
             </div>
           )}
 
           <div className="relative">
-            {!isOpen && (
-              <span className="absolute inset-0 rounded-full bg-[#0f2b3d]/20 animate-ping pointer-events-none" />
-            )}
             <button
               onClick={() => {
                 if (isOpen) {
@@ -5361,7 +5475,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                 setIsOpen(true);
                 setChatMode("rex_ai");
               }}
-              className="group relative flex items-center justify-center w-16 h-16 rounded-full bg-white border border-slate-200 shadow-[0_8px_30px_rgba(15,43,61,0.28)] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden p-0.5"
+              className="group relative flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border border-slate-200 shadow-[0_8px_30px_rgba(15,43,61,0.28)] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden p-0.5"
               title={isOpen ? "Close chat" : "Chat with REX Real Estate Assistant"}
             >
               <img
@@ -5369,12 +5483,10 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                 alt="REX"
                 className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform duration-200"
               />
-              {totalUnreadInquiries > 0 ? (
-                <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md border-2 border-white">
+              {totalUnreadInquiries > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 bg-rose-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md border-2 border-white animate-in zoom-in-50 duration-200">
                   {totalUnreadInquiries}
                 </span>
-              ) : (
-                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
               )}
             </button>
           </div>
@@ -5390,7 +5502,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
           onTouchMove={(e) => e.stopPropagation()}
           className={`fixed z-50 flex flex-col bg-white shadow-[0_12px_40px_rgba(15,43,61,0.25)] border border-slate-200 transition-all duration-300 ease-in-out overflow-hidden ${
             isMobile
-              ? "inset-x-2 bottom-2 top-14 rounded-2xl"
+              ? "inset-0 w-full h-[100dvh] max-h-[100dvh] rounded-none border-0"
               : isExpanded
               ? "bottom-[96px] right-6 w-[560px] max-w-[calc(100vw-36px)] h-[660px] max-h-[calc(100vh-120px)] rounded-2xl"
               : "bottom-[96px] right-6 w-[365px] sm:w-[375px] h-[505px] max-h-[82vh] rounded-2xl"
@@ -5420,6 +5532,62 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
                     className="flex-1 py-2.5 px-5 rounded-xl bg-[#ff5666] hover:bg-[#eb4354] text-white font-bold text-[14px] transition-all active:scale-95 shadow-xs cursor-pointer"
                   >
                     No
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Resume Previous Chat or Start Fresh Prompt Modal */}
+          {showResumePrompt && chatMode === "rex_ai" && !showRestartConfirm && (
+            <div className="absolute inset-0 z-50 bg-black/45 backdrop-blur-[2.5px] flex items-center justify-center p-5 animate-in fade-in duration-200">
+              <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-[325px] text-center transform animate-in zoom-in-95 duration-200 border border-slate-100 space-y-4">
+                {/* Dismiss button (defaults to non-destructive continue) */}
+                <button
+                  type="button"
+                  onClick={handleContinuePreviousChat}
+                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Close and continue"
+                >
+                  <X size={16} />
+                </button>
+
+                {/* Avatar with pulse */}
+                <div className="relative w-14 h-14 mx-auto rounded-full bg-slate-50 border-2 border-emerald-500/30 flex items-center justify-center p-0.5 shadow-sm">
+                  <img
+                    src={RexAvatar}
+                    alt="REX AI"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full ring-2 ring-emerald-100" />
+                </div>
+
+                <div>
+                  <h3 className="text-[17px] font-bold text-slate-900 leading-snug">
+                    {isAuthenticated && user?.first_name ? `Welcome back, ${user.first_name}!` : "Welcome back!"}
+                  </h3>
+                  <p className="text-[12.5px] text-slate-500 font-medium mt-1 leading-relaxed">
+                    You have an existing conversation with REX. Would you like to continue with previous chat or start a fresh new chat?
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleContinuePreviousChat}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#0f2b3d] hover:bg-[#163e58] text-white font-bold text-[13px] transition-all active:scale-95 shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight size={15} />
+                    <span>Continue Previous Chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartFreshChat}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-[13px] transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 border border-slate-200"
+                  >
+                    <RefreshCw size={14} className="text-slate-500" />
+                    <span>Start Fresh New Chat</span>
                   </button>
                 </div>
               </div>
@@ -5525,7 +5693,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = () => {
 
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
+                className="hidden sm:inline-flex p-1.5 hover:bg-white/15 rounded-md transition-colors cursor-pointer"
                 title={isExpanded ? "Exit full screen" : "Full screen"}
               >
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}

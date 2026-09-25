@@ -411,7 +411,7 @@ ResaleExpert Team`;
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-[#f5f7fa] text-slate-800">
       {/* Header */}
-      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-50 text-xs shadow-[0_1px_12px_rgba(16,42,67,0.04)]">
+      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-20 text-xs shadow-[0_1px_12px_rgba(16,42,67,0.04)]">
         <>
           {/* ================= MOBILE VIEW ================= */}
           <div className="block md:hidden">

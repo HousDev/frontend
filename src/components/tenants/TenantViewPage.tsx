@@ -1398,7 +1398,7 @@ export default function TenantViewPage({
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-xs">
-      <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-2 sticky top-0 z-40 shadow-xs">
+      <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-2 sticky top-0 z-20 shadow-xs">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <button onClick={onBack} className="p-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-[#0f2b3d] transition-colors flex-shrink-0">

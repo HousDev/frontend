@@ -75,6 +75,7 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-request location on website open & save for Tenant Preferences
@@ -515,15 +516,20 @@ const PublicHeader: React.FC<PublicHeaderProps> = ({
                         borderColor: `${colors.brand}4D`,
                       }}
                     >
-                      {(user as any)?.avatar ? (
+                      {(user as any)?.avatar && !avatarImgError ? (
                         <img
                           src={(user as any).avatar}
-                          alt={displayName}
+                          alt=""
+                          onError={() => setAvatarImgError(true)}
                           className="w-full h-full object-cover rounded-lg"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <UserIcon size={16} style={{ color: "#E6761D" }} />
+                        <span className="text-xs font-bold text-[#E6761D] flex items-center justify-center">
+                          {displayName && displayName !== 'User'
+                            ? displayName.trim().charAt(0).toUpperCase()
+                            : <UserIcon size={16} style={{ color: "#E6761D" }} />}
+                        </span>
                       )}
                     </button>
 
